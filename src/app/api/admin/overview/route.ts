@@ -49,6 +49,7 @@ export const GET = withAuth(
           utilizationPct: a.totals.utilizationPct,
           openingCompliancePct: a.totals.openingCompliancePct,
           closingCompliancePct: a.totals.closingCompliancePct,
+          hoursByActivityType: a.totals.hoursByActivityType,
         };
       }),
     );
@@ -59,6 +60,15 @@ export const GET = withAuth(
 
     const capacityHours = sum((u) => u.capacityHours);
     const productiveHours = sum((u) => u.productiveHours);
+
+    // Global hours per activity type, so "global teaching hours" and "global
+    // learning hours" are real measurements rather than a single lumped total.
+    const hoursByActivityType: Record<string, number> = {};
+    for (const u of perUniversity) {
+      for (const [code, hrs] of Object.entries(u.hoursByActivityType)) {
+        hoursByActivityType[code] = round((hoursByActivityType[code] ?? 0) + hrs);
+      }
+    }
 
     return NextResponse.json({
       overview: {
@@ -71,6 +81,9 @@ export const GET = withAuth(
         unutilizedHours: sum((u) => u.unutilizedHours),
         missingDataHours: sum((u) => u.missingDataHours),
         utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
+        teachingHours: hoursByActivityType.TEACHING ?? 0,
+        learningHours: hoursByActivityType.LEARNING ?? 0,
+        hoursByActivityType,
       },
       universities: perUniversity,
     });

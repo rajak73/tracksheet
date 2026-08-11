@@ -35,6 +35,8 @@ type Personal = {
   days: DayBreakdown[];
 };
 
+type PersonalInsight = { type: string; severity: string; recommendation: string };
+
 type Windows = {
   date: string;
   isWorkingDay: boolean;
@@ -69,6 +71,7 @@ export default function InstructorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
+  const [insights, setInsights] = useState<PersonalInsight[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -86,12 +89,14 @@ export default function InstructorDashboardPage() {
         return;
       }
 
-      const [dRes, aRes] = await Promise.all([
+      const [dRes, aRes, iRes] = await Promise.all([
         fetch(`/api/instructors/${iid}/deliverables`),
         fetch(`/api/universities/${uid}/analytics`),
+        fetch(`/api/instructors/${iid}/insights`),
       ]);
 
       if (dRes.ok) setDeliverables((await dRes.json()).deliverables);
+      if (iRes.ok) setInsights((await iRes.json()).insights);
 
       if (aRes.ok) {
         const analytics = (await aRes.json()).analytics;
@@ -229,6 +234,44 @@ export default function InstructorDashboardPage() {
         </section>
       ) : null}
 
+      {todayRow ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Today</h2>
+          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <dt className="text-sm text-gray-500 dark:text-zinc-400">Productive</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                {todayRow.productiveHours} hrs
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500 dark:text-zinc-400">Capacity</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                {todayRow.capacityHours} hrs
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500 dark:text-zinc-400">Unutilized</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                {todayRow.unutilizedHours === null ? (
+                  <span className="text-base font-normal text-amber-600 dark:text-amber-400">
+                    Not recorded
+                  </span>
+                ) : (
+                  `${todayRow.unutilizedHours} hrs`
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm text-gray-500 dark:text-zinc-400">Opening / Closing</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                {todayRow.openingLogged ? "✓" : "—"} / {todayRow.closingLogged ? "✓" : "—"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
       {personal ? (
         <>
           <dl className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -261,6 +304,29 @@ export default function InstructorDashboardPage() {
             </section>
           ) : null}
         </>
+      ) : null}
+
+      {insights.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
+              Personal insights
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+              Derived from your own recorded activity only.
+            </p>
+          </div>
+          <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+            {insights.map((i, idx) => (
+              <li key={`${i.type}-${idx}`} className="px-4 py-4 sm:px-6">
+                <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {i.type.replaceAll("_", " ")}
+                </p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">{i.recommendation}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">

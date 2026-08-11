@@ -73,6 +73,20 @@ export class ApiClient {
   forgetCookie() {
     this.cookie = "";
   }
+
+  /**
+   * The raw session cookie currently held. Needed to prove that logout revokes
+   * the session SERVER-side: clearing the cookie only stops a cooperating
+   * client, whereas replaying a captured cookie is what an attacker would do.
+   */
+  captureCookie(): string {
+    return this.cookie;
+  }
+
+  /** Replays a previously captured cookie, bypassing any client-side clearing. */
+  restoreCookie(cookie: string) {
+    this.cookie = cookie;
+  }
 }
 
 export const ACCOUNTS = {

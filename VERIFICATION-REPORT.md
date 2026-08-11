@@ -327,3 +327,100 @@ Stated plainly, because it matters for deciding what to keep:
 
 A note on sequencing: Findings 1 and 2 interact. Fixing the migration without fixing the
 authorization bug turns a masked leak into a live one, so do them in the order above.
+
+
+---
+
+# Addendum — Role Architecture Verification (2026-08-11)
+
+Verified against the running application: one shared login, role-based routing,
+page guards, and the backend authorization matrix.
+
+## What passed as specified
+
+**One login, three applications.** A single `/login` page; all three roles POST
+to the same `/api/auth/login`; the response's role drives the redirect to
+`/admin/dashboard`, `/manager/dashboard`, or `/instructor/dashboard`. `/`
+redirects to `/login`. The three dashboards are genuinely separate route trees
+with separate components — not one dashboard with hidden menu items.
+
+**Page-level guards form a clean diagonal.** Each role reaches only its own
+tree; every other combination is redirected to `/login`:
+
+```
+              /admin  /manager  /instructor
+ADMIN            200      307        307
+MANAGER          307      200        307
+INSTRUCTOR       307      307        200
+anonymous        307      307        307
+```
+
+**The backend enforces the same boundaries independently**, verified endpoint by
+endpoint: ADMIN global, MANAGER confined to one university (403 on another's),
+INSTRUCTOR confined to themselves (404 on a colleague), anonymous 401 everywhere.
+Admin-only writes (config PATCH, holidays) reject managers and instructors.
+
+## Defects found and fixed
+
+**1. "Sign Out" did not sign the user out (security).** It was
+`<a href="/login">` — a navigation that left the session cookie fully valid.
+Proven:
+
+```
+/api/auth/me AFTER "signing out"       -> 200  <-- SESSION STILL VALID
+/manager/dashboard AFTER "signing out" -> 200  <-- STILL LOGGED IN
+```
+
+On a shared machine the next person could press Back and resume the session.
+Replaced with a button that POSTs to `/api/auth/logout`, which revokes the
+session server-side.
+
+> The first regression test for this was itself inadequate — it passed even with
+> server-side revocation removed, because it only proved the client's cookie had
+> been cleared. It now captures the cookie before logout and replays it, which
+> is what an attacker holding a stolen cookie would do. That version does fail
+> when revocation is removed.
+
+**2. Eight dead navigation links.** Admin (Universities, Managers, Reports),
+Manager (Instructors, Schedules, Analytics), and Instructor (Schedule,
+Deliverables) navigation all pointed at `href="#"` — the explicitly forbidden
+"buttons that do nothing". Every nav entry now resolves to a real page, verified
+by a test that loads each one.
+
+**3. Admin had no teaching/learning split.** The overview reported a single
+`productiveHours` total, so "global teaching hours" and "global learning hours"
+were not answerable. Now returned per activity type and shown separately.
+
+**4. Instructors could not submit requests.** Leave creation was
+ADMIN/MANAGER-only, contradicting "Instructor can submit requests". An
+instructor may now submit for themselves, forced to `PENDING`; only a manager or
+admin can approve. Self-approval would otherwise let an instructor shrink their
+own utilisation denominator.
+
+**5. Instructors had no personal AI insights.** University insights are a
+management artifact and may reference colleagues, so they remain 403. A new
+self-scoped `/api/instructors/:id/insights` derives insights from that
+instructor's own metrics using the same rule set, so a personal observation can
+never contradict a university one.
+
+**6. Instructor dashboard had no "today".** It showed weekly figures only.
+Now shows today's productive, capacity, unutilised, and opening/closing status.
+
+## Still not built
+
+Reported rather than silently skipped:
+
+- **Schedules** (`Schedule`/`ScheduleSlot`). "Today's schedule" and "manage
+  instructor schedules" cannot be built without them. The instructor dashboard
+  shows recorded activity, not a planned schedule.
+- **Admin CRUD.** No endpoint creates universities, managers, or instructors —
+  provisioning is seed-only. `/admin/universities` is read-only and says so.
+- **Full drill-down** (Admin → University → Manager → Instructor → Date →
+  Activity). Admin reports drill to university and instructor; the manager and
+  date/activity levels are not linked.
+- **Deliverable progress.** `DeliverableLog` has a model but no endpoint, so
+  deliverables cannot be updated toward their target.
+- **Workload targets**, **activity-type management**, **AI configuration**, and
+  **platform settings** — no models or endpoints.
+- **Excel/PDF export.** CSV only.
+- **Approval workflow** beyond leave status.

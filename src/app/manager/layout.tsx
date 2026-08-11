@@ -1,11 +1,21 @@
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/server/auth/session";
+import { RoleNav, type NavItem } from "@/app/_components/RoleNav";
+import { SignOutButton } from "@/app/_components/SignOutButton";
 
-export default async function ManagerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/**
+ * Server-side role guard for the entire /manager tree. This runs before any page
+ * renders; the API layer enforces the same boundary independently, so a route
+ * guard is never the only thing standing between a role and another's data.
+ */
+const NAV: NavItem[] = [
+  { href: "/manager/dashboard", label: "Dashboard" },
+  { href: "/manager/instructors", label: "Instructors" },
+  { href: "/manager/activities", label: "Activities" },
+  { href: "/manager/reports", label: "Reports" },
+];
+
+export default async function MANAGERLayout({ children }: { children: React.ReactNode }) {
   const principal = await getPrincipal();
 
   if (!principal || principal.role !== "MANAGER") {
@@ -13,32 +23,28 @@ export default async function ManagerLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex flex-col">
-      {/* Manager Navbar */}
-      <nav className="bg-emerald-700 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <span className="font-bold text-xl tracking-tight">University Operations</span>
-              <div className="hidden md:flex space-x-4 ml-6">
-                <a href="/manager/dashboard" className="bg-emerald-800 rounded-md px-3 py-2 text-sm font-medium">Dashboard</a>
-                <a href="#" className="hover:bg-emerald-600 rounded-md px-3 py-2 text-sm font-medium">Instructors</a>
-                <a href="#" className="hover:bg-emerald-600 rounded-md px-3 py-2 text-sm font-medium">Schedules</a>
-                <a href="#" className="hover:bg-emerald-600 rounded-md px-3 py-2 text-sm font-medium">Analytics</a>
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-950">
+      <header className="bg-emerald-700 text-white shadow-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <span className="text-xl font-bold tracking-tight">University Operations</span>
+              <div className="hidden md:block">
+                <RoleNav items={NAV} />
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm font-medium">{principal.name}</span>
-              <a href="/login" className="text-emerald-200 hover:text-white text-sm font-medium">Sign Out</a>
+            <div className="flex items-center gap-4">
+              <span className="hidden text-sm font-medium sm:inline">{principal.name}</span>
+              <SignOutButton />
             </div>
           </div>
+          <div className="pb-2 md:hidden">
+            <RoleNav items={NAV} />
+          </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto py-6 sm:px-6 lg:px-8">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
     </div>
   );
 }

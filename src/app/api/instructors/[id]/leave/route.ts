@@ -38,9 +38,10 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope }) => {
 });
 
 /**
- * Approving leave changes available capacity, so it is a management action.
- * An instructor cannot approve their own leave and thereby shrink the
- * denominator of their own utilisation figure.
+ * An instructor may SUBMIT a leave request for themselves, but only a manager
+ * or admin may APPROVE one. Approved leave shrinks available capacity, so
+ * self-approval would let an instructor improve their own utilisation figure by
+ * declaring a day off.
  */
 export const POST = withAuth<{ id: string }>(
   async ({ params, req, scope, principal }) => {
@@ -53,13 +54,19 @@ export const POST = withAuth<{ id: string }>(
 
     const instructor = await visibleInstructor(scope, params.id);
 
+    // A self-scoped caller is pinned to PENDING regardless of what was sent.
+    const isSelfScoped = scope.kind === "self";
+    if (isSelfScoped && input.status && input.status !== "PENDING") {
+      throw new ApiError(403, "FORBIDDEN", "Only a manager or admin can approve leave");
+    }
+
     const leave = await prisma.leaveRequest.create({
       data: {
         instructorId: instructor.id,
         universityId: instructor.universityId,
         startDate: toDateOnly(input.startDate),
         endDate: toDateOnly(input.endDate),
-        status: input.status ?? "PENDING",
+        status: isSelfScoped ? "PENDING" : (input.status ?? "PENDING"),
         reason: input.reason,
       },
     });
@@ -73,5 +80,4 @@ export const POST = withAuth<{ id: string }>(
 
     return NextResponse.json({ leave }, { status: 201 });
   },
-  { roles: ["ADMIN", "MANAGER"] },
 );

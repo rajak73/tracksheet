@@ -28,6 +28,8 @@ type Overview = {
   unutilizedHours: number;
   missingDataHours: number;
   utilizationPct: number | null;
+  teachingHours: number;
+  learningHours: number;
 };
 
 /** `null` means "not measurable", which is not the same as zero. */
@@ -118,8 +120,10 @@ export default function AdminDashboardPage() {
         <Metric label="Active Instructors" value={overview.totalInstructors} />
         <Metric label="Open AI Insights" value={overview.openInsights} />
         <Metric label="Capacity" value={overview.capacityHours} suffix="hrs" />
-        <Metric label="Productive" value={overview.productiveHours} suffix="hrs" />
+        <Metric label="Teaching" value={overview.teachingHours} suffix="hrs" />
+        <Metric label="Learning" value={overview.learningHours} suffix="hrs" />
         <Metric label="Unutilized" value={overview.unutilizedHours} suffix="hrs" />
+        <Metric label="Productive" value={overview.productiveHours} suffix="hrs" />
         <Metric label="Utilization" value={overview.utilizationPct} suffix="%" />
       </dl>
 
