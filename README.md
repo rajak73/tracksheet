@@ -4,8 +4,11 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 2 complete** (schema, auth, tenant isolation, university configuration, and time calculations).
-No dashboards or business features yet — those are Phases 3–5.
+**Current state: Phases 1–8 implemented, with the defects found in verification fixed.**
+See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what was found and how each
+finding was proven fixed. Known gaps are listed there too — schedules, breaks,
+workload targets, deliverable progress logging, admin write endpoints, and
+Excel/PDF export are not built.
 
 ## Stack
 
@@ -49,7 +52,7 @@ The two universities differ in timezone, working days, working hours, and
 opening/closing durations. That difference is deliberate — Phase 2's gate needs
 to prove two universities compute different windows at the same time.
 
-## Running the Phase 1 gate
+## Running the gates
 
 ```bash
 npm test
@@ -97,6 +100,13 @@ These are enforced, not merely documented:
    profile to sit in a different university than its own user account.
 6. **Calendar math is per-tenant.** [workday.ts](src/server/time/workday.ts)
    derives working days from the university's IANA timezone, never the server's.
+7. **One analytics engine.** [engine.ts](src/server/analytics/engine.ts) is the only
+   place workload maths happens. Dashboards, reports, and the AI layer all read it,
+   so they cannot disagree. Worked time is the union of intervals, never the sum.
+8. **"No record" is not "zero hours".** A working day with no activity is reported
+   as `missingDataHours`, distinct from `unutilizedHours`.
+9. **AI states only what it can show.** Every insight stores the metric snapshot it
+   was derived from, and a test asserts every number in its prose appears there.
 
 ## Layout
 
@@ -111,8 +121,14 @@ src/server/
   auth/scope.ts            TenantScope + the only place `where` clauses are built
   http/route.ts            withAuth wrapper — the single authorization chokepoint
   time/workday.ts          tenant-local working-day derivation
-  time/schedule-windows.ts deterministic opening/closing window math engine
-  universities/config.ts   loading complex university configuration
+  time/schedule-windows.ts opening/closing window derivation
+  analytics/engine.ts      THE workload/utilisation engine — single source of truth
+  analytics/period.ts      reporting-period resolution, in the tenant's timezone
+  activities/logger.ts     activity writes, once-per-day rule, interval validation
+  reports/generator.ts     report shaping only; all maths delegated to the engine
+  ai/insights.ts           rule-based insights, each traceable to its snapshot
+  audit/logger.ts          audit trail, including global admin actions
+  universities/config.ts   university configuration loading
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
@@ -122,7 +138,7 @@ tests/                     raw-HTTP tenant isolation and config calculation gate
 | Command | Purpose |
 |---|---|
 | `npm run dev` | Dev server on :3000 |
-| `npm test` | Phase 1 isolation gate |
+| `npm test` | Full gate: isolation, config, activities, analytics, insights |
 | `npm run db:up` / `db:down` | Start / stop Postgres |
 | `npm run db:migrate` | Create and apply a migration |
 | `npm run db:seed` | Reseed |

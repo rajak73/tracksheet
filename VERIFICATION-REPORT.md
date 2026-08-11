@@ -1,5 +1,13 @@
 # Independent Verification Report
 
+> **Status: all findings below were fixed and re-verified on 2026-08-11.**
+> Each fix was confirmed by deliberately re-introducing the defect and watching the
+> new tests fail. The original probes were replayed against the fixed code and all
+> pass. Test suite: 55 → 88, all raw HTTP. Remaining known gaps are listed in
+> "Findings 10–15", which were scoped out rather than fixed — schedules, breaks,
+> workload targets, deliverable progress logging, admin write endpoints, and
+> Excel/PDF export.
+
 **Date:** 2026-08-11
 **Scope:** Everything added after the Phase 1 commit (`95081e0`) — Phases 3–8 as built by another agent.
 **Method:** Executed against the running application. No claim below rests on reading a comment, a
