@@ -1,0 +1,160 @@
+import { beforeAll, describe, expect, test } from "vitest";
+import { ACCOUNTS, ApiClient } from "./helpers/client";
+
+/**
+ * Regression gate for the instructor-vs-colleague leak.
+ *
+ * The original bug: routes called `assertCanAccessUniversity`, which only
+ * compares the tenant. An instructor's scope is `self`, so the check passed for
+ * every colleague in the same university. These tests plant a record belonging
+ * to one instructor and then attempt to reach it as a different instructor.
+ *
+ * Raw HTTP only — nothing here imports application code.
+ */
+
+let admin: ApiClient;
+let managerNorth: ApiClient;
+let managerWest: ApiClient;
+let north1: ApiClient;
+let north2: ApiClient;
+
+let northId: string;
+let westId: string;
+let north1Id: string;
+let north2Id: string;
+let west1Id: string;
+
+const CONFIDENTIAL = "CONFIDENTIAL-COLLEAGUE-NOTE";
+
+beforeAll(async () => {
+  admin = new ApiClient("admin");
+  managerNorth = new ApiClient("mgrN");
+  managerWest = new ApiClient("mgrW");
+  north1 = new ApiClient("north1");
+  north2 = new ApiClient("north2");
+
+  await admin.login(ACCOUNTS.admin);
+  await managerNorth.login(ACCOUNTS.managerNorth);
+  await managerWest.login(ACCOUNTS.managerWest);
+  const a = await north1.login(ACCOUNTS.instructorNorth1);
+  const b = await north2.login(ACCOUNTS.instructorNorth2);
+
+  north1Id = a.user.instructorId!;
+  north2Id = b.user.instructorId!;
+  northId = a.user.universityId!;
+
+  const unis = await admin.get("/api/universities");
+  westId = unis.body.universities.find((u: { slug: string }) => u.slug === "westbrook").id;
+  const west = await admin.get(`/api/instructors?universityId=${westId}`);
+  west1Id = west.body.instructors[0].id;
+
+  // Plant a distinctive activity log and deliverable owned by north2.
+  await managerNorth.post(`/api/instructors/${north2Id}/activities`, {
+    activityTypeCode: "TEACHING",
+    startTime: "2026-09-02T10:00:00Z",
+    endTime: "2026-09-02T11:00:00Z",
+    remarks: CONFIDENTIAL,
+  });
+  await managerNorth.post(`/api/instructors/${north2Id}/deliverables`, {
+    title: "COLLEAGUE-PRIVATE-DELIVERABLE",
+    targetQuantity: 10,
+    targetHours: 12,
+    dueDate: "2026-12-01",
+  });
+});
+
+describe("activity logs are not visible to a colleague", () => {
+  test("the university-wide endpoint returns only the caller's own rows", async () => {
+    const res = await north1.get(`/api/universities/${northId}/activities`);
+    expect(res.status).toBe(200);
+
+    const foreign = res.body.activities.filter(
+      (a: { instructor: { id: string } }) => a.instructor.id !== north1Id,
+    );
+    expect(foreign).toHaveLength(0);
+
+    const serialised = JSON.stringify(res.body);
+    expect(serialised).not.toContain(CONFIDENTIAL);
+    expect(serialised).not.toContain(ACCOUNTS.instructorNorth2);
+  });
+
+  test("the colleague themselves can still see their own row", async () => {
+    const res = await north2.get(`/api/universities/${northId}/activities`);
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).toContain(CONFIDENTIAL);
+  });
+
+  test("a manager sees every instructor in their university", async () => {
+    const res = await managerNorth.get(`/api/universities/${northId}/activities`);
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).toContain(CONFIDENTIAL);
+  });
+
+  test("a manager from another university is refused", async () => {
+    const res = await managerWest.get(`/api/universities/${northId}/activities`);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe("CROSS_TENANT_DENIED");
+  });
+
+  test("the per-instructor endpoint refuses a colleague", async () => {
+    const res = await north1.get(`/api/instructors/${north2Id}/activities`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("deliverables are not visible to a colleague", () => {
+  test("an instructor cannot read a colleague's deliverables", async () => {
+    const res = await north1.get(`/api/instructors/${north2Id}/deliverables`);
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body)).not.toContain("COLLEAGUE-PRIVATE-DELIVERABLE");
+  });
+
+  test("an instructor can read their own deliverables", async () => {
+    const res = await north2.get(`/api/instructors/${north2Id}/deliverables`);
+    expect(res.status).toBe(200);
+    expect(res.body.deliverables[0].title).toBe("COLLEAGUE-PRIVATE-DELIVERABLE");
+  });
+
+  test("an instructor cannot create a deliverable on a colleague", async () => {
+    const res = await north1.post(`/api/instructors/${north2Id}/deliverables`, {
+      title: "FORGED-BY-COLLEAGUE",
+      targetQuantity: 1,
+      targetHours: 1,
+      dueDate: "2026-12-02",
+    });
+    expect(res.status).toBe(403);
+
+    // …and nothing was written.
+    const check = await north2.get(`/api/instructors/${north2Id}/deliverables`);
+    expect(JSON.stringify(check.body)).not.toContain("FORGED-BY-COLLEAGUE");
+  });
+
+  test("an instructor cannot assign work even to themselves", async () => {
+    const res = await north1.post(`/api/instructors/${north1Id}/deliverables`, {
+      title: "SELF-ASSIGNED",
+      targetQuantity: 1,
+      targetHours: 1,
+      dueDate: "2026-12-03",
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("a manager from another university cannot read or write", async () => {
+    expect((await managerWest.get(`/api/instructors/${north2Id}/deliverables`)).status).toBe(404);
+    expect(
+      (
+        await managerWest.post(`/api/instructors/${north2Id}/deliverables`, {
+          title: "CROSS-TENANT",
+          targetQuantity: 1,
+          targetHours: 1,
+          dueDate: "2026-12-04",
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  test("an admin can read across universities", async () => {
+    expect((await admin.get(`/api/instructors/${north2Id}/deliverables`)).status).toBe(200);
+    expect((await admin.get(`/api/instructors/${west1Id}/deliverables`)).status).toBe(200);
+  });
+});

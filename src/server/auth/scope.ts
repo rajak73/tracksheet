@@ -91,6 +91,38 @@ export function narrowUniversity(
   return { universityId: requested };
 }
 
+/**
+ * Where-fragment for records that hang off an instructor inside a university
+ * (activity logs, deliverables, …).
+ *
+ * The distinction that matters: {@link assertCanAccessUniversity} answers "may
+ * you touch this tenant?", which is NOT sufficient for these tables. A
+ * self-scoped caller belongs to the university but must still only ever see
+ * their own rows, so this pins `instructorId` as well. Reaching for the
+ * university-level check here is what let one instructor read a colleague's
+ * records.
+ */
+export function instructorOwnedWhere(
+  scope: TenantScope,
+  universityId?: string | null,
+): { universityId?: string; instructorId?: string } {
+  return {
+    ...narrowUniversity(scope, universityId),
+    ...(scope.kind === "self" ? { instructorId: scope.instructorId } : {}),
+  };
+}
+
+/**
+ * Throws unless the scope permits acting on this specific university.
+ *
+ * Delegates to {@link narrowUniversity} rather than re-deriving the comparison,
+ * so university-by-id routes and list routes share one definition of
+ * "outside your scope" and produce the identical 403 CROSS_TENANT_DENIED.
+ */
+export function assertCanAccessUniversity(scope: TenantScope, universityId: string): void {
+  narrowUniversity(scope, universityId);
+}
+
 /** Throws unless the scope permits reading this specific instructor. */
 export function assertCanReadInstructor(
   scope: TenantScope,

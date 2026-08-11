@@ -22,6 +22,7 @@ const UNIVERSITIES = [
     timezone: "Asia/Kolkata",
     openingDurationMin: 15,
     closingDurationMin: 15,
+    breakDurationMin: 60,
     // Mon-Fri 09:00-18:00 local
     hours: { workingDays: [1, 2, 3, 4, 5], startMinute: 9 * 60, endMinute: 18 * 60 },
     manager: { email: "manager.north@example.edu", name: "Priya Raman" },
@@ -36,6 +37,7 @@ const UNIVERSITIES = [
     timezone: "America/New_York",
     openingDurationMin: 20,
     closingDurationMin: 10,
+    breakDurationMin: 30,
     // Mon-Sat 08:30-16:30 local — different days, hours, and durations
     hours: { workingDays: [1, 2, 3, 4, 5, 6], startMinute: 8 * 60 + 30, endMinute: 16 * 60 + 30 },
     manager: { email: "manager.west@example.edu", name: "Daniel Okoro" },
@@ -46,13 +48,77 @@ const UNIVERSITIES = [
   },
 ];
 
+/**
+ * The activity taxonomy. Seeded as DATA so a new type is an insert, not a
+ * migration. Downstream logic keys off the behavioural flags, never the code.
+ *
+ * MISSING_DATA is deliberately absent: it is the absence of any record over a
+ * window the university expected to be covered, so it is computed, never stored
+ * (Phase 0 §3.5). Adding it here would let "we don't know" be written down as
+ * if it were an observation.
+ */
+const ACTIVITY_TYPES = [
+  {
+    code: "DAILY_OPENING",
+    label: "Daily Opening",
+    description: "Once-per-working-day opening routine, derived from the university's hours.",
+    sortOrder: 10,
+    isOncePerDay: true,
+    isDerivedFromWorkingHours: true,
+  },
+  { code: "TEACHING", label: "Teaching", sortOrder: 20 },
+  { code: "LEARNING", label: "Learning", sortOrder: 30 },
+  { code: "STUDENT_SUPPORT", label: "Student Support", sortOrder: 40 },
+  { code: "ADMINISTRATIVE", label: "Administrative", sortOrder: 50 },
+  { code: "MEETING", label: "Meeting", sortOrder: 60 },
+  { code: "DELIVERABLE", label: "Deliverable Work", sortOrder: 70 },
+  { code: "RESEARCH", label: "Research", sortOrder: 80 },
+  { code: "OTHER", label: "Other", sortOrder: 90 },
+  {
+    code: "DAILY_CLOSING",
+    label: "Daily Closing",
+    description: "Once-per-working-day closing routine, derived from the university's hours.",
+    sortOrder: 100,
+    isOncePerDay: true,
+    isDerivedFromWorkingHours: true,
+  },
+  {
+    code: "UNUTILIZED",
+    label: "Unutilized Time",
+    description: "Known idle time. Distinct from missing data, which is never recorded.",
+    sortOrder: 110,
+    countsAsProductive: false,
+    isUnutilized: true,
+  },
+] satisfies Array<{
+  code: string;
+  label: string;
+  description?: string;
+  sortOrder: number;
+  isOncePerDay?: boolean;
+  isDerivedFromWorkingHours?: boolean;
+  countsAsProductive?: boolean;
+  isUnutilized?: boolean;
+}>;
+
 const DEV_PASSWORD = "Password123!";
 
 async function main() {
   console.log("Seeding…");
 
-  // Order matters: profiles hold FKs back to users and universities.
+  // Strict dependency order. Several tables reference University with
+  // onDelete: Restrict, so anything holding a universityId must go first —
+  // otherwise reseeding works on an empty database and fails on a populated
+  // one, which is exactly the case a test harness hits on its second run.
   await prisma.session.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.aiInsight.deleteMany();
+  await prisma.deliverableLog.deleteMany();
+  await prisma.deliverable.deleteMany();
+  await prisma.activityLog.deleteMany();
+  await prisma.leaveRequest.deleteMany();
+
   await prisma.university.updateMany({ data: { primaryManagerId: null } });
   await prisma.instructor.deleteMany();
   await prisma.manager.deleteMany();
@@ -60,6 +126,28 @@ async function main() {
   await prisma.universityWorkingHours.deleteMany();
   await prisma.universityHoliday.deleteMany();
   await prisma.university.deleteMany();
+
+  // Upserted rather than deleted-and-recreated: activity types are referenced
+  // by historical activity records from Phase 3 onward, so reseeding must not
+  // change their ids.
+  for (const type of ACTIVITY_TYPES) {
+    const data = {
+      label: type.label,
+      description: type.description ?? null,
+      sortOrder: type.sortOrder,
+      isSystem: true,
+      isOncePerDay: type.isOncePerDay ?? false,
+      isDerivedFromWorkingHours: type.isDerivedFromWorkingHours ?? false,
+      countsAsProductive: type.countsAsProductive ?? true,
+      isUnutilized: type.isUnutilized ?? false,
+    };
+    await prisma.activityType.upsert({
+      where: { code: type.code },
+      create: { code: type.code, ...data },
+      update: data,
+    });
+  }
+  console.log(`  activity types: ${ACTIVITY_TYPES.length}`);
 
   const passwordHash = await hashPassword(DEV_PASSWORD);
 
@@ -82,6 +170,7 @@ async function main() {
         timezone: spec.timezone,
         openingDurationMin: spec.openingDurationMin,
         closingDurationMin: spec.closingDurationMin,
+        breakDurationMin: spec.breakDurationMin,
         workingHours: {
           create: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
             const isWorkingDay = spec.hours.workingDays.includes(dayOfWeek);

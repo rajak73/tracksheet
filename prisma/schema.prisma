@@ -18,6 +18,13 @@ enum Role {
   INSTRUCTOR
 }
 
+enum ActivityStatus {
+  COMPLETED
+  MISSED
+  LATE
+  EXCUSED
+}
+
 /// The sole identity + auth record (Phase 0 §3.1).
 /// `universityId` is the AUTHORITATIVE tenant binding used by the auth layer.
 /// It is null for ADMIN and only for ADMIN — enforced by a CHECK constraint
@@ -36,6 +43,8 @@ model User {
   managerProfile    Manager?
   instructorProfile Instructor?
   sessions          Session[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -59,17 +68,27 @@ model University {
   openingDurationMin Int @default(15)
   closingDurationMin Int @default(15)
 
+  /// Non-working break time inside the working day (e.g. lunch). Subtracted
+  /// from available capacity, per the utilisation formula. Defaults to 0 so no
+  /// break is ever assumed silently — each university configures its own.
+  breakDurationMin Int @default(0)
+
   /// v1: one primary manager per university (§3.7). Nullable so a university can
   /// exist before its manager is provisioned; modelled as an FK rather than a
   /// flag on Manager so multi-manager support later needs no column split.
   primaryManagerId String?  @unique
   primaryManager   Manager? @relation("PrimaryManager", fields: [primaryManagerId], references: [id], onDelete: SetNull)
 
-  users        User[]                   @relation("UniversityUsers")
-  managers     Manager[]                @relation("UniversityManagers")
-  instructors  Instructor[]             @relation("UniversityInstructors")
-  workingHours UniversityWorkingHours[]
-  holidays     UniversityHoliday[]
+  users         User[]                   @relation("UniversityUsers")
+  managers      Manager[]                @relation("UniversityManagers")
+  instructors   Instructor[]             @relation("UniversityInstructors")
+  workingHours  UniversityWorkingHours[]
+  holidays      UniversityHoliday[]
+  leaveRequests LeaveRequest[]
+  activityLogs  ActivityLog[]
+  deliverables  Deliverable[]
+  aiInsights    AiInsight[]
+  auditLogs     AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -137,12 +156,95 @@ model Instructor {
   user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
   university University @relation("UniversityInstructors", fields: [universityId], references: [id], onDelete: Restrict)
 
-  employeeCode String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  employeeCode  String?
+  activityLogs  ActivityLog[]
+  deliverables  Deliverable[]
+  leaveRequests LeaveRequest[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
+  @@index([universityId])
+}
+
+/// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
+/// be added by an admin without a migration or redeploy.
+///
+/// Business logic must branch on the BEHAVIOURAL FLAGS below, never on `code`.
+/// Keying off `code === "DAILY_OPENING"` would re-create the hard-coded enum
+/// this table exists to avoid, and a custom type added later would silently get
+/// none of the right treatment.
+model ActivityType {
+  id    String @id @default(cuid())
+  /// Stable machine identifier, e.g. DAILY_OPENING. Unique across the platform.
+  code  String @unique
+  label String
+
+  description String?
+  sortOrder   Int     @default(100)
+  isActive    Boolean @default(true)
+
+  /// Seeded types are structural; deleting one would break historical records.
+  isSystem Boolean @default(false)
+
+  // ---- Behavioural flags ----
+
+  /// At most one record per instructor per working day. True for DAILY_OPENING
+  /// and DAILY_CLOSING only. Phase 3 enforces this with a unique index on
+  /// (instructorId, workDate, activityTypeId) for types carrying this flag.
+  isOncePerDay Boolean @default(false)
+
+  /// Derived from the university's working-hours window rather than logged by
+  /// an instructor against a class. True for DAILY_OPENING / DAILY_CLOSING —
+  /// this is what stops them being generated per class.
+  isDerivedFromWorkingHours Boolean @default(false)
+
+  /// Counts toward productive/recognised time in the Phase 4 utilisation
+  /// numerator. False for UNUTILIZED.
+  countsAsProductive Boolean @default(true)
+
+  /// Represents known idle time. Distinct from MISSING_DATA, which is the
+  /// ABSENCE of any record and is therefore never a row in this table
+  /// (Phase 0 §3.5).
+  isUnutilized Boolean @default(false)
+
+  activityLogs ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Approved leave REMOVES a day from available capacity, so an instructor is
+/// never penalised in the utilisation percentage for a day they were not
+/// expected to work. This is distinct from ABSENCE (unapproved, capacity
+/// unchanged, a compliance signal) — see Phase 0 §3.6.
+model LeaveRequest {
+  id           String     @id @default(cuid())
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  /// Inclusive calendar range in the university's own timezone.
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date
+  status    LeaveStatus @default(PENDING)
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId, startDate, endDate])
   @@index([universityId])
 }
 
@@ -163,4 +265,141 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model ActivityLog {
+  id           String     @id @default(cuid())
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  activityTypeId String
+  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+
+  workDate  DateTime @db.Date
+  startTime DateTime
+  endTime   DateTime
+
+  status  ActivityStatus @default(COMPLETED)
+  remarks String?
+
+  isOncePerDay Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId, workDate])
+  @@index([universityId])
+}
+
+model Deliverable {
+  id           String     @id @default(cuid())
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  title          String
+  targetQuantity Int
+  targetHours    Float
+  dueDate        DateTime @db.Date
+
+  status ActivityStatus @default(COMPLETED)
+
+  logs DeliverableLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([instructorId])
+  @@index([universityId])
+}
+
+model DeliverableLog {
+  id            String      @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+
+  date              DateTime @db.Date
+  quantityCompleted Int
+  hoursSpent        Float
+  remarks           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deliverableId])
+}
+
+enum InsightSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InsightStatus {
+  NEW
+  READ
+  DISMISSED
+}
+
+model AiInsight {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  type           String
+  severity       InsightSeverity
+  period         String
+  recommendation String
+  supportingData Json
+  status         InsightStatus   @default(NEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([universityId])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  /// Nullable so a global ADMIN action is still recorded. Previously this was
+  /// required, so every admin action hit a `return` in the logger and was
+  /// silently dropped — the audit trail was blind to exactly the most
+  /// privileged actor.
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  action     String
+  /// Entity type + id the action targeted, for drill-down from the log.
+  entityType String?
+  entityId   String?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([universityId])
+  @@index([userId])
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

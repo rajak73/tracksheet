@@ -139,6 +139,7 @@ exports.Prisma.UniversityScalarFieldEnum = {
   timezone: 'timezone',
   openingDurationMin: 'openingDurationMin',
   closingDurationMin: 'closingDurationMin',
+  breakDurationMin: 'breakDurationMin',
   primaryManagerId: 'primaryManagerId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -178,6 +179,34 @@ exports.Prisma.InstructorScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ActivityTypeScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  label: 'label',
+  description: 'description',
+  sortOrder: 'sortOrder',
+  isActive: 'isActive',
+  isSystem: 'isSystem',
+  isOncePerDay: 'isOncePerDay',
+  isDerivedFromWorkingHours: 'isDerivedFromWorkingHours',
+  countsAsProductive: 'countsAsProductive',
+  isUnutilized: 'isUnutilized',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.LeaveRequestScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  status: 'status',
+  reason: 'reason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SessionScalarFieldEnum = {
   id: 'id',
   tokenHash: 'tokenHash',
@@ -189,9 +218,90 @@ exports.Prisma.SessionScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.ActivityLogScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  activityTypeId: 'activityTypeId',
+  workDate: 'workDate',
+  startTime: 'startTime',
+  endTime: 'endTime',
+  status: 'status',
+  remarks: 'remarks',
+  isOncePerDay: 'isOncePerDay',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DeliverableScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  title: 'title',
+  targetQuantity: 'targetQuantity',
+  targetHours: 'targetHours',
+  dueDate: 'dueDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DeliverableLogScalarFieldEnum = {
+  id: 'id',
+  deliverableId: 'deliverableId',
+  date: 'date',
+  quantityCompleted: 'quantityCompleted',
+  hoursSpent: 'hoursSpent',
+  remarks: 'remarks',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AiInsightScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  type: 'type',
+  severity: 'severity',
+  period: 'period',
+  recommendation: 'recommendation',
+  supportingData: 'supportingData',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AuditLogScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  userId: 'userId',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.NotificationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  title: 'title',
+  message: 'message',
+  isRead: 'isRead',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -203,10 +313,42 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
+};
 exports.Role = exports.$Enums.Role = {
   ADMIN: 'ADMIN',
   MANAGER: 'MANAGER',
   INSTRUCTOR: 'INSTRUCTOR'
+};
+
+exports.LeaveStatus = exports.$Enums.LeaveStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED'
+};
+
+exports.ActivityStatus = exports.$Enums.ActivityStatus = {
+  COMPLETED: 'COMPLETED',
+  MISSED: 'MISSED',
+  LATE: 'LATE',
+  EXCUSED: 'EXCUSED'
+};
+
+exports.InsightSeverity = exports.$Enums.InsightSeverity = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL'
+};
+
+exports.InsightStatus = exports.$Enums.InsightStatus = {
+  NEW: 'NEW',
+  READ: 'READ',
+  DISMISSED: 'DISMISSED'
 };
 
 exports.Prisma.ModelName = {
@@ -216,7 +358,15 @@ exports.Prisma.ModelName = {
   UniversityHoliday: 'UniversityHoliday',
   Manager: 'Manager',
   Instructor: 'Instructor',
-  Session: 'Session'
+  ActivityType: 'ActivityType',
+  LeaveRequest: 'LeaveRequest',
+  Session: 'Session',
+  ActivityLog: 'ActivityLog',
+  Deliverable: 'Deliverable',
+  DeliverableLog: 'DeliverableLog',
+  AiInsight: 'AiInsight',
+  AuditLog: 'AuditLog',
+  Notification: 'Notification'
 };
 
 /**

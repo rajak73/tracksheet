@@ -4,8 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 1 complete** (schema, auth, tenant isolation).
-No dashboards or business features yet — those are Phases 2–5.
+**Current state: Phase 2 complete** (schema, auth, tenant isolation, university configuration, and time calculations).
+No dashboards or business features yet — those are Phases 3–5.
 
 ## Stack
 
@@ -111,8 +111,10 @@ src/server/
   auth/scope.ts            TenantScope + the only place `where` clauses are built
   http/route.ts            withAuth wrapper — the single authorization chokepoint
   time/workday.ts          tenant-local working-day derivation
-src/app/api/               login, logout, me, universities, instructors
-tests/                     raw-HTTP tenant isolation gate
+  time/schedule-windows.ts deterministic opening/closing window math engine
+  universities/config.ts   loading complex university configuration
+src/app/api/               login, logout, me, universities, instructors, activity-types
+tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
 
 ## Scripts
