@@ -1,0 +1,166 @@
+// Phase 1 schema — identity, tenancy, and university configuration only.
+// No activity/schedule/deliverable models yet (Phases 2-4).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7: the connection URL lives in prisma.config.ts (CLI) and is supplied
+// to PrismaClient at runtime via the pg adapter in src/server/db.ts.
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  INSTRUCTOR
+}
+
+/// The sole identity + auth record (Phase 0 §3.1).
+/// `universityId` is the AUTHORITATIVE tenant binding used by the auth layer.
+/// It is null for ADMIN and only for ADMIN — enforced by a CHECK constraint
+/// added in migration `phase1_invariants`.
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  role         Role
+  isActive     Boolean @default(true)
+
+  universityId String?
+  university   University? @relation("UniversityUsers", fields: [universityId], references: [id], onDelete: Restrict)
+
+  managerProfile    Manager?
+  instructorProfile Instructor?
+  sessions          Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Target of the composite FKs on Manager/Instructor. This is what makes it
+  // structurally impossible for a profile to sit in a different university
+  // than its own user account.
+  @@unique([id, universityId])
+  @@index([universityId])
+}
+
+model University {
+  id       String @id @default(cuid())
+  name     String
+  slug     String @unique
+  /// IANA timezone (e.g. "Asia/Kolkata"). Every "working day" boundary for this
+  /// tenant is computed in this zone, never the server's or browser's (§3.3).
+  timezone String
+
+  /// Configurable per university, defaults per the core business rule.
+  openingDurationMin Int @default(15)
+  closingDurationMin Int @default(15)
+
+  /// v1: one primary manager per university (§3.7). Nullable so a university can
+  /// exist before its manager is provisioned; modelled as an FK rather than a
+  /// flag on Manager so multi-manager support later needs no column split.
+  primaryManagerId String?  @unique
+  primaryManager   Manager? @relation("PrimaryManager", fields: [primaryManagerId], references: [id], onDelete: SetNull)
+
+  users        User[]                   @relation("UniversityUsers")
+  managers     Manager[]                @relation("UniversityManagers")
+  instructors  Instructor[]             @relation("UniversityInstructors")
+  workingHours UniversityWorkingHours[]
+  holidays     UniversityHoliday[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One row per weekday per university. Times are minutes-from-midnight in the
+/// university's own timezone — storing a TIME or DateTime here would silently
+/// re-introduce a server-timezone dependency.
+model UniversityWorkingHours {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  /// 0 = Sunday … 6 = Saturday
+  dayOfWeek    Int
+  isWorkingDay Boolean @default(true)
+  startMinute  Int
+  endMinute    Int
+
+  @@unique([universityId, dayOfWeek])
+}
+
+model UniversityHoliday {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  /// A calendar date in the university's timezone — deliberately DATE, not
+  /// timestamptz, because a holiday is a local-calendar concept.
+  date DateTime @db.Date
+  name String
+
+  @@unique([universityId, date])
+}
+
+model Manager {
+  id           String @id @default(cuid())
+  userId       String @unique
+  universityId String
+
+  // Composite FK: (userId, universityId) must match an existing (User.id,
+  // User.universityId) pair. Guarantees profile.universityId can never drift
+  // from the authoritative user.universityId.
+  user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
+  university University @relation("UniversityManagers", fields: [universityId], references: [id], onDelete: Restrict)
+
+  primaryOf University? @relation("PrimaryManager")
+
+  employeeCode String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Required by Prisma for the composite FK above; userId alone is already
+  // unique, so this adds no new business constraint.
+  @@unique([userId, universityId])
+  @@unique([universityId, employeeCode])
+  @@index([universityId])
+}
+
+model Instructor {
+  id           String @id @default(cuid())
+  userId       String @unique
+  universityId String
+
+  user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
+  university University @relation("UniversityInstructors", fields: [universityId], references: [id], onDelete: Restrict)
+
+  employeeCode String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, universityId])
+  @@unique([universityId, employeeCode])
+  @@index([universityId])
+}
+
+/// Server-side sessions (Phase 0 §2): revocable, and role/universityId are
+/// re-read from the User row on every request rather than trusted from a token.
+/// Only the SHA-256 of the token is stored, so a DB leak does not yield live
+/// session credentials.
+model Session {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
