@@ -627,3 +627,102 @@ every open deliverable.
   `CourseAssignment`) have schema, indexes and constraints but no API or UI.
 - **Admin provisioning** — creating universities, managers, or instructors — is
   still seed-only.
+
+
+---
+
+# Addendum — Phase 10 (2026-08-13)
+
+Render deployment readiness, Gemini wiring, admin provisioning. Tests
+**208 → 240**.
+
+## §1 Render fit — no reversal needed
+
+**No Vercel-specific work was ever started.** No `vercel.json`, no `.vercel`,
+no cron route handlers, no Redis/KV client (`redis` appears only in a comment
+in `rate-limit.ts` describing the upgrade path, and is not a dependency). There
+is nothing orphaned to remove or gate.
+
+The Phase 6.5 scheduler and Phase 9 rate limiter are correct as originally
+built for a persistent Render process. Two conditions are documented in
+[DEPLOYMENT.md](DEPLOYMENT.md) as load-bearing:
+
+- **Plan `starter` or above, not free.** Free services sleep, which stops the
+  timer and clears rate-limit counters on every wake — the regression Phase 6.5
+  exists to prevent.
+- **`numInstances: 1`.** The scheduler is already multi-instance-safe via its
+  database lease, so a second instance wastes work but stays correct. The rate
+  limiter is *not*: two instances mean two counter sets and roughly 2× the
+  attempt budget. That is the thing to fix before scaling out.
+
+## §2 Gemini — what is verified, and what needs your key
+
+Wired, isolated to [gemini.ts](src/server/ai/gemini.ts), with fallback on every
+failure mode. Verified against a **fake Gemini server** so the assertions are
+about the request that actually goes over the wire, not the object a builder
+returns:
+
+| Requirement | Status |
+|---|---|
+| No raw activity rows sent | Verified — asserted against the captured request body |
+| No unnecessary personal detail | Verified — name and instructor id never leave the process; `{{SUBJECT}}` is substituted locally |
+| Key never in the URL | Verified — header only |
+| Fallback on timeout / 429 / 5xx / malformed / empty / no key | Verified — five failure modes, each falls back |
+| Traceability preserved | Verified — `sourceMetrics` and condition still stored |
+
+**Not verified: the five samples narrated by the real Gemini API.** That needs
+`GEMINI_API_KEY`, which this environment does not have. `npm run ai:sample`
+prints all five with automatic checks for invented numbers, judgemental
+language, and name leakage, and exits non-zero on any. It refuses to run
+without a key rather than silently passing.
+
+## §3 Provisioning — complete
+
+A university can be created and staffed with **zero database access**:
+`/admin/universities/new` → add primary manager on the detail page → manager
+signs in and adds instructors.
+
+The substantive check is that a created university is *immediately operational*:
+its working hours feed the Phase 2 engine with no special-casing (opening
+08:00–08:20, closing 16:50–17:00 from the posted configuration), its holidays
+are honoured, and a newly created instructor can log activity that appears in
+analytics with the right capacity (8.25h = 9h day − 45min configured break).
+
+**Initial password, not emailed invite** — documented in
+[provision.ts](src/server/users/provision.ts). There is no mail transport, so an
+invite could not be delivered. The trade-off is an out-of-band credential, which
+the UI states rather than hides.
+
+A manager's `universityId` comes from the session; one in the request body is
+rejected with `CROSS_TENANT_DENIED`, not trusted.
+
+## §4 Deployment — configured, not yet deployed
+
+[render.yaml](render.yaml) with build/pre-deploy/start commands, env vars, and
+`healthCheckPath`. `GET /api/health` runs `SELECT 1` rather than returning a
+static ok — a process that is up but cannot reach Postgres is not healthy — and
+discloses nothing about the data, since it is an unauthenticated surface.
+
+Migrations run via `preDeployCommand`, before the new instance takes traffic.
+Seeding stays manual because it truncates.
+
+**On the Phase 6.5 pooling bug under Render:** the fix removed the assumption
+rather than tuning around a particular pool. The lease is claimed inside a
+single transaction, which is one connection wherever it runs, so it does not
+depend on Render's pooling. Render managed Postgres has no PgBouncer by default;
+if one is added in transaction mode later, `?pgbouncer=true` is required and
+prepared-statement behaviour changes.
+
+**Not done: the actual deploy.** This environment has no Render account or
+credentials, so §4's required end-to-end test is unrun. The post-deploy
+checklist in DEPLOYMENT.md is written as the concrete steps to execute it.
+
+## Negative controls
+
+Three sabotages, all caught: sending the instructor's real name upstream,
+removing the provider fallback, and letting a manager smuggle a foreign
+`universityId` when creating an instructor.
+
+Four older assertions had to be loosened from exact counts to floors, because
+universities can now be provisioned through the API and a fixed total is
+order-dependent on which test file ran first.

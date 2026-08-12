@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { StaffForm } from "@/app/_components/StaffForm";
 
 type Instructor = {
   id: string;
@@ -13,19 +14,22 @@ export default function ManagerInstructorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/instructors");
-        if (!res.ok) return setError(`Could not load instructors (HTTP ${res.status})`);
-        setInstructors((await res.json()).instructors);
-      } catch {
-        setError("Could not reach the server");
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/instructors");
+      if (!res.ok) return setError(`Could not load instructors (HTTP ${res.status})`);
+      setInstructors((await res.json()).instructors);
+    } catch {
+      setError("Could not reach the server");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
 
   if (loading) return <div className="h-64 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-800" />;
   if (error)
@@ -43,6 +47,15 @@ export default function ManagerInstructorsPage() {
           Instructors in your university. The list is scoped by the server to your tenant.
         </p>
       </header>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Add an instructor</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+          New instructors join your university automatically — the tenant comes from your session,
+          never from this form.
+        </p>
+        <StaffForm endpoint="/api/instructors" roleLabel="instructor" onCreated={load} />
+      </section>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="overflow-x-auto">

@@ -38,6 +38,6 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
   return NextResponse.json({
     from: period.from,
     to: period.to,
-    insights: deriveInsights(analytics),
+    insights: await deriveInsights(analytics),
   });
 });

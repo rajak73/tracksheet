@@ -183,7 +183,7 @@ export async function runNotificationSweep(
   // and a dashboard insight can never disagree about what is unusual.
   for (const condition of detectAnomalies(analytics)) {
     if (condition.type !== "OVERLOAD" && condition.type !== "LEARNING_DROP") continue;
-    const narration = narrateCondition(condition);
+    const narration = await narrateCondition(condition);
 
     const recipients = new Set<string>();
     if (managerUserId) recipients.add(managerUserId);

@@ -46,11 +46,17 @@ export default function AdminUniversitiesPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">Universities</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-          Working hours and daily opening/closing configuration per tenant.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">Universities</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
+            Working hours and daily opening/closing configuration per tenant.
+          </p>
+        </div>
+        <Link href="/admin/universities/new"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+          New university
+        </Link>
       </header>
 
       <div className="space-y-4">
@@ -90,10 +96,7 @@ export default function AdminUniversitiesPage() {
         ))}
       </div>
 
-      <p className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-        Creating universities and assigning managers is not yet available in the UI. Configuration
-        can be changed via <code>PATCH /api/universities/:id/config</code>.
-      </p>
+
     </div>
   );
 }

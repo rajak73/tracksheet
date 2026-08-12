@@ -1,0 +1,65 @@
+# Render blueprint.
+#
+# ── Why a single instance ──────────────────────────────────────────────────
+# `numInstances: 1` is load-bearing, not a cost decision. Two mechanisms in this
+# app assume one process:
+#
+#   1. The metric rollup scheduler is an in-process timer. Two instances would
+#      each run it. The database lease makes that safe (the second finds the
+#      lease held and skips), but it is wasted work.
+#   2. The login rate limiter counts in memory. Two instances would each keep
+#      their own counters, so an attacker would get roughly 2x the intended
+#      attempt budget.
+#
+# Before raising numInstances, move the rate limiter to Redis. The scheduler is
+# already safe under multiple instances because of the lease.
+#
+# ── Plan ───────────────────────────────────────────────────────────────────
+# `starter` or above. Render's FREE web services sleep after inactivity, which
+# would stop the rollup timer and clear rate-limit counters on every wake — the
+# exact regression Phase 6.5 exists to prevent. Do not deploy this on free.
+
+services:
+  - type: web
+    name: tracksheet
+    runtime: node
+    plan: starter
+    numInstances: 1
+    region: oregon
+    branch: main
+
+    buildCommand: npm ci && npx prisma generate && npm run build
+    # Migrations run on deploy, before the new instance serves traffic, so the
+    # schema is never behind the code that expects it.
+    preDeployCommand: npx prisma migrate deploy
+    startCommand: npm run start
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tracksheet-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_COOKIE_NAME
+        value: tracksheet_session
+      - key: SESSION_TTL_HOURS
+        value: "12"
+      # Set in the Render dashboard, never committed.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      # Rollup cadence. Defaults are fine; here so they are visible and tunable
+      # without a redeploy of code.
+      - key: ROLLUP_INTERVAL_MINUTES
+        value: "60"
+      - key: ROLLUP_WINDOW_DAYS
+        value: "3"
+
+databases:
+  - name: tracksheet-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"

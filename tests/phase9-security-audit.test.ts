@@ -245,7 +245,10 @@ describe("authentication hardening", () => {
       expect(res.status).toBe(401);
     }
     expect(limited, "login was never rate limited").toBe(true);
-  });
+    // Each attempt deliberately burns a full scrypt hash so a failed login
+    // costs the same as a real one. That makes 50+ attempts genuinely slow, so
+    // this gets its own budget rather than being left to fail intermittently.
+  }, 180_000);
 
   test("the rate-limited response does not reveal whether the account exists", async () => {
     const known = new ApiClient("known");

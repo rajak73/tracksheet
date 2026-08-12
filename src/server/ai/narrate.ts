@@ -9,16 +9,17 @@
  * is the only thing that would ever be replaced by a model call, and its input
  * type physically cannot carry an activity row.
  *
- * ── Why there is no model call here ────────────────────────────────────────
- * The current narrator is deterministic. No LLM is wired, because none is
- * configured for this project, and pretending otherwise would mean shipping a
- * code path nobody has run. A deterministic narrator also keeps insight text
- * testable: an assertion that every number in a sentence appears in the stored
- * snapshot is meaningful only if the sentence is reproducible.
+ * ── Model, and fallback ────────────────────────────────────────────────────
+ * `narrateCondition` asks Gemini Flash to phrase the condition, and falls back
+ * to `narrateConditionDeterministic` on ANY failure — no key configured, a
+ * timeout, a rate limit, an HTTP error, or a malformed reply. A provider outage
+ * degrades the wording of an insight; it never stops insights being generated.
  *
- * Swapping in a model means replacing the body of `narrateCondition` with a
- * call whose prompt is built from `condition` alone. The signature is the
- * contract; nothing above or below it needs to change.
+ * The deterministic narrator is therefore not dead code. It is the floor the
+ * system stands on when the model is unavailable, and it stays fully tested.
+ *
+ * The subject's name is never sent upstream: the model is asked to write
+ * `{{SUBJECT}}` and the real name is substituted here, locally.
  *
  * ── Language rules ─────────────────────────────────────────────────────────
  * Describe the measurement, recommend a review, never characterise a person.
@@ -27,6 +28,7 @@
  */
 
 import type { AnomalyCondition } from "@/server/ai/anomalies";
+import { generateNarration, isGeminiConfigured, SUBJECT_TOKEN } from "@/server/ai/gemini";
 
 export type Narration = {
   title: string;
@@ -37,7 +39,37 @@ export type Narration = {
 const pct = (v: unknown) => `${v}%`;
 const hrs = (v: unknown) => `${v} hours`;
 
-export function narrateCondition(condition: AnomalyCondition): Narration {
+/**
+ * Narrates a condition, preferring the model and falling back to the
+ * deterministic text. Never throws — a failure to phrase something must not
+ * cost the insight itself.
+ */
+export async function narrateCondition(condition: AnomalyCondition): Promise<Narration> {
+  const fallback = narrateConditionDeterministic(condition);
+  if (!isGeminiConfigured()) return fallback;
+
+  const outcome = await generateNarration(condition);
+  if (!outcome.ok) {
+    // Logged rather than swallowed: silent degradation to the fallback would
+    // hide a provider that has been down for a week.
+    console.warn(`[ai] Gemini narration unavailable (${outcome.reason}); using deterministic text`);
+    return fallback;
+  }
+
+  // The name never left this process. Put it back now.
+  const subject = condition.instructorName ?? "This university";
+  const substitute = (text: string) => text.split(SUBJECT_TOKEN).join(subject);
+
+  return {
+    // The title stays deterministic: it is a short label used for grouping and
+    // filtering, and a model-varied label would fragment those.
+    title: fallback.title,
+    summary: substitute(outcome.summary),
+    recommendation: substitute(outcome.recommendation),
+  };
+}
+
+export function narrateConditionDeterministic(condition: AnomalyCondition): Narration {
   const m = condition.metrics;
   const who = condition.instructorName ? `${condition.instructorName}` : "This university";
 

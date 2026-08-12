@@ -4,7 +4,10 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 9 complete — feature-complete for v1.**
+**Current state: Phase 10 complete — deployment-ready.**
+Deploys to **Render** (`starter` plan, **single instance**). See
+[DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
+requirement and not a cost choice.
 All phases 1–9 implemented and gated. See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md)
 for what was audited and [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for
 the schema and measured query plans. Phases 1–8 implemented, plus a
@@ -142,6 +145,44 @@ src/app/api/               login, logout, me, universities, instructors, activit
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
 
+## Deployment
+
+Target is **Render** — a persistent, always-on Node process, not serverless.
+That is what makes the in-process rollup scheduler and the in-memory rate
+limiter correct here: the process stays up, so the timer fires and the counters
+survive between requests.
+
+- **Plan: `starter` or above.** Render free services sleep after inactivity,
+  which would stop the timer and clear the counters on every wake.
+- **`numInstances: 1`.** The rollup scheduler is safe under multiple instances
+  (a database lease stops double-runs), but the rate limiter is not — two
+  instances mean two sets of counters and roughly 2× the intended attempt
+  budget. Move the limiter to Redis before scaling out.
+- Migrations run via `preDeployCommand`, before the new instance takes traffic.
+- Health check at `GET /api/health`.
+
+Full configuration, environment variables, and the post-deploy checklist are in
+[DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Provisioning
+
+A university can be created and staffed entirely through the UI:
+
+`/admin/universities/new` → create with working hours, days, timezone,
+opening/closing durations and optional holidays → add the primary manager on the
+university's detail page → that manager signs in and adds instructors from
+`/manager/instructors`.
+
+Accounts are created with an **initial password set by the provisioner**, not an
+emailed invite. There is no mail transport in this system, so an invite could
+not be delivered; this works with the auth stack that exists. The trade-off is
+that the password travels out-of-band, which the UI says plainly rather than
+leaving someone to discover.
+
+A manager's new instructors join **their own** university — the tenant comes
+from the session, and a `universityId` in the request body is rejected rather
+than trusted.
+
 ## Security posture
 
 A checklist test enumerates **all 32 API routes** and probes each with three
@@ -220,12 +261,24 @@ wording is checkable against the numbers stored beside it.
 requirement "never send raw ActivityLog to the model" is enforced by the input
 type, not by convention.
 
-**No LLM is currently wired.** The narrator is deterministic, because no model
-is configured for this project and shipping an unrun code path would be worse
-than not having one. Swapping one in means replacing the body of
-`narrateCondition`; the signature is the contract. A deterministic narrator also
-keeps the traceability test meaningful — asserting every number in a sentence
-appears in the stored snapshot only works if the sentence is reproducible.
+**Gemini Flash writes the prose**, when `GEMINI_API_KEY` is set. Everything
+above the narrator is unchanged: the deterministic engine still decides which
+conditions exist, and the model only phrases them.
+
+- **Isolated to one file** — [gemini.ts](src/server/ai/gemini.ts) is the only
+  module that knows the vendor exists.
+- **No names, no activity rows.** The request carries the condition, its
+  metrics, and the threshold — exactly the payload already stored for
+  traceability. The subject is sent as `{{SUBJECT}}` and the real name is
+  substituted locally, because a third party phrasing a sentence about
+  utilisation has no need to learn who the person is.
+- **Fallback on every failure** — no key, timeout, rate limit, HTTP error,
+  malformed or empty reply. The deterministic narrator is not dead code; it is
+  the floor the system stands on, and stays fully tested.
+- The title stays deterministic so grouping and filtering do not fragment.
+
+Run `GEMINI_API_KEY=... npm run ai:sample` to print five real narrations with
+automatic checks for invented numbers and judgemental language.
 
 ## Analytics engine
 

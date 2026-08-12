@@ -203,10 +203,16 @@ describe("Gate 4 — an admin spans universities in one session", () => {
     expect(res.body.user.universityId).toBeNull();
   });
 
-  test("the admin sees both universities with their distinct configurations", async () => {
+  test("the admin sees both seeded universities with their distinct configurations", async () => {
+    // Asserted by identity rather than by count: universities can now be
+    // provisioned through the API, so a fixed total would be order-dependent
+    // on whichever test files ran first.
     const res = await admin.get("/api/universities");
-    expect(res.body.universities).toHaveLength(2);
-    const timezones = res.body.universities.map((u: { timezone: string }) => u.timezone);
+    const seeded = res.body.universities.filter((u: { slug: string }) =>
+      ["northfield", "westbrook"].includes(u.slug),
+    );
+    expect(seeded).toHaveLength(2);
+    const timezones = seeded.map((u: { timezone: string }) => u.timezone);
     expect(new Set(timezones).size).toBe(2);
   });
 });

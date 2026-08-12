@@ -228,10 +228,12 @@ describe("dashboards are backed by real data, not literals", () => {
     }
   });
 
-  test("the admin overview reports counts matching the seeded platform", async () => {
+  test("the admin overview reports real counts, at least the seeded platform", async () => {
+    // Floors, not fixed totals: universities and staff can now be provisioned
+    // through the API, so another test file may legitimately have added some.
     const res = await admin.get("/api/admin/overview");
-    expect(res.body.overview.totalUniversities).toBe(2);
-    expect(res.body.overview.totalManagers).toBe(2);
-    expect(res.body.overview.totalInstructors).toBe(4);
+    expect(res.body.overview.totalUniversities).toBeGreaterThanOrEqual(2);
+    expect(res.body.overview.totalManagers).toBeGreaterThanOrEqual(2);
+    expect(res.body.overview.totalInstructors).toBeGreaterThanOrEqual(4);
   });
 });

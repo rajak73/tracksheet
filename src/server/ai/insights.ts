@@ -44,12 +44,18 @@ const SEVERITY: Record<AnomalyCondition["severity"], InsightSeverity> = {
  * Pure: metrics in, insights out. Exported so the rules can be reviewed and
  * tested against a known snapshot without a database.
  */
-export function deriveInsights(analytics: AnalyticsResult): DraftInsight[] {
+export async function deriveInsights(analytics: AnalyticsResult): Promise<DraftInsight[]> {
   const period = `${analytics.from} to ${analytics.to}`;
 
-  return detectAnomalies(analytics).map((condition) => {
-    const narration = narrateCondition(condition);
-    return {
+  const conditions = detectAnomalies(analytics);
+
+  // Sequential rather than parallel: a burst of concurrent calls is the
+  // fastest way to hit the provider's rate limit, and insight generation is
+  // not latency-critical.
+  const drafts: DraftInsight[] = [];
+  for (const condition of conditions) {
+    const narration = await narrateCondition(condition);
+    drafts.push({
       type: condition.type,
       severity: SEVERITY[condition.severity],
       period,
@@ -65,15 +71,17 @@ export function deriveInsights(analytics: AnalyticsResult): DraftInsight[] {
         metrics: condition.metrics,
         threshold: condition.threshold,
       },
-    };
-  });
+    });
+  }
+
+  return drafts;
 }
 
 export async function generateWeeklyInsights(universityId: string, from: string, to: string) {
   // includeTrend so LEARNING_DROP has a comparison period; without it that
   // condition could never fire and the rule would be dead code.
   const analytics = await computeAnalytics({ universityId, from, to, includeTrend: true });
-  const drafts = deriveInsights(analytics);
+  const drafts = await deriveInsights(analytics);
 
   if (drafts.length === 0) return [];
 

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { StaffForm } from "@/app/_components/StaffForm";
 
 type Manager = {
   id: string;
@@ -87,7 +88,16 @@ export default function AdminUniversityDetailPage({
           <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Managers</h2>
         </div>
         {managers.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">No manager assigned.</p>
+          <div className="px-4 py-5 sm:px-6">
+            <p className="text-sm text-gray-500 dark:text-zinc-400">
+              No manager assigned. The first manager created becomes the primary manager.
+            </p>
+            <StaffForm
+              endpoint={`/api/universities/${id}/managers`}
+              roleLabel="manager"
+              onCreated={() => window.location.reload()}
+            />
+          </div>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
             {managers.map((m) => (
