@@ -115,7 +115,9 @@ export async function rollupUniversityDaily(
         unutilizedMinutes,
         missingDataMinutes: missingMinutes,
         overlapMinutes: 0,
-        minutesByActivityType: {},
+        minutesByActivityType: Object.fromEntries(
+          Object.entries(day.hoursByActivityType).map(([code, hrs]) => [code, toMinutes(hrs)]),
+        ),
         isWorkingDay: day.isWorkingDay,
         nonWorkingReason: day.nonWorkingReason,
         openingLogged: day.openingLogged,
@@ -123,6 +125,12 @@ export async function rollupUniversityDaily(
         utilizationPercent:
           day.capacityHours > 0 ? round2((day.productiveHours / day.capacityHours) * 100) : null,
       });
+
+      // Summed into the university row so the admin dashboard's teaching and
+      // learning figures come from the same numbers as the instructor view.
+      for (const [code, hrs] of Object.entries(day.hoursByActivityType)) {
+        bucket.byType[code] = (bucket.byType[code] ?? 0) + toMinutes(hrs);
+      }
 
       bucket.activeInstructors += 1;
       bucket.capacity += toMinutes(day.capacityHours);

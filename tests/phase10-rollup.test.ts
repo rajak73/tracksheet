@@ -137,6 +137,26 @@ describe("the rollup agrees with the live engine", () => {
     expect(north.productiveHours).toBe(analytics.body.analytics.totals.productiveHours);
   });
 
+  test("the per-activity-type split survives the rollup", async () => {
+    // The admin dashboard promises separate teaching and learning figures. The
+    // rollup used to store an empty map, so both read as 0 no matter what had
+    // been logged — a visibly wrong number rather than a silent one.
+    const overview = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
+    const north = overview.body.universities.find(
+      (u: { universityId: string }) => u.universityId === northId,
+    );
+    expect(Object.keys(north.hoursByActivityType).length).toBeGreaterThan(0);
+    expect(north.hoursByActivityType.TEACHING).toBeGreaterThan(0);
+
+    // And it agrees with the engine for the same window.
+    const analytics = await mgrN.get(
+      `/api/universities/${northId}/analytics?from=${WEEK_FROM}&to=${WEEK_TO}`,
+    );
+    expect(north.hoursByActivityType.TEACHING).toBe(
+      analytics.body.analytics.totals.hoursByActivityType.TEACHING,
+    );
+  });
+
   test("missing data is preserved through the rollup, not folded into unutilized", async () => {
     const overview = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
     // Wed/Thu/Fri have no records for this instructor.

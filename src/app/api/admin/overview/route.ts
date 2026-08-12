@@ -55,6 +55,25 @@ export const GET = withAuth(
           _avg: { openingCompliancePct: true, closingCompliancePct: true },
         });
 
+        // Prisma cannot aggregate inside a JSON column, so the per-type
+        // breakdown is summed here over the same (universityId, metricDate)
+        // rows the aggregate above already covers.
+        const typeRows = await prisma.universityDailyMetric.findMany({
+          where: {
+            universityId: u.id,
+            metricDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
+          },
+          select: { minutesByActivityType: true },
+        });
+        const byType: Record<string, number> = {};
+        for (const row of typeRows) {
+          for (const [code, minutes] of Object.entries(
+            (row.minutesByActivityType ?? {}) as Record<string, number>,
+          )) {
+            byType[code] = (byType[code] ?? 0) + Number(minutes);
+          }
+        }
+
         const toHours = (m: number | null) => round((m ?? 0) / 60);
         const capacityHours = toHours(agg._sum.capacityMinutes);
         const productiveHours = toHours(agg._sum.productiveMinutes);
@@ -76,7 +95,9 @@ export const GET = withAuth(
             agg._avg.openingCompliancePct === null ? null : round(agg._avg.openingCompliancePct),
           closingCompliancePct:
             agg._avg.closingCompliancePct === null ? null : round(agg._avg.closingCompliancePct),
-          hoursByActivityType: {} as Record<string, number>,
+          hoursByActivityType: Object.fromEntries(
+            Object.entries(byType).map(([code, minutes]) => [code, round(minutes / 60)]),
+          ),
         };
       }),
     );

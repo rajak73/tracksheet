@@ -43,6 +43,8 @@ export type DayBreakdown = {
   hasData: boolean;
   openingLogged: boolean;
   closingLogged: boolean;
+  /** Hours per activity type for THIS day, so a daily rollup can store it. */
+  hoursByActivityType: Record<string, number>;
 };
 
 /** Actual vs configured target for one activity type over the period. */
@@ -445,6 +447,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           hasData: dayLogs.length > 0,
           openingLogged: false,
           closingLogged: false,
+          hoursByActivityType: {},
         });
         continue;
       }
@@ -459,9 +462,11 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       const dayProductive = unionHours(productiveIntervals);
       const dayOverlap = overlapHours(productiveIntervals);
 
+      const dayByType: Record<string, number> = {};
       for (const l of dayLogs) {
         const hrs = (l.endTime.getTime() - l.startTime.getTime()) / MS_PER_HOUR;
         hoursByType[l.activityType.code] = round((hoursByType[l.activityType.code] ?? 0) + hrs);
+        dayByType[l.activityType.code] = round((dayByType[l.activityType.code] ?? 0) + hrs);
       }
 
       const hasOpening = dayLogs.some(
@@ -494,6 +499,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         hasData,
         openingLogged: hasOpening,
         closingLogged: hasClosing,
+        hoursByActivityType: dayByType,
       });
     }
 
