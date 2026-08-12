@@ -4,8 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 6 complete** (analytics engine), on top of Phases 4.5,
-5 and 6.5. Phases 1–8 implemented, plus a
+**Current state: Phase 7 complete** (AI insight layer), on top of Phases 4.5,
+5, 6 and 6.5. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -139,6 +139,39 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## AI insights
+
+Two layers, deliberately separate:
+
+```
+analytics (calculated metrics)
+   ↓ detectAnomalies()    plain code — decides WHETHER a condition holds
+   ↓ narrateCondition()   turns one condition into a sentence
+   ↓ stored insight       carrying the condition, its metrics and threshold
+```
+
+Conditions: `OVERLOAD`, `UNDERUTILIZATION`, `LEARNING_DROP`, `COMPLIANCE_RISK`,
+`DELIVERABLE_RISK`, `NO_DATA_RECORDED`, `INCOMPLETE_DATA`. Thresholds are named
+constants in [anomalies.ts](src/server/ai/anomalies.ts) and each insight quotes
+the threshold it applied.
+
+**A model never decides whether an anomaly exists.** Asked to find anomalies in
+a metric dump, a model will confidently invent them; asked to phrase an
+already-detected condition, the worst it can do is word it badly — and the
+wording is checkable against the numbers stored beside it.
+
+**The model boundary is structural.** `narrateCondition` takes an
+`AnomalyCondition` and nothing else — no database handle, no activity rows. The
+requirement "never send raw ActivityLog to the model" is enforced by the input
+type, not by convention.
+
+**No LLM is currently wired.** The narrator is deterministic, because no model
+is configured for this project and shipping an unrun code path would be worse
+than not having one. Swapping one in means replacing the body of
+`narrateCondition`; the signature is the contract. A deterministic narrator also
+keeps the traceability test meaningful — asserting every number in a sentence
+appears in the stored snapshot only works if the sentence is reproducible.
 
 ## Analytics engine
 

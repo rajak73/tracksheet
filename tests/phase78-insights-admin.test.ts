@@ -56,11 +56,12 @@ describe("insights are derived, never invented", () => {
     expect(serialised).not.toContain("avgUnutilizedHours");
     expect(serialised).not.toContain("10.5");
 
-    // With no activity recorded, the only defensible statement is about
-    // adoption / missing data — never about measured utilisation.
+    // With no activity recorded, the only defensible statement is that nothing
+    // was recorded — never a measured utilisation figure.
     const types = insights.map((i: { type: string }) => i.type);
-    expect(types).toContain("SYSTEM_ADOPTION");
-    expect(types).not.toContain("CAPACITY_AVAILABLE");
+    expect(types).toContain("NO_DATA_RECORDED");
+    expect(types).not.toContain("UNDERUTILIZATION");
+    expect(types).not.toContain("OVERLOAD");
   });
 
   test("every number quoted in the text appears in the stored snapshot", async () => {
@@ -111,16 +112,17 @@ describe("insights are derived, never invented", () => {
     expect(gen.status).toBe(201);
 
     const types = gen.body.insights.map((i: { type: string }) => i.type);
-    // Adoption no longer applies; utilisation now does.
-    expect(types).not.toContain("SYSTEM_ADOPTION");
-    expect(types).toContain("CAPACITY_AVAILABLE");
+    // "Nothing recorded" no longer applies; a measured utilisation does.
+    expect(types).not.toContain("NO_DATA_RECORDED");
+    expect(types).toContain("UNDERUTILIZATION");
 
-    const capacity = gen.body.insights.find(
-      (i: { type: string }) => i.type === "CAPACITY_AVAILABLE",
+    const under = gen.body.insights.find(
+      (i: { type: string }) => i.type === "UNDERUTILIZATION",
     );
-    // The snapshot names the actual instructors it counted.
-    expect(capacity.supportingData.count).toBe(capacity.supportingData.instructors.length);
-    expect(capacity.supportingData.instructors[0].instructorId).toBeTruthy();
+    // The snapshot names the instructor it measured and the threshold applied.
+    expect(under.supportingData.instructorId).toBeTruthy();
+    expect(under.supportingData.threshold.utilizationPct).toBe(60);
+    expect(under.supportingData.metrics.utilizationPct).toBeLessThan(60);
   });
 
   test("insight generation is recorded in the audit log", async () => {
