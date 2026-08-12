@@ -320,6 +320,7 @@ exports.Prisma.NotificationScalarFieldEnum = {
   message: 'message',
   isRead: 'isRead',
   readAt: 'readAt',
+  dedupeKey: 'dedupeKey',
   createdAt: 'createdAt'
 };
 

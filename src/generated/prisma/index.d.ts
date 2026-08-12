@@ -22675,6 +22675,7 @@ export namespace Prisma {
     message: string | null
     isRead: boolean | null
     readAt: Date | null
+    dedupeKey: string | null
     createdAt: Date | null
   }
 
@@ -22687,6 +22688,7 @@ export namespace Prisma {
     message: string | null
     isRead: boolean | null
     readAt: Date | null
+    dedupeKey: string | null
     createdAt: Date | null
   }
 
@@ -22699,6 +22701,7 @@ export namespace Prisma {
     message: number
     isRead: number
     readAt: number
+    dedupeKey: number
     createdAt: number
     _all: number
   }
@@ -22713,6 +22716,7 @@ export namespace Prisma {
     message?: true
     isRead?: true
     readAt?: true
+    dedupeKey?: true
     createdAt?: true
   }
 
@@ -22725,6 +22729,7 @@ export namespace Prisma {
     message?: true
     isRead?: true
     readAt?: true
+    dedupeKey?: true
     createdAt?: true
   }
 
@@ -22737,6 +22742,7 @@ export namespace Prisma {
     message?: true
     isRead?: true
     readAt?: true
+    dedupeKey?: true
     createdAt?: true
     _all?: true
   }
@@ -22822,6 +22828,7 @@ export namespace Prisma {
     message: string
     isRead: boolean
     readAt: Date | null
+    dedupeKey: string | null
     createdAt: Date
     _count: NotificationCountAggregateOutputType | null
     _min: NotificationMinAggregateOutputType | null
@@ -22851,6 +22858,7 @@ export namespace Prisma {
     message?: boolean
     isRead?: boolean
     readAt?: boolean
+    dedupeKey?: boolean
     createdAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | Notification$universityArgs<ExtArgs>
@@ -22865,6 +22873,7 @@ export namespace Prisma {
     message?: boolean
     isRead?: boolean
     readAt?: boolean
+    dedupeKey?: boolean
     createdAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | Notification$universityArgs<ExtArgs>
@@ -22879,6 +22888,7 @@ export namespace Prisma {
     message?: boolean
     isRead?: boolean
     readAt?: boolean
+    dedupeKey?: boolean
     createdAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | Notification$universityArgs<ExtArgs>
@@ -22893,10 +22903,11 @@ export namespace Prisma {
     message?: boolean
     isRead?: boolean
     readAt?: boolean
+    dedupeKey?: boolean
     createdAt?: boolean
   }
 
-  export type NotificationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "type" | "title" | "message" | "isRead" | "readAt" | "createdAt", ExtArgs["result"]["notification"]>
+  export type NotificationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "type" | "title" | "message" | "isRead" | "readAt" | "dedupeKey" | "createdAt", ExtArgs["result"]["notification"]>
   export type NotificationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | Notification$universityArgs<ExtArgs>
@@ -22929,6 +22940,12 @@ export namespace Prisma {
        * answerable and the unread index stays selective.
        */
       readAt: Date | null
+      /**
+       * Stable identity for a recurring condition, e.g. "DELIVERABLE_DUE:<id>".
+       * The rollup runs hourly, so without this the same unresolved condition
+       * would notify the same person every hour forever.
+       */
+      dedupeKey: string | null
       createdAt: Date
     }, ExtArgs["result"]["notification"]>
     composites: {}
@@ -23363,6 +23380,7 @@ export namespace Prisma {
     readonly message: FieldRef<"Notification", 'String'>
     readonly isRead: FieldRef<"Notification", 'Boolean'>
     readonly readAt: FieldRef<"Notification", 'DateTime'>
+    readonly dedupeKey: FieldRef<"Notification", 'String'>
     readonly createdAt: FieldRef<"Notification", 'DateTime'>
   }
     
@@ -43225,6 +43243,7 @@ export namespace Prisma {
     message: 'message',
     isRead: 'isRead',
     readAt: 'readAt',
+    dedupeKey: 'dedupeKey',
     createdAt: 'createdAt'
   };
 
@@ -45252,6 +45271,7 @@ export namespace Prisma {
     message?: StringFilter<"Notification"> | string
     isRead?: BoolFilter<"Notification"> | boolean
     readAt?: DateTimeNullableFilter<"Notification"> | Date | string | null
+    dedupeKey?: StringNullableFilter<"Notification"> | string | null
     createdAt?: DateTimeFilter<"Notification"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityNullableScalarRelationFilter, UniversityWhereInput> | null
@@ -45266,6 +45286,7 @@ export namespace Prisma {
     message?: SortOrder
     isRead?: SortOrder
     readAt?: SortOrderInput | SortOrder
+    dedupeKey?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     user?: UserOrderByWithRelationInput
     university?: UniversityOrderByWithRelationInput
@@ -45273,6 +45294,7 @@ export namespace Prisma {
 
   export type NotificationWhereUniqueInput = Prisma.AtLeast<{
     id?: string
+    userId_dedupeKey?: NotificationUserIdDedupeKeyCompoundUniqueInput
     AND?: NotificationWhereInput | NotificationWhereInput[]
     OR?: NotificationWhereInput[]
     NOT?: NotificationWhereInput | NotificationWhereInput[]
@@ -45283,10 +45305,11 @@ export namespace Prisma {
     message?: StringFilter<"Notification"> | string
     isRead?: BoolFilter<"Notification"> | boolean
     readAt?: DateTimeNullableFilter<"Notification"> | Date | string | null
+    dedupeKey?: StringNullableFilter<"Notification"> | string | null
     createdAt?: DateTimeFilter<"Notification"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityNullableScalarRelationFilter, UniversityWhereInput> | null
-  }, "id">
+  }, "id" | "userId_dedupeKey">
 
   export type NotificationOrderByWithAggregationInput = {
     id?: SortOrder
@@ -45297,6 +45320,7 @@ export namespace Prisma {
     message?: SortOrder
     isRead?: SortOrder
     readAt?: SortOrderInput | SortOrder
+    dedupeKey?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     _count?: NotificationCountOrderByAggregateInput
     _max?: NotificationMaxOrderByAggregateInput
@@ -45315,6 +45339,7 @@ export namespace Prisma {
     message?: StringWithAggregatesFilter<"Notification"> | string
     isRead?: BoolWithAggregatesFilter<"Notification"> | boolean
     readAt?: DateTimeNullableWithAggregatesFilter<"Notification"> | Date | string | null
+    dedupeKey?: StringNullableWithAggregatesFilter<"Notification"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Notification"> | Date | string
   }
 
@@ -48293,6 +48318,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
     user: UserCreateNestedOneWithoutNotificationsInput
     university?: UniversityCreateNestedOneWithoutNotificationsInput
@@ -48307,6 +48333,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -48317,6 +48344,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     user?: UserUpdateOneRequiredWithoutNotificationsNestedInput
     university?: UniversityUpdateOneWithoutNotificationsNestedInput
@@ -48331,6 +48359,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -48343,6 +48372,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -48353,6 +48383,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -48365,6 +48396,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -51342,6 +51374,11 @@ export namespace Prisma {
     _max?: NestedJsonNullableFilter<$PrismaModel>
   }
 
+  export type NotificationUserIdDedupeKeyCompoundUniqueInput = {
+    userId: string
+    dedupeKey: string
+  }
+
   export type NotificationCountOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
@@ -51351,6 +51388,7 @@ export namespace Prisma {
     message?: SortOrder
     isRead?: SortOrder
     readAt?: SortOrder
+    dedupeKey?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -51363,6 +51401,7 @@ export namespace Prisma {
     message?: SortOrder
     isRead?: SortOrder
     readAt?: SortOrder
+    dedupeKey?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -51375,6 +51414,7 @@ export namespace Prisma {
     message?: SortOrder
     isRead?: SortOrder
     readAt?: SortOrder
+    dedupeKey?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -56778,6 +56818,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
     university?: UniversityCreateNestedOneWithoutNotificationsInput
   }
@@ -56790,6 +56831,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -57208,6 +57250,7 @@ export namespace Prisma {
     message?: StringFilter<"Notification"> | string
     isRead?: BoolFilter<"Notification"> | boolean
     readAt?: DateTimeNullableFilter<"Notification"> | Date | string | null
+    dedupeKey?: StringNullableFilter<"Notification"> | string | null
     createdAt?: DateTimeFilter<"Notification"> | Date | string
   }
 
@@ -57739,6 +57782,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
     user: UserCreateNestedOneWithoutNotificationsInput
   }
@@ -57751,6 +57795,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -69094,6 +69139,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -69214,6 +69260,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutNotificationsNestedInput
   }
@@ -69226,6 +69273,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -69237,6 +69285,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -69522,6 +69571,7 @@ export namespace Prisma {
     message: string
     isRead?: boolean
     readAt?: Date | string | null
+    dedupeKey?: string | null
     createdAt?: Date | string
   }
 
@@ -70131,6 +70181,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     user?: UserUpdateOneRequiredWithoutNotificationsNestedInput
   }
@@ -70143,6 +70194,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -70154,6 +70206,7 @@ export namespace Prisma {
     message?: StringFieldUpdateOperationsInput | string
     isRead?: BoolFieldUpdateOperationsInput | boolean
     readAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    dedupeKey?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 

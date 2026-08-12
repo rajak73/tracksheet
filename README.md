@@ -4,8 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 7 complete** (AI insight layer), on top of Phases 4.5,
-5, 6 and 6.5. Phases 1–8 implemented, plus a
+**Current state: Phase 8 complete** (reports, notifications, audit), on top of
+Phases 4.5, 5, 6, 6.5 and 7. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -139,6 +139,32 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Reports, notifications, audit
+
+**Exports record a `ReportJob`** — who exported what, when, and how many rows.
+Generation is inline because current volumes finish in milliseconds; the row is
+the handover point, so moving to a worker means marking the job `QUEUED` and
+letting the worker fill `resultUrl`, with no change to the caller's contract.
+
+**CSV only.** Native `.xlsx` and PDF are not implemented — both need a document
+library, and CSV already opens directly in Excel and satisfies the client's
+spreadsheet requirement. Stated here rather than implied.
+
+**Notifications reuse the anomaly and exception detectors** rather than a third
+rule set, so a notification and a dashboard insight cannot disagree about what
+counts as a problem. Categories: deliverable deadlines, missing/late
+opening-closing, unusual workload, and report availability.
+
+Every notification carries a `dedupeKey` with a unique index on
+`(userId, dedupeKey)`. The sweep runs on every rollup tick, so without it an
+unresolved condition would notify the same person hourly forever. The index is
+the real guarantee; the application pre-check just avoids a round-trip, and a
+duplicate that slips past a race is absorbed rather than aborting the sweep.
+
+**Audit** is readable per university at `GET /api/universities/:id/audit`
+(admin/manager only — an audit trail is inherently about other people, which is
+exactly what instructor-scoped endpoints withhold).
 
 ## AI insights
 

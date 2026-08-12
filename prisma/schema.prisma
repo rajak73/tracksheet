@@ -525,8 +525,15 @@ model Notification {
   /// answerable and the unread index stays selective.
   readAt  DateTime?
 
+  /// Stable identity for a recurring condition, e.g. "DELIVERABLE_DUE:<id>".
+  /// The rollup runs hourly, so without this the same unresolved condition
+  /// would notify the same person every hour forever.
+  dedupeKey String?
+
   createdAt DateTime @default(now())
 
+  /// One live notification per user per condition.
+  @@unique([userId, dedupeKey])
   // §40: the unread-first query is (userId, readAt, createdAt).
   @@index([userId, readAt, createdAt])
 }

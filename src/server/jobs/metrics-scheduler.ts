@@ -44,6 +44,7 @@
 
 import { prisma } from "@/server/db";
 import { rollupAllUniversities } from "@/server/analytics/rollup";
+import { runNotificationSweep } from "@/server/notifications/service";
 import { workDateFor } from "@/server/time/workday";
 
 /** Arbitrary but fixed: identifies THIS job among any future advisory locks. */
@@ -116,6 +117,19 @@ export async function runRollup(
     const results = await rollupAllUniversities(from, to);
     const instructorDays = results.reduce((a, r) => a + r.instructorDays, 0);
     const instructorWeeks = results.reduce((a, r) => a + r.instructorWeeks, 0);
+
+    // Notifications ride the same tick as the rollup: the conditions they
+    // report are computed from the data just summarised, so running them apart
+    // would let the two disagree about the same period. Deduped by key, so a
+    // standing condition notifies once, not once an hour.
+    for (const r of results) {
+      try {
+        await runNotificationSweep(r.universityId, from, to);
+      } catch (error) {
+        // One tenant's notification failure must not abandon the others.
+        console.error("[metrics] notification sweep failed", r.universityId, error);
+      }
+    }
 
     await prisma.metricsJobRun.update({
       where: { id: run.id },

@@ -5,8 +5,11 @@ import { formatReportAsCsv, generateWorkloadReport } from "@/server/reports/gene
 import { resolvePeriod } from "@/server/analytics/period";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { computeAnalytics } from "@/server/analytics/engine";
+import { prisma } from "@/server/db";
+import { createNotification } from "@/server/notifications/service";
+import { logAudit } from "@/server/audit/logger";
 
-export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
+export const GET = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
   assertCanAccessUniversity(scope, params.id);
 
   const config = await loadUniversityConfig(params.id);
@@ -43,14 +46,72 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
       })()
     : await generateWorkloadReport(params.id, period.from, period.to);
 
-  if (req.nextUrl.searchParams.get("export") === "csv") {
-    return new NextResponse(formatReportAsCsv(report), {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="workload_${period.from}_to_${period.to}.csv"`,
-      },
-    });
+  const format = req.nextUrl.searchParams.get("export");
+  if (format !== "csv") {
+    return NextResponse.json({ report });
   }
 
-  return NextResponse.json({ report });
+  // An export is a recorded event, not an anonymous download: ReportJob is what
+  // makes "who exported what, when, and how many rows" answerable afterwards.
+  //
+  // Generated inline because the current volumes finish in milliseconds. The
+  // row is the handover point — moving generation to a worker means marking the
+  // job QUEUED here and letting the worker fill in resultUrl, with no change to
+  // the caller's contract.
+  const job = await prisma.reportJob.create({
+    data: {
+      universityId: params.id,
+      requestedById: principal.userId,
+      reportType: "INSTRUCTOR_WORKLOAD",
+      format: "CSV",
+      parameters: { from: period.from, to: period.to, selfOnly: Boolean(selfOnly) },
+      status: "RUNNING",
+      startedAt: new Date(),
+    },
+  });
+
+  try {
+    const csv = formatReportAsCsv(report);
+
+    await prisma.reportJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", rowCount: report.rows.length, completedAt: new Date() },
+    });
+
+    await logAudit(principal, scope, {
+      action: "REPORT_EXPORTED",
+      entityType: "ReportJob",
+      entityId: job.id,
+      metadata: { from: period.from, to: period.to, rows: report.rows.length, format: "CSV" },
+    });
+
+    // "Report availability" from the spec's notification list.
+    await createNotification({
+      userId: principal.userId,
+      universityId: params.id,
+      type: "REPORT_READY",
+      title: "Workload report ready",
+      message: `Your ${period.from} to ${period.to} workload report (${report.rows.length} rows) is ready.`,
+      dedupeKey: `REPORT_READY:${job.id}`,
+    });
+
+    return new NextResponse(csv, {
+      headers: {
+        // BOM so Excel opens UTF-8 correctly rather than mangling accents.
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="workload_${period.from}_to_${period.to}.csv"`,
+        "X-Report-Job-Id": job.id,
+      },
+    });
+  } catch (error) {
+    await prisma.reportJob.update({
+      where: { id: job.id },
+      data: {
+        status: "FAILED",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        completedAt: new Date(),
+      },
+    });
+    throw error;
+  }
 });
