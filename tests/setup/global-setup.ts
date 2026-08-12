@@ -42,7 +42,13 @@ export async function setup() {
   server = spawn("npx", ["next", "dev", "--port", String(PORT), "--hostname", "127.0.0.1"], {
     // Explicit DATABASE_URL takes precedence over the .env file Next would load,
     // so the server under test can only ever talk to the throwaway database.
-    env: { ...process.env, DATABASE_URL },
+    // The periodic rollup is disabled under test: a timer firing mid-suite
+    // would race the explicit rollups the tests trigger, and a wall-clock
+    // timer is not something a test should wait on. The function the timer
+    // calls (runRollup) is exercised directly through the MANUAL and SEED
+    // paths; the timer wiring itself is verified separately against a live
+    // server, see README.
+    env: { ...process.env, DATABASE_URL, DISABLE_ROLLUP_SCHEDULER: "1" },
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });

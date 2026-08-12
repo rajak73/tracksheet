@@ -529,6 +529,21 @@ exports.Prisma.ReportJobScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.MetricsJobRunScalarFieldEnum = {
+  id: 'id',
+  trigger: 'trigger',
+  status: 'status',
+  fromDate: 'fromDate',
+  toDate: 'toDate',
+  universitiesProcessed: 'universitiesProcessed',
+  instructorDaysWritten: 'instructorDaysWritten',
+  instructorWeeksWritten: 'instructorWeeksWritten',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  durationMs: 'durationMs'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -653,6 +668,18 @@ exports.ReportJobStatus = exports.$Enums.ReportJobStatus = {
   FAILED: 'FAILED'
 };
 
+exports.MetricsJobTrigger = exports.$Enums.MetricsJobTrigger = {
+  SCHEDULED: 'SCHEDULED',
+  MANUAL: 'MANUAL',
+  SEED: 'SEED'
+};
+
+exports.MetricsJobStatus = exports.$Enums.MetricsJobStatus = {
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   University: 'University',
@@ -683,7 +710,8 @@ exports.Prisma.ModelName = {
   InstructorDailyMetric: 'InstructorDailyMetric',
   InstructorWeeklyMetric: 'InstructorWeeklyMetric',
   UniversityDailyMetric: 'UniversityDailyMetric',
-  ReportJob: 'ReportJob'
+  ReportJob: 'ReportJob',
+  MetricsJobRun: 'MetricsJobRun'
 };
 
 /**

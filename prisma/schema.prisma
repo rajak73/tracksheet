@@ -1010,3 +1010,42 @@ model ReportJob {
   @@index([universityId, createdAt])
   @@index([status, createdAt])
 }
+
+enum MetricsJobTrigger {
+  SCHEDULED
+  MANUAL
+  SEED
+}
+
+enum MetricsJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Execution record for the metric rollup.
+///
+/// Exists so "are the dashboards current?" is answerable without guessing. It
+/// deliberately is NOT an AuditLog row: AuditLog.userId is non-null because
+/// every entry there is an act by a person, and a scheduled job has no actor.
+model MetricsJobRun {
+  id      String            @id @default(cuid())
+  trigger MetricsJobTrigger
+  status  MetricsJobStatus  @default(RUNNING)
+
+  /// Window recomputed, as YYYY-MM-DD.
+  fromDate String
+  toDate   String
+
+  universitiesProcessed  Int @default(0)
+  instructorDaysWritten  Int @default(0)
+  instructorWeeksWritten Int @default(0)
+
+  errorMessage String?
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  durationMs   Int?
+
+  @@index([status, startedAt])
+  @@index([startedAt])
+}

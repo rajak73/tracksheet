@@ -233,6 +233,20 @@ async function main() {
     );
   }
 
+  // Seed an initial rollup so a fresh environment has populated summary
+  // tables immediately. Without this, dashboards that read the summaries show
+  // zeros until the scheduler's first tick — which looks like a broken app
+  // rather than an empty one.
+  const { runRollup } = await import("../src/server/jobs/metrics-scheduler");
+  const { trailingWindow } = await import("../src/server/jobs/metrics-scheduler");
+  const window = trailingWindow(new Date(), 14);
+  const result = await runRollup("SEED", window);
+  console.log(
+    result
+      ? `  initial rollup: ${result.instructorDays} instructor-days, ${result.instructorWeeks} instructor-weeks (${window.from}..${window.to})`
+      : "  initial rollup skipped (another rollup holds the lock)",
+  );
+
   console.log(`\nAll seeded accounts use password: ${DEV_PASSWORD}`);
 }
 

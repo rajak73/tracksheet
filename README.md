@@ -4,7 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phases 1–8 implemented, plus a scale-oriented database architecture.**
+**Current state: Phase 6.5 complete.** Phases 1–8 implemented, plus a
+scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
 See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what was found and how each
@@ -102,12 +103,15 @@ These are enforced, not merely documented:
    profile to sit in a different university than its own user account.
 6. **Calendar math is per-tenant.** [workday.ts](src/server/time/workday.ts)
    derives working days from the university's IANA timezone, never the server's.
-7. **One analytics engine.** [engine.ts](src/server/analytics/engine.ts) is the only
+7. **Summary tables are populated automatically.** A scheduler recomputes a
+   trailing window every hour; the seed runs an initial rollup so a fresh
+   environment has working dashboards immediately. See "Metric rollup" below.
+8. **One analytics engine.** [engine.ts](src/server/analytics/engine.ts) is the only
    place workload maths happens. Dashboards, reports, and the AI layer all read it,
    so they cannot disagree. Worked time is the union of intervals, never the sum.
-8. **"No record" is not "zero hours".** A working day with no activity is reported
+9. **"No record" is not "zero hours".** A working day with no activity is reported
    as `missingDataHours`, distinct from `unutilizedHours`.
-9. **AI states only what it can show.** Every insight stores the metric snapshot it
+10. **AI states only what it can show.** Every insight stores the metric snapshot it
    was derived from, and a test asserts every number in its prose appears there.
 
 ## Layout
@@ -134,6 +138,41 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Metric rollup
+
+Dashboards read `UniversityDailyMetric` / `InstructorDailyMetric` /
+`InstructorWeeklyMetric` rather than aggregating raw activity on every request.
+Those tables are kept current by a scheduler started from
+[instrumentation.ts](src/instrumentation.ts) when the server boots.
+
+| Setting | Env var | Default |
+|---|---|---|
+| Tick interval | `ROLLUP_INTERVAL_MINUTES` | `60` |
+| Window recomputed each tick | `ROLLUP_WINDOW_DAYS` | `3` (trailing) |
+| Disable entirely | `DISABLE_ROLLUP_SCHEDULER` | unset (`1` disables) |
+
+**Why a trailing window rather than "roll up yesterday at midnight":** tenants
+span timezones so there is no single midnight, and activity gets logged late.
+Recomputing the last few days every tick is idempotent, self-healing after a
+missed tick or restart, and correct in every timezone without per-tenant
+scheduling.
+
+Concurrency is handled by a lease (the `RUNNING` MetricsJobRun row), claimed
+under a transaction-scoped advisory lock. A session-level lock was tried first
+and is wrong here — under connection pooling the unlock lands on a different
+connection than the lock, so it leaks.
+
+- `POST /api/admin/rollup` — force a recompute now (admin). Still supported; no
+  longer the only way the tables get populated.
+- `GET /api/admin/rollup` — run history, last success, and staleness in seconds.
+- `npm run db:seed` runs an initial rollup, so a fresh database has populated
+  dashboards without anyone pressing a button.
+
+The periodic timer is disabled under test (`DISABLE_ROLLUP_SCHEDULER=1`) so it
+cannot race the explicit rollups the tests trigger. The function it calls is
+covered by the suite through the `MANUAL` and `SEED` paths; the timer wiring was
+verified separately against a live server.
 
 ## Scripts
 

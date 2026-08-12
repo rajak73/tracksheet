@@ -424,3 +424,123 @@ Reported rather than silently skipped:
   **platform settings** — no models or endpoints.
 - **Excel/PDF export.** CSV only.
 - **Approval workflow** beyond leave status.
+
+---
+
+# Addendum — Reconciliation Check (DB architecture doc vs schema)
+
+Reporting only; no schema changes made in this step.
+
+## Premise correction: the opening/closing tables never existed
+
+The request states that "Phase 1 already implemented daily opening/closing
+tracking as `daily_opening_logs` and `daily_closing_logs`". That is not the case
+in this repository, and the belief matters because it changes what "resolve the
+duplicate" would mean.
+
+Every `CREATE TABLE` across all 11 migrations:
+
+| Migration | Tables created |
+|---|---|
+| phase1_core | User, University, UniversityWorkingHours, UniversityHoliday, Manager, Instructor, Session |
+| phase1_invariants | — (CHECK constraints only) |
+| phase2_activity_types | ActivityType |
+| phase3_activity_logs | ActivityLog |
+| phase4_deliverables… | Deliverable, DeliverableLog, AiInsight, AuditLog, Notification |
+| phase4_leave_and_breaks | LeaveRequest |
+| phase8_auditable_global_actions | — |
+| phase4_activity_interval_check | — |
+| phase10_scale_architecture | UniversitySettings, Department, Program, AcademicTerm, Course, CourseAssignment, Schedule, ScheduleSlot, BreakPolicy, WorkloadTarget, ReportingPeriod, InstructorDailyMetric, InstructorWeeklyMetric, UniversityDailyMetric, ReportJob |
+| phase10_deliverable_status_indexes | — |
+
+Phase 1 created identity and tenancy only. Opening/closing arrived in Phase 3 as
+**activity types**, not tables. A repo-wide grep for `daily_opening`,
+`daily_closing`, `daily_workday` returns only the string constants
+`"DAILY_OPENING"` / `"DAILY_CLOSING"` — rows in `ActivityType`.
+
+So there is **one** shape, not two, and no duplicate system to resolve.
+
+The once-per-day rule is enforced by a partial unique index:
+
+```sql
+CREATE UNIQUE INDEX "ActivityLog_once_per_day_idx"
+  ON "ActivityLog" ("instructorId", "workDate", "activityTypeId")
+  WHERE ("isOncePerDay" = true);
+```
+
+This is the generalised option §50 explicitly permits. It is verified by test,
+including across a UTC/tenant-local boundary: an opening at 23:00 UTC — the next
+calendar day in Asia/Kolkata — is correctly accepted as a separate working day,
+while a second opening on the same local day is rejected with 409.
+
+## Tenant scope compliance
+
+No route reads `principal.universityId` to build a query. The only reads are in
+`scope.ts` (where the scope is derived) and `/api/auth/me` (echoing the session
+back to the client). No route performs its own `principal.role` authorization —
+role gating is `withAuth({roles})` throughout.
+
+Five routes do not call a scope helper. Each was checked individually:
+
+| Route | Predicate | Assessment |
+|---|---|---|
+| `activity-types` | none | `ActivityType` has no `universityId` — a global table. Correct. |
+| `auth/login` | none | Pre-authentication. Correct. |
+| `auth/logout`, `auth/me` | `principal.sessionId` / `.userId` | Self-only by construction. Correct. |
+| `notifications` | `userId: principal.userId` | User-owned, not tenant-scoped. Session-derived, never client-supplied. Correct, but it is a hand-built predicate — there is no scope helper for user-owned rows. |
+| `admin/overview`, `admin/rollup`, `holidays/[holidayId]` | own `where` clauses | ADMIN-only (global scope), so there is no tenant restriction to apply. Safe, but these are the three places that build a tenant predicate outside `scope.ts`. |
+
+All three route-level callers of `computeAnalytics` assert scope first. The
+service-layer callers (`ai/insights.ts`, `reports/generator.ts`, `rollup.ts`)
+receive an already-authorised `universityId`; the engine trusts its argument by
+design and is never reachable from a request without passing a route first.
+
+## Summary tables
+
+All three exist. Population status on a freshly seeded database:
+
+| Table | Rows | Written by |
+|---|---:|---|
+| `InstructorDailyMetric` | 0 | `rollupUniversityDaily()` |
+| `UniversityDailyMetric` | 0 | `rollupUniversityDaily()` |
+| `InstructorWeeklyMetric` | 0 | **nothing — defined but never written** |
+| `ReportJob` | 0 | nothing — schema and contract only |
+
+**Trigger: manual only.** `POST /api/admin/rollup` (admin-gated). There is no job
+queue, no cron, no scheduler, and no on-write trigger. BullMQ appears only in
+comments describing where a worker would attach.
+
+### Consequence worth acting on
+
+The admin dashboard now reads `UniversityDailyMetric`. On a freshly seeded
+database that table is empty, so **the admin dashboard shows zeros until someone
+manually calls the rollup endpoint** — verified directly against the seeded
+database. Before Phase 10 it computed live and was always current. This is a
+real regression in default behaviour introduced by the aggregation change, and
+it is the strongest argument for wiring an actual scheduler next.
+
+## Migration safety
+
+No table was dropped or restructured destructively. Two statements in
+`phase10_scale_architecture` warrant naming:
+
+1. `ALTER TABLE "Deliverable" DROP COLUMN "status"` — preceded by a temporary
+   column and an `UPDATE` mapping every old `ActivityStatus` value into the new
+   `DeliverableStatus`. Values are carried across, not discarded.
+2. `DELETE FROM "DeliverableLog" WHERE "universityId" IS NULL OR "instructorId"
+   IS NULL` — removes rows the backfill could not resolve. Such rows require a
+   `DeliverableLog` with no parent `Deliverable`, which the FK added in phase4
+   (`ON DELETE CASCADE`) makes impossible. It is a no-op safety net, but it is a
+   real `DELETE` and is named here rather than buried.
+
+The generator's own output was corrected in two places where it would have lost
+data: `DeliverableLog.date` was being `DROP`ped and re-added instead of renamed,
+and `Deliverable.status` was being dropped without migrating its values.
+
+The database was **not** reset. The migration was applied to the populated dev
+database and succeeded, backfilling `UNIV001`/`UNIV002`. It was separately timed
+against the 3.9M-row perf database at 18.7 s.
+
+`npm run db:seed` produces exactly what the README documents: 7 accounts
+(1 admin, 2 managers, 4 instructors), 2 universities with differing timezones and
+working hours, 11 activity types, password `Password123!`.

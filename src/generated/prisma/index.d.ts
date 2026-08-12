@@ -191,6 +191,15 @@ export type UniversityDailyMetric = $Result.DefaultSelection<Prisma.$UniversityD
  * handover point between the API and a background worker.
  */
 export type ReportJob = $Result.DefaultSelection<Prisma.$ReportJobPayload>
+/**
+ * Model MetricsJobRun
+ * Execution record for the metric rollup.
+ * 
+ * Exists so "are the dashboards current?" is answerable without guessing. It
+ * deliberately is NOT an AuditLog row: AuditLog.userId is non-null because
+ * every entry there is an act by a person, and a scheduled job has no actor.
+ */
+export type MetricsJobRun = $Result.DefaultSelection<Prisma.$MetricsJobRunPayload>
 
 /**
  * Enums
@@ -352,6 +361,24 @@ export const ReportJobStatus: {
 
 export type ReportJobStatus = (typeof ReportJobStatus)[keyof typeof ReportJobStatus]
 
+
+export const MetricsJobTrigger: {
+  SCHEDULED: 'SCHEDULED',
+  MANUAL: 'MANUAL',
+  SEED: 'SEED'
+};
+
+export type MetricsJobTrigger = (typeof MetricsJobTrigger)[keyof typeof MetricsJobTrigger]
+
+
+export const MetricsJobStatus: {
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+};
+
+export type MetricsJobStatus = (typeof MetricsJobStatus)[keyof typeof MetricsJobStatus]
+
 }
 
 export type Role = $Enums.Role
@@ -417,6 +444,14 @@ export const ReportingPeriodType: typeof $Enums.ReportingPeriodType
 export type ReportJobStatus = $Enums.ReportJobStatus
 
 export const ReportJobStatus: typeof $Enums.ReportJobStatus
+
+export type MetricsJobTrigger = $Enums.MetricsJobTrigger
+
+export const MetricsJobTrigger: typeof $Enums.MetricsJobTrigger
+
+export type MetricsJobStatus = $Enums.MetricsJobStatus
+
+export const MetricsJobStatus: typeof $Enums.MetricsJobStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -838,6 +873,16 @@ export class PrismaClient<
     * ```
     */
   get reportJob(): Prisma.ReportJobDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.metricsJobRun`: Exposes CRUD operations for the **MetricsJobRun** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MetricsJobRuns
+    * const metricsJobRuns = await prisma.metricsJobRun.findMany()
+    * ```
+    */
+  get metricsJobRun(): Prisma.MetricsJobRunDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1314,7 +1359,8 @@ export namespace Prisma {
     InstructorDailyMetric: 'InstructorDailyMetric',
     InstructorWeeklyMetric: 'InstructorWeeklyMetric',
     UniversityDailyMetric: 'UniversityDailyMetric',
-    ReportJob: 'ReportJob'
+    ReportJob: 'ReportJob',
+    MetricsJobRun: 'MetricsJobRun'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1330,7 +1376,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -3554,6 +3600,80 @@ export namespace Prisma {
           }
         }
       }
+      MetricsJobRun: {
+        payload: Prisma.$MetricsJobRunPayload<ExtArgs>
+        fields: Prisma.MetricsJobRunFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MetricsJobRunFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MetricsJobRunFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          findFirst: {
+            args: Prisma.MetricsJobRunFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MetricsJobRunFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          findMany: {
+            args: Prisma.MetricsJobRunFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>[]
+          }
+          create: {
+            args: Prisma.MetricsJobRunCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          createMany: {
+            args: Prisma.MetricsJobRunCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.MetricsJobRunCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>[]
+          }
+          delete: {
+            args: Prisma.MetricsJobRunDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          update: {
+            args: Prisma.MetricsJobRunUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          deleteMany: {
+            args: Prisma.MetricsJobRunDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MetricsJobRunUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.MetricsJobRunUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>[]
+          }
+          upsert: {
+            args: Prisma.MetricsJobRunUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MetricsJobRunPayload>
+          }
+          aggregate: {
+            args: Prisma.MetricsJobRunAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMetricsJobRun>
+          }
+          groupBy: {
+            args: Prisma.MetricsJobRunGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MetricsJobRunGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MetricsJobRunCountArgs<ExtArgs>
+            result: $Utils.Optional<MetricsJobRunCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -3707,6 +3827,7 @@ export namespace Prisma {
     instructorWeeklyMetric?: InstructorWeeklyMetricOmit
     universityDailyMetric?: UniversityDailyMetricOmit
     reportJob?: ReportJobOmit
+    metricsJobRun?: MetricsJobRunOmit
   }
 
   /* Types for Logging */
@@ -41709,6 +41830,1146 @@ export namespace Prisma {
 
 
   /**
+   * Model MetricsJobRun
+   */
+
+  export type AggregateMetricsJobRun = {
+    _count: MetricsJobRunCountAggregateOutputType | null
+    _avg: MetricsJobRunAvgAggregateOutputType | null
+    _sum: MetricsJobRunSumAggregateOutputType | null
+    _min: MetricsJobRunMinAggregateOutputType | null
+    _max: MetricsJobRunMaxAggregateOutputType | null
+  }
+
+  export type MetricsJobRunAvgAggregateOutputType = {
+    universitiesProcessed: number | null
+    instructorDaysWritten: number | null
+    instructorWeeksWritten: number | null
+    durationMs: number | null
+  }
+
+  export type MetricsJobRunSumAggregateOutputType = {
+    universitiesProcessed: number | null
+    instructorDaysWritten: number | null
+    instructorWeeksWritten: number | null
+    durationMs: number | null
+  }
+
+  export type MetricsJobRunMinAggregateOutputType = {
+    id: string | null
+    trigger: $Enums.MetricsJobTrigger | null
+    status: $Enums.MetricsJobStatus | null
+    fromDate: string | null
+    toDate: string | null
+    universitiesProcessed: number | null
+    instructorDaysWritten: number | null
+    instructorWeeksWritten: number | null
+    errorMessage: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    durationMs: number | null
+  }
+
+  export type MetricsJobRunMaxAggregateOutputType = {
+    id: string | null
+    trigger: $Enums.MetricsJobTrigger | null
+    status: $Enums.MetricsJobStatus | null
+    fromDate: string | null
+    toDate: string | null
+    universitiesProcessed: number | null
+    instructorDaysWritten: number | null
+    instructorWeeksWritten: number | null
+    errorMessage: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    durationMs: number | null
+  }
+
+  export type MetricsJobRunCountAggregateOutputType = {
+    id: number
+    trigger: number
+    status: number
+    fromDate: number
+    toDate: number
+    universitiesProcessed: number
+    instructorDaysWritten: number
+    instructorWeeksWritten: number
+    errorMessage: number
+    startedAt: number
+    completedAt: number
+    durationMs: number
+    _all: number
+  }
+
+
+  export type MetricsJobRunAvgAggregateInputType = {
+    universitiesProcessed?: true
+    instructorDaysWritten?: true
+    instructorWeeksWritten?: true
+    durationMs?: true
+  }
+
+  export type MetricsJobRunSumAggregateInputType = {
+    universitiesProcessed?: true
+    instructorDaysWritten?: true
+    instructorWeeksWritten?: true
+    durationMs?: true
+  }
+
+  export type MetricsJobRunMinAggregateInputType = {
+    id?: true
+    trigger?: true
+    status?: true
+    fromDate?: true
+    toDate?: true
+    universitiesProcessed?: true
+    instructorDaysWritten?: true
+    instructorWeeksWritten?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    durationMs?: true
+  }
+
+  export type MetricsJobRunMaxAggregateInputType = {
+    id?: true
+    trigger?: true
+    status?: true
+    fromDate?: true
+    toDate?: true
+    universitiesProcessed?: true
+    instructorDaysWritten?: true
+    instructorWeeksWritten?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    durationMs?: true
+  }
+
+  export type MetricsJobRunCountAggregateInputType = {
+    id?: true
+    trigger?: true
+    status?: true
+    fromDate?: true
+    toDate?: true
+    universitiesProcessed?: true
+    instructorDaysWritten?: true
+    instructorWeeksWritten?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    durationMs?: true
+    _all?: true
+  }
+
+  export type MetricsJobRunAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MetricsJobRun to aggregate.
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MetricsJobRuns to fetch.
+     */
+    orderBy?: MetricsJobRunOrderByWithRelationInput | MetricsJobRunOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MetricsJobRunWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MetricsJobRuns from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MetricsJobRuns.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MetricsJobRuns
+    **/
+    _count?: true | MetricsJobRunCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: MetricsJobRunAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: MetricsJobRunSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MetricsJobRunMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MetricsJobRunMaxAggregateInputType
+  }
+
+  export type GetMetricsJobRunAggregateType<T extends MetricsJobRunAggregateArgs> = {
+        [P in keyof T & keyof AggregateMetricsJobRun]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMetricsJobRun[P]>
+      : GetScalarType<T[P], AggregateMetricsJobRun[P]>
+  }
+
+
+
+
+  export type MetricsJobRunGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MetricsJobRunWhereInput
+    orderBy?: MetricsJobRunOrderByWithAggregationInput | MetricsJobRunOrderByWithAggregationInput[]
+    by: MetricsJobRunScalarFieldEnum[] | MetricsJobRunScalarFieldEnum
+    having?: MetricsJobRunScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MetricsJobRunCountAggregateInputType | true
+    _avg?: MetricsJobRunAvgAggregateInputType
+    _sum?: MetricsJobRunSumAggregateInputType
+    _min?: MetricsJobRunMinAggregateInputType
+    _max?: MetricsJobRunMaxAggregateInputType
+  }
+
+  export type MetricsJobRunGroupByOutputType = {
+    id: string
+    trigger: $Enums.MetricsJobTrigger
+    status: $Enums.MetricsJobStatus
+    fromDate: string
+    toDate: string
+    universitiesProcessed: number
+    instructorDaysWritten: number
+    instructorWeeksWritten: number
+    errorMessage: string | null
+    startedAt: Date
+    completedAt: Date | null
+    durationMs: number | null
+    _count: MetricsJobRunCountAggregateOutputType | null
+    _avg: MetricsJobRunAvgAggregateOutputType | null
+    _sum: MetricsJobRunSumAggregateOutputType | null
+    _min: MetricsJobRunMinAggregateOutputType | null
+    _max: MetricsJobRunMaxAggregateOutputType | null
+  }
+
+  type GetMetricsJobRunGroupByPayload<T extends MetricsJobRunGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MetricsJobRunGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MetricsJobRunGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MetricsJobRunGroupByOutputType[P]>
+            : GetScalarType<T[P], MetricsJobRunGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MetricsJobRunSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    trigger?: boolean
+    status?: boolean
+    fromDate?: boolean
+    toDate?: boolean
+    universitiesProcessed?: boolean
+    instructorDaysWritten?: boolean
+    instructorWeeksWritten?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    durationMs?: boolean
+  }, ExtArgs["result"]["metricsJobRun"]>
+
+  export type MetricsJobRunSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    trigger?: boolean
+    status?: boolean
+    fromDate?: boolean
+    toDate?: boolean
+    universitiesProcessed?: boolean
+    instructorDaysWritten?: boolean
+    instructorWeeksWritten?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    durationMs?: boolean
+  }, ExtArgs["result"]["metricsJobRun"]>
+
+  export type MetricsJobRunSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    trigger?: boolean
+    status?: boolean
+    fromDate?: boolean
+    toDate?: boolean
+    universitiesProcessed?: boolean
+    instructorDaysWritten?: boolean
+    instructorWeeksWritten?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    durationMs?: boolean
+  }, ExtArgs["result"]["metricsJobRun"]>
+
+  export type MetricsJobRunSelectScalar = {
+    id?: boolean
+    trigger?: boolean
+    status?: boolean
+    fromDate?: boolean
+    toDate?: boolean
+    universitiesProcessed?: boolean
+    instructorDaysWritten?: boolean
+    instructorWeeksWritten?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    durationMs?: boolean
+  }
+
+  export type MetricsJobRunOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "trigger" | "status" | "fromDate" | "toDate" | "universitiesProcessed" | "instructorDaysWritten" | "instructorWeeksWritten" | "errorMessage" | "startedAt" | "completedAt" | "durationMs", ExtArgs["result"]["metricsJobRun"]>
+
+  export type $MetricsJobRunPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MetricsJobRun"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      trigger: $Enums.MetricsJobTrigger
+      status: $Enums.MetricsJobStatus
+      /**
+       * Window recomputed, as YYYY-MM-DD.
+       */
+      fromDate: string
+      toDate: string
+      universitiesProcessed: number
+      instructorDaysWritten: number
+      instructorWeeksWritten: number
+      errorMessage: string | null
+      startedAt: Date
+      completedAt: Date | null
+      durationMs: number | null
+    }, ExtArgs["result"]["metricsJobRun"]>
+    composites: {}
+  }
+
+  type MetricsJobRunGetPayload<S extends boolean | null | undefined | MetricsJobRunDefaultArgs> = $Result.GetResult<Prisma.$MetricsJobRunPayload, S>
+
+  type MetricsJobRunCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MetricsJobRunFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MetricsJobRunCountAggregateInputType | true
+    }
+
+  export interface MetricsJobRunDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MetricsJobRun'], meta: { name: 'MetricsJobRun' } }
+    /**
+     * Find zero or one MetricsJobRun that matches the filter.
+     * @param {MetricsJobRunFindUniqueArgs} args - Arguments to find a MetricsJobRun
+     * @example
+     * // Get one MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MetricsJobRunFindUniqueArgs>(args: SelectSubset<T, MetricsJobRunFindUniqueArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MetricsJobRun that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MetricsJobRunFindUniqueOrThrowArgs} args - Arguments to find a MetricsJobRun
+     * @example
+     * // Get one MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MetricsJobRunFindUniqueOrThrowArgs>(args: SelectSubset<T, MetricsJobRunFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MetricsJobRun that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunFindFirstArgs} args - Arguments to find a MetricsJobRun
+     * @example
+     * // Get one MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MetricsJobRunFindFirstArgs>(args?: SelectSubset<T, MetricsJobRunFindFirstArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MetricsJobRun that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunFindFirstOrThrowArgs} args - Arguments to find a MetricsJobRun
+     * @example
+     * // Get one MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MetricsJobRunFindFirstOrThrowArgs>(args?: SelectSubset<T, MetricsJobRunFindFirstOrThrowArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MetricsJobRuns that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MetricsJobRuns
+     * const metricsJobRuns = await prisma.metricsJobRun.findMany()
+     * 
+     * // Get first 10 MetricsJobRuns
+     * const metricsJobRuns = await prisma.metricsJobRun.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const metricsJobRunWithIdOnly = await prisma.metricsJobRun.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MetricsJobRunFindManyArgs>(args?: SelectSubset<T, MetricsJobRunFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MetricsJobRun.
+     * @param {MetricsJobRunCreateArgs} args - Arguments to create a MetricsJobRun.
+     * @example
+     * // Create one MetricsJobRun
+     * const MetricsJobRun = await prisma.metricsJobRun.create({
+     *   data: {
+     *     // ... data to create a MetricsJobRun
+     *   }
+     * })
+     * 
+     */
+    create<T extends MetricsJobRunCreateArgs>(args: SelectSubset<T, MetricsJobRunCreateArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MetricsJobRuns.
+     * @param {MetricsJobRunCreateManyArgs} args - Arguments to create many MetricsJobRuns.
+     * @example
+     * // Create many MetricsJobRuns
+     * const metricsJobRun = await prisma.metricsJobRun.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MetricsJobRunCreateManyArgs>(args?: SelectSubset<T, MetricsJobRunCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many MetricsJobRuns and returns the data saved in the database.
+     * @param {MetricsJobRunCreateManyAndReturnArgs} args - Arguments to create many MetricsJobRuns.
+     * @example
+     * // Create many MetricsJobRuns
+     * const metricsJobRun = await prisma.metricsJobRun.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many MetricsJobRuns and only return the `id`
+     * const metricsJobRunWithIdOnly = await prisma.metricsJobRun.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends MetricsJobRunCreateManyAndReturnArgs>(args?: SelectSubset<T, MetricsJobRunCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a MetricsJobRun.
+     * @param {MetricsJobRunDeleteArgs} args - Arguments to delete one MetricsJobRun.
+     * @example
+     * // Delete one MetricsJobRun
+     * const MetricsJobRun = await prisma.metricsJobRun.delete({
+     *   where: {
+     *     // ... filter to delete one MetricsJobRun
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MetricsJobRunDeleteArgs>(args: SelectSubset<T, MetricsJobRunDeleteArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MetricsJobRun.
+     * @param {MetricsJobRunUpdateArgs} args - Arguments to update one MetricsJobRun.
+     * @example
+     * // Update one MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MetricsJobRunUpdateArgs>(args: SelectSubset<T, MetricsJobRunUpdateArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MetricsJobRuns.
+     * @param {MetricsJobRunDeleteManyArgs} args - Arguments to filter MetricsJobRuns to delete.
+     * @example
+     * // Delete a few MetricsJobRuns
+     * const { count } = await prisma.metricsJobRun.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MetricsJobRunDeleteManyArgs>(args?: SelectSubset<T, MetricsJobRunDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MetricsJobRuns.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MetricsJobRuns
+     * const metricsJobRun = await prisma.metricsJobRun.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MetricsJobRunUpdateManyArgs>(args: SelectSubset<T, MetricsJobRunUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MetricsJobRuns and returns the data updated in the database.
+     * @param {MetricsJobRunUpdateManyAndReturnArgs} args - Arguments to update many MetricsJobRuns.
+     * @example
+     * // Update many MetricsJobRuns
+     * const metricsJobRun = await prisma.metricsJobRun.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more MetricsJobRuns and only return the `id`
+     * const metricsJobRunWithIdOnly = await prisma.metricsJobRun.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends MetricsJobRunUpdateManyAndReturnArgs>(args: SelectSubset<T, MetricsJobRunUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one MetricsJobRun.
+     * @param {MetricsJobRunUpsertArgs} args - Arguments to update or create a MetricsJobRun.
+     * @example
+     * // Update or create a MetricsJobRun
+     * const metricsJobRun = await prisma.metricsJobRun.upsert({
+     *   create: {
+     *     // ... data to create a MetricsJobRun
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MetricsJobRun we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MetricsJobRunUpsertArgs>(args: SelectSubset<T, MetricsJobRunUpsertArgs<ExtArgs>>): Prisma__MetricsJobRunClient<$Result.GetResult<Prisma.$MetricsJobRunPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MetricsJobRuns.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunCountArgs} args - Arguments to filter MetricsJobRuns to count.
+     * @example
+     * // Count the number of MetricsJobRuns
+     * const count = await prisma.metricsJobRun.count({
+     *   where: {
+     *     // ... the filter for the MetricsJobRuns we want to count
+     *   }
+     * })
+    **/
+    count<T extends MetricsJobRunCountArgs>(
+      args?: Subset<T, MetricsJobRunCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MetricsJobRunCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MetricsJobRun.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MetricsJobRunAggregateArgs>(args: Subset<T, MetricsJobRunAggregateArgs>): Prisma.PrismaPromise<GetMetricsJobRunAggregateType<T>>
+
+    /**
+     * Group by MetricsJobRun.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MetricsJobRunGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MetricsJobRunGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MetricsJobRunGroupByArgs['orderBy'] }
+        : { orderBy?: MetricsJobRunGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MetricsJobRunGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMetricsJobRunGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MetricsJobRun model
+   */
+  readonly fields: MetricsJobRunFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MetricsJobRun.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MetricsJobRunClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MetricsJobRun model
+   */
+  interface MetricsJobRunFieldRefs {
+    readonly id: FieldRef<"MetricsJobRun", 'String'>
+    readonly trigger: FieldRef<"MetricsJobRun", 'MetricsJobTrigger'>
+    readonly status: FieldRef<"MetricsJobRun", 'MetricsJobStatus'>
+    readonly fromDate: FieldRef<"MetricsJobRun", 'String'>
+    readonly toDate: FieldRef<"MetricsJobRun", 'String'>
+    readonly universitiesProcessed: FieldRef<"MetricsJobRun", 'Int'>
+    readonly instructorDaysWritten: FieldRef<"MetricsJobRun", 'Int'>
+    readonly instructorWeeksWritten: FieldRef<"MetricsJobRun", 'Int'>
+    readonly errorMessage: FieldRef<"MetricsJobRun", 'String'>
+    readonly startedAt: FieldRef<"MetricsJobRun", 'DateTime'>
+    readonly completedAt: FieldRef<"MetricsJobRun", 'DateTime'>
+    readonly durationMs: FieldRef<"MetricsJobRun", 'Int'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MetricsJobRun findUnique
+   */
+  export type MetricsJobRunFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter, which MetricsJobRun to fetch.
+     */
+    where: MetricsJobRunWhereUniqueInput
+  }
+
+  /**
+   * MetricsJobRun findUniqueOrThrow
+   */
+  export type MetricsJobRunFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter, which MetricsJobRun to fetch.
+     */
+    where: MetricsJobRunWhereUniqueInput
+  }
+
+  /**
+   * MetricsJobRun findFirst
+   */
+  export type MetricsJobRunFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter, which MetricsJobRun to fetch.
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MetricsJobRuns to fetch.
+     */
+    orderBy?: MetricsJobRunOrderByWithRelationInput | MetricsJobRunOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MetricsJobRuns.
+     */
+    cursor?: MetricsJobRunWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MetricsJobRuns from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MetricsJobRuns.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MetricsJobRuns.
+     */
+    distinct?: MetricsJobRunScalarFieldEnum | MetricsJobRunScalarFieldEnum[]
+  }
+
+  /**
+   * MetricsJobRun findFirstOrThrow
+   */
+  export type MetricsJobRunFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter, which MetricsJobRun to fetch.
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MetricsJobRuns to fetch.
+     */
+    orderBy?: MetricsJobRunOrderByWithRelationInput | MetricsJobRunOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MetricsJobRuns.
+     */
+    cursor?: MetricsJobRunWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MetricsJobRuns from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MetricsJobRuns.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MetricsJobRuns.
+     */
+    distinct?: MetricsJobRunScalarFieldEnum | MetricsJobRunScalarFieldEnum[]
+  }
+
+  /**
+   * MetricsJobRun findMany
+   */
+  export type MetricsJobRunFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter, which MetricsJobRuns to fetch.
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MetricsJobRuns to fetch.
+     */
+    orderBy?: MetricsJobRunOrderByWithRelationInput | MetricsJobRunOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MetricsJobRuns.
+     */
+    cursor?: MetricsJobRunWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MetricsJobRuns from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MetricsJobRuns.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MetricsJobRuns.
+     */
+    distinct?: MetricsJobRunScalarFieldEnum | MetricsJobRunScalarFieldEnum[]
+  }
+
+  /**
+   * MetricsJobRun create
+   */
+  export type MetricsJobRunCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * The data needed to create a MetricsJobRun.
+     */
+    data: XOR<MetricsJobRunCreateInput, MetricsJobRunUncheckedCreateInput>
+  }
+
+  /**
+   * MetricsJobRun createMany
+   */
+  export type MetricsJobRunCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MetricsJobRuns.
+     */
+    data: MetricsJobRunCreateManyInput | MetricsJobRunCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MetricsJobRun createManyAndReturn
+   */
+  export type MetricsJobRunCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * The data used to create many MetricsJobRuns.
+     */
+    data: MetricsJobRunCreateManyInput | MetricsJobRunCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MetricsJobRun update
+   */
+  export type MetricsJobRunUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * The data needed to update a MetricsJobRun.
+     */
+    data: XOR<MetricsJobRunUpdateInput, MetricsJobRunUncheckedUpdateInput>
+    /**
+     * Choose, which MetricsJobRun to update.
+     */
+    where: MetricsJobRunWhereUniqueInput
+  }
+
+  /**
+   * MetricsJobRun updateMany
+   */
+  export type MetricsJobRunUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MetricsJobRuns.
+     */
+    data: XOR<MetricsJobRunUpdateManyMutationInput, MetricsJobRunUncheckedUpdateManyInput>
+    /**
+     * Filter which MetricsJobRuns to update
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * Limit how many MetricsJobRuns to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MetricsJobRun updateManyAndReturn
+   */
+  export type MetricsJobRunUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * The data used to update MetricsJobRuns.
+     */
+    data: XOR<MetricsJobRunUpdateManyMutationInput, MetricsJobRunUncheckedUpdateManyInput>
+    /**
+     * Filter which MetricsJobRuns to update
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * Limit how many MetricsJobRuns to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MetricsJobRun upsert
+   */
+  export type MetricsJobRunUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * The filter to search for the MetricsJobRun to update in case it exists.
+     */
+    where: MetricsJobRunWhereUniqueInput
+    /**
+     * In case the MetricsJobRun found by the `where` argument doesn't exist, create a new MetricsJobRun with this data.
+     */
+    create: XOR<MetricsJobRunCreateInput, MetricsJobRunUncheckedCreateInput>
+    /**
+     * In case the MetricsJobRun was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MetricsJobRunUpdateInput, MetricsJobRunUncheckedUpdateInput>
+  }
+
+  /**
+   * MetricsJobRun delete
+   */
+  export type MetricsJobRunDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+    /**
+     * Filter which MetricsJobRun to delete.
+     */
+    where: MetricsJobRunWhereUniqueInput
+  }
+
+  /**
+   * MetricsJobRun deleteMany
+   */
+  export type MetricsJobRunDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MetricsJobRuns to delete
+     */
+    where?: MetricsJobRunWhereInput
+    /**
+     * Limit how many MetricsJobRuns to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MetricsJobRun without action
+   */
+  export type MetricsJobRunDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MetricsJobRun
+     */
+    select?: MetricsJobRunSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MetricsJobRun
+     */
+    omit?: MetricsJobRunOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -42221,6 +43482,24 @@ export namespace Prisma {
   export type ReportJobScalarFieldEnum = (typeof ReportJobScalarFieldEnum)[keyof typeof ReportJobScalarFieldEnum]
 
 
+  export const MetricsJobRunScalarFieldEnum: {
+    id: 'id',
+    trigger: 'trigger',
+    status: 'status',
+    fromDate: 'fromDate',
+    toDate: 'toDate',
+    universitiesProcessed: 'universitiesProcessed',
+    instructorDaysWritten: 'instructorDaysWritten',
+    instructorWeeksWritten: 'instructorWeeksWritten',
+    errorMessage: 'errorMessage',
+    startedAt: 'startedAt',
+    completedAt: 'completedAt',
+    durationMs: 'durationMs'
+  };
+
+  export type MetricsJobRunScalarFieldEnum = (typeof MetricsJobRunScalarFieldEnum)[keyof typeof MetricsJobRunScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -42544,6 +43823,34 @@ export namespace Prisma {
    * Reference to a field of type 'ReportJobStatus[]'
    */
   export type ListEnumReportJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ReportJobStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'MetricsJobTrigger'
+   */
+  export type EnumMetricsJobTriggerFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MetricsJobTrigger'>
+    
+
+
+  /**
+   * Reference to a field of type 'MetricsJobTrigger[]'
+   */
+  export type ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MetricsJobTrigger[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'MetricsJobStatus'
+   */
+  export type EnumMetricsJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MetricsJobStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'MetricsJobStatus[]'
+   */
+  export type ListEnumMetricsJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MetricsJobStatus[]'>
     
   /**
    * Deep Input Types
@@ -45367,6 +46674,95 @@ export namespace Prisma {
     completedAt?: DateTimeNullableWithAggregatesFilter<"ReportJob"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"ReportJob"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"ReportJob"> | Date | string
+  }
+
+  export type MetricsJobRunWhereInput = {
+    AND?: MetricsJobRunWhereInput | MetricsJobRunWhereInput[]
+    OR?: MetricsJobRunWhereInput[]
+    NOT?: MetricsJobRunWhereInput | MetricsJobRunWhereInput[]
+    id?: StringFilter<"MetricsJobRun"> | string
+    trigger?: EnumMetricsJobTriggerFilter<"MetricsJobRun"> | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFilter<"MetricsJobRun"> | $Enums.MetricsJobStatus
+    fromDate?: StringFilter<"MetricsJobRun"> | string
+    toDate?: StringFilter<"MetricsJobRun"> | string
+    universitiesProcessed?: IntFilter<"MetricsJobRun"> | number
+    instructorDaysWritten?: IntFilter<"MetricsJobRun"> | number
+    instructorWeeksWritten?: IntFilter<"MetricsJobRun"> | number
+    errorMessage?: StringNullableFilter<"MetricsJobRun"> | string | null
+    startedAt?: DateTimeFilter<"MetricsJobRun"> | Date | string
+    completedAt?: DateTimeNullableFilter<"MetricsJobRun"> | Date | string | null
+    durationMs?: IntNullableFilter<"MetricsJobRun"> | number | null
+  }
+
+  export type MetricsJobRunOrderByWithRelationInput = {
+    id?: SortOrder
+    trigger?: SortOrder
+    status?: SortOrder
+    fromDate?: SortOrder
+    toDate?: SortOrder
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    durationMs?: SortOrderInput | SortOrder
+  }
+
+  export type MetricsJobRunWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: MetricsJobRunWhereInput | MetricsJobRunWhereInput[]
+    OR?: MetricsJobRunWhereInput[]
+    NOT?: MetricsJobRunWhereInput | MetricsJobRunWhereInput[]
+    trigger?: EnumMetricsJobTriggerFilter<"MetricsJobRun"> | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFilter<"MetricsJobRun"> | $Enums.MetricsJobStatus
+    fromDate?: StringFilter<"MetricsJobRun"> | string
+    toDate?: StringFilter<"MetricsJobRun"> | string
+    universitiesProcessed?: IntFilter<"MetricsJobRun"> | number
+    instructorDaysWritten?: IntFilter<"MetricsJobRun"> | number
+    instructorWeeksWritten?: IntFilter<"MetricsJobRun"> | number
+    errorMessage?: StringNullableFilter<"MetricsJobRun"> | string | null
+    startedAt?: DateTimeFilter<"MetricsJobRun"> | Date | string
+    completedAt?: DateTimeNullableFilter<"MetricsJobRun"> | Date | string | null
+    durationMs?: IntNullableFilter<"MetricsJobRun"> | number | null
+  }, "id">
+
+  export type MetricsJobRunOrderByWithAggregationInput = {
+    id?: SortOrder
+    trigger?: SortOrder
+    status?: SortOrder
+    fromDate?: SortOrder
+    toDate?: SortOrder
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    durationMs?: SortOrderInput | SortOrder
+    _count?: MetricsJobRunCountOrderByAggregateInput
+    _avg?: MetricsJobRunAvgOrderByAggregateInput
+    _max?: MetricsJobRunMaxOrderByAggregateInput
+    _min?: MetricsJobRunMinOrderByAggregateInput
+    _sum?: MetricsJobRunSumOrderByAggregateInput
+  }
+
+  export type MetricsJobRunScalarWhereWithAggregatesInput = {
+    AND?: MetricsJobRunScalarWhereWithAggregatesInput | MetricsJobRunScalarWhereWithAggregatesInput[]
+    OR?: MetricsJobRunScalarWhereWithAggregatesInput[]
+    NOT?: MetricsJobRunScalarWhereWithAggregatesInput | MetricsJobRunScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"MetricsJobRun"> | string
+    trigger?: EnumMetricsJobTriggerWithAggregatesFilter<"MetricsJobRun"> | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusWithAggregatesFilter<"MetricsJobRun"> | $Enums.MetricsJobStatus
+    fromDate?: StringWithAggregatesFilter<"MetricsJobRun"> | string
+    toDate?: StringWithAggregatesFilter<"MetricsJobRun"> | string
+    universitiesProcessed?: IntWithAggregatesFilter<"MetricsJobRun"> | number
+    instructorDaysWritten?: IntWithAggregatesFilter<"MetricsJobRun"> | number
+    instructorWeeksWritten?: IntWithAggregatesFilter<"MetricsJobRun"> | number
+    errorMessage?: StringNullableWithAggregatesFilter<"MetricsJobRun"> | string | null
+    startedAt?: DateTimeWithAggregatesFilter<"MetricsJobRun"> | Date | string
+    completedAt?: DateTimeNullableWithAggregatesFilter<"MetricsJobRun"> | Date | string | null
+    durationMs?: IntNullableWithAggregatesFilter<"MetricsJobRun"> | number | null
   }
 
   export type UserCreateInput = {
@@ -48418,6 +49814,111 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type MetricsJobRunCreateInput = {
+    id?: string
+    trigger: $Enums.MetricsJobTrigger
+    status?: $Enums.MetricsJobStatus
+    fromDate: string
+    toDate: string
+    universitiesProcessed?: number
+    instructorDaysWritten?: number
+    instructorWeeksWritten?: number
+    errorMessage?: string | null
+    startedAt?: Date | string
+    completedAt?: Date | string | null
+    durationMs?: number | null
+  }
+
+  export type MetricsJobRunUncheckedCreateInput = {
+    id?: string
+    trigger: $Enums.MetricsJobTrigger
+    status?: $Enums.MetricsJobStatus
+    fromDate: string
+    toDate: string
+    universitiesProcessed?: number
+    instructorDaysWritten?: number
+    instructorWeeksWritten?: number
+    errorMessage?: string | null
+    startedAt?: Date | string
+    completedAt?: Date | string | null
+    durationMs?: number | null
+  }
+
+  export type MetricsJobRunUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    trigger?: EnumMetricsJobTriggerFieldUpdateOperationsInput | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFieldUpdateOperationsInput | $Enums.MetricsJobStatus
+    fromDate?: StringFieldUpdateOperationsInput | string
+    toDate?: StringFieldUpdateOperationsInput | string
+    universitiesProcessed?: IntFieldUpdateOperationsInput | number
+    instructorDaysWritten?: IntFieldUpdateOperationsInput | number
+    instructorWeeksWritten?: IntFieldUpdateOperationsInput | number
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    durationMs?: NullableIntFieldUpdateOperationsInput | number | null
+  }
+
+  export type MetricsJobRunUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    trigger?: EnumMetricsJobTriggerFieldUpdateOperationsInput | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFieldUpdateOperationsInput | $Enums.MetricsJobStatus
+    fromDate?: StringFieldUpdateOperationsInput | string
+    toDate?: StringFieldUpdateOperationsInput | string
+    universitiesProcessed?: IntFieldUpdateOperationsInput | number
+    instructorDaysWritten?: IntFieldUpdateOperationsInput | number
+    instructorWeeksWritten?: IntFieldUpdateOperationsInput | number
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    durationMs?: NullableIntFieldUpdateOperationsInput | number | null
+  }
+
+  export type MetricsJobRunCreateManyInput = {
+    id?: string
+    trigger: $Enums.MetricsJobTrigger
+    status?: $Enums.MetricsJobStatus
+    fromDate: string
+    toDate: string
+    universitiesProcessed?: number
+    instructorDaysWritten?: number
+    instructorWeeksWritten?: number
+    errorMessage?: string | null
+    startedAt?: Date | string
+    completedAt?: Date | string | null
+    durationMs?: number | null
+  }
+
+  export type MetricsJobRunUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    trigger?: EnumMetricsJobTriggerFieldUpdateOperationsInput | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFieldUpdateOperationsInput | $Enums.MetricsJobStatus
+    fromDate?: StringFieldUpdateOperationsInput | string
+    toDate?: StringFieldUpdateOperationsInput | string
+    universitiesProcessed?: IntFieldUpdateOperationsInput | number
+    instructorDaysWritten?: IntFieldUpdateOperationsInput | number
+    instructorWeeksWritten?: IntFieldUpdateOperationsInput | number
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    durationMs?: NullableIntFieldUpdateOperationsInput | number | null
+  }
+
+  export type MetricsJobRunUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    trigger?: EnumMetricsJobTriggerFieldUpdateOperationsInput | $Enums.MetricsJobTrigger
+    status?: EnumMetricsJobStatusFieldUpdateOperationsInput | $Enums.MetricsJobStatus
+    fromDate?: StringFieldUpdateOperationsInput | string
+    toDate?: StringFieldUpdateOperationsInput | string
+    universitiesProcessed?: IntFieldUpdateOperationsInput | number
+    instructorDaysWritten?: IntFieldUpdateOperationsInput | number
+    instructorWeeksWritten?: IntFieldUpdateOperationsInput | number
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    durationMs?: NullableIntFieldUpdateOperationsInput | number | null
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -50807,6 +52308,99 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumReportJobStatusFilter<$PrismaModel>
     _max?: NestedEnumReportJobStatusFilter<$PrismaModel>
+  }
+
+  export type EnumMetricsJobTriggerFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobTrigger | EnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobTriggerFilter<$PrismaModel> | $Enums.MetricsJobTrigger
+  }
+
+  export type EnumMetricsJobStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobStatus | EnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobStatusFilter<$PrismaModel> | $Enums.MetricsJobStatus
+  }
+
+  export type MetricsJobRunCountOrderByAggregateInput = {
+    id?: SortOrder
+    trigger?: SortOrder
+    status?: SortOrder
+    fromDate?: SortOrder
+    toDate?: SortOrder
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    durationMs?: SortOrder
+  }
+
+  export type MetricsJobRunAvgOrderByAggregateInput = {
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    durationMs?: SortOrder
+  }
+
+  export type MetricsJobRunMaxOrderByAggregateInput = {
+    id?: SortOrder
+    trigger?: SortOrder
+    status?: SortOrder
+    fromDate?: SortOrder
+    toDate?: SortOrder
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    durationMs?: SortOrder
+  }
+
+  export type MetricsJobRunMinOrderByAggregateInput = {
+    id?: SortOrder
+    trigger?: SortOrder
+    status?: SortOrder
+    fromDate?: SortOrder
+    toDate?: SortOrder
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    durationMs?: SortOrder
+  }
+
+  export type MetricsJobRunSumOrderByAggregateInput = {
+    universitiesProcessed?: SortOrder
+    instructorDaysWritten?: SortOrder
+    instructorWeeksWritten?: SortOrder
+    durationMs?: SortOrder
+  }
+
+  export type EnumMetricsJobTriggerWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobTrigger | EnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobTriggerWithAggregatesFilter<$PrismaModel> | $Enums.MetricsJobTrigger
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumMetricsJobTriggerFilter<$PrismaModel>
+    _max?: NestedEnumMetricsJobTriggerFilter<$PrismaModel>
+  }
+
+  export type EnumMetricsJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobStatus | EnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.MetricsJobStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
+    _max?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
   }
 
   export type UniversityCreateNestedOneWithoutUsersInput = {
@@ -54393,6 +55987,14 @@ export namespace Prisma {
     update?: XOR<XOR<UserUpdateToOneWithWhereWithoutReportJobsInput, UserUpdateWithoutReportJobsInput>, UserUncheckedUpdateWithoutReportJobsInput>
   }
 
+  export type EnumMetricsJobTriggerFieldUpdateOperationsInput = {
+    set?: $Enums.MetricsJobTrigger
+  }
+
+  export type EnumMetricsJobStatusFieldUpdateOperationsInput = {
+    set?: $Enums.MetricsJobStatus
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -54908,6 +56510,40 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumReportJobStatusFilter<$PrismaModel>
     _max?: NestedEnumReportJobStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumMetricsJobTriggerFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobTrigger | EnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobTriggerFilter<$PrismaModel> | $Enums.MetricsJobTrigger
+  }
+
+  export type NestedEnumMetricsJobStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobStatus | EnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobStatusFilter<$PrismaModel> | $Enums.MetricsJobStatus
+  }
+
+  export type NestedEnumMetricsJobTriggerWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobTrigger | EnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobTrigger[] | ListEnumMetricsJobTriggerFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobTriggerWithAggregatesFilter<$PrismaModel> | $Enums.MetricsJobTrigger
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumMetricsJobTriggerFilter<$PrismaModel>
+    _max?: NestedEnumMetricsJobTriggerFilter<$PrismaModel>
+  }
+
+  export type NestedEnumMetricsJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.MetricsJobStatus | EnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.MetricsJobStatus[] | ListEnumMetricsJobStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumMetricsJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.MetricsJobStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
+    _max?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
   }
 
   export type UniversityCreateWithoutUsersInput = {

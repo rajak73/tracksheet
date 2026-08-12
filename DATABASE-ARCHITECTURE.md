@@ -215,15 +215,19 @@ divergence is the point of the aggregation layer.
 
 Stated plainly rather than implied:
 
-- **Redis and BullMQ.** The rollup is exposed as `POST /api/admin/rollup` and
-  factored as a plain async function, so moving it to a worker means calling
-  `rollupAllUniversities` from the worker with no logic change. No queue,
-  no caching layer, no rate limiting yet.
+- **Redis and BullMQ.** Superseded by Phase 6.5: the rollup now runs on an
+  in-process scheduler started from `instrumentation.ts`, with a database lease
+  for multi-instance safety. That is sufficient for a single long-running Node
+  deployment and needs no extra infrastructure. A queue becomes necessary if the
+  app is deployed serverless (no long-lived process to hold a timer) or if the
+  rollup grows beyond what one instance can finish inside a tick. No caching
+  layer and no rate limiting yet.
 - **`ReportJob` is a schema and a contract, not a pipeline.** Nothing writes to
   it; exports are still generated synchronously. Fine at current volumes, not at
   the target.
-- **`InstructorWeeklyMetric` is defined but not populated.** Only daily rollups
-  run; weekly aggregation is not written.
+- ~~`InstructorWeeklyMetric` is defined but not populated.~~ Resolved in Phase
+  6.5: weekly rows are derived from the daily rows in the same job, so a week is
+  by construction the sum of its days rather than a third computation.
 - **Partitioning, read replicas, RLS** — reasoned about above, not applied.
 - **UUIDv7.** IDs remain `cuid()`, which is already non-sequential and
   collision-resistant. Rewriting every primary key and foreign key across 31

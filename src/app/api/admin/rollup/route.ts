@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
-import { rollupAllUniversities } from "@/server/analytics/rollup";
+import { runRollup } from "@/server/jobs/metrics-scheduler";
 import { resolvePeriod } from "@/server/analytics/period";
 import { logAudit } from "@/server/audit/logger";
+import { prisma } from "@/server/db";
 
 /**
  * Triggers the daily metric rollup.
@@ -19,28 +20,60 @@ export const POST = withAuth(
     // engine from its configured timezone.
     const period = resolvePeriod(req.nextUrl.searchParams, "UTC");
 
-    const started = Date.now();
-    const results = await rollupAllUniversities(period.from, period.to);
-    const durationMs = Date.now() - started;
+    // Same function the scheduler calls, so a manual recompute and an
+    // automatic one cannot produce different numbers.
+    const result = await runRollup("MANUAL", { from: period.from, to: period.to });
+
+    if (!result) {
+      return NextResponse.json(
+        { error: { code: "ROLLUP_IN_PROGRESS", message: "A rollup is already running" } },
+        { status: 409 },
+      );
+    }
 
     await logAudit(principal, scope, {
       action: "METRICS_ROLLUP_RUN",
       metadata: {
         from: period.from,
         to: period.to,
-        universities: results.length,
-        instructorDays: results.reduce((a, r) => a + r.instructorDays, 0),
-        durationMs,
+        runId: result.id,
+        instructorDays: result.instructorDays,
+        instructorWeeks: result.instructorWeeks,
       },
     });
 
     return NextResponse.json({
+      runId: result.id,
       from: period.from,
       to: period.to,
-      universities: results.length,
-      instructorDays: results.reduce((a, r) => a + r.instructorDays, 0),
-      universityDays: results.reduce((a, r) => a + r.universityDays, 0),
-      durationMs,
+      instructorDays: result.instructorDays,
+      instructorWeeks: result.instructorWeeks,
+    });
+  },
+  { roles: ["ADMIN"] },
+);
+
+
+/**
+ * Rollup history — answers "are the dashboards current, and did the last run
+ * actually succeed?" without reading server logs.
+ */
+export const GET = withAuth(
+  async () => {
+    const runs = await prisma.metricsJobRun.findMany({
+      orderBy: { startedAt: "desc" },
+      take: 20,
+    });
+
+    const lastCompleted = runs.find((r) => r.status === "COMPLETED");
+
+    return NextResponse.json({
+      lastCompletedAt: lastCompleted?.completedAt ?? null,
+      lastCompletedTrigger: lastCompleted?.trigger ?? null,
+      staleSeconds: lastCompleted?.completedAt
+        ? Math.floor((Date.now() - lastCompleted.completedAt.getTime()) / 1000)
+        : null,
+      runs,
     });
   },
   { roles: ["ADMIN"] },

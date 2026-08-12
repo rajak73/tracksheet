@@ -17,7 +17,7 @@
  */
 
 import { prisma } from "@/server/db";
-import { computeAnalytics } from "@/server/analytics/engine";
+import { computeAnalytics, eachDate } from "@/server/analytics/engine";
 import { toDateOnly } from "@/server/time/workday";
 
 const round2 = (n: number) => Number(n.toFixed(2));
@@ -29,7 +29,28 @@ export type RollupResult = {
   to: string;
   instructorDays: number;
   universityDays: number;
+  instructorWeeks: number;
 };
+
+/**
+ * Monday-start (ISO) week containing `date`, as YYYY-MM-DD bounds.
+ *
+ * Weeks are anchored to Monday rather than to the university's first working
+ * day: a tenant working Mon-Sat and one working Mon-Fri must still bucket into
+ * comparable weeks, otherwise cross-university comparison is meaningless.
+ */
+export function isoWeekBounds(date: string): { start: string; end: string } {
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  // getUTCDay: 0=Sun..6=Sat -> offset back to Monday.
+  const offset = (dt.getUTCDay() + 6) % 7;
+  const start = new Date(dt);
+  start.setUTCDate(start.getUTCDate() - offset);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  const iso = (x: Date) => x.toISOString().slice(0, 10);
+  return { start: iso(start), end: iso(end) };
+}
 
 /**
  * Recomputes daily metrics for one university over a date range.
@@ -167,13 +188,110 @@ export async function rollupUniversityDaily(
     ),
   );
 
+  const instructorWeeks = await rollupInstructorWeekly(universityId, from, to);
+
   return {
     universityId,
     from,
     to,
     instructorDays: instructorRows.length,
     universityDays: universityRows.length,
+    instructorWeeks,
   };
+}
+
+/**
+ * Derives weekly metrics from the daily rows just written.
+ *
+ * Deliberately derived from InstructorDailyMetric rather than recomputed from
+ * ActivityLog: recomputing would be a third implementation of the same maths
+ * and could disagree with the daily rows it sits above. Summing the dailies
+ * guarantees week = sum(its days) by construction.
+ *
+ * Any week TOUCHED by the window is recomputed in full, not just the part
+ * inside it — a Wednesday rollup must not write a week row containing only
+ * Monday-to-Wednesday and present it as the week's total.
+ */
+async function rollupInstructorWeekly(
+  universityId: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const weeks = new Map<string, { start: string; end: string }>();
+  for (const date of eachDate(from, to)) {
+    const bounds = isoWeekBounds(date);
+    weeks.set(bounds.start, bounds);
+  }
+
+  let written = 0;
+
+  for (const { start, end } of weeks.values()) {
+    const days = await prisma.instructorDailyMetric.findMany({
+      where: {
+        universityId,
+        metricDate: { gte: toDateOnly(start), lte: toDateOnly(end) },
+      },
+      select: {
+        instructorId: true,
+        capacityMinutes: true,
+        productiveMinutes: true,
+        unutilizedMinutes: true,
+        missingDataMinutes: true,
+        isWorkingDay: true,
+        openingLogged: true,
+        closingLogged: true,
+      },
+    });
+
+    const byInstructor = new Map<string, typeof days>();
+    for (const d of days) {
+      const list = byInstructor.get(d.instructorId);
+      if (list) list.push(d);
+      else byInstructor.set(d.instructorId, [d]);
+    }
+
+    const rows = [...byInstructor.entries()].map(([instructorId, ds]) => {
+      const capacity = ds.reduce((a, d) => a + d.capacityMinutes, 0);
+      const productive = ds.reduce((a, d) => a + d.productiveMinutes, 0);
+      const workingDays = ds.filter((d) => d.isWorkingDay).length;
+      const openings = ds.filter((d) => d.openingLogged).length;
+      const closings = ds.filter((d) => d.closingLogged).length;
+
+      return {
+        universityId,
+        instructorId,
+        periodStart: toDateOnly(start),
+        periodEnd: toDateOnly(end),
+        capacityMinutes: capacity,
+        productiveMinutes: productive,
+        unutilizedMinutes: ds.reduce((a, d) => a + d.unutilizedMinutes, 0),
+        missingDataMinutes: ds.reduce((a, d) => a + d.missingDataMinutes, 0),
+        minutesByActivityType: {},
+        utilizationPercent: capacity > 0 ? round2((productive / capacity) * 100) : null,
+        openingCompliancePct: workingDays > 0 ? round2((openings / workingDays) * 100) : null,
+        closingCompliancePct: workingDays > 0 ? round2((closings / workingDays) * 100) : null,
+        expectedWorkingDays: workingDays,
+      };
+    });
+
+    await prisma.$transaction(
+      rows.map((data) =>
+        prisma.instructorWeeklyMetric.upsert({
+          where: {
+            instructorId_periodStart: {
+              instructorId: data.instructorId,
+              periodStart: data.periodStart,
+            },
+          },
+          create: data,
+          update: data,
+        }),
+      ),
+    );
+    written += rows.length;
+  }
+
+  return written;
 }
 
 /**

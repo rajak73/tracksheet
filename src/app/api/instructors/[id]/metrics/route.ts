@@ -27,6 +27,15 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
   const config = await loadUniversityConfig(instructor.universityId);
   const period = resolvePeriod(req.nextUrl.searchParams, config.timezone);
 
+  const weeks = await prisma.instructorWeeklyMetric.findMany({
+    where: {
+      instructorId: instructor.id,
+      periodEnd: { gte: toDateOnly(period.from) },
+      periodStart: { lte: toDateOnly(period.to) },
+    },
+    orderBy: { periodStart: "asc" },
+  });
+
   const rows = await prisma.instructorDailyMetric.findMany({
     where: {
       instructorId: instructor.id,
@@ -53,6 +62,18 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       utilizationPct:
         capacityHours > 0 ? Number(((productiveHours / capacityHours) * 100).toFixed(2)) : null,
     },
+    weeks: weeks.map((w) => ({
+      periodStart: w.periodStart.toISOString().slice(0, 10),
+      periodEnd: w.periodEnd.toISOString().slice(0, 10),
+      capacityHours: toHours(w.capacityMinutes),
+      productiveHours: toHours(w.productiveMinutes),
+      unutilizedHours: toHours(w.unutilizedMinutes),
+      missingDataHours: toHours(w.missingDataMinutes),
+      utilizationPct: w.utilizationPercent,
+      openingCompliancePct: w.openingCompliancePct,
+      closingCompliancePct: w.closingCompliancePct,
+      expectedWorkingDays: w.expectedWorkingDays,
+    })),
     days: rows.map((r) => ({
       date: r.metricDate.toISOString().slice(0, 10),
       capacityHours: toHours(r.capacityMinutes),
