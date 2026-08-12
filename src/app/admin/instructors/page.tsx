@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Instructor = {
   id: string;
@@ -61,7 +62,14 @@ export default function AdminInstructorsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
               {instructors.map((i) => (
                 <tr key={i.id}>
-                  <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">{i.user.name}</td>
+                  <td className="px-3 py-3 text-sm font-medium">
+                    <Link
+                      href={`/admin/instructors/${i.id}`}
+                      className="text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      {i.user.name}
+                    </Link>
+                  </td>
                   <td className="px-3 py-3 text-sm text-gray-500">{i.user.email}</td>
                   <td className="px-3 py-3 text-sm text-gray-500">{i.employeeCode ?? "—"}</td>
                   <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">{i.university.name}</td>

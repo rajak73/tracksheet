@@ -37,6 +37,16 @@ type Personal = {
 
 type PersonalInsight = { type: string; severity: string; recommendation: string };
 
+type ScheduleSlot = {
+  id: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  status: string;
+  activityType: { code: string; label: string };
+  course: { code: string; title: string } | null;
+};
+
 type Windows = {
   date: string;
   isWorkingDay: boolean;
@@ -72,6 +82,7 @@ export default function InstructorDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
   const [insights, setInsights] = useState<PersonalInsight[]>([]);
+  const [slots, setSlots] = useState<ScheduleSlot[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -116,8 +127,12 @@ export default function InstructorDashboardPage() {
 
           const lastDay = mine.days[mine.days.length - 1];
           if (lastDay) {
-            const wRes = await fetch(`/api/universities/${uid}/windows?date=${lastDay.date}`);
+            const [wRes, sRes] = await Promise.all([
+              fetch(`/api/universities/${uid}/windows?date=${lastDay.date}`),
+              fetch(`/api/instructors/${iid}/schedule?date=${lastDay.date}`),
+            ]);
             if (wRes.ok) setToday((await wRes.json()).windows);
+            if (sRes.ok) setSlots((await sRes.json()).slots);
           }
         }
       }
@@ -230,6 +245,43 @@ export default function InstructorDashboardPage() {
             <p className="mt-2 text-sm text-gray-500 dark:text-zinc-400">
               No opening or closing is expected on a non-working day.
             </p>
+          )}
+        </section>
+      ) : null}
+
+      {today?.isWorkingDay ? (
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
+              Today&apos;s schedule
+            </h2>
+          </div>
+          {slots.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">
+              Nothing scheduled for today. Your manager plans schedule slots; you can still
+              record any activity you carry out.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+              {slots.map((s) => (
+                <li key={s.id} className="flex items-center justify-between px-4 py-3 sm:px-6">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                      {s.activityType.label}
+                      {s.course ? ` · ${s.course.code}` : ""}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(s.startTime).toISOString().slice(11, 16)}–
+                      {new Date(s.endTime).toISOString().slice(11, 16)} UTC
+                      {s.location ? ` · ${s.location}` : ""}
+                    </p>
+                  </div>
+                  <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-zinc-800 dark:text-zinc-300">
+                    {s.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       ) : null}

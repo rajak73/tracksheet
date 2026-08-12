@@ -4,8 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 4.5 complete** (data-quality exceptions), on top of
-Phase 6.5. Phases 1–8 implemented, plus a
+**Current state: Phase 5 complete** (role dashboards with admin drill-down), on
+top of Phases 4.5 and 6.5. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -139,6 +139,23 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Role applications
+
+| Role | Pages |
+|---|---|
+| Admin | Dashboard · Universities → university detail (managers + instructors) · Instructors → instructor detail (days → activities) · Reports |
+| Manager | Dashboard · Instructors · Activities · Deliverables · Reports |
+| Instructor | Dashboard (today's schedule, opening/closing, workload, deliverables, personal insights) · My Activities |
+
+The admin drill-down resolves university → manager → instructor → date →
+activity, each step backed by a real endpoint.
+
+Scheduling is a management action: a manager plans `ScheduleSlot` rows for an
+instructor, and the instructor records what actually happened via activities.
+`DAILY_OPENING` / `DAILY_CLOSING` are rejected as slots — they are derived from
+the university's configured hours, and making them schedulable would let one
+working day carry several of each.
 
 ## Data-quality exceptions
 

@@ -12,6 +12,7 @@ const NAV: NavItem[] = [
   { href: "/manager/dashboard", label: "Dashboard" },
   { href: "/manager/instructors", label: "Instructors" },
   { href: "/manager/activities", label: "Activities" },
+  { href: "/manager/deliverables", label: "Deliverables" },
   { href: "/manager/reports", label: "Reports" },
 ];
 

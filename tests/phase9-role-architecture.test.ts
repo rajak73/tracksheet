@@ -93,6 +93,7 @@ describe("page-level route guards", () => {
       "/manager/dashboard",
       "/manager/instructors",
       "/manager/activities",
+      "/manager/deliverables",
       "/manager/reports",
       "/instructor/dashboard",
       "/instructor/activities",
@@ -101,11 +102,23 @@ describe("page-level route guards", () => {
     }
   });
 
+  test("admin drill-down pages render for admin only", async () => {
+    const unis = await admin.get("/api/universities");
+    const uniId = unis.body.universities[0].id;
+    const instId = (await admin.get("/api/instructors")).body.instructors[0].id;
+
+    expect((await admin.request(`/admin/universities/${uniId}`, { method: "GET" })).status).toBe(200);
+    expect((await admin.request(`/admin/instructors/${instId}`, { method: "GET" })).status).toBe(200);
+    // Same pages are outside the manager and instructor namespaces entirely.
+    expect((await mgrN.request(`/admin/universities/${uniId}`, { method: "GET" })).status).toBe(307);
+    expect((await n1.request(`/admin/instructors/${instId}`, { method: "GET" })).status).toBe(307);
+  });
+
   test("navigation targets all resolve for their own role", async () => {
     for (const path of ["/admin/dashboard", "/admin/universities", "/admin/instructors", "/admin/reports"]) {
       expect((await admin.request(path, { method: "GET" })).status, path).toBe(200);
     }
-    for (const path of ["/manager/dashboard", "/manager/instructors", "/manager/activities", "/manager/reports"]) {
+    for (const path of ["/manager/dashboard", "/manager/instructors", "/manager/activities", "/manager/deliverables", "/manager/reports"]) {
       expect((await mgrN.request(path, { method: "GET" })).status, path).toBe(200);
     }
     for (const path of ["/instructor/dashboard", "/instructor/activities"]) {
