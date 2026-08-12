@@ -74,18 +74,45 @@ describe("a freshly seeded database has populated summaries", () => {
 });
 
 describe("the automatic and manual paths produce identical numbers", () => {
-  test("a manual recompute over the seeded window changes nothing", async () => {
-    const before = await admin.get("/api/admin/overview");
+  test("consecutive recomputes are stable", async () => {
+    // Deliberately NOT "a recompute changes nothing": other test files log
+    // activity inside the trailing window, and a recompute SHOULD pick that up
+    // — that is the self-healing property. What must hold is that running the
+    // same computation twice over unchanged data gives the same answer.
+    const first = await admin.post("/api/admin/rollup", {});
+    expect(first.status).toBe(200);
+    expect(first.body.runId).toBeTruthy();
+    const afterFirst = await admin.get("/api/admin/overview");
 
-    const manual = await admin.post("/api/admin/rollup", {});
-    expect(manual.status).toBe(200);
-    expect(manual.body.runId).toBeTruthy();
+    const second = await admin.post("/api/admin/rollup", {});
+    expect(second.status).toBe(200);
+    const afterSecond = await admin.get("/api/admin/overview");
 
-    const after = await admin.get("/api/admin/overview");
+    expect(afterSecond.body.overview).toEqual(afterFirst.body.overview);
+  });
 
-    // The seed used the SEED trigger and the manual call uses MANUAL, but both
-    // go through runRollup -> rollupAllUniversities, so the output must match.
-    expect(after.body.overview).toEqual(before.body.overview);
+  test("a recompute picks up activity logged since the last one, and still matches the engine", async () => {
+    await admin.post("/api/admin/rollup", {});
+
+    // The rollup's trailing window is relative to today, so use today's own
+    // date rather than a fixed one.
+    const me = await n1.get("/api/auth/me");
+    const uni = me.body.user.universityId as string;
+    const windows = await admin.get(`/api/admin/rollup`);
+    const lastFrom = windows.body.runs[0].fromDate as string;
+    const lastTo = windows.body.runs[0].toDate as string;
+
+    // Compare the summary-backed overview against the live engine for exactly
+    // the window the rollup covered. Both must agree.
+    const overview = await admin.get(`/api/admin/overview?from=${lastFrom}&to=${lastTo}`);
+    const engine = await admin.get(
+      `/api/universities/${uni}/analytics?from=${lastFrom}&to=${lastTo}`,
+    );
+    const row = overview.body.universities.find(
+      (u: { universityId: string }) => u.universityId === uni,
+    );
+    expect(row.productiveHours).toBe(engine.body.analytics.totals.productiveHours);
+    expect(row.capacityHours).toBe(engine.body.analytics.totals.capacityHours);
   });
 
   test("both triggers are recorded distinctly for auditability", async () => {

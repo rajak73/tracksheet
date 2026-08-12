@@ -4,8 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 5 complete** (role dashboards with admin drill-down), on
-top of Phases 4.5 and 6.5. Phases 1–8 implemented, plus a
+**Current state: Phase 6 complete** (analytics engine), on top of Phases 4.5,
+5 and 6.5. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -139,6 +139,26 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Analytics engine
+
+[engine.ts](src/server/analytics/engine.ts) is the only place workload maths
+happens. It computes hours per activity type, opening/closing compliance,
+unutilized and missing-data hours, utilization, **workload variance** against
+effective-dated `WorkloadTarget` rows, **deliverable completion** from dated
+logs, and **trends** against the preceding period (`?trend=1`, opt-in because it
+doubles the query cost).
+
+Two decisions worth knowing:
+
+- **Trend windows are weekday-aligned.** A span of a week or less shifts back a
+  whole week rather than by its own length. Shifting a Mon–Fri window back five
+  calendar days lands on Wed–Sun, comparing five working days against three and
+  inventing a fall in teaching hours.
+- **Deliverable completion is period-scoped** — deliverables with progress
+  logged in the window, or falling due in it. Counting every open deliverable
+  would let a one-week percentage move whenever unrelated future work was
+  assigned.
 
 ## Role applications
 

@@ -21,6 +21,9 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     from: period.from,
     to: period.to,
     instructorId: scope.kind === "self" ? scope.instructorId : undefined,
+    // Opt-in: computing the comparison period doubles the query cost, so it is
+    // only paid for when a caller asks for trends.
+    includeTrend: req.nextUrl.searchParams.get("trend") === "1",
   });
 
   return NextResponse.json({ analytics });
