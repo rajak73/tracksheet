@@ -4,7 +4,8 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 6.5 complete.** Phases 1–8 implemented, plus a
+**Current state: Phase 4.5 complete** (data-quality exceptions), on top of
+Phase 6.5. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -138,6 +139,24 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Data-quality exceptions
+
+`GET /api/universities/:id/exceptions` returns derived data-quality flags:
+`MISSING_ACTIVITY`, `OVERLAPPING_ACTIVITY`, `LATE_OPENING`, `MISSED_CLOSING`,
+`UNEXPECTED_ABSENCE`, `OUTSIDE_WORKING_HOURS`, `DUPLICATE_LOG`,
+`INVALID_DURATION`.
+
+Every flag is **computed on read** from activity, university config, and
+approved leave. There is deliberately no `exceptions` table: a stored flag is a
+second source of truth that goes stale the moment the activity behind it
+changes, and one an operator could edit independently of the data it describes
+is worse than no flag at all. Each flag carries the `evidence` it was derived
+from.
+
+`MISSING_ACTIVITY` fires only on a genuinely unexplained gap — never on a
+non-working day, a holiday, or approved leave. An empty day produces exactly one
+flag, not three; it is not also reported as a missed closing.
 
 ## Metric rollup
 
