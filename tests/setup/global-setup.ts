@@ -48,7 +48,17 @@ export async function setup() {
     // calls (runRollup) is exercised directly through the MANUAL and SEED
     // paths; the timer wiring itself is verified separately against a live
     // server, see README.
-    env: { ...process.env, DATABASE_URL, DISABLE_ROLLUP_SCHEDULER: "1" },
+    env: {
+      ...process.env,
+      DATABASE_URL,
+      DISABLE_ROLLUP_SCHEDULER: "1",
+      // Every test logs in from 127.0.0.1, so the shared per-IP ceiling has to
+      // be raised or the suite throttles itself. The per-account limit stays
+      // low enough that one test can trip it with a throwaway address, so the
+      // limiter is genuinely exercised rather than switched off.
+      RATE_LIMIT_LOGIN_IP: "100000",
+      RATE_LIMIT_LOGIN_EMAIL: "50",
+    },
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });

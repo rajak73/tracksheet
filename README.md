@@ -4,8 +4,10 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 8 complete** (reports, notifications, audit), on top of
-Phases 4.5, 5, 6, 6.5 and 7. Phases 1–8 implemented, plus a
+**Current state: Phase 9 complete — feature-complete for v1.**
+All phases 1–9 implemented and gated. See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md)
+for what was audited and [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for
+the schema and measured query plans. Phases 1–8 implemented, plus a
 scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
@@ -139,6 +141,32 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Security posture
+
+A checklist test enumerates **all 32 API routes** and probes each with three
+callers who must be refused — anonymous, a manager from another university, and
+a colleague instructor. It fails the build on any route that answers. Current
+result: 32 routes, 0 failing.
+
+**Rate limiting** on login, by IP *and* by account. IP alone lets one attacker
+behind a NAT lock out an office; account alone lets a distributed attacker
+spread across addresses. In-memory and per-process, which is stated plainly in
+[rate-limit.ts](src/server/http/rate-limit.ts): behind multiple instances the
+effective limit multiplies, and a restart clears counters. Replacing `hit()`
+with a Redis-backed version is the upgrade path; call sites do not change.
+
+**Three routes build their own tenant predicate** outside `scope.ts`:
+`admin/overview`, `admin/rollup`, `holidays/[holidayId]`. Safe only while they
+stay ADMIN-only (global scope, nothing to restrict). A dedicated test asserts
+they have not been widened — if one is ever opened to managers it must move
+through `scope.ts` first.
+
+**No secret ever leaves the server**: a test asserts no endpoint returns a
+password hash, session token, or scrypt-encoded value, and that internal errors
+carry no stack traces or SQL.
+
+There is no file-upload surface, so there is nothing to validate there.
 
 ## Reports, notifications, audit
 

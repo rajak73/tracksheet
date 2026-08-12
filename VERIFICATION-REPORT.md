@@ -544,3 +544,86 @@ against the 3.9M-row perf database at 18.7 s.
 `npm run db:seed` produces exactly what the README documents: 7 accounts
 (1 admin, 2 managers, 4 instructors), 2 universities with differing timezones and
 working hours, 11 activity types, password `Password123!`.
+
+
+---
+
+# Addendum — Phases 4.5 through 9 complete (2026-08-12)
+
+All remaining phases implemented and gated. Tests **196 → 208** across 15 files,
+all raw HTTP against a real server.
+
+## Phase 9 isolation checklist
+
+The gate required an endpoint-by-endpoint checklist rather than a pass/fail
+summary. All **32 routes** are enumerated and probed with three callers who must
+be refused — anonymous, a manager from another university, and a colleague
+instructor:
+
+```
+32 routes checked · 0 failing
+```
+
+University-scoped routes refuse anonymous with 401 and a foreign manager with
+403. Instructor-scoped routes refuse a foreign manager and a colleague with 404
+rather than 403, so neither can confirm that an id exists. Admin routes refuse
+managers and instructors alike with 403.
+
+The three routes that build their own tenant predicate outside `scope.ts`
+(`admin/overview`, `admin/rollup`, `holidays/[holidayId]`) have a dedicated test
+asserting they remain ADMIN-only. They are safe only while global-scope; if one
+is ever opened to managers it must move through `scope.ts` first.
+
+## What each phase added
+
+| Phase | Delivered |
+|---|---|
+| 4.5 | Eight derived data-quality exception types, computed on read with no exceptions table |
+| 5 | Admin drill-down (university → manager → instructor → date → activity), manager deliverables, instructor today's schedule, schedule API |
+| 6 | Workload variance, deliverable completion, trends; deliverable-progress and workload-target endpoints |
+| 6.5 | Automatic rollup scheduler with database lease; weekly metrics written |
+| 7 | Anomaly detection split from narration; structural model boundary |
+| 8 | ReportJob records on export, four notification categories with dedupe, audit read endpoint |
+| 9 | Rate limiting on login, 32-route isolation checklist, input-validation and secret-exposure tests |
+
+## Bugs the negative controls found
+
+Each phase was verified by deliberately re-breaking it. Four of those runs found
+defects that the passing tests had missed:
+
+1. **Session-level advisory lock leaked under connection pooling** (6.5). The
+   lock was acquired on one pooled connection and released on another, so the
+   release silently no-opped. Five rollup calls produced two run rows. Replaced
+   with a lease claimed under a transaction-scoped lock.
+2. **`InstructorDailyMetric` was written but never read or asserted** (Phase 10
+   work, found during 6.5). Corrupting it was invisible. Now exposed and checked
+   day-by-day against the engine.
+3. **A duplicate notification aborted the rest of the sweep** (8). Found while
+   chasing why removing the application-level dedupe check changed nothing — the
+   unique index was the real guarantee, and the resulting constraint violation
+   propagated out of the sweep.
+4. **The no-data guard was untested** (7). Removing it let `UNDERUTILIZATION` be
+   asserted against zero records, and the Phase 7 file passed anyway because it
+   only checked which condition was present, never which were absent.
+
+Two design errors were also corrected because a test forced the question:
+trend windows are now weekday-aligned (comparing Mon–Fri against the previous
+five calendar days lands on Wed–Sun, inventing a fall in teaching hours), and
+deliverable completion is scoped to the reporting period rather than counting
+every open deliverable.
+
+## Known limitations
+
+- **Rate limiting is in-memory and per-process.** Behind multiple instances the
+  effective limit multiplies; a restart clears counters. Redis is the upgrade
+  path and `hit()` is the only thing that changes.
+- **The rollup scheduler is an in-process timer**, so it will not fire on a
+  serverless deployment. That is the point at which a queue becomes necessary.
+- **CSV is the only export format.** Native `.xlsx` and PDF need a document
+  library.
+- **No LLM is wired.** The narration layer is deterministic; the boundary is
+  built so a model call replaces one function body.
+- **Academic tables** (`Department`, `Program`, `Course`, `AcademicTerm`,
+  `CourseAssignment`) have schema, indexes and constraints but no API or UI.
+- **Admin provisioning** — creating universities, managers, or instructors — is
+  still seed-only.
