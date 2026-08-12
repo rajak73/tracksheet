@@ -13,7 +13,9 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:perf-seed": "docker exec -i tracksheet-db psql -U tracksheet -d tracksheet_perf < prisma/perf-seed.sql",
+    "db:drift": "docker exec tracksheet-db-test psql -U tracksheet -d tracksheet_test -c \"CREATE DATABASE tracksheet_shadow\" >/dev/null 2>&1; prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

@@ -17,6 +17,7 @@ const prisma = new PrismaClient({
  */
 const UNIVERSITIES = [
   {
+    code: "UNIV001",
     slug: "northfield",
     name: "Northfield University",
     timezone: "Asia/Kolkata",
@@ -32,6 +33,7 @@ const UNIVERSITIES = [
     ],
   },
   {
+    code: "UNIV002",
     slug: "westbrook",
     name: "Westbrook Institute",
     timezone: "America/New_York",
@@ -165,6 +167,7 @@ async function main() {
   for (const spec of UNIVERSITIES) {
     const university = await prisma.university.create({
       data: {
+        code: spec.code,
         slug: spec.slug,
         name: spec.name,
         timezone: spec.timezone,

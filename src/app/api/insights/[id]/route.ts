@@ -23,7 +23,16 @@ export const PATCH = withAuth<{ id: string }>(async ({ req, params, scope }) => 
     throw new ApiError(404, "NOT_FOUND", "Insight not found");
   }
 
-  assertCanAccessUniversity(scope, insight.universityId);
+  // universityId is now nullable because PLATFORM-scoped insights have no
+  // tenant. Those are admin-only; anything tenant-scoped goes through the
+  // normal check.
+  if (insight.universityId === null) {
+    if (scope.kind !== "global") {
+      throw new ApiError(404, "NOT_FOUND", "Insight not found");
+    }
+  } else {
+    assertCanAccessUniversity(scope, insight.universityId);
+  }
 
   const updated = await prisma.aiInsight.update({
     where: { id: insightId },

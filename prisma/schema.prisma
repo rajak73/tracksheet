@@ -37,6 +37,11 @@ model User {
   role         Role
   isActive     Boolean @default(true)
 
+  phone       String?
+  lastLoginAt DateTime?
+  /// Soft delete: an instructor leaving must not erase their recorded work.
+  deletedAt   DateTime?
+
   universityId String?
   university   University? @relation("UniversityUsers", fields: [universityId], references: [id], onDelete: Restrict)
 
@@ -46,8 +51,13 @@ model User {
   auditLogs         AuditLog[]
   notifications     Notification[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  reportJobs ReportJob[]
+
+  /// Records this user authored on someone else's behalf (§14 created_by).
+  activityLogsCreated ActivityLog[] @relation("ActivityCreatedBy")
+  deliverablesCreated Deliverable[] @relation("DeliverableCreatedBy")
 
   // Target of the composite FKs on Manager/Instructor. This is what makes it
   // structurally impossible for a profile to sit in a different university
@@ -57,12 +67,26 @@ model User {
 }
 
 model University {
-  id       String @id @default(cuid())
-  name     String
-  slug     String @unique
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  /// Human-facing tenant code (e.g. UNIV001). Unique platform-wide because it
+  /// is used in exports and support conversations.
+  code         String           @unique
+  status       UniversityStatus @default(ACTIVE)
+  country      String?
+  state        String?
+  city         String?
+  contactEmail String?
+  contactPhone String?
+
+  /// Soft delete (§36): universities own historical workforce records, so a
+  /// hard delete would destroy audit history. Nothing cascades from here.
+  deletedAt DateTime?
   /// IANA timezone (e.g. "Asia/Kolkata"). Every "working day" boundary for this
   /// tenant is computed in this zone, never the server's or browser's (§3.3).
-  timezone String
+  timezone  String
 
   /// Configurable per university, defaults per the core business rule.
   openingDurationMin Int @default(15)
@@ -90,8 +114,25 @@ model University {
   aiInsights    AiInsight[]
   auditLogs     AuditLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  notifications           Notification[]
+  universitySettings      UniversitySettings?
+  departments             Department[]
+  programs                Program[]
+  academicTerms           AcademicTerm[]
+  courses                 Course[]
+  courseAssignments       CourseAssignment[]
+  schedules               Schedule[]
+  scheduleSlots           ScheduleSlot[]
+  breakPolicies           BreakPolicy[]
+  workloadTargets         WorkloadTarget[]
+  reportingPeriods        ReportingPeriod[]
+  instructorDailyMetrics  InstructorDailyMetric[]
+  instructorWeeklyMetrics InstructorWeeklyMetric[]
+  universityDailyMetrics  UniversityDailyMetric[]
+  reportJobs              ReportJob[]
+  deliverableLogs         DeliverableLog[]
 }
 
 /// One row per weekday per university. Times are minutes-from-midnight in the
@@ -138,8 +179,9 @@ model Manager {
   primaryOf University? @relation("PrimaryManager")
 
   employeeCode String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  aiInsights   AiInsight[]
 
   // Required by Prisma for the composite FK above; userId alone is already
   // unique, so this adds no new business constraint.
@@ -156,12 +198,20 @@ model Instructor {
   user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
   university University @relation("UniversityInstructors", fields: [universityId], references: [id], onDelete: Restrict)
 
-  employeeCode  String?
-  activityLogs  ActivityLog[]
-  deliverables  Deliverable[]
-  leaveRequests LeaveRequest[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  employeeCode            String?
+  activityLogs            ActivityLog[]
+  deliverables            Deliverable[]
+  leaveRequests           LeaveRequest[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  aiInsights              AiInsight[]
+  courseAssignments       CourseAssignment[]
+  schedules               Schedule[]
+  scheduleSlots           ScheduleSlot[]
+  workloadTargets         WorkloadTarget[]
+  deliverableLogs         DeliverableLog[]
+  instructorDailyMetrics  InstructorDailyMetric[]
+  instructorWeeklyMetrics InstructorWeeklyMetric[]
 
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
@@ -211,8 +261,10 @@ model ActivityType {
 
   activityLogs ActivityLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  scheduleSlots   ScheduleSlot[]
+  workloadTargets WorkloadTarget[]
 
   @@index([isActive, sortOrder])
 }
@@ -285,13 +337,37 @@ model ActivityLog {
   status  ActivityStatus @default(COMPLETED)
   remarks String?
 
+  /// How the record came to exist (§15) — tells instructor-entered time apart
+  /// from schedule-derived or imported time when auditing.
+  source ActivitySource @default(INSTRUCTOR)
+
+  /// Optional links to the planned slot and the deliverable this work served.
+  scheduleSlot   ScheduleSlot? @relation(fields: [scheduleSlotId], references: [id], onDelete: SetNull)
+  scheduleSlotId String?
+  deliverable    Deliverable?  @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
+  deliverableId  String?
+
+  /// Who wrote the record. Distinct from instructorId, which is its subject —
+  /// a manager may log on an instructor's behalf.
+  createdBy   User?   @relation("ActivityCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
   isOncePerDay Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Index set driven by the three measured dashboard queries (§33):
+  //   instructor dashboard -> (instructorId, workDate)
+  //   manager dashboard    -> (universityId, workDate)
+  //   manager drill-down   -> (universityId, instructorId, workDate)
+  // The bare (universityId) index is dropped: it is a prefix of the composite
+  // below, so it added write cost without serving any query.
   @@index([instructorId, workDate])
-  @@index([universityId])
+  @@index([universityId, workDate])
+  @@index([universityId, instructorId, workDate])
+  @@index([scheduleSlotId])
+  @@index([deliverableId])
 }
 
 model Deliverable {
@@ -303,19 +379,27 @@ model Deliverable {
   university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
 
   title          String
+  description    String?
+  category       String?
   targetQuantity Int
   targetHours    Float
   dueDate        DateTime @db.Date
 
-  status ActivityStatus @default(COMPLETED)
+  status DeliverableStatus @default(NOT_STARTED)
 
-  logs DeliverableLog[]
+  createdBy   User?   @relation("DeliverableCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  logs         DeliverableLog[]
+  activityLogs ActivityLog[]
 
-  @@index([instructorId])
-  @@index([universityId])
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([universityId, status])
+  @@index([instructorId, status])
+  @@index([universityId, dueDate])
 }
 
 model DeliverableLog {
@@ -323,7 +407,15 @@ model DeliverableLog {
   deliverableId String
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
 
-  date              DateTime @db.Date
+  /// Carries its own tenant path rather than reaching it through Deliverable:
+  /// a tenant-scoped query must not require a join to be safe, and this is the
+  /// index the table is actually read by (§65).
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  workDate          DateTime @db.Date
   quantityCompleted Int
   hoursSpent        Float
   remarks           String?
@@ -331,7 +423,8 @@ model DeliverableLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([deliverableId])
+  @@index([deliverableId, workDate])
+  @@index([universityId, instructorId, workDate])
 }
 
 enum InsightSeverity {
@@ -347,22 +440,47 @@ enum InsightStatus {
   DISMISSED
 }
 
+/// Structured insight record (§27). Deliberately NOT free text: every insight
+/// carries the period it covers and the metric snapshot it was derived from, so
+/// the UI can show the supporting numbers behind any claim (§59).
 model AiInsight {
-  id           String     @id @default(cuid())
-  universityId String
-  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  /// Scope determines which of the subject columns is populated. PLATFORM-scoped
+  /// insights have no university, which is why universityId is nullable.
+  scope        InsightScope @default(UNIVERSITY)
+  universityId String?
+  university   University?  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  instructorId String?
+  instructor   Instructor?  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  managerId    String?
+  manager      Manager?     @relation(fields: [managerId], references: [id], onDelete: Cascade)
 
   type           String
   severity       InsightSeverity
-  period         String
+  title          String
+  summary        String
+  /// Retained for backwards compatibility with the existing rule set.
   recommendation String
+
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  /// Human-readable period label, e.g. "2026-09-07 to 2026-09-11".
+  period      String
+
+  /// The exact metric snapshot the text was derived from.
+  sourceMetrics  Json
   supportingData Json
-  status         InsightStatus   @default(NEW)
+
+  status    InsightStatus @default(NEW)
+  expiresAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([universityId])
+  @@index([universityId, createdAt])
+  @@index([instructorId, createdAt])
+  @@index([scope, status])
 }
 
 model AuditLog {
@@ -386,8 +504,9 @@ model AuditLog {
 
   createdAt DateTime @default(now())
 
-  @@index([universityId])
-  @@index([userId])
+  @@index([universityId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
 }
 
 model Notification {
@@ -395,11 +514,499 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  type    String    @default("GENERAL")
   title   String
   message String
-  isRead  Boolean @default(false)
+  isRead  Boolean   @default(false)
+  /// Nullable timestamp rather than only a boolean, so "when was this read" is
+  /// answerable and the unread index stays selective.
+  readAt  DateTime?
 
   createdAt DateTime @default(now())
 
-  @@index([userId])
+  // §40: the unread-first query is (userId, readAt, createdAt).
+  @@index([userId, readAt, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENUMS (added with the domain expansion)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum UniversityStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+/// How an activity record came to exist (§15).
+enum ActivitySource {
+  SYSTEM
+  SCHEDULE
+  INSTRUCTOR
+  MANAGER
+  IMPORT
+  API
+}
+
+enum DeliverableStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum InsightScope {
+  PLATFORM
+  UNIVERSITY
+  MANAGER
+  INSTRUCTOR
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  BEREAVEMENT
+  OTHER
+}
+
+enum HolidayType {
+  PUBLIC
+  UNIVERSITY
+  OPTIONAL
+}
+
+enum TermStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ScheduleSlotStatus {
+  PLANNED
+  CONFIRMED
+  CANCELLED
+}
+
+enum ReportingPeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ReportJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TENANCY — configuration split out of the University row (§9)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One row per university. Kept separate from `University` so operational
+/// configuration can grow without widening the tenant identity row that is
+/// read on nearly every request.
+model UniversitySettings {
+  id           String     @id @default(cuid())
+  universityId String     @unique
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  /// Free-form policy blobs. Deliberately Json: these are read whole by the
+  /// calculation service and never filtered on, so columns would add migration
+  /// churn for no query benefit.
+  utilizationConfig     Json?
+  activityLoggingPolicy Json?
+  defaultBreakPolicy    Json?
+
+  /// Retention window for raw activity records, in days. Null = keep forever.
+  activityRetentionDays Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACADEMIC STRUCTURE (§18, §19)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Department {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  name String
+  code String
+
+  programs  Program[]
+  courses   Course[]
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  /// Tenant-scoped uniqueness (§34): two universities may both have "CS".
+  @@unique([universityId, code])
+  @@index([universityId])
+}
+
+model Program {
+  id           String      @id @default(cuid())
+  universityId String
+  university   University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  name String
+  code String
+
+  courses   Course[]
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([universityId, code])
+  @@index([universityId])
+}
+
+model AcademicTerm {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  name      String
+  startDate DateTime   @db.Date
+  endDate   DateTime   @db.Date
+  status    TermStatus @default(PLANNED)
+
+  assignments CourseAssignment[]
+  schedules   Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([universityId, name])
+  @@index([universityId, startDate, endDate])
+}
+
+model Course {
+  id           String      @id @default(cuid())
+  universityId String
+  university   University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  programId    String?
+  program      Program?    @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  code    String
+  title   String
+  credits Int?
+
+  assignments   CourseAssignment[]
+  scheduleSlots ScheduleSlot[]
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([universityId, code])
+  @@index([universityId])
+}
+
+/// An instructor teaches a course for a term. Modelled as its own table rather
+/// than a column on the instructor so teaching history is preserved when
+/// assignments change (§19).
+model CourseAssignment {
+  id             String        @id @default(cuid())
+  universityId   String
+  university     University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructorId   String
+  instructor     Instructor    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  academicTermId String?
+  academicTerm   AcademicTerm? @relation(fields: [academicTermId], references: [id], onDelete: SetNull)
+
+  role      String?
+  startDate DateTime?        @db.Date
+  endDate   DateTime?        @db.Date
+  status    AssignmentStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, instructorId, academicTermId])
+  @@index([universityId, instructorId])
+  @@index([universityId, courseId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEDULING (§17, §24)
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Schedule {
+  id             String        @id @default(cuid())
+  universityId   String
+  university     University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  instructorId   String
+  instructor     Instructor    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  academicTermId String?
+  academicTerm   AcademicTerm? @relation(fields: [academicTermId], references: [id], onDelete: SetNull)
+
+  name      String?
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  slots     ScheduleSlot[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([universityId, instructorId])
+}
+
+/// One planned block of an instructor's day. Relational rather than a JSON
+/// document so slots can be indexed, validated, and compared against what was
+/// actually logged (§17).
+model ScheduleSlot {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  scheduleId   String?
+  schedule     Schedule?  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  courseId     String?
+  course       Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  activityTypeId String
+  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+
+  /// Local calendar date in the university's timezone, matching ActivityLog.
+  workDate  DateTime           @db.Date
+  startTime DateTime
+  endTime   DateTime
+  location  String?
+  status    ScheduleSlotStatus @default(PLANNED)
+
+  activityLogs ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([universityId, workDate])
+  @@index([instructorId, workDate])
+  @@index([universityId, instructorId, workDate])
+}
+
+/// Recurring non-working break inside the working day. Per-university and
+/// per-weekday, because break schedules are not uniform across tenants (§24).
+model BreakPolicy {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  name        String
+  /// Null = applies to every working day.
+  dayOfWeek   Int?
+  startMinute Int
+  endMinute   Int
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([universityId, isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WORKLOAD TARGETS & REPORTING PERIODS (§21, §22)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Per-university expectation for how much time an activity type should take.
+/// Effective-dated so changing a target does not rewrite history.
+model WorkloadTarget {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  /// Null instructorId = the university-wide default for this activity type.
+  instructorId String?
+  instructor   Instructor? @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  activityTypeId String?
+  activityType   ActivityType? @relation(fields: [activityTypeId], references: [id], onDelete: Cascade)
+
+  targetMinutes Int
+  periodType    ReportingPeriodType @default(WEEKLY)
+  effectiveFrom DateTime            @db.Date
+  effectiveTo   DateTime?           @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([universityId, activityTypeId, effectiveFrom])
+  @@index([instructorId, effectiveFrom])
+}
+
+model ReportingPeriod {
+  id           String      @id @default(cuid())
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  type      ReportingPeriodType
+  name      String
+  startDate DateTime            @db.Date
+  endDate   DateTime            @db.Date
+
+  createdAt DateTime @default(now())
+
+  @@unique([universityId, type, startDate, endDate])
+  @@index([universityId, startDate])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANALYTICS SUMMARY TABLES (§29, §30)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// These exist because the admin dashboard query measured as a Parallel Seq Scan
+// over ActivityLog (399 ms at 100 universities / 3.9M rows). No index fixes a
+// full-platform aggregate — the fix is to aggregate once per day in a job and
+// have dashboards read the rollup. Raw ActivityLog remains the source of truth
+// and is used for drill-down (§60).
+//
+// Minutes, not hours: integers avoid float drift when summing millions of rows.
+
+model InstructorDailyMetric {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  metricDate DateTime @db.Date
+
+  capacityMinutes    Int @default(0)
+  productiveMinutes  Int @default(0)
+  unutilizedMinutes  Int @default(0)
+  /// Capacity on an expected working day with no records at all. Never folded
+  /// into unutilized — "we don't know" is not "they did nothing" (§23).
+  missingDataMinutes Int @default(0)
+  overlapMinutes     Int @default(0)
+
+  /// Per-activity-type breakdown, keyed by activity type code.
+  minutesByActivityType Json @default("{}")
+
+  isWorkingDay     Boolean @default(true)
+  nonWorkingReason String?
+  openingLogged    Boolean @default(false)
+  closingLogged    Boolean @default(false)
+
+  utilizationPercent Float?
+
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// One row per instructor per day; the job upserts on this key.
+  @@unique([instructorId, metricDate])
+  @@index([universityId, metricDate])
+  @@index([universityId, instructorId, metricDate])
+}
+
+model InstructorWeeklyMetric {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  capacityMinutes    Int @default(0)
+  productiveMinutes  Int @default(0)
+  unutilizedMinutes  Int @default(0)
+  missingDataMinutes Int @default(0)
+
+  minutesByActivityType Json   @default("{}")
+  utilizationPercent    Float?
+  openingCompliancePct  Float?
+  closingCompliancePct  Float?
+  expectedWorkingDays   Int    @default(0)
+
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([instructorId, periodStart])
+  @@index([universityId, periodStart])
+}
+
+/// What the admin dashboard reads instead of scanning ActivityLog.
+model UniversityDailyMetric {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  metricDate DateTime @db.Date
+
+  activeInstructors  Int @default(0)
+  capacityMinutes    Int @default(0)
+  productiveMinutes  Int @default(0)
+  unutilizedMinutes  Int @default(0)
+  missingDataMinutes Int @default(0)
+
+  minutesByActivityType Json   @default("{}")
+  utilizationPercent    Float?
+  openingCompliancePct  Float?
+  closingCompliancePct  Float?
+
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([universityId, metricDate])
+  @@index([metricDate])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORTING JOBS (§41)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Large exports are queued, not generated inside the request. The row is the
+/// handover point between the API and a background worker.
+model ReportJob {
+  id           String      @id @default(cuid())
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  requestedById String
+  requestedBy   User   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+
+  reportType String
+  format     String          @default("CSV")
+  parameters Json            @default("{}")
+  status     ReportJobStatus @default(QUEUED)
+
+  /// Object-storage key once generated; never the file contents.
+  resultUrl    String?
+  errorMessage String?
+  rowCount     Int?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([universityId, createdAt])
+  @@index([status, createdAt])
 }

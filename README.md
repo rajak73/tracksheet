@@ -4,7 +4,9 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phases 1–8 implemented, with the defects found in verification fixed.**
+**Current state: Phases 1–8 implemented, plus a scale-oriented database architecture.**
+See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
+index strategy, aggregation design, and measured query plans.
 See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what was found and how each
 finding was proven fixed. Known gaps are listed there too — schedules, breaks,
 workload targets, deliverable progress logging, admin write endpoints, and
@@ -142,3 +144,5 @@ tests/                     raw-HTTP tenant isolation and config calculation gate
 | `npm run db:up` / `db:down` | Start / stop Postgres |
 | `npm run db:migrate` | Create and apply a migration |
 | `npm run db:seed` | Reseed |
+| `npm run db:perf-seed` | Generate a 100-university / 3.9M-activity perf dataset |
+| `npm run db:drift` | Fail if migrations and schema.prisma disagree |

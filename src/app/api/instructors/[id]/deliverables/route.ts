@@ -39,7 +39,7 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope }) => {
 
   const deliverables = await prisma.deliverable.findMany({
     where: { instructorId: instructor.id },
-    include: { logs: { orderBy: { date: "asc" } } },
+    include: { logs: { orderBy: { workDate: "asc" } } },
     orderBy: { dueDate: "asc" },
   });
 

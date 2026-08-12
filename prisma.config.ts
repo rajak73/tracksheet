@@ -13,5 +13,10 @@ export default defineConfig({
   },
   datasource: {
     url: env("DATABASE_URL"),
+    // Needed by `prisma migrate diff --from-migrations`, which is how CI
+    // checks that the migrations directory and schema.prisma agree.
+    shadowDatabaseUrl:
+      process.env.SHADOW_DATABASE_URL ??
+      "postgresql://tracksheet:tracksheet@localhost:5434/tracksheet_shadow?schema=public",
   },
 });

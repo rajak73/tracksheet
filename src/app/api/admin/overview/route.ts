@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
-import { computeAnalytics } from "@/server/analytics/engine";
 import { resolvePeriod } from "@/server/analytics/period";
+import { toDateOnly } from "@/server/time/workday";
 
 /**
  * Cross-university roll-up for the admin dashboard.
@@ -15,6 +15,8 @@ import { resolvePeriod } from "@/server/analytics/period";
  * the current scale but is the first thing that should move to a precomputed
  * summary table once the university count grows.
  */
+const round = (n: number) => Number(n.toFixed(2));
+
 export const GET = withAuth(
   async ({ req }) => {
     const universities = await prisma.university.findMany({
@@ -28,12 +30,35 @@ export const GET = withAuth(
       prisma.aiInsight.count({ where: { status: "NEW" } }),
     ]);
 
+    // Reads the daily rollup rather than aggregating ActivityLog. The raw-table
+    // version measured as a Parallel Seq Scan (399 ms over 3.9M rows at only
+    // 100 universities) and no index can fix a full-platform aggregate. Raw
+    // activity remains the source of truth and is used for drill-down (§60).
     const perUniversity = await Promise.all(
       universities.map(async (u) => {
         // Each university's period is resolved in ITS OWN timezone, so "this
         // week" is not silently the admin's week.
         const period = resolvePeriod(req.nextUrl.searchParams, u.timezone);
-        const a = await computeAnalytics({ universityId: u.id, from: period.from, to: period.to });
+
+        const agg = await prisma.universityDailyMetric.aggregate({
+          where: {
+            universityId: u.id,
+            metricDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
+          },
+          _sum: {
+            capacityMinutes: true,
+            productiveMinutes: true,
+            unutilizedMinutes: true,
+            missingDataMinutes: true,
+          },
+          _max: { activeInstructors: true },
+          _avg: { openingCompliancePct: true, closingCompliancePct: true },
+        });
+
+        const toHours = (m: number | null) => round((m ?? 0) / 60);
+        const capacityHours = toHours(agg._sum.capacityMinutes);
+        const productiveHours = toHours(agg._sum.productiveMinutes);
+
         return {
           universityId: u.id,
           name: u.name,
@@ -41,20 +66,21 @@ export const GET = withAuth(
           timezone: u.timezone,
           from: period.from,
           to: period.to,
-          instructors: a.totals.instructors,
-          capacityHours: a.totals.capacityHours,
-          productiveHours: a.totals.productiveHours,
-          unutilizedHours: a.totals.unutilizedHours,
-          missingDataHours: a.totals.missingDataHours,
-          utilizationPct: a.totals.utilizationPct,
-          openingCompliancePct: a.totals.openingCompliancePct,
-          closingCompliancePct: a.totals.closingCompliancePct,
-          hoursByActivityType: a.totals.hoursByActivityType,
+          instructors: agg._max.activeInstructors ?? 0,
+          capacityHours,
+          productiveHours,
+          unutilizedHours: toHours(agg._sum.unutilizedMinutes),
+          missingDataHours: toHours(agg._sum.missingDataMinutes),
+          utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
+          openingCompliancePct:
+            agg._avg.openingCompliancePct === null ? null : round(agg._avg.openingCompliancePct),
+          closingCompliancePct:
+            agg._avg.closingCompliancePct === null ? null : round(agg._avg.closingCompliancePct),
+          hoursByActivityType: {} as Record<string, number>,
         };
       }),
     );
 
-    const round = (n: number) => Number(n.toFixed(2));
     const sum = (pick: (u: (typeof perUniversity)[number]) => number) =>
       round(perUniversity.reduce((acc, u) => acc + pick(u), 0));
 

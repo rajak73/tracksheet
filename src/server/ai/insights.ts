@@ -20,6 +20,7 @@ import { prisma } from "@/server/db";
 import { InsightSeverity, InsightStatus } from "@/generated/prisma/client";
 import { createNotification } from "@/server/notifications/service";
 import { computeAnalytics, type AnalyticsResult } from "@/server/analytics/engine";
+import { toDateOnly } from "@/server/time/workday";
 
 /** Thresholds live here as named constants so an insight is never a magic number. */
 const UNDERUTILIZED_PCT = 60;
@@ -172,13 +173,19 @@ export async function generateWeeklyInsights(universityId: string, from: string,
     drafts.map((insight) =>
       prisma.aiInsight.create({
         data: {
+          scope: "UNIVERSITY",
           universityId,
           type: insight.type,
           severity: insight.severity,
-          period: insight.period,
+          title: insight.type.replaceAll("_", " "),
+          summary: insight.recommendation,
           recommendation: insight.recommendation,
+          period: insight.period,
+          periodStart: toDateOnly(from),
+          periodEnd: toDateOnly(to),
           // The snapshot is exactly what the sentence was derived from, so any
           // claim can be checked against it after the fact.
+          sourceMetrics: insight.supportingData as object,
           supportingData: insight.supportingData as object,
           status: InsightStatus.NEW,
         },

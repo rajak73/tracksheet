@@ -127,6 +127,9 @@ exports.Prisma.UserScalarFieldEnum = {
   name: 'name',
   role: 'role',
   isActive: 'isActive',
+  phone: 'phone',
+  lastLoginAt: 'lastLoginAt',
+  deletedAt: 'deletedAt',
   universityId: 'universityId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -136,6 +139,14 @@ exports.Prisma.UniversityScalarFieldEnum = {
   id: 'id',
   name: 'name',
   slug: 'slug',
+  code: 'code',
+  status: 'status',
+  country: 'country',
+  state: 'state',
+  city: 'city',
+  contactEmail: 'contactEmail',
+  contactPhone: 'contactPhone',
+  deletedAt: 'deletedAt',
   timezone: 'timezone',
   openingDurationMin: 'openingDurationMin',
   closingDurationMin: 'closingDurationMin',
@@ -228,6 +239,10 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   endTime: 'endTime',
   status: 'status',
   remarks: 'remarks',
+  source: 'source',
+  scheduleSlotId: 'scheduleSlotId',
+  deliverableId: 'deliverableId',
+  createdById: 'createdById',
   isOncePerDay: 'isOncePerDay',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -238,10 +253,14 @@ exports.Prisma.DeliverableScalarFieldEnum = {
   instructorId: 'instructorId',
   universityId: 'universityId',
   title: 'title',
+  description: 'description',
+  category: 'category',
   targetQuantity: 'targetQuantity',
   targetHours: 'targetHours',
   dueDate: 'dueDate',
   status: 'status',
+  createdById: 'createdById',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -249,7 +268,9 @@ exports.Prisma.DeliverableScalarFieldEnum = {
 exports.Prisma.DeliverableLogScalarFieldEnum = {
   id: 'id',
   deliverableId: 'deliverableId',
-  date: 'date',
+  universityId: 'universityId',
+  instructorId: 'instructorId',
+  workDate: 'workDate',
   quantityCompleted: 'quantityCompleted',
   hoursSpent: 'hoursSpent',
   remarks: 'remarks',
@@ -259,13 +280,22 @@ exports.Prisma.DeliverableLogScalarFieldEnum = {
 
 exports.Prisma.AiInsightScalarFieldEnum = {
   id: 'id',
+  scope: 'scope',
   universityId: 'universityId',
+  instructorId: 'instructorId',
+  managerId: 'managerId',
   type: 'type',
   severity: 'severity',
-  period: 'period',
+  title: 'title',
+  summary: 'summary',
   recommendation: 'recommendation',
+  periodStart: 'periodStart',
+  periodEnd: 'periodEnd',
+  period: 'period',
+  sourceMetrics: 'sourceMetrics',
   supportingData: 'supportingData',
   status: 'status',
+  expiresAt: 'expiresAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -284,10 +314,219 @@ exports.Prisma.AuditLogScalarFieldEnum = {
 exports.Prisma.NotificationScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
+  universityId: 'universityId',
+  type: 'type',
   title: 'title',
   message: 'message',
   isRead: 'isRead',
+  readAt: 'readAt',
   createdAt: 'createdAt'
+};
+
+exports.Prisma.UniversitySettingsScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  utilizationConfig: 'utilizationConfig',
+  activityLoggingPolicy: 'activityLoggingPolicy',
+  defaultBreakPolicy: 'defaultBreakPolicy',
+  activityRetentionDays: 'activityRetentionDays',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DepartmentScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  name: 'name',
+  code: 'code',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ProgramScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  departmentId: 'departmentId',
+  name: 'name',
+  code: 'code',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AcademicTermScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  name: 'name',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CourseScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  departmentId: 'departmentId',
+  programId: 'programId',
+  code: 'code',
+  title: 'title',
+  credits: 'credits',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CourseAssignmentScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  courseId: 'courseId',
+  instructorId: 'instructorId',
+  academicTermId: 'academicTermId',
+  role: 'role',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ScheduleScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  instructorId: 'instructorId',
+  academicTermId: 'academicTermId',
+  name: 'name',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ScheduleSlotScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  scheduleId: 'scheduleId',
+  instructorId: 'instructorId',
+  courseId: 'courseId',
+  activityTypeId: 'activityTypeId',
+  workDate: 'workDate',
+  startTime: 'startTime',
+  endTime: 'endTime',
+  location: 'location',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.BreakPolicyScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  name: 'name',
+  dayOfWeek: 'dayOfWeek',
+  startMinute: 'startMinute',
+  endMinute: 'endMinute',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.WorkloadTargetScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  instructorId: 'instructorId',
+  activityTypeId: 'activityTypeId',
+  targetMinutes: 'targetMinutes',
+  periodType: 'periodType',
+  effectiveFrom: 'effectiveFrom',
+  effectiveTo: 'effectiveTo',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ReportingPeriodScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  type: 'type',
+  name: 'name',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.InstructorDailyMetricScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  instructorId: 'instructorId',
+  metricDate: 'metricDate',
+  capacityMinutes: 'capacityMinutes',
+  productiveMinutes: 'productiveMinutes',
+  unutilizedMinutes: 'unutilizedMinutes',
+  missingDataMinutes: 'missingDataMinutes',
+  overlapMinutes: 'overlapMinutes',
+  minutesByActivityType: 'minutesByActivityType',
+  isWorkingDay: 'isWorkingDay',
+  nonWorkingReason: 'nonWorkingReason',
+  openingLogged: 'openingLogged',
+  closingLogged: 'closingLogged',
+  utilizationPercent: 'utilizationPercent',
+  computedAt: 'computedAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.InstructorWeeklyMetricScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  instructorId: 'instructorId',
+  periodStart: 'periodStart',
+  periodEnd: 'periodEnd',
+  capacityMinutes: 'capacityMinutes',
+  productiveMinutes: 'productiveMinutes',
+  unutilizedMinutes: 'unutilizedMinutes',
+  missingDataMinutes: 'missingDataMinutes',
+  minutesByActivityType: 'minutesByActivityType',
+  utilizationPercent: 'utilizationPercent',
+  openingCompliancePct: 'openingCompliancePct',
+  closingCompliancePct: 'closingCompliancePct',
+  expectedWorkingDays: 'expectedWorkingDays',
+  computedAt: 'computedAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.UniversityDailyMetricScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  metricDate: 'metricDate',
+  activeInstructors: 'activeInstructors',
+  capacityMinutes: 'capacityMinutes',
+  productiveMinutes: 'productiveMinutes',
+  unutilizedMinutes: 'unutilizedMinutes',
+  missingDataMinutes: 'missingDataMinutes',
+  minutesByActivityType: 'minutesByActivityType',
+  utilizationPercent: 'utilizationPercent',
+  openingCompliancePct: 'openingCompliancePct',
+  closingCompliancePct: 'closingCompliancePct',
+  computedAt: 'computedAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ReportJobScalarFieldEnum = {
+  id: 'id',
+  universityId: 'universityId',
+  requestedById: 'requestedById',
+  reportType: 'reportType',
+  format: 'format',
+  parameters: 'parameters',
+  status: 'status',
+  resultUrl: 'resultUrl',
+  errorMessage: 'errorMessage',
+  rowCount: 'rowCount',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -325,6 +564,12 @@ exports.Role = exports.$Enums.Role = {
   INSTRUCTOR: 'INSTRUCTOR'
 };
 
+exports.UniversityStatus = exports.$Enums.UniversityStatus = {
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  ARCHIVED: 'ARCHIVED'
+};
+
 exports.LeaveStatus = exports.$Enums.LeaveStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
@@ -338,6 +583,30 @@ exports.ActivityStatus = exports.$Enums.ActivityStatus = {
   EXCUSED: 'EXCUSED'
 };
 
+exports.ActivitySource = exports.$Enums.ActivitySource = {
+  SYSTEM: 'SYSTEM',
+  SCHEDULE: 'SCHEDULE',
+  INSTRUCTOR: 'INSTRUCTOR',
+  MANAGER: 'MANAGER',
+  IMPORT: 'IMPORT',
+  API: 'API'
+};
+
+exports.DeliverableStatus = exports.$Enums.DeliverableStatus = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  OVERDUE: 'OVERDUE',
+  CANCELLED: 'CANCELLED'
+};
+
+exports.InsightScope = exports.$Enums.InsightScope = {
+  PLATFORM: 'PLATFORM',
+  UNIVERSITY: 'UNIVERSITY',
+  MANAGER: 'MANAGER',
+  INSTRUCTOR: 'INSTRUCTOR'
+};
+
 exports.InsightSeverity = exports.$Enums.InsightSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -349,6 +618,39 @@ exports.InsightStatus = exports.$Enums.InsightStatus = {
   NEW: 'NEW',
   READ: 'READ',
   DISMISSED: 'DISMISSED'
+};
+
+exports.TermStatus = exports.$Enums.TermStatus = {
+  PLANNED: 'PLANNED',
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  ARCHIVED: 'ARCHIVED'
+};
+
+exports.AssignmentStatus = exports.$Enums.AssignmentStatus = {
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+};
+
+exports.ScheduleSlotStatus = exports.$Enums.ScheduleSlotStatus = {
+  PLANNED: 'PLANNED',
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED'
+};
+
+exports.ReportingPeriodType = exports.$Enums.ReportingPeriodType = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  CUSTOM: 'CUSTOM'
+};
+
+exports.ReportJobStatus = exports.$Enums.ReportJobStatus = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
 };
 
 exports.Prisma.ModelName = {
@@ -366,7 +668,22 @@ exports.Prisma.ModelName = {
   DeliverableLog: 'DeliverableLog',
   AiInsight: 'AiInsight',
   AuditLog: 'AuditLog',
-  Notification: 'Notification'
+  Notification: 'Notification',
+  UniversitySettings: 'UniversitySettings',
+  Department: 'Department',
+  Program: 'Program',
+  AcademicTerm: 'AcademicTerm',
+  Course: 'Course',
+  CourseAssignment: 'CourseAssignment',
+  Schedule: 'Schedule',
+  ScheduleSlot: 'ScheduleSlot',
+  BreakPolicy: 'BreakPolicy',
+  WorkloadTarget: 'WorkloadTarget',
+  ReportingPeriod: 'ReportingPeriod',
+  InstructorDailyMetric: 'InstructorDailyMetric',
+  InstructorWeeklyMetric: 'InstructorWeeklyMetric',
+  UniversityDailyMetric: 'UniversityDailyMetric',
+  ReportJob: 'ReportJob'
 };
 
 /**
