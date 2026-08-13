@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import {
+  Alert, Breadcrumb, Button, Card, CardBody, CardHeader, Field, PageHeader,
+  inputClass,
+} from "@/app/_components/ui";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -83,151 +86,147 @@ export default function NewUniversityPage() {
     }
   }
 
-  const field = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
-
   return (
     <div className="space-y-6">
-      <nav className="text-sm text-gray-500 dark:text-zinc-400">
-        <Link href="/admin/universities" className="hover:underline">Universities</Link>
-        <span className="mx-2">/</span>
-        <span className="text-gray-900 dark:text-zinc-100">New</span>
-      </nav>
-
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-          Create a university
-        </h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-          Working hours drive every opening/closing window and capacity figure, so they are set here
-          rather than defaulted.
-        </p>
-      </header>
+      <PageHeader
+        title="Create a university"
+        description="Working hours drive every opening/closing window and capacity figure, so they are set here rather than defaulted."
+        breadcrumb={
+          <Breadcrumb
+            items={[{ label: "Universities", href: "/admin/universities" }, { label: "New" }]}
+          />
+        }
+      />
 
       <form onSubmit={submit} className="space-y-6">
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Identity</h2>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="text-sm lg:col-span-2">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Name</span>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Code</span>
-              <input required placeholder="UNIV003" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Slug</span>
-              <input required placeholder="northfield" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Country</span>
-              <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm lg:col-span-2">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Contact email</span>
-              <input type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} className={field} />
-            </label>
-          </div>
-        </section>
+        <Card>
+          <CardHeader title="Identity" description="How this university is named and referenced." />
+          <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Name" className="lg:col-span-2">
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
+            </Field>
+            <Field label="Code" hint="Shown in exports, e.g. UNIV003.">
+              <input required placeholder="UNIV003" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass} />
+            </Field>
+            <Field label="Slug" hint="Lowercase, used in URLs.">
+              <input required placeholder="northfield" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={inputClass} />
+            </Field>
+            <Field label="Country" hint="Optional.">
+              <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className={inputClass} />
+            </Field>
+            <Field label="Contact email" hint="Optional." className="lg:col-span-2">
+              <input type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} className={inputClass} />
+            </Field>
+          </CardBody>
+        </Card>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Working hours</h2>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Timezone</span>
-              <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} className={field}>
-                {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Day starts</span>
-              <input type="time" required value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Day ends</span>
-              <input type="time" required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Break (min)</span>
-              <input type="number" min={0} value={form.breakDurationMin} onChange={(e) => setForm({ ...form, breakDurationMin: Number(e.target.value) })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Opening (min)</span>
-              <input type="number" min={1} value={form.openingDurationMin} onChange={(e) => setForm({ ...form, openingDurationMin: Number(e.target.value) })} className={field} />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1 block text-gray-600 dark:text-zinc-400">Closing (min)</span>
-              <input type="number" min={1} value={form.closingDurationMin} onChange={(e) => setForm({ ...form, closingDurationMin: Number(e.target.value) })} className={field} />
-            </label>
-          </div>
-
-          <fieldset className="mt-4">
-            <legend className="text-sm text-gray-600 dark:text-zinc-400">Working days</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {DAYS.map((day, i) => (
-                <label key={day} className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                  workingDays[i]
-                    ? "border-indigo-300 bg-indigo-50 text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
-                    : "border-gray-300 text-gray-500 dark:border-zinc-700 dark:text-zinc-500"
-                }`}>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={workingDays[i]}
-                    onChange={() => setWorkingDays(workingDays.map((v, j) => (j === i ? !v : v)))}
-                  />
-                  {day.slice(0, 3)}
-                </label>
-              ))}
+        <Card>
+          <CardHeader
+            title="Working hours"
+            description="These feed the time-calculation engine directly — capacity, opening and closing windows all derive from them."
+          />
+          <CardBody className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Timezone" hint="Working days are resolved in this zone.">
+                <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} className={inputClass}>
+                  {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                </select>
+              </Field>
+              <Field label="Day starts">
+                <input type="time" required value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} className={inputClass} />
+              </Field>
+              <Field label="Day ends">
+                <input type="time" required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} className={inputClass} />
+              </Field>
+              <Field label="Break (min)" hint="Excluded from capacity.">
+                <input type="number" min={0} value={form.breakDurationMin} onChange={(e) => setForm({ ...form, breakDurationMin: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Opening (min)" hint="Once per working day.">
+                <input type="number" min={1} value={form.openingDurationMin} onChange={(e) => setForm({ ...form, openingDurationMin: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Closing (min)" hint="Once per working day.">
+                <input type="number" min={1} value={form.closingDurationMin} onChange={(e) => setForm({ ...form, closingDurationMin: Number(e.target.value) })} className={inputClass} />
+              </Field>
             </div>
-          </fieldset>
-        </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Initial holidays</h2>
-            <button
-              type="button"
-              onClick={() => setHolidays([...holidays, { date: "", name: "" }])}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-zinc-700"
-            >
-              Add holiday
-            </button>
-          </div>
-          {holidays.length === 0 ? (
-            <p className="mt-3 text-sm text-gray-500 dark:text-zinc-400">
-              Optional — holidays can also be added later from the university&apos;s configuration.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {holidays.map((h, i) => (
-                <div key={i} className="flex gap-3">
-                  <input type="date" value={h.date}
-                    onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))}
-                    className={field} />
-                  <input placeholder="Name" value={h.name}
-                    onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                    className={field} />
-                  <button type="button" onClick={() => setHolidays(holidays.filter((_, j) => j !== i))}
-                    className="rounded-lg border border-gray-300 px-3 text-sm dark:border-zinc-700">
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium text-content">Working days</legend>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((day, i) => (
+                  <label
+                    key={day}
+                    className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      workingDays[i]
+                        ? "border-primary bg-primary-subtle text-primary-text"
+                        : "border-line-strong text-muted hover:bg-hovered"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={workingDays[i]}
+                      onChange={() => setWorkingDays(workingDays.map((v, j) => (j === i ? !v : v)))}
+                    />
+                    {day.slice(0, 3)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </CardBody>
+        </Card>
 
-        {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
-            {error}
+        <Card>
+          <CardHeader
+            title="Initial holidays"
+            description="Optional — holidays can also be added later from the university's configuration."
+            actions={
+              <Button type="button" variant="secondary" size="sm" onClick={() => setHolidays([...holidays, { date: "", name: "" }])}>
+                Add holiday
+              </Button>
+            }
+          />
+          <CardBody>
+            {holidays.length === 0 ? (
+              <p className="text-sm text-muted">
+                No holidays added. A holiday makes an otherwise-working day non-working for this
+                university only.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {holidays.map((h, i) => (
+                  <div key={i} className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="date"
+                      value={h.date}
+                      onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))}
+                      className={inputClass}
+                    />
+                    <input
+                      placeholder="Name"
+                      value={h.name}
+                      onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                      className={inputClass}
+                    />
+                    <Button type="button" variant="secondary" onClick={() => setHolidays(holidays.filter((_, j) => j !== i))}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={saving}>
+            {saving ? "Creating…" : "Create university"}
+          </Button>
+          <p className="text-sm text-muted">
+            You can add the primary manager immediately afterwards.
           </p>
-        ) : null}
-
-        <button type="submit" disabled={saving}
-          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60">
-          {saving ? "Creating…" : "Create university"}
-        </button>
+        </div>
       </form>
     </div>
   );

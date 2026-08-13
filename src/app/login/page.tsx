@@ -2,18 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button, inputClass, Alert } from "@/app/_components/ui";
+
+const DESTINATION: Record<string, string> = {
+  ADMIN: "/admin/dashboard",
+  MANAGER: "/manager/dashboard",
+  INSTRUCTOR: "/instructor/dashboard",
+};
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    setError("");
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -30,17 +37,15 @@ export default function LoginPage() {
         return;
       }
 
-      const role = data.user.role;
-      if (role === "ADMIN") {
-        router.push("/admin/dashboard");
-      } else if (role === "MANAGER") {
-        router.push("/manager/dashboard");
-      } else if (role === "INSTRUCTOR") {
-        router.push("/instructor/dashboard");
-      } else {
-        setError("Unknown role");
+      // The destination comes from the role the SERVER returned — the form
+      // never asks which kind of user this is.
+      const destination = DESTINATION[data.user.role];
+      if (!destination) {
+        setError("This account has no dashboard assigned. Contact your administrator.");
         setIsLoading(false);
+        return;
       }
+      router.push(destination);
     } catch {
       setError("Could not reach the server. Please try again.");
       setIsLoading(false);
@@ -48,81 +53,56 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-black">
-      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm lg:w-96">
-          <div>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-              Sign in to Tracksheet
-            </h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-              University Workforce Intelligence Platform
+    <div className="flex min-h-screen flex-col bg-canvas">
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <p className="text-sm font-semibold tracking-tight text-content">Tracksheet</p>
+            <h1 className="mt-6 text-2xl font-semibold tracking-tight text-content">
+              Sign in
+            </h1>
+            <p className="mt-1.5 text-sm text-muted">
+              University workforce intelligence.
             </p>
           </div>
 
-          <div className="mt-8">
-            <form className="space-y-6" onSubmit={handleLogin}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300" htmlFor="email">
-                  Email Address
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-zinc-900 dark:text-white"
-                    placeholder="name@example.edu"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-              </div>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <label className="block text-sm">
+              <span className="mb-1.5 block font-medium text-content">Email</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+              />
+            </label>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300" htmlFor="password">
-                  Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-zinc-900 dark:text-white"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
+            <label className="block text-sm">
+              <span className="mb-1.5 block font-medium text-content">Password</span>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+              />
+            </label>
 
-              {error && (
-                <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-100 dark:border-red-900/50">
-                  {error}
-                </div>
-              )}
+            {error ? <Alert tone="danger">{error}</Alert> : null}
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-                >
-                  {isLoading ? "Signing in..." : "Sign In"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div className="hidden lg:block relative w-0 flex-1 bg-indigo-900">
-        <div className="absolute inset-0 h-full w-full object-cover bg-gradient-to-br from-indigo-800 to-indigo-900 flex flex-col justify-center items-center text-center px-12">
-           <h1 className="text-5xl font-bold text-white mb-6">Empower your campus.</h1>
-           <p className="text-xl text-indigo-200 max-w-lg">
-             Tracksheet provides deep visibility into instructor workload, availability, and deliverables. Make data-driven decisions that propel your university forward.
-           </p>
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+
+          <p className="mt-8 text-xs text-subtle">
+            Your role and university are determined by your account — there is one sign-in
+            for administrators, managers and instructors.
+          </p>
         </div>
       </div>
     </div>

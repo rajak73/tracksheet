@@ -4,7 +4,7 @@ One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 10 complete — deployment-ready.**
+**Current state: Phase 11 complete — UI/UX polish pass.**
 Deploys to **Render** (`starter` plan, **single instance**). See
 [DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
 requirement and not a cost choice.
@@ -144,6 +144,24 @@ src/server/
 src/app/api/               login, logout, me, universities, instructors, activity-types
 tests/                     raw-HTTP tenant isolation and config calculation gates
 ```
+
+## Design
+
+Every page is built from one set of primitives ([ui.tsx](src/app/_components/ui.tsx))
+on one set of semantic colour tokens ([globals.css](src/app/globals.css)). See
+[DESIGN.md](DESIGN.md) for the palette, type scale, spacing rhythm and component
+patterns — **new pages should be built from these**, since hand-rolled styling per
+page is how the drift this pass removed started in the first place.
+
+Three things the system enforces that matter beyond appearance:
+
+- **`null` renders as "Not measurable", never as 0.** The distinction between
+  "we measured zero" and "there was nothing to measure" is load-bearing in this
+  product and survives all the way to the screen.
+- **Utilisation and compliance carry a tone**, from bands defined once in
+  `ui.tsx`, so a number is readable as healthy or concerning at a glance rather
+  than requiring the reader to know the thresholds.
+- **Skeletons mirror the layout they replace**, so nothing jumps when data lands.
 
 ## Deployment
 

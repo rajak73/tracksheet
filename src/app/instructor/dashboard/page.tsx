@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, ErrorState,
+  PageHeader, StatGridSkeleton, StatTile, Skeleton, utilizationTone,
+} from "@/app/_components/ui";
 
 type Deliverable = {
   id: string;
@@ -35,7 +40,7 @@ type Personal = {
   days: DayBreakdown[];
 };
 
-type PersonalInsight = { type: string; severity: string; recommendation: string };
+type PersonalInsight = { type: string; severity: string; title?: string; summary?: string; recommendation: string };
 
 type ScheduleSlot = {
   id: string;
@@ -55,34 +60,18 @@ type Windows = {
   closing: { startLocal: string; endLocal: string } | null;
 };
 
-function Metric({ label, value, suffix }: { label: string; value: number | null; suffix?: string }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <dt className="truncate text-sm font-medium text-gray-500 dark:text-zinc-400">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-zinc-100">
-        {value === null ? (
-          <span className="text-base font-normal text-gray-400">Not measurable</span>
-        ) : (
-          <>
-            {value}
-            {suffix ? <span className="ml-1 text-base font-normal text-gray-500">{suffix}</span> : null}
-          </>
-        )}
-      </dd>
-    </div>
-  );
-}
+const hhmm = (iso: string) => new Date(iso).toISOString().slice(11, 16);
 
 export default function InstructorDashboardPage() {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [personal, setPersonal] = useState<Personal | null>(null);
   const [today, setToday] = useState<Windows | null>(null);
   const [instructorId, setInstructorId] = useState<string | null>(null);
+  const [insights, setInsights] = useState<PersonalInsight[]>([]);
+  const [slots, setSlots] = useState<ScheduleSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
-  const [insights, setInsights] = useState<PersonalInsight[]>([]);
-  const [slots, setSlots] = useState<ScheduleSlot[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -144,22 +133,18 @@ export default function InstructorDashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Initial data fetch. `load` only calls setState after awaiting the network,
-    // so no state is set synchronously during the effect; the rule cannot see
-    // through the async boundary.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  /** Records the daily opening or closing against the configured window. */
   async function logDaily(kind: "DAILY_OPENING" | "DAILY_CLOSING") {
-    if (!instructorId || !today || !personal) return;
+    if (!instructorId || !today) return;
     const window = kind === "DAILY_OPENING" ? today.opening : today.closing;
     if (!window) return;
 
     setLogging(true);
     try {
-      const toIso = (hhmm: string) => `${today.date}T${hhmm}:00`;
+      const toIso = (t: string) => `${today.date}T${t}:00`;
       await fetch(`/api/instructors/${instructorId}/activities`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -177,237 +162,235 @@ export default function InstructorDashboardPage() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-800" />
-        ))}
+      <div className="space-y-6">
+        <PageHeader title="Today" />
+        <Card padded>
+          <Skeleton className="h-5 w-32" />
+          <div className="mt-4 flex gap-3">
+            <Skeleton className="h-9 w-56" />
+            <Skeleton className="h-9 w-56" />
+          </div>
+        </Card>
+        <StatGridSkeleton />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-950/40">
-        <h2 className="font-semibold text-red-800 dark:text-red-300">Unable to load dashboard</h2>
-        <p className="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
-      </div>
-    );
-  }
+  if (error) return <ErrorState message={error} />;
 
   const todayRow = personal?.days[personal.days.length - 1];
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-          My Dashboard
-        </h1>
-        {personal ? (
-          <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-            {personal.from} to {personal.to}
-          </p>
-        ) : null}
-      </header>
+      <PageHeader
+        title="Today"
+        description={personal ? `Your week · ${personal.from} to ${personal.to}` : undefined}
+        actions={
+          <Link
+            href="/instructor/activities"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+          >
+            Record activity
+          </Link>
+        }
+      />
 
+      {/* Opening and closing come first: they are the two things this page
+          exists to prompt, and both are once-per-day. */}
       {today ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
-            {today.date}
-            {!today.isWorkingDay ? (
-              <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-zinc-800 dark:text-zinc-400">
-                {today.nonWorkingReason === "HOLIDAY" ? "Holiday" : "Non-working day"}
-              </span>
-            ) : null}
-          </h2>
+        <Card>
+          <CardHeader
+            title={today.date}
+            description={
+              today.isWorkingDay
+                ? "Record your daily opening and closing against the configured windows."
+                : undefined
+            }
+            actions={
+              !today.isWorkingDay ? (
+                <Badge tone="neutral">
+                  {today.nonWorkingReason === "HOLIDAY" ? "Holiday" : "Non-working day"}
+                </Badge>
+              ) : null
+            }
+          />
+          <CardBody>
+            {today.isWorkingDay && today.opening && today.closing ? (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  variant={todayRow?.openingLogged ? "secondary" : "primary"}
+                  onClick={() => logDaily("DAILY_OPENING")}
+                  disabled={logging || todayRow?.openingLogged}
+                  className="flex-1"
+                >
+                  {todayRow?.openingLogged
+                    ? `Opening recorded · ${today.opening.startLocal}–${today.opening.endLocal}`
+                    : `Record opening · ${today.opening.startLocal}–${today.opening.endLocal}`}
+                </Button>
+                <Button
+                  variant={todayRow?.closingLogged ? "secondary" : "primary"}
+                  onClick={() => logDaily("DAILY_CLOSING")}
+                  disabled={logging || todayRow?.closingLogged}
+                  className="flex-1"
+                >
+                  {todayRow?.closingLogged
+                    ? `Closing recorded · ${today.closing.startLocal}–${today.closing.endLocal}`
+                    : `Record closing · ${today.closing.startLocal}–${today.closing.endLocal}`}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                No opening or closing is expected on a non-working day.
+              </p>
+            )}
+          </CardBody>
+        </Card>
+      ) : null}
 
-          {today.isWorkingDay && today.opening && today.closing ? (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={() => logDaily("DAILY_OPENING")}
-                disabled={logging || todayRow?.openingLogged}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-              >
-                {todayRow?.openingLogged
-                  ? `Opening recorded (${today.opening.startLocal}–${today.opening.endLocal})`
-                  : `Record daily opening ${today.opening.startLocal}–${today.opening.endLocal}`}
-              </button>
-              <button
-                onClick={() => logDaily("DAILY_CLOSING")}
-                disabled={logging || todayRow?.closingLogged}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-              >
-                {todayRow?.closingLogged
-                  ? `Closing recorded (${today.closing.startLocal}–${today.closing.endLocal})`
-                  : `Record daily closing ${today.closing.startLocal}–${today.closing.endLocal}`}
-              </button>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-gray-500 dark:text-zinc-400">
-              No opening or closing is expected on a non-working day.
-            </p>
-          )}
-        </section>
+      {todayRow ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatTile label="Today · productive" value={todayRow.productiveHours} suffix="hrs" emphasis />
+          <StatTile label="Today · capacity" value={todayRow.capacityHours} suffix="hrs" />
+          <StatTile
+            label="Today · unutilized"
+            value={todayRow.unutilizedHours}
+            suffix="hrs"
+            tone={todayRow.unutilizedHours && todayRow.unutilizedHours > 0 ? "warning" : "neutral"}
+            hint={todayRow.unutilizedHours === null ? "Nothing recorded yet" : undefined}
+          />
+          <StatTile
+            label="Open / close"
+            value={`${todayRow.openingLogged ? "✓" : "—"} / ${todayRow.closingLogged ? "✓" : "—"}`}
+          />
+        </div>
       ) : null}
 
       {today?.isWorkingDay ? (
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
-              Today&apos;s schedule
-            </h2>
-          </div>
+        <Card>
+          <CardHeader title="Today's schedule" />
           {slots.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">
-              Nothing scheduled for today. Your manager plans schedule slots; you can still
-              record any activity you carry out.
-            </p>
+            <EmptyState
+              title="Nothing scheduled today"
+              description="Your manager plans schedule slots. You can still record any activity you carry out."
+              action={
+                <Link
+                  href="/instructor/activities"
+                  className="rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-content hover:bg-hovered"
+                >
+                  Record an activity
+                </Link>
+              }
+            />
           ) : (
-            <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+            <ul className="divide-y divide-line">
               {slots.map((s) => (
-                <li key={s.id} className="flex items-center justify-between px-4 py-3 sm:px-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                <li key={s.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-content">
                       {s.activityType.label}
                       {s.course ? ` · ${s.course.code}` : ""}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(s.startTime).toISOString().slice(11, 16)}–
-                      {new Date(s.endTime).toISOString().slice(11, 16)} UTC
+                    <p className="tabular mt-0.5 text-sm text-muted">
+                      {hhmm(s.startTime)}–{hhmm(s.endTime)} UTC
                       {s.location ? ` · ${s.location}` : ""}
                     </p>
                   </div>
-                  <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    {s.status}
-                  </span>
+                  <Badge tone="neutral">{s.status}</Badge>
                 </li>
               ))}
             </ul>
           )}
-        </section>
-      ) : null}
-
-      {todayRow ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Today</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div>
-              <dt className="text-sm text-gray-500 dark:text-zinc-400">Productive</dt>
-              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
-                {todayRow.productiveHours} hrs
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm text-gray-500 dark:text-zinc-400">Capacity</dt>
-              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
-                {todayRow.capacityHours} hrs
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm text-gray-500 dark:text-zinc-400">Unutilized</dt>
-              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
-                {todayRow.unutilizedHours === null ? (
-                  <span className="text-base font-normal text-amber-600 dark:text-amber-400">
-                    Not recorded
-                  </span>
-                ) : (
-                  `${todayRow.unutilizedHours} hrs`
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm text-gray-500 dark:text-zinc-400">Opening / Closing</dt>
-              <dd className="text-xl font-semibold text-gray-900 dark:text-zinc-100">
-                {todayRow.openingLogged ? "✓" : "—"} / {todayRow.closingLogged ? "✓" : "—"}
-              </dd>
-            </div>
-          </dl>
-        </section>
+        </Card>
       ) : null}
 
       {personal ? (
         <>
-          <dl className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Metric label="Capacity" value={personal.capacityHours} suffix="hrs" />
-            <Metric label="Productive" value={personal.productiveHours} suffix="hrs" />
-            <Metric label="Unutilized" value={personal.unutilizedHours} suffix="hrs" />
-            <Metric label="Utilization" value={personal.utilizationPct} suffix="%" />
-          </dl>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatTile
+              label="Week · utilization"
+              value={personal.utilizationPct}
+              suffix="%"
+              tone={utilizationTone(personal.utilizationPct)}
+            />
+            <StatTile label="Week · capacity" value={personal.capacityHours} suffix="hrs" />
+            <StatTile label="Week · productive" value={personal.productiveHours} suffix="hrs" />
+            <StatTile label="Week · unutilized" value={personal.unutilizedHours} suffix="hrs" />
+          </div>
 
           {personal.missingDataHours > 0 ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-              {personal.missingDataHours} hours of your expected working time have no activity
-              recorded. This is shown as missing data, not as time you did not work.
-            </p>
+            <Alert tone="warning" title="Some of your working time has no records">
+              {personal.missingDataHours} hours have no activity recorded. This shows as missing
+              data, not as time you did not work.
+            </Alert>
           ) : null}
 
           {Object.keys(personal.hoursByActivityType).length > 0 ? (
-            <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
-                Hours by activity
-              </h2>
-              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {Object.entries(personal.hoursByActivityType).map(([code, hrs]) => (
-                  <li key={code} className="flex justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-zinc-800">
-                    <span className="text-gray-600 dark:text-zinc-400">{code.replaceAll("_", " ")}</span>
-                    <span className="font-medium text-gray-900 dark:text-zinc-100">{hrs}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <Card>
+              <CardHeader title="Hours by activity" description="This week." />
+              <CardBody>
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {Object.entries(personal.hoursByActivityType).map(([code, hrs]) => (
+                    <li
+                      key={code}
+                      className="flex items-center justify-between rounded-lg bg-sunken px-3 py-2 text-sm"
+                    >
+                      <span className="truncate text-muted">{code.replaceAll("_", " ")}</span>
+                      <span className="tabular ml-2 font-medium text-content">{hrs}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            </Card>
           ) : null}
         </>
       ) : null}
 
       {insights.length > 0 ? (
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
-              Personal insights
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-              Derived from your own recorded activity only.
-            </p>
-          </div>
-          <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+        <Card>
+          <CardHeader
+            title="Personal insights"
+            description="Derived from your own recorded activity only."
+          />
+          <ul className="divide-y divide-line">
             {insights.map((i, idx) => (
-              <li key={`${i.type}-${idx}`} className="px-4 py-4 sm:px-6">
-                <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
-                  {i.type.replaceAll("_", " ")}
+              <li key={`${i.type}-${idx}`} className="px-5 py-4">
+                <p className="text-sm font-medium text-content">
+                  {i.title ?? i.type.replaceAll("_", " ")}
                 </p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">{i.recommendation}</p>
+                {i.summary ? <p className="mt-1 text-sm text-muted">{i.summary}</p> : null}
+                <p className="mt-1 text-sm text-muted">{i.recommendation}</p>
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       ) : null}
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">My deliverables</h2>
-        </div>
+      <Card>
+        <CardHeader title="My deliverables" />
         {deliverables.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">
-            No deliverables have been assigned to you.
-          </p>
+          <EmptyState
+            title="No deliverables assigned"
+            description="Your manager assigns deliverables. They will appear here with their target and due date."
+          />
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-line">
             {deliverables.map((d) => (
-              <li key={d.id} className="flex items-center justify-between px-4 py-4 sm:px-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">{d.title}</p>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-content">{d.title}</p>
+                  <p className="tabular mt-0.5 text-sm text-muted">
                     Target {d.targetQuantity} · {d.targetHours} hrs · due{" "}
                     {new Date(d.dueDate).toISOString().slice(0, 10)}
                   </p>
                 </div>
-                <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-zinc-800 dark:text-zinc-300">
-                  {d.status}
-                </span>
+                <Badge tone={d.status === "COMPLETED" ? "success" : d.status === "OVERDUE" ? "danger" : "neutral"}>
+                  {d.status.replaceAll("_", " ")}
+                </Badge>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

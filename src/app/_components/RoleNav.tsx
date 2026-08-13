@@ -6,15 +6,15 @@ import { usePathname } from "next/navigation";
 export type NavItem = { href: string; label: string };
 
 /**
- * Navigation for a role's application shell. Every entry points at a route that
- * exists — there are deliberately no `href="#"` placeholders, because a link
- * that goes nowhere is indistinguishable from a broken one.
+ * Navigation for a role's application shell. Every entry points at a route
+ * that exists — there are deliberately no `href="#"` placeholders, because a
+ * link that goes nowhere is indistinguishable from a broken one.
  */
 export function RoleNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-1">
+    <nav className="flex items-center gap-0.5 overflow-x-auto">
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
@@ -22,10 +22,10 @@ export function RoleNav({ items }: { items: NavItem[] }) {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               active
-                ? "bg-white/15 text-white"
-                : "text-indigo-100 hover:bg-white/10 hover:text-white"
+                ? "bg-primary-subtle text-primary-text"
+                : "text-muted hover:bg-hovered hover:text-content"
             }`}
           >
             {item.label}

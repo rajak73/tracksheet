@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Alert, Button, Field, inputClass } from "@/app/_components/ui";
 
 /**
  * Creates a staff account with an initial password.
@@ -24,8 +25,6 @@ export function StaffForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
-
-  const field = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,47 +63,33 @@ export function StaffForm({
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 space-y-4">
+    <form onSubmit={submit} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-sm">
-          <span className="mb-1 block text-gray-600 dark:text-zinc-400">Name</span>
-          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-gray-600 dark:text-zinc-400">Email</span>
-          <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-gray-600 dark:text-zinc-400">Initial password</span>
-          <input required type="text" minLength={12} value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })} className={field} />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-gray-600 dark:text-zinc-400">Employee code</span>
-          <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className={field} />
-        </label>
+        <Field label="Name">
+          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
+        </Field>
+        <Field label="Email">
+          <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} />
+        </Field>
+        <Field label="Initial password" hint="At least 12 characters.">
+          <input required type="text" minLength={12} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClass} />
+        </Field>
+        <Field label="Employee code" hint="Optional.">
+          <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className={inputClass} />
+        </Field>
       </div>
 
-      <p className="text-sm text-gray-500 dark:text-zinc-400">
-        The initial password is shown in plain text because you have to pass it on. Ask the {roleLabel} to
-        change it after their first sign-in.
+      <p className="text-sm text-muted">
+        The initial password is shown in plain text because you have to pass it on. Ask the{" "}
+        {roleLabel} to change it after their first sign-in.
       </p>
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
-          {error}
-        </p>
-      ) : null}
-      {created ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-          Created {created}. They can sign in now.
-        </p>
-      ) : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {created ? <Alert tone="success">Created {created}. They can sign in now.</Alert> : null}
 
-      <button type="submit" disabled={saving}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60">
+      <Button type="submit" disabled={saving}>
         {saving ? "Creating…" : `Create ${roleLabel}`}
-      </button>
+      </Button>
     </form>
   );
 }

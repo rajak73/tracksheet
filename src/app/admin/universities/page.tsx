@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Badge, Card, CardBody, CardHeader, EmptyState, ErrorState, PageHeader,
+  Skeleton,
+} from "@/app/_components/ui";
 
 type University = {
   id: string;
@@ -36,67 +40,73 @@ export default function AdminUniversitiesPage() {
     })();
   }, []);
 
-  if (loading) return <div className="h-64 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-800" />;
-  if (error)
+  if (loading) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+      <div className="space-y-4">
+        <PageHeader title="Universities" />
+        {[0, 1].map((i) => <Card key={i} padded><Skeleton className="h-24 w-full" /></Card>)}
       </div>
     );
+  }
+  if (error) return <ErrorState message={error} />;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">Universities</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-            Working hours and daily opening/closing configuration per tenant.
-          </p>
-        </div>
-        <Link href="/admin/universities/new"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
-          New university
-        </Link>
-      </header>
+    <div className="space-y-4">
+      <PageHeader
+        title="Universities"
+        description="Working hours and daily opening/closing configuration per tenant."
+        actions={
+          <Link href="/admin/universities/new" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">
+            New university
+          </Link>
+        }
+      />
 
-      <div className="space-y-4">
-        {universities.map((u) => (
-          <section key={u.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-lg font-medium">
-                <Link
-                  href={`/admin/universities/${u.id}`}
-                  className="text-indigo-600 hover:underline dark:text-indigo-400"
-                >
-                  {u.name}
+      {universities.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="No universities yet"
+            description="Create the first university to start tracking instructor workload."
+            action={
+              <Link href="/admin/universities/new" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">
+                Create a university
+              </Link>
+            }
+          />
+        </Card>
+      ) : (
+        universities.map((u) => (
+          <Card key={u.id}>
+            <CardHeader
+              title={u.name}
+              description={`${u._count.managers} manager(s) · ${u._count.instructors} instructor(s) · opening ${u.openingDurationMin} min · closing ${u.closingDurationMin} min`}
+              actions={
+                <Link href={`/admin/universities/${u.id}`} className="rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-sm font-medium text-content hover:bg-hovered">
+                  Open
                 </Link>
-              </h2>
-              <span className="text-xs text-gray-400">{u.timezone}</span>
-            </div>
-            <p className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-              {u._count.managers} manager(s) · {u._count.instructors} instructor(s) · opening{" "}
-              {u.openingDurationMin} min · closing {u.closingDurationMin} min
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {u.workingHours.map((w) => (
-                <span
-                  key={w.dayOfWeek}
-                  className={`rounded px-2 py-1 text-xs ${
-                    w.isWorkingDay
-                      ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                      : "bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-500"
-                  }`}
-                >
-                  {DAYS[w.dayOfWeek]}
-                  {w.isWorkingDay ? ` ${hhmm(w.startMinute)}–${hhmm(w.endMinute)}` : " closed"}
-                </span>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-
-
+              }
+            />
+            <CardBody>
+              <div className="mb-3 flex items-center gap-2">
+                <Badge tone="info">{u.timezone}</Badge>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {u.workingHours.map((w) => (
+                  <span
+                    key={w.dayOfWeek}
+                    className={`tabular rounded-md px-2 py-1 text-xs ${
+                      w.isWorkingDay ? "bg-success-subtle text-success-text" : "bg-sunken text-subtle"
+                    }`}
+                  >
+                    {DAYS[w.dayOfWeek]}
+                    {w.isWorkingDay ? ` ${hhmm(w.startMinute)}–${hhmm(w.endMinute)}` : " closed"}
+                  </span>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        ))
+      )}
     </div>
   );
 }

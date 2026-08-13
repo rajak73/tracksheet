@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Alert, Badge, Button, Card, CardHeader, Dot, EmptyState, ErrorState, Meter,
+  PageHeader, StatGridSkeleton, StatTile, Table, TableSkeleton, TableWrap, TBody,
+  TD, THead, TR, complianceTone, utilizationTone, type Tone,
+} from "@/app/_components/ui";
 
 type InstructorRow = {
   instructorId: string;
@@ -15,7 +20,6 @@ type InstructorRow = {
   overlapHours: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
-  hoursByActivityType: Record<string, number>;
 };
 
 type Analytics = {
@@ -40,36 +44,19 @@ type AiInsight = {
   type: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   period: string;
+  title?: string;
+  summary?: string;
   recommendation: string;
-  status: string;
 };
 
-type Notification = { id: string; title: string; body: string | null };
+type Notification = { id: string; title: string; message: string };
 
-const SEVERITY_DOT: Record<string, string> = {
-  CRITICAL: "bg-red-500",
-  HIGH: "bg-orange-500",
-  MEDIUM: "bg-amber-400",
-  LOW: "bg-sky-400",
+const SEVERITY_TONE: Record<string, Tone> = {
+  CRITICAL: "danger",
+  HIGH: "danger",
+  MEDIUM: "warning",
+  LOW: "info",
 };
-
-function Metric({ label, value, suffix }: { label: string; value: number | null; suffix?: string }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <dt className="truncate text-sm font-medium text-gray-500 dark:text-zinc-400">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-zinc-100">
-        {value === null ? (
-          <span className="text-base font-normal text-gray-400">Not measurable</span>
-        ) : (
-          <>
-            {value}
-            {suffix ? <span className="ml-1 text-base font-normal text-gray-500">{suffix}</span> : null}
-          </>
-        )}
-      </dd>
-    </div>
-  );
-}
 
 export default function ManagerDashboardPage() {
   const [universityId, setUniversityId] = useState<string | null>(null);
@@ -110,9 +97,6 @@ export default function ManagerDashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Initial data fetch. `load` only calls setState after awaiting the network,
-    // so no state is set synchronously during the effect; the rule cannot see
-    // through the async boundary.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
@@ -131,180 +115,181 @@ export default function ManagerDashboardPage() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-800" />
-        ))}
+      <div className="space-y-6">
+        <PageHeader title="Overview" description="Your university's workload this period." />
+        <StatGridSkeleton />
+        <TableSkeleton cols={6} />
       </div>
     );
   }
 
-  if (error || !analytics) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-950/40">
-        <h2 className="font-semibold text-red-800 dark:text-red-300">Unable to load dashboard</h2>
-        <p className="mt-1 text-sm text-red-700 dark:text-red-400">{error}</p>
-      </div>
-    );
-  }
+  if (error || !analytics) return <ErrorState message={error ?? "No data returned."} />;
 
   const t = analytics.totals;
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">
-            University Dashboard
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-            {analytics.from} to {analytics.to}
-          </p>
-        </div>
-        <Link
-          href="/manager/reports"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          View reports
-        </Link>
-      </header>
+      <PageHeader
+        title="Overview"
+        description={`${analytics.from} to ${analytics.to}`}
+        actions={
+          <Link
+            href="/manager/reports"
+            className="rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-content hover:bg-hovered"
+          >
+            View reports
+          </Link>
+        }
+      />
 
       {notifications.length > 0 ? (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
-          {notifications.length} unread notification{notifications.length === 1 ? "" : "s"} —{" "}
+        <Alert tone="info" title={`${notifications.length} unread notification${notifications.length === 1 ? "" : "s"}`}>
           {notifications[0].title}
-        </div>
+        </Alert>
       ) : null}
 
-      <dl className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Instructors" value={t.instructors} />
-        <Metric label="Capacity" value={t.capacityHours} suffix="hrs" />
-        <Metric label="Productive" value={t.productiveHours} suffix="hrs" />
-        <Metric label="Utilization" value={t.utilizationPct} suffix="%" />
-        <Metric label="Unutilized" value={t.unutilizedHours} suffix="hrs" />
-        <Metric label="Missing data" value={t.missingDataHours} suffix="hrs" />
-        <Metric label="Opening compliance" value={t.openingCompliancePct} suffix="%" />
-        <Metric label="Closing compliance" value={t.closingCompliancePct} suffix="%" />
-      </dl>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile
+          label="Utilization"
+          value={t.utilizationPct}
+          suffix="%"
+          tone={utilizationTone(t.utilizationPct)}
+          emphasis
+          hint={`${t.productiveHours} of ${t.capacityHours} hrs`}
+        />
+        <StatTile label="Instructors" value={t.instructors} />
+        <StatTile
+          label="Opening compliance"
+          value={t.openingCompliancePct}
+          suffix="%"
+          tone={complianceTone(t.openingCompliancePct)}
+        />
+        <StatTile
+          label="Closing compliance"
+          value={t.closingCompliancePct}
+          suffix="%"
+          tone={complianceTone(t.closingCompliancePct)}
+        />
+      </div>
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">
-            Instructor workload
-          </h2>
-        </div>
+      {t.missingDataHours > 0 ? (
+        <Alert tone="warning" title="Some working time has no records">
+          {t.missingDataHours} hours carry no activity records. That is missing data, not
+          unutilized time.
+        </Alert>
+      ) : null}
+
+      <Card>
+        <CardHeader title="Instructor workload" description="Utilization against configured capacity." />
         {analytics.instructors.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">
-            No active instructors in this university.
-          </p>
+          <EmptyState
+            title="No active instructors"
+            description="Add instructors to start tracking workload for this university."
+            action={
+              <Link
+                href="/manager/instructors"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+              >
+                Add an instructor
+              </Link>
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-950/40">
-                <tr>
-                  {[
-                    "Instructor",
-                    "Capacity",
-                    "Productive",
-                    "Unutilized",
-                    "Missing",
-                    "Utilization",
-                    "Opening",
-                    "Closing",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      scope="col"
-                      className="px-3 py-3 text-left text-sm font-semibold text-gray-900 dark:text-zinc-100"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+          <TableWrap>
+            <Table>
+              <THead
+                columns={[
+                  { label: "Instructor" },
+                  { label: "Capacity", align: "right" },
+                  { label: "Productive", align: "right" },
+                  { label: "Missing", align: "right" },
+                  { label: "Utilization" },
+                  { label: "Open / Close" },
+                ]}
+              />
+              <TBody>
                 {analytics.instructors.map((i) => (
-                  <tr key={i.instructorId}>
-                    <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  <TR key={i.instructorId}>
+                    <TD strong>
                       {i.instructorName}
                       {i.employeeCode ? (
-                        <span className="ml-2 text-xs text-gray-400">{i.employeeCode}</span>
+                        <span className="ml-2 text-xs text-subtle">{i.employeeCode}</span>
                       ) : null}
                       {i.overlapHours > 0 ? (
-                        <span
-                          className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          title="Logged activities overlap; merged time is reported"
-                        >
-                          overlap
+                        <span className="ml-2">
+                          <Badge tone="warning">overlap</Badge>
                         </span>
                       ) : null}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">{i.capacityHours}</td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">{i.productiveHours}</td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">{i.unutilizedHours}</td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">
+                    </TD>
+                    <TD align="right">{i.capacityHours}</TD>
+                    <TD align="right">{i.productiveHours}</TD>
+                    <TD align="right">
                       {i.missingDataHours > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400">{i.missingDataHours}</span>
+                        <span className="text-warning">{i.missingDataHours}</span>
                       ) : (
                         0
                       )}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">
-                      {i.utilizationPct === null ? "—" : `${i.utilizationPct}%`}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">
-                      {i.openingCompliancePct === null ? "—" : `${i.openingCompliancePct}%`}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 dark:text-zinc-400">
-                      {i.closingCompliancePct === null ? "—" : `${i.closingCompliancePct}%`}
-                    </td>
-                  </tr>
+                    </TD>
+                    <TD>
+                      <Meter value={i.utilizationPct} tone={utilizationTone(i.utilizationPct)} />
+                    </TD>
+                    <TD>
+                      <div className="flex items-center gap-1.5">
+                        <Badge tone={complianceTone(i.openingCompliancePct)}>
+                          {i.openingCompliancePct === null ? "—" : `${i.openingCompliancePct}%`}
+                        </Badge>
+                        <Badge tone={complianceTone(i.closingCompliancePct)}>
+                          {i.closingCompliancePct === null ? "—" : `${i.closingCompliancePct}%`}
+                        </Badge>
+                      </div>
+                    </TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+            </Table>
+          </TableWrap>
         )}
-      </section>
+      </Card>
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-zinc-800">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">AI insights</h2>
-          <button
-            onClick={generateInsights}
-            disabled={generating}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {generating ? "Generating…" : "Generate"}
-          </button>
-        </div>
+      <Card>
+        <CardHeader
+          title="AI insights"
+          description="Derived from recorded activity — each one traceable to its metrics."
+          actions={
+            <Button size="sm" variant="secondary" onClick={generateInsights} disabled={generating}>
+              {generating ? "Generating…" : "Generate"}
+            </Button>
+          }
+        />
         {insights.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-gray-500 dark:text-zinc-400">
-            No insights yet. Insights are derived from recorded activity — if nothing has been
-            logged for this period, none will be generated.
-          </p>
+          <EmptyState
+            title="No insights yet"
+            description="Insights are derived from recorded activity. If nothing has been logged for this period, none will be generated."
+          />
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-line">
             {insights.map((insight) => (
-              <li key={insight.id} className="flex gap-3 px-4 py-4 sm:px-6">
-                <span
-                  className={`mt-1.5 inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                    SEVERITY_DOT[insight.severity] ?? "bg-gray-400"
-                  }`}
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">
-                    {insight.type.replaceAll("_", " ")}
-                    <span className="ml-2 text-xs font-normal text-gray-400">{insight.period}</span>
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-zinc-400">
-                    {insight.recommendation}
-                  </p>
+              <li key={insight.id} className="flex gap-3 px-5 py-4">
+                <span className="mt-1.5">
+                  <Dot tone={SEVERITY_TONE[insight.severity] ?? "neutral"} />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <p className="text-sm font-medium text-content">
+                      {insight.title ?? insight.type.replaceAll("_", " ")}
+                    </p>
+                    <span className="text-xs text-subtle">{insight.period}</span>
+                  </div>
+                  {insight.summary ? (
+                    <p className="mt-1 text-sm text-muted">{insight.summary}</p>
+                  ) : null}
+                  <p className="mt-1 text-sm text-muted">{insight.recommendation}</p>
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

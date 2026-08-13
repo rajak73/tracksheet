@@ -18,8 +18,6 @@ export function SignOutButton() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      // refresh() clears the client router cache so no server-rendered page
-      // for the old session is served from memory.
       router.replace("/login");
       router.refresh();
     }
@@ -29,9 +27,9 @@ export function SignOutButton() {
     <button
       onClick={signOut}
       disabled={busy}
-      className="text-sm font-medium text-indigo-200 hover:text-white disabled:opacity-60"
+      className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-hovered hover:text-content disabled:opacity-60"
     >
-      {busy ? "Signing out…" : "Sign Out"}
+      {busy ? "Signing out…" : "Sign out"}
     </button>
   );
 }

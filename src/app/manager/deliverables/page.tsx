@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, ErrorState,
+  Field, PageHeader, Skeleton, inputClass,
+} from "@/app/_components/ui";
 
 type Instructor = { id: string; user: { name: string } };
 type Deliverable = {
   id: string;
   title: string;
-  category: string | null;
   targetQuantity: number;
   targetHours: number;
   dueDate: string;
@@ -20,7 +23,7 @@ export default function ManagerDeliverablesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    instructorId: "", title: "", category: "", targetQuantity: 1, targetHours: 1, dueDate: "",
+    instructorId: "", title: "", targetQuantity: 1, targetHours: 1, dueDate: "",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -63,7 +66,6 @@ export default function ManagerDeliverablesPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           title: form.title,
-          category: form.category || undefined,
           targetQuantity: Number(form.targetQuantity),
           targetHours: Number(form.targetHours),
           dueDate: form.dueDate,
@@ -74,111 +76,107 @@ export default function ManagerDeliverablesPage() {
         setFormError(body?.error?.message ?? `Could not assign (HTTP ${res.status})`);
         return;
       }
-      setForm((f) => ({ ...f, title: "", category: "" }));
+      setForm((f) => ({ ...f, title: "" }));
       await load();
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <div className="h-64 animate-pulse rounded-xl bg-gray-200 dark:bg-zinc-800" />;
-  if (error)
+  if (loading) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+      <div className="space-y-6">
+        <PageHeader title="Deliverables" />
+        <Card padded><Skeleton className="h-24 w-full" /></Card>
+        <Card padded><Skeleton className="h-32 w-full" /></Card>
       </div>
     );
+  }
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-zinc-100">Deliverables</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-zinc-400">
-          Assign work and track progress against target.
-        </p>
-      </header>
+      <PageHeader title="Deliverables" description="Assign work and track progress against target." />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-100">Assign a deliverable</h2>
-        <form onSubmit={assign} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <label className="text-sm lg:col-span-2">
-            <span className="mb-1 block text-gray-600 dark:text-zinc-400">Instructor</span>
-            <select value={form.instructorId} onChange={(e) => setForm({ ...form, instructorId: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-              {instructors.map((i) => <option key={i.id} value={i.id}>{i.user.name}</option>)}
-            </select>
-          </label>
-          <label className="text-sm lg:col-span-2">
-            <span className="mb-1 block text-gray-600 dark:text-zinc-400">Title</span>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-gray-600 dark:text-zinc-400">Quantity</span>
-            <input type="number" min={1} value={form.targetQuantity}
-              onChange={(e) => setForm({ ...form, targetQuantity: Number(e.target.value) })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-gray-600 dark:text-zinc-400">Hours</span>
-            <input type="number" min={0.5} step={0.5} value={form.targetHours}
-              onChange={(e) => setForm({ ...form, targetHours: Number(e.target.value) })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-gray-600 dark:text-zinc-400">Due</span>
-            <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-          </label>
-          <div className="flex items-end lg:col-span-6">
-            <button type="submit" disabled={saving}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60">
-              {saving ? "Assigning…" : "Assign"}
-            </button>
-          </div>
-        </form>
-        {formError ? (
-          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
-            {formError}
-          </p>
-        ) : null}
-      </section>
-
-      {instructors.map((i) => {
-        const items = byInstructor[i.id] ?? [];
-        return (
-          <section key={i.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="border-b border-gray-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
-              <h2 className="text-base font-medium text-gray-900 dark:text-zinc-100">{i.user.name}</h2>
+      <Card>
+        <CardHeader title="Assign a deliverable" />
+        <CardBody>
+          <form onSubmit={assign} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <Field label="Instructor" className="lg:col-span-2">
+                <select value={form.instructorId} onChange={(e) => setForm({ ...form, instructorId: e.target.value })} className={inputClass}>
+                  {instructors.map((i) => <option key={i.id} value={i.id}>{i.user.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Title" className="lg:col-span-3">
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} />
+              </Field>
+              <Field label="Quantity">
+                <input type="number" min={1} value={form.targetQuantity} onChange={(e) => setForm({ ...form, targetQuantity: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Hours">
+                <input type="number" min={0.5} step={0.5} value={form.targetHours} onChange={(e) => setForm({ ...form, targetHours: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Due date">
+                <input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} className={inputClass} />
+              </Field>
             </div>
-            {items.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-gray-500 dark:text-zinc-400">No deliverables assigned.</p>
-            ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
-                {items.map((d) => {
-                  const done = d.logs.reduce((a, l) => a + l.quantityCompleted, 0);
-                  const hours = d.logs.reduce((a, l) => a + l.hoursSpent, 0);
-                  const pct = d.targetQuantity > 0 ? Math.round((done / d.targetQuantity) * 100) : 0;
-                  return (
-                    <li key={d.id} className="px-4 py-3 sm:px-6">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="text-sm font-medium text-gray-900 dark:text-zinc-100">{d.title}</p>
-                        <p className="text-sm text-gray-500">
-                          {done}/{d.targetQuantity} · {hours}/{d.targetHours} hrs · due{" "}
-                          {new Date(d.dueDate).toISOString().slice(0, 10)}
-                        </p>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-gray-100 dark:bg-zinc-800">
-                        <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        );
-      })}
+            {formError ? <Alert tone="danger">{formError}</Alert> : null}
+            <Button type="submit" disabled={saving}>{saving ? "Assigning…" : "Assign"}</Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      {instructors.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="No instructors yet"
+            description="Add instructors before assigning deliverables."
+          />
+        </Card>
+      ) : (
+        instructors.map((i) => {
+          const items = byInstructor[i.id] ?? [];
+          return (
+            <Card key={i.id}>
+              <CardHeader title={i.user.name} />
+              {items.length === 0 ? (
+                <EmptyState title="No deliverables assigned" description="Use the form above to assign work." />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {items.map((d) => {
+                    const done = d.logs.reduce((a, l) => a + l.quantityCompleted, 0);
+                    const hours = d.logs.reduce((a, l) => a + l.hoursSpent, 0);
+                    const pct = d.targetQuantity > 0 ? Math.round((done / d.targetQuantity) * 100) : 0;
+                    return (
+                      <li key={d.id} className="px-5 py-4">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="text-sm font-medium text-content">{d.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="tabular text-sm text-muted">
+                              {done}/{d.targetQuantity} · {hours}/{d.targetHours} hrs · due{" "}
+                              {new Date(d.dueDate).toISOString().slice(0, 10)}
+                            </p>
+                            <Badge tone={d.status === "COMPLETED" ? "success" : d.status === "OVERDUE" ? "danger" : "neutral"}>
+                              {d.status.replaceAll("_", " ")}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+                          <div
+                            className={pct >= 100 ? "h-full rounded-full bg-success" : "h-full rounded-full bg-primary"}
+                            style={{ width: `${Math.min(100, pct)}%` }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }

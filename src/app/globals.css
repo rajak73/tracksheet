@@ -1,26 +1,180 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+   Every colour is a SEMANTIC role (surface, border, muted text, danger…),
+   never a raw palette step. Components then say `bg-surface` rather than
+   `bg-white dark:bg-zinc-900`, which is what stops light and dark drifting
+   apart one component at a time — the drift this pass exists to fix.
+
+   Light values live on :root; the dark block redefines only the same names.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Page and panel backgrounds, back to front. */
+  --app-canvas: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-sunken: #f1f5f9;
+  --app-surface-hover: #f8fafc;
+
+  /* Text, in descending emphasis. */
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  --app-text-subtle: #94a3b8;
+  --app-text-inverted: #ffffff;
+
+  --app-border: #e2e8f0;
+  --app-border-strong: #cbd5e1;
+
+  /* One accent. Used for primary actions and the active nav item — nothing
+     decorative, so its presence always means "this is the thing to press". */
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  --app-primary-subtle: #eef2ff;
+  --app-primary-text: #3730a3;
+
+  /* Status. Applied to data (utilisation, compliance, severity), so these
+     have to stay legible against surface at small sizes. */
+  --app-success: #059669;
+  --app-success-subtle: #ecfdf5;
+  --app-success-text: #065f46;
+
+  --app-warning: #d97706;
+  --app-warning-subtle: #fffbeb;
+  --app-warning-text: #92400e;
+
+  --app-danger: #dc2626;
+  --app-danger-subtle: #fef2f2;
+  --app-danger-text: #991b1b;
+
+  --app-info: #0284c7;
+  --app-info-subtle: #f0f9ff;
+  --app-info-text: #075985;
+
+  /* Deliberately shallow. Depth here comes from borders and background
+     steps, not drop shadows — heavy shadow is the tell of a template. */
+  --app-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --app-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --app-canvas: #09090b;
+    --app-surface: #18181b;
+    --app-surface-sunken: #27272a;
+    --app-surface-hover: #27272a;
+
+    --app-text: #fafafa;
+    --app-text-muted: #a1a1aa;
+    --app-text-subtle: #71717a;
+    --app-text-inverted: #09090b;
+
+    --app-border: #27272a;
+    --app-border-strong: #3f3f46;
+
+    --app-primary: #6366f1;
+    --app-primary-hover: #818cf8;
+    --app-primary-subtle: #1e1b4b;
+    --app-primary-text: #c7d2fe;
+
+    --app-success: #10b981;
+    --app-success-subtle: #022c22;
+    --app-success-text: #6ee7b7;
+
+    --app-warning: #f59e0b;
+    --app-warning-subtle: #2b1a02;
+    --app-warning-text: #fcd34d;
+
+    --app-danger: #ef4444;
+    --app-danger-subtle: #2a0a0a;
+    --app-danger-text: #fca5a5;
+
+    --app-info: #38bdf8;
+    --app-info-subtle: #082f49;
+    --app-info-text: #7dd3fc;
+
+    --app-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --app-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
   }
 }
 
+@theme inline {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-sunken: var(--app-surface-sunken);
+  --color-hovered: var(--app-surface-hover);
+
+  --color-content: var(--app-text);
+  --color-muted: var(--app-text-muted);
+  --color-subtle: var(--app-text-subtle);
+  --color-inverted: var(--app-text-inverted);
+
+  --color-line: var(--app-border);
+  --color-line-strong: var(--app-border-strong);
+
+  --color-primary: var(--app-primary);
+  --color-primary-hover: var(--app-primary-hover);
+  --color-primary-subtle: var(--app-primary-subtle);
+  --color-primary-text: var(--app-primary-text);
+
+  --color-success: var(--app-success);
+  --color-success-subtle: var(--app-success-subtle);
+  --color-success-text: var(--app-success-text);
+
+  --color-warning: var(--app-warning);
+  --color-warning-subtle: var(--app-warning-subtle);
+  --color-warning-text: var(--app-warning-text);
+
+  --color-danger: var(--app-danger);
+  --color-danger-subtle: var(--app-danger-subtle);
+  --color-danger-text: var(--app-danger-text);
+
+  --color-info: var(--app-info);
+  --color-info-subtle: var(--app-info-subtle);
+  --color-info-text: var(--app-info-text);
+
+  /* Geist, loaded in the root layout. The previous stylesheet overrode this
+     with Arial, so the font the app went to the trouble of loading never
+     actually rendered. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --shadow-card: var(--app-shadow-sm);
+  --shadow-raised: var(--app-shadow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────────────────── */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--app-canvas);
+  color: var(--app-text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers in tables and stat tiles must line up column to column, otherwise
+   scanning a workload table means re-reading every row. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* One focus treatment everywhere, visible in both themes. */
+*:focus-visible {
+  outline: 2px solid var(--app-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
