@@ -29,6 +29,7 @@
 
 import type { AnomalyCondition } from "@/server/ai/anomalies";
 import { generateNarration, isGeminiConfigured, SUBJECT_TOKEN } from "@/server/ai/gemini";
+import { validateNarration } from "@/server/ai/validate";
 
 export type Narration = {
   title: string;
@@ -53,6 +54,31 @@ export async function narrateCondition(condition: AnomalyCondition): Promise<Nar
     // Logged rather than swallowed: silent degradation to the fallback would
     // hide a provider that has been down for a week.
     console.warn(`[ai] Gemini narration unavailable (${outcome.reason}); using deterministic text`);
+    return fallback;
+  }
+
+  // ── The gate ─────────────────────────────────────────────────────────────
+  // Validate BEFORE substituting the subject name, so the check runs on
+  // exactly what the model produced. A prompt instructing the model to use
+  // only supplied numbers is a request, not a guarantee; this is the
+  // guarantee.
+  //
+  // A failure DISCARDS the narration rather than repairing it — a
+  // half-corrected sentence is one no component authored and whose remaining
+  // clauses are still untrusted. The deterministic text below is correct by
+  // construction, so the cost of rejection is phrasing, never accuracy.
+  const verdict = validateNarration(condition, {
+    summary: outcome.summary,
+    recommendation: outcome.recommendation,
+  });
+  if (!verdict.ok) {
+    // The rejected text is NOT logged: it is untrusted content, and echoing it
+    // into logs is how it ends up in a dashboard someone later trusts. The
+    // violations name what was wrong without reproducing the claim.
+    console.warn(
+      `[ai] narration failed validation for ${condition.type} ` +
+        `(${verdict.violations.join("; ")}); using deterministic text`,
+    );
     return fallback;
   }
 
