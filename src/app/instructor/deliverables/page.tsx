@@ -57,7 +57,7 @@ export default function InstructorDeliverablesPage() {
       throw new Error("No instructor profile is linked to this account.");
     }
     const body = await apiGet<{ deliverables: Deliverable[] }>(
-      `/api/instructors/${me.user.instructorId}/deliverables`,
+      `/api/instructors/${me.user.instructorId}/deliverables?limit=200`,
       "Could not load your deliverables.",
     );
     return { instructorId: me.user.instructorId, deliverables: body.deliverables };

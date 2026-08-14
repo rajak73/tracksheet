@@ -1,34 +1,77 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { universityWhere } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
+import { parseLimit, parsePage } from "@/server/http/params";
 import { assertValidDate, validateTimeConfig } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 
-/** Admin sees all universities; manager and instructor see only their own. */
-export const GET = withAuth(async ({ scope }) => {
-  const universities = await prisma.university.findMany({
-    where: scope.kind === "global" ? {} : { id: universityWhere(scope).universityId },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      timezone: true,
-      openingDurationMin: true,
-      closingDurationMin: true,
-      workingHours: {
-        orderBy: { dayOfWeek: "asc" },
-        select: { dayOfWeek: true, isWorkingDay: true, startMinute: true, endMinute: true },
-      },
-      _count: { select: { instructors: true, managers: true } },
-    },
-  });
+const SORTABLE_FIELDS = ["name", "code", "createdAt"] as const;
+type SortField = (typeof SORTABLE_FIELDS)[number];
 
-  return NextResponse.json({ universities, scope: scope.kind });
+/**
+ * Admin sees all universities, paginated and searchable; manager and
+ * instructor see only their own (a single row, so pagination is a no-op for
+ * them but the shape stays identical for every caller).
+ */
+export const GET = withAuth(async ({ scope, req }) => {
+  const { searchParams } = new URL(req.url);
+  const page = parsePage(searchParams.get("page"));
+  const limit = parseLimit(searchParams.get("limit"), { fallback: 50, max: 200 });
+  const search = searchParams.get("search")?.trim();
+
+  const sortParam = searchParams.get("sort") ?? "name";
+  if (!SORTABLE_FIELDS.includes(sortParam as SortField)) {
+    throw new ApiError(400, "INVALID_SORT", `sort must be one of ${SORTABLE_FIELDS.join(", ")}`);
+  }
+  const sort = sortParam as SortField;
+  const order = searchParams.get("order") === "desc" ? "desc" : "asc";
+
+  const where: Prisma.UniversityWhereInput =
+    scope.kind === "global" ? {} : { id: universityWhere(scope).universityId };
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { code: { contains: search, mode: "insensitive" } },
+      { slug: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [universities, total] = await Promise.all([
+    prisma.university.findMany({
+      where,
+      orderBy: { [sort]: order },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        timezone: true,
+        openingDurationMin: true,
+        closingDurationMin: true,
+        workingHours: {
+          orderBy: { dayOfWeek: "asc" },
+          select: { dayOfWeek: true, isWorkingDay: true, startMinute: true, endMinute: true },
+        },
+        _count: { select: { instructors: true, managers: true } },
+      },
+    }),
+    prisma.university.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    universities,
+    scope: scope.kind,
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+  });
 });
 
 

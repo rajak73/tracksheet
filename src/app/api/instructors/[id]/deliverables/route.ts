@@ -5,6 +5,7 @@ import { assertCanReadInstructor } from "@/server/auth/scope";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { logAudit } from "@/server/audit/logger";
+import { parseLimit, parsePage } from "@/server/http/params";
 
 const createDeliverableSchema = z.object({
   title: z.string().min(1).max(300),
@@ -47,16 +48,26 @@ async function requireVisibleInstructor(
   return instructor;
 }
 
-export const GET = withAuth<{ id: string }>(async ({ params, scope }) => {
+export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
   const instructor = await requireVisibleInstructor(scope, params.id);
 
-  const deliverables = await prisma.deliverable.findMany({
-    where: { instructorId: instructor.id },
-    include: { logs: { orderBy: { workDate: "asc" } } },
-    orderBy: { dueDate: "asc" },
-  });
+  const { searchParams } = new URL(req.url);
+  const page = parsePage(searchParams.get("page"));
+  const limit = parseLimit(searchParams.get("limit"), { fallback: 50, max: 200 });
+  const where = { instructorId: instructor.id };
 
-  return NextResponse.json({ deliverables });
+  const [deliverables, total] = await Promise.all([
+    prisma.deliverable.findMany({
+      where,
+      include: { logs: { orderBy: { workDate: "asc" } } },
+      orderBy: { dueDate: "asc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.deliverable.count({ where }),
+  ]);
+
+  return NextResponse.json({ deliverables, page, limit, total, hasMore: page * limit < total });
 });
 
 /**

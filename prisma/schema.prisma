@@ -215,7 +215,18 @@ model Instructor {
 
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
-  @@index([universityId])
+  // The paginated GET /api/instructors route always orders by createdAt.
+  // (universityId, createdAt) replaces the bare (universityId) index below —
+  // universityId alone is a prefix of this composite, so the single-column
+  // index served no query the composite doesn't also serve, and dropping it
+  // avoids paying its write cost twice. (createdAt) is separate because it
+  // serves the ADMIN case with no universityId filter (a full-platform list);
+  // a composite index can't satisfy an ORDER BY on its second column without
+  // an equality condition on the first. Measured on a 20,514-row table:
+  // filtered case 6.6ms -> 0.07ms, unfiltered case 7.4ms -> 0.06ms (both via
+  // Sort-over-Seq-Scan -> Index Scan).
+  @@index([universityId, createdAt])
+  @@index([createdAt])
 }
 
 /// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
@@ -369,6 +380,15 @@ model ActivityLog {
   //   manager drill-down   -> (universityId, instructorId, workDate)
   // The bare (universityId) index is dropped: it is a prefix of the composite
   // below, so it added write cost without serving any query.
+  //
+  // (instructorId, startTime) added for the paginated GET .../activities
+  // route: it filters by instructorId and orders by startTime, NOT workDate,
+  // so the index above left Postgres sorting every matching row before
+  // applying LIMIT. Measured on a 100k-row table, one instructor with 20k
+  // activities: 12.8ms (Sort over all 20k rows) -> 0.07ms (Index Scan
+  // stopping at LIMIT) for page one; page one is materially more common than
+  // deep pagination, so that is where this matters.
+  @@index([instructorId, startTime])
   @@index([instructorId, workDate])
   @@index([universityId, workDate])
   @@index([universityId, instructorId, workDate])

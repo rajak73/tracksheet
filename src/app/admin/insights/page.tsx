@@ -31,7 +31,7 @@ export default function AdminInsightsPage() {
 
   const load = useCallback(async () => {
     const universities = await apiGet<{ universities: University[] }>(
-      "/api/universities",
+      "/api/universities?limit=200",
       "Could not load universities.",
     );
 

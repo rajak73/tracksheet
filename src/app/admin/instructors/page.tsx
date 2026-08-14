@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Badge,
   Card,
@@ -10,6 +10,7 @@ import {
   EmptyState,
   ErrorState,
   PageHeader,
+  Pagination,
   SearchInput,
   StatusPill,
   Table,
@@ -31,30 +32,34 @@ type Instructor = {
   university: { name: string; timezone: string };
 };
 
+type InstructorsResponse = {
+  instructors: Instructor[];
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+};
+
 export default function AdminInstructorsPage() {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
 
-  const load = useCallback(async () => {
-    const body = await apiGet<{ instructors: Instructor[] }>(
-      "/api/instructors",
-      "Could not load instructors.",
-    );
-    return body.instructors;
+  const setQueryAndResetPage = useCallback((next: string) => {
+    setQuery(next);
+    setPage(1);
   }, []);
 
-  const { data, error, loading, reload } = useLoad(load, "admin-instructors");
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const needle = query.trim().toLowerCase();
-    if (!needle) return data;
-    return data.filter(
-      (i) =>
-        i.user.name.toLowerCase().includes(needle) ||
-        i.user.email.toLowerCase().includes(needle) ||
-        i.university.name.toLowerCase().includes(needle),
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (query.trim()) params.set("search", query.trim());
+    return apiGet<InstructorsResponse>(
+      `/api/instructors?${params.toString()}`,
+      "Could not load instructors.",
     );
-  }, [data, query]);
+  }, [page, query]);
+
+  const { data, error, loading, reload } = useLoad(load, `admin-instructors:${page}:${query}`);
+  const rows = data?.instructors ?? [];
 
   if (loading) {
     return (
@@ -74,25 +79,27 @@ export default function AdminInstructorsPage() {
   }
   if (!data) return null;
 
+  const isEmpty = data.total === 0 && !query.trim();
+
   return (
     <div className="space-y-4">
       <PageHeader title="Instructors" description="Every instructor across all universities." />
       <Card>
         <CardHeader
-          title={`${data.length} instructor${data.length === 1 ? "" : "s"}`}
+          title={`${data.total} instructor${data.total === 1 ? "" : "s"}`}
           actions={
-            data.length > 5 ? (
+            data.total > 5 || query.trim() ? (
               <SearchInput
                 label="Search instructors"
                 value={query}
-                onChange={setQuery}
+                onChange={setQueryAndResetPage}
                 placeholder="Search by name, email or university…"
                 className="w-full sm:w-64"
               />
             ) : null
           }
         />
-        {data.length === 0 ? (
+        {isEmpty ? (
           <EmptyState
             title="No instructors yet"
             description="Instructors are added by their university's manager."
@@ -150,6 +157,13 @@ export default function AdminInstructorsPage() {
             </div>
           </>
         )}
+        <Pagination
+          page={data.page}
+          limit={data.limit}
+          total={data.total}
+          hasMore={data.hasMore}
+          onPageChange={setPage}
+        />
       </Card>
     </div>
   );

@@ -8,6 +8,7 @@ import { computeAnalytics } from "@/server/analytics/engine";
 import { prisma } from "@/server/db";
 import { createNotification } from "@/server/notifications/service";
 import { logAudit } from "@/server/audit/logger";
+import { parseLimit, parsePage } from "@/server/http/params";
 
 export const GET = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
   assertCanAccessUniversity(scope, params.id);
@@ -48,7 +49,23 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
 
   const format = req.nextUrl.searchParams.get("export");
   if (format !== "csv") {
-    return NextResponse.json({ report });
+    // The CSV export path below needs every row for a complete file; JSON
+    // callers page over `report.rows` instead. `totals` is computed over the
+    // WHOLE university and is never re-derived from the sliced page, so it
+    // stays correct regardless of which page is being viewed.
+    const page = parsePage(req.nextUrl.searchParams.get("page"));
+    const limit = parseLimit(req.nextUrl.searchParams.get("limit"), { fallback: 50, max: 200 });
+    const total = report.rows.length;
+    const start = (page - 1) * limit;
+    const rows = report.rows.slice(start, start + limit);
+
+    return NextResponse.json({
+      report: { ...report, rows },
+      page,
+      limit,
+      total,
+      hasMore: page * limit < total,
+    });
   }
 
   // An export is a recorded event, not an anonymous download: ReportJob is what

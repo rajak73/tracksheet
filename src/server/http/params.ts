@@ -39,6 +39,27 @@ export function parseLimit(
 }
 
 /**
+ * A 1-based page number.
+ *
+ * Same failure contract as `parseLimit`: malformed input is a 400, not a
+ * quiet fallback, because `?page=abc` reaching `skip = NaN` would ask Prisma
+ * for a nonsensical offset rather than tell the caller their request was bad.
+ */
+export function parsePage(raw: string | null): number {
+  if (raw === null || raw.trim() === "") return 1;
+
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    throw new ApiError(400, "INVALID_PAGE", "page must be a number");
+  }
+  const i = Math.trunc(n);
+  if (i < 1) {
+    throw new ApiError(400, "INVALID_PAGE", "page must be at least 1");
+  }
+  return i;
+}
+
+/**
  * An optional `YYYY-MM-DD` filter bound, returned as a real Date.
  *
  * A bare `new Date(x)` accepts far too much (`"2045-13-45"` parses, then

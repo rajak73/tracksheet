@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { ButtonLink, ErrorState, PageHeader, TableSkeleton } from "@/app/_components/ui";
+import { ButtonLink, ErrorState, PageHeader, Pagination, TableSkeleton } from "@/app/_components/ui";
 import { ReportTable, type ReportRow } from "@/app/_components/ReportTable";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
@@ -11,23 +11,37 @@ type Report = { from: string; to: string; rows: ReportRow[] };
 
 export default function ManagerReportsPage() {
   const [period, setPeriod] = useState<Period | null>(null);
+  const [page, setPage] = useState(1);
+
+  const setPeriodAndResetPage = useCallback((next: Period | null) => {
+    setPeriod(next);
+    setPage(1);
+  }, []);
 
   const load = useCallback(async () => {
     const me = await fetchMe();
     if (!me.user.universityId) throw new Error("No university is linked to this account.");
-    const body = await apiGet<{ report: Report }>(
-      `/api/universities/${me.user.universityId}/reports${periodQuery(period)}`,
+    const query = periodQuery(period);
+    const body = await apiGet<{ report: Report; page: number; limit: number; total: number; hasMore: boolean }>(
+      `/api/universities/${me.user.universityId}/reports${query}${query ? "&" : "?"}page=${page}`,
       "Could not load the report for this period.",
     );
-    return { universityId: me.user.universityId, report: body.report };
-  }, [period]);
+    return {
+      universityId: me.user.universityId,
+      report: body.report,
+      page: body.page,
+      limit: body.limit,
+      total: body.total,
+      hasMore: body.hasMore,
+    };
+  }, [period, page]);
 
   const { data, error, loading, reload } = useLoad(
     load,
-    period ? `${period.from}:${period.to}` : "default",
+    `${period ? `${period.from}:${period.to}` : "default"}:${page}`,
   );
 
-  const selector = <PeriodSelector value={period} onChange={setPeriod} />;
+  const selector = <PeriodSelector value={period} onChange={setPeriodAndResetPage} />;
 
   if (loading) {
     return (
@@ -65,6 +79,13 @@ export default function ManagerReportsPage() {
         }
       />
       <ReportTable rows={data.report.rows} />
+      <Pagination
+        page={data.page}
+        limit={data.limit}
+        total={data.total}
+        hasMore={data.hasMore}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

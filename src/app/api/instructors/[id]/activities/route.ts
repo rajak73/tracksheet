@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { assertCanReadInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
-import { parseDateParam } from "@/server/http/params";
+import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
 import { logActivity } from "@/server/activities/logger";
 import { logAudit } from "@/server/audit/logger";
 
@@ -96,6 +96,8 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   // Validated up front so a malformed ?from= is a 400, not a Prisma crash.
   const fromDate = parseDateParam(from, "from");
   const toDate = parseDateParam(to, "to");
+  const page = parsePage(url.searchParams.get("page"));
+  const limit = parseLimit(url.searchParams.get("limit"), { fallback: 100, max: 500 });
 
   let dateFilter = {};
   if (fromDate || toDate) {
@@ -107,19 +109,21 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     };
   }
 
-  const [activities, university] = await Promise.all([
+  const where = { instructorId: instructor.id, ...dateFilter };
+
+  const [activities, total, university] = await Promise.all([
     prisma.activityLog.findMany({
-      where: {
-        instructorId: instructor.id,
-        ...dateFilter,
-      },
+      where,
       include: {
         activityType: true,
       },
       orderBy: {
         startTime: "asc",
       },
+      skip: (page - 1) * limit,
+      take: limit,
     }),
+    prisma.activityLog.count({ where }),
     prisma.university.findUnique({
       where: { id: instructor.universityId },
       select: { timezone: true },
@@ -128,5 +132,12 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
 
   // The zone these instants should be DISPLAYED in. Without it, pages fell
   // back to rendering UTC — an instructor typed 10:00 and read back 04:30.
-  return NextResponse.json({ activities, timezone: university?.timezone ?? "UTC" });
+  return NextResponse.json({
+    activities,
+    timezone: university?.timezone ?? "UTC",
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+  });
 });

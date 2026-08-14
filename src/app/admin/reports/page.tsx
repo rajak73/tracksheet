@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { ButtonLink, ErrorState, Field, PageHeader, Select, TableSkeleton } from "@/app/_components/ui";
+import { ButtonLink, ErrorState, Field, PageHeader, Pagination, Select, TableSkeleton } from "@/app/_components/ui";
 import { ReportTable, type ReportRow } from "@/app/_components/ReportTable";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, useLoad } from "@/app/_lib/api";
@@ -9,13 +9,27 @@ import { formatDate } from "@/app/_lib/format";
 
 type University = { id: string; name: string };
 
+type ReportResponse = {
+  report: { from: string; to: string; rows: ReportRow[] };
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+};
+
 export default function AdminReportsPage() {
   const [selected, setSelected] = useState<string>("");
   const [period, setPeriod] = useState<Period | null>(null);
+  const [page, setPage] = useState(1);
+
+  const setPeriodAndResetPage = useCallback((next: Period | null) => {
+    setPeriod(next);
+    setPage(1);
+  }, []);
 
   const load = useCallback(async () => {
     const body = await apiGet<{ universities: University[] }>(
-      "/api/universities",
+      "/api/universities?limit=200",
       "Could not load universities.",
     );
     return body.universities;
@@ -27,19 +41,24 @@ export default function AdminReportsPage() {
 
   const reportLoad = useCallback(async () => {
     if (!activeId) return null;
-    const body = await apiGet<{ report: { from: string; to: string; rows: ReportRow[] } }>(
-      `/api/universities/${activeId}/reports${periodQuery(period)}`,
-      "Could not load the report for that university.",
-    );
-    return body.report;
-  }, [activeId, period]);
+    const periodQ = periodQuery(period);
+    const url = `/api/universities/${activeId}/reports${periodQ}${periodQ ? "&" : "?"}page=${page}`;
+    return apiGet<ReportResponse>(url, "Could not load the report for that university.");
+  }, [activeId, period, page]);
 
-  const report = useLoad(reportLoad, `${activeId}:${period ? `${period.from}:${period.to}` : "default"}`);
+  const report = useLoad(
+    reportLoad,
+    `${activeId}:${period ? `${period.from}:${period.to}` : "default"}:${page}`,
+  );
 
   const controls = (
     <div className="flex flex-wrap items-end gap-3">
-      <Field label="University" className="w-auto">
-        <Select value={activeId} onChange={(e) => setSelected(e.target.value)} className="w-auto min-w-48">
+      <Field label="University" className="w-full sm:w-auto">
+        <Select
+          value={activeId}
+          onChange={(e) => setSelected(e.target.value)}
+          className="w-full min-w-0 sm:w-auto sm:min-w-48"
+        >
           {(universities ?? []).map((u) => (
             <option key={u.id} value={u.id}>
               {u.name}
@@ -47,11 +66,11 @@ export default function AdminReportsPage() {
           ))}
         </Select>
       </Field>
-      <PeriodSelector value={period} onChange={setPeriod} />
+      <PeriodSelector value={period} onChange={setPeriodAndResetPage} />
       {activeId && report.data ? (
         <ButtonLink
           external
-          href={`/api/universities/${activeId}/reports?from=${report.data.from}&to=${report.data.to}&export=csv`}
+          href={`/api/universities/${activeId}/reports?from=${report.data.report.from}&to=${report.data.report.to}&export=csv`}
         >
           Export CSV
         </ButtonLink>
@@ -80,7 +99,11 @@ export default function AdminReportsPage() {
     <div className="space-y-4">
       <PageHeader
         title="Reports"
-        description={report.data ? `${formatDate(report.data.from)} to ${formatDate(report.data.to)}` : "Workload by university."}
+        description={
+          report.data
+            ? `${formatDate(report.data.report.from)} to ${formatDate(report.data.report.to)}`
+            : "Workload by university."
+        }
         actions={controls}
       />
       {report.loading ? (
@@ -88,7 +111,16 @@ export default function AdminReportsPage() {
       ) : report.error ? (
         <ErrorState message="Unable to load the report" detail={report.error} onRetry={report.reload} />
       ) : report.data ? (
-        <ReportTable rows={report.data.rows} />
+        <>
+          <ReportTable rows={report.data.report.rows} />
+          <Pagination
+            page={report.data.page}
+            limit={report.data.limit}
+            total={report.data.total}
+            hasMore={report.data.hasMore}
+            onPageChange={setPage}
+          />
+        </>
       ) : null}
     </div>
   );

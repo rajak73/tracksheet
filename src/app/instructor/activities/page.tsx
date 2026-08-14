@@ -22,6 +22,7 @@ import {
   ErrorState,
   Field,
   PageHeader,
+  Pagination,
   SearchInput,
   Section,
   Select,
@@ -70,6 +71,7 @@ export default function InstructorActivitiesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     const me = await fetchMe();
@@ -83,8 +85,15 @@ export default function InstructorActivitiesPage() {
         "/api/activity-types",
         "Could not load the list of activity types.",
       ),
-      apiGet<{ activities: Activity[]; timezone: string }>(
-        `/api/instructors/${instructorId}/activities`,
+      apiGet<{
+        activities: Activity[];
+        timezone: string;
+        page: number;
+        limit: number;
+        total: number;
+        hasMore: boolean;
+      }>(
+        `/api/instructors/${instructorId}/activities?page=${page}`,
         "Could not load your recorded activity.",
       ),
     ]);
@@ -101,10 +110,14 @@ export default function InstructorActivitiesPage() {
       // University zone for DISPLAY — rendering these instants in UTC is how
       // a 10:00 entry read back as 04:30.
       timezone: activities.timezone ?? "UTC",
+      page: activities.page,
+      limit: activities.limit,
+      total: activities.total,
+      hasMore: activities.hasMore,
     };
-  }, []);
+  }, [page]);
 
-  const { data, error, loading, reload } = useLoad(load, "instructor-activities");
+  const { data, error, loading, reload } = useLoad(load, `instructor-activities:${page}`);
 
   // The select needs a value as soon as the types arrive, without a second
   // render pass that would blank the control momentarily.
@@ -263,7 +276,7 @@ export default function InstructorActivitiesPage() {
           <CardHeader
             title="Recorded activity"
             actions={
-              data.activities.length > 0 ? (
+              data.total > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <SearchInput
                     label="Search your activity"
@@ -302,7 +315,7 @@ export default function InstructorActivitiesPage() {
             }
           />
 
-          {data.activities.length === 0 ? (
+          {data.total === 0 ? (
             <EmptyState
               title="Nothing recorded yet"
               description="Use the form above to record your first activity — it appears in your workload immediately."
@@ -382,6 +395,13 @@ export default function InstructorActivitiesPage() {
               </div>
             </>
           )}
+          <Pagination
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            hasMore={data.hasMore}
+            onPageChange={setPage}
+          />
         </Card>
       </Section>
     </div>

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { instructorWhere } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
+import { parseLimit, parsePage } from "@/server/http/params";
 import { provisionInstructor } from "@/server/users/provision";
 
 /**
@@ -18,24 +20,58 @@ import { provisionInstructor } from "@/server/users/provision";
  * role-specific variant of this route, and no branch here reads a role.
  */
 export const GET = withAuth(async ({ scope, req }) => {
+  const { searchParams } = new URL(req.url);
+  const page = parsePage(searchParams.get("page"));
+  const limit = parseLimit(searchParams.get("limit"), { fallback: 50, max: 200 });
+  const search = searchParams.get("search")?.trim();
+
   // The entire tenant decision happens in instructorWhere. This route builds no
   // scope predicate of its own, and throws 403 via that helper if the caller
   // asks for a university outside its scope.
-  const where = instructorWhere(scope, req.nextUrl.searchParams.get("universityId"));
+  const where: Prisma.InstructorWhereInput = instructorWhere(scope, searchParams.get("universityId"));
+  if (search) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      {
+        OR: [
+          { user: { name: { contains: search, mode: "insensitive" } } },
+          { user: { email: { contains: search, mode: "insensitive" } } },
+          { employeeCode: { contains: search, mode: "insensitive" } },
+          // Matches the admin instructor list's pre-pagination client-side
+          // filter, which also matched on university name (only meaningful
+          // for the global/admin scope — a manager's own roster is already
+          // narrowed to one university).
+          { university: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      },
+    ];
+  }
 
-  const instructors = await prisma.instructor.findMany({
-    where,
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      universityId: true,
-      employeeCode: true,
-      user: { select: { id: true, name: true, email: true, isActive: true } },
-      university: { select: { id: true, name: true, slug: true, timezone: true } },
-    },
+  const [instructors, total] = await Promise.all([
+    prisma.instructor.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        universityId: true,
+        employeeCode: true,
+        user: { select: { id: true, name: true, email: true, isActive: true } },
+        university: { select: { id: true, name: true, slug: true, timezone: true } },
+      },
+    }),
+    prisma.instructor.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    instructors,
+    scope: scope.kind,
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
   });
-
-  return NextResponse.json({ instructors, scope: scope.kind });
 });
 
 

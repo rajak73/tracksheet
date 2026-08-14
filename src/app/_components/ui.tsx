@@ -64,7 +64,16 @@ export function PageHeader({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          // `min-w-0` overrides the flex default of `min-width: auto`, which
+          // otherwise refuses to shrink this block below its CONTENT's natural
+          // width (e.g. two university/action pickers side by side) — without
+          // it, wide actions content overflows the viewport horizontally on a
+          // narrow screen instead of the `flex-wrap` below actually engaging.
+          // Shrinking is only disabled again from `sm:` up, where there is
+          // reliably enough room to share the row with the title unsquished.
+          <div className="flex min-w-0 w-full shrink flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+            {actions}
+          </div>
         ) : null}
       </div>
     </header>
@@ -413,6 +422,59 @@ export function FilterBar({
           Clear filters
         </Button>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Page controls for a server-paginated list.
+ *
+ * Renders nothing when everything already fits on one page — `total <= limit`
+ * with `page === 1` — so a small university's roster never grows a Previous/
+ * Next bar it can't use. `hasMore` (not a client-computed `page < totalPages`)
+ * decides whether Next is enabled, matching exactly what the API itself
+ * asserted the page after this one contains.
+ */
+export function Pagination({
+  page,
+  limit,
+  total,
+  hasMore,
+  onPageChange,
+}: {
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  if (page === 1 && !hasMore) return null;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
+      <span className="text-sm text-muted">
+        Page {page} of {totalPages} &middot; {total} total
+      </span>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={!hasMore}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   );
 }

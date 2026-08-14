@@ -70,7 +70,7 @@ export default function AdminSettingsPage() {
 
   const load = useCallback(async () => {
     const body = await apiGet<{ universities: University[] }>(
-      "/api/universities",
+      "/api/universities?limit=200",
       "Could not load universities.",
     );
     return body.universities;
@@ -184,8 +184,12 @@ export default function AdminSettingsPage() {
         title="Settings"
         description="University configuration. Changes here affect every capacity and compliance figure for that tenant."
         actions={
-          <Field label="University" className="w-auto">
-            <Select value={activeId} onChange={(e) => setUniversityId(e.target.value)} className="w-auto min-w-48">
+          <Field label="University" className="w-full sm:w-auto">
+            <Select
+              value={activeId}
+              onChange={(e) => setUniversityId(e.target.value)}
+              className="w-full min-w-0 sm:w-auto sm:min-w-48"
+            >
               {universities.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}

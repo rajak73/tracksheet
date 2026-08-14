@@ -53,7 +53,7 @@ export default function ManagerDeliverablesPage() {
 
   const load = useCallback(async () => {
     const list = await apiGet<{ instructors: Instructor[] }>(
-      "/api/instructors",
+      "/api/instructors?limit=200",
       "Could not load instructors.",
     );
     const entries = await Promise.all(

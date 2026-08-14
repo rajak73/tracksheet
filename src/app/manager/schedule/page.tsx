@@ -52,7 +52,10 @@ export default function ManagerSchedulePage() {
 
   const load = useCallback(async () => {
     const [instructors, types] = await Promise.all([
-      apiGet<{ instructors: Instructor[] }>("/api/instructors", "Could not load instructors."),
+      apiGet<{ instructors: Instructor[] }>(
+        "/api/instructors?limit=200",
+        "Could not load instructors.",
+      ),
       apiGet<{ activityTypes: ActivityType[] }>(
         "/api/activity-types",
         "Could not load activity types.",

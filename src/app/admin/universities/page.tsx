@@ -28,6 +28,7 @@ import {
   ErrorState,
   Meter,
   PageHeader,
+  Pagination,
   SearchInput,
   Table,
   TableSkeleton,
@@ -66,16 +67,46 @@ type Row = University & {
   closingCompliancePct: number | null;
 };
 
+type UniversitiesResponse = {
+  rows: Row[];
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+};
+
 export default function AdminUniversitiesPage() {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ key: string; direction: SortDirection }>({
     key: "name",
     direction: "asc",
   });
 
-  const load = useCallback(async (): Promise<Row[]> => {
+  const setQueryAndResetPage = useCallback((next: string) => {
+    setQuery(next);
+    setPage(1);
+  }, []);
+
+  const load = useCallback(async (): Promise<UniversitiesResponse> => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (query.trim()) params.set("search", query.trim());
+    // Only the "name" column's sort is understood by the server — see
+    // src/app/api/universities/route.ts's SORTABLE_FIELDS. Everything else
+    // sorts client-side over whatever page is currently loaded.
+    if (sort.key === "name") {
+      params.set("sort", "name");
+      params.set("order", sort.direction);
+    }
+
     const [universities, overview] = await Promise.all([
-      apiGet<{ universities: University[] }>("/api/universities", "Could not load universities."),
+      apiGet<{
+        universities: University[];
+        page: number;
+        limit: number;
+        total: number;
+        hasMore: boolean;
+      }>(`/api/universities?${params.toString()}`, "Could not load universities."),
       apiGet<{ universities: OverviewRow[] }>(
         "/api/admin/overview",
         "Could not load performance metrics.",
@@ -84,7 +115,7 @@ export default function AdminUniversitiesPage() {
 
     const perf = new Map(overview.universities.map((u) => [u.universityId, u]));
 
-    return universities.universities.map((u) => {
+    const rows = universities.universities.map((u) => {
       const p = perf.get(u.id);
       return {
         ...u,
@@ -95,16 +126,36 @@ export default function AdminUniversitiesPage() {
         closingCompliancePct: p?.closingCompliancePct ?? null,
       };
     });
-  }, []);
 
-  const { data, error, loading, reload } = useLoad(load, "admin-universities");
+    return {
+      rows,
+      page: universities.page,
+      limit: universities.limit,
+      total: universities.total,
+      hasMore: universities.hasMore,
+    };
+  }, [page, query, sort]);
+
+  // Only the params that actually change the request belong in the key: page,
+  // the search query, and — only for the server-backed "name" column — the
+  // sort direction. Toggling sort on any other column re-sorts client-side
+  // over the page already in memory and must not trigger a refetch.
+  const sortKeyPart = sort.key === "name" ? `name:${sort.direction}` : "";
+  const { data, error, loading, reload } = useLoad(
+    load,
+    `admin-universities:${page}:${query.trim()}:${sortKeyPart}`,
+  );
 
   const rows = useMemo(() => {
     if (!data) return [];
     const needle = query.trim().toLowerCase();
-    const filtered = data.filter(
+    const filtered = data.rows.filter(
       (u) => !needle || u.name.toLowerCase().includes(needle) || u.slug.includes(needle),
     );
+    // The server already returned the page sorted by name when that's the
+    // active sort — re-sorting it here would be redundant at best and could
+    // disagree with the server's collation at worst.
+    if (sort.key === "name") return filtered;
     return [...filtered].sort((a, b) => {
       const key = sort.key as keyof Row;
       const av = a[key];
@@ -121,6 +172,7 @@ export default function AdminUniversitiesPage() {
 
   function toggleSort(key: string) {
     setSort((s) => ({ key, direction: s.key === key && s.direction === "asc" ? "desc" : "asc" }));
+    setPage(1);
   }
 
   const actions = (
@@ -148,6 +200,11 @@ export default function AdminUniversitiesPage() {
   }
   if (!data) return null;
 
+  // Mirrors the admin instructors page: `total` now reflects the search
+  // filter (it's server-side), so a search with zero matches must NOT read
+  // as "no universities exist" — only an unfiltered zero does.
+  const isEmpty = data.total === 0 && !query.trim();
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -156,19 +213,19 @@ export default function AdminUniversitiesPage() {
         actions={actions}
       />
 
-      {data.length > 4 ? (
+      {data.total > 4 || query.trim() ? (
         <SearchInput
           label="Search universities"
           value={query}
-          onChange={setQuery}
+          onChange={setQueryAndResetPage}
           placeholder="Search by name or code…"
           className="max-w-sm"
         />
       ) : null}
 
       <Card>
-        <CardHeader title={`${rows.length} of ${data.length} universit${data.length === 1 ? "y" : "ies"}`} />
-        {data.length === 0 ? (
+        <CardHeader title={`${rows.length} of ${data.total} universit${data.total === 1 ? "y" : "ies"}`} />
+        {isEmpty ? (
           <EmptyState
             title="No universities yet"
             description="Create the first university to start tracking instructor workload."
@@ -243,6 +300,13 @@ export default function AdminUniversitiesPage() {
             </div>
           </>
         )}
+        <Pagination
+          page={data.page}
+          limit={data.limit}
+          total={data.total}
+          hasMore={data.hasMore}
+          onPageChange={setPage}
+        />
       </Card>
     </div>
   );
