@@ -168,10 +168,45 @@ describe("every insight is traceable to a condition and a number", () => {
   });
 
   test("with nothing recorded, no measured condition is asserted", async () => {
+    // DELIVERABLE_RISK is deliberately period-independent (it reads current
+    // deliverable state, not activity logs — see anomalies.ts), so this
+    // cannot reuse Northfield: many OTHER test files assign low-completion
+    // deliverables to the shared seeded north1Id/north2Id, and under full-suite
+    // parallel execution one of those can exist at the moment this runs,
+    // correctly tripping DELIVERABLE_RISK for reasons that have nothing to do
+    // with THIS test's own data. A dedicated, freshly created university with
+    // zero deliverables removes that race without weakening what is asserted.
+    const probeUniversity = await admin.post("/api/universities", {
+      name: "Phase7 NoData Probe University",
+      code: "P7NODATA",
+      slug: "phase7-nodata-probe-university",
+      timezone: "UTC",
+      workingHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+        dayOfWeek,
+        isWorkingDay: dayOfWeek >= 1 && dayOfWeek <= 5,
+        startMinute: dayOfWeek >= 1 && dayOfWeek <= 5 ? 540 : 0,
+        endMinute: dayOfWeek >= 1 && dayOfWeek <= 5 ? 1020 : 1,
+      })),
+    });
+    expect(probeUniversity.status).toBe(201);
+    const probeUniversityId = probeUniversity.body.university.id as string;
+
+    const probeInstructor = await admin.post("/api/instructors", {
+      email: "phase7-nodata-probe@example.edu",
+      name: "Phase7 NoData Probe Instructor",
+      password: "Password123!",
+      universityId: probeUniversityId,
+    });
+    expect(probeInstructor.status).toBe(201);
+
     // The distinction that matters: zero records means "we do not know", so a
     // utilisation figure of 0% must not be reported as underutilisation.
-    const insights = await generate(S.noData.from, S.noData.to);
-    const types = insights.map((i) => i.type);
+    const res = await admin.post(
+      `/api/universities/${probeUniversityId}/insights?from=${S.noData.from}&to=${S.noData.to}`,
+      {},
+    );
+    expect(res.status).toBe(201);
+    const types = res.body.insights.map((i: { type: string }) => i.type);
 
     expect(types).toContain("NO_DATA_RECORDED");
     for (const measured of ["UNDERUTILIZATION", "OVERLOAD", "LEARNING_DROP", "DELIVERABLE_RISK", "COMPLIANCE_RISK"]) {
