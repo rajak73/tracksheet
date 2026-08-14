@@ -8,9 +8,22 @@ import { logAudit } from "@/server/audit/logger";
 
 const createDeliverableSchema = z.object({
   title: z.string().min(1).max(300),
+  // Free text, not an enum: categories are decided per university (e.g.
+  // "Teaching", "Research"), not a fixed set this schema should own.
+  category: z.string().min(1).max(100).optional(),
   targetQuantity: z.number().int().min(1),
   targetHours: z.number().min(0.5),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  // Shape AND reality: the regex alone admits 2045-13-45. The Invalid Date
+  // check must come FIRST — `.toISOString()` on an Invalid Date throws, so a
+  // refine that calls it unconditionally turns the very input it exists to
+  // reject into a 500 (the first version of this fix did exactly that).
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD")
+    .refine((d) => {
+      const parsed = new Date(`${d}T00:00:00.000Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d;
+    }, "Must be a real calendar date"),
 });
 
 /** Resolves the target instructor and authorises the caller against them. */
@@ -61,6 +74,7 @@ export const POST = withAuth<{ id: string }>(
         instructorId: instructor.id,
         universityId: instructor.universityId,
         title: data.title,
+        category: data.category,
         targetQuantity: data.targetQuantity,
         targetHours: data.targetHours,
         dueDate: new Date(data.dueDate),
@@ -71,6 +85,7 @@ export const POST = withAuth<{ id: string }>(
       action: "DELIVERABLE_CREATED",
       entityType: "Deliverable",
       entityId: deliverable.id,
+      universityId: instructor.universityId,
       metadata: { instructorId: instructor.id, title: data.title },
     });
 

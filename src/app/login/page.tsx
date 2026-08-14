@@ -1,8 +1,17 @@
 "use client";
 
+/**
+ * The one login screen (§14).
+ *
+ * No Admin/Manager/Instructor variants. The destination comes from the ROLE
+ * THE SERVER RETURNED — the form never asks, and never trusts, which kind of
+ * user this is.
+ */
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, inputClass, Alert } from "@/app/_components/ui";
+import { Alert, Button, Field, inputClass } from "@/app/_components/ui";
+import { clearMeCache } from "@/app/_lib/api";
 
 const DESTINATION: Record<string, string> = {
   ADMIN: "/admin/dashboard",
@@ -32,7 +41,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error?.message || "Login failed");
+        setError(data.error?.message || "Incorrect email or password.");
         setIsLoading(false);
         return;
       }
@@ -45,6 +54,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
+      clearMeCache();
       router.push(destination);
     } catch {
       setError("Could not reach the server. Please try again.");
@@ -53,22 +63,76 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-canvas lg:grid lg:grid-cols-2">
+      {/* Brand panel. The same navy that carries the sidebar once you are
+          inside, so signing in does not feel like crossing between two
+          different products. Hidden below `lg`, where a tall decorative
+          panel would only push the form off the first screen. */}
+      <aside className="relative hidden flex-col justify-between bg-sidebar-bg p-12 lg:flex">
+        <div className="flex items-center gap-2.5">
+          <svg aria-hidden viewBox="0 0 20 20" className="size-5 text-white" fill="none">
+            <rect x="1" y="12" width="4.5" height="7" rx="1" fill="currentColor" opacity="0.5" />
+            <rect x="7.75" y="7" width="4.5" height="12" rx="1" fill="currentColor" opacity="0.75" />
+            <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
+          </svg>
+          <span className="font-display text-base font-semibold tracking-tight text-white">
+            NEXTWAVE
+          </span>
+        </div>
+
+        <div className="max-w-md">
+          <h2 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white">
+            University workforce intelligence.
+          </h2>
+          <p className="mt-5 text-pretty leading-relaxed text-sidebar-text-muted">
+            Instructor workload, teaching activity, learning hours, utilization and operational
+            performance — measured across every university you operate.
+          </p>
+
+          <ul className="mt-10 space-y-3">
+            {[
+              "Multi-university visibility",
+              "Workload and utilization analytics",
+              "AI insights with supporting evidence",
+            ].map((item) => (
+              <li key={item} className="flex items-center gap-3 text-sm text-sidebar-text-muted">
+                <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-xs text-sidebar-text-muted">
+          © {new Date().getFullYear()} NEXTWAVE
+        </p>
+      </aside>
+
+      {/* Form panel. */}
+      <div className="flex min-h-screen items-center justify-center px-4 py-12 lg:min-h-0">
         <div className="w-full max-w-sm">
-          <div className="mb-8">
-            <p className="text-sm font-semibold tracking-tight text-content">Tracksheet</p>
-            <h1 className="mt-6 text-2xl font-semibold tracking-tight text-content">
-              Sign in
-            </h1>
-            <p className="mt-1.5 text-sm text-muted">
-              University workforce intelligence.
-            </p>
+          {/* The wordmark repeats here only on small screens, where the navy
+              panel it normally lives in is not rendered. */}
+          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <svg aria-hidden viewBox="0 0 20 20" className="size-5 text-primary" fill="none">
+              <rect x="1" y="12" width="4.5" height="7" rx="1" fill="currentColor" opacity="0.5" />
+              <rect x="7.75" y="7" width="4.5" height="12" rx="1" fill="currentColor" opacity="0.75" />
+              <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
+            </svg>
+            <span className="font-display text-base font-semibold tracking-tight text-content">
+              NEXTWAVE
+            </span>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4">
-            <label className="block text-sm">
-              <span className="mb-1.5 block font-medium text-content">Email</span>
+          <h1 className="text-2xl font-semibold tracking-tight text-content sm:text-3xl">
+            Sign in
+          </h1>
+          <p className="mt-1.5 text-sm text-muted">
+            Use the account your institution issued you.
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
+            <Field label="Email" required>
               <input
                 type="email"
                 required
@@ -78,10 +142,9 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm">
-              <span className="mb-1.5 block font-medium text-content">Password</span>
+            <Field label="Password" required>
               <input
                 type="password"
                 required
@@ -90,7 +153,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
               />
-            </label>
+            </Field>
 
             {error ? <Alert tone="danger">{error}</Alert> : null}
 
@@ -99,9 +162,9 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-8 text-xs text-subtle">
-            Your role and university are determined by your account — there is one sign-in
-            for administrators, managers and instructors.
+          <p className="mt-8 text-xs leading-relaxed text-subtle">
+            Your role and university are determined by your account — there is one sign-in for
+            administrators, managers and instructors.
           </p>
         </div>
       </div>

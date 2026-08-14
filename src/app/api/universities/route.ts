@@ -122,6 +122,10 @@ export const POST = withAuth(
       action: "UNIVERSITY_CREATED",
       entityType: "University",
       entityId: university.id,
+      // The action concerns the university that now exists, not the global
+      // admin who created it — its own audit trail should be able to show
+      // how it was set up.
+      universityId: university.id,
       metadata: { code: university.code, name: university.name },
     });
 

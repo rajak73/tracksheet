@@ -66,10 +66,31 @@ const HEADERS = [
   "Closing Compliance %",
 ] as const;
 
-/** RFC-4180 quoting: a name containing a comma must not shift every column. */
+/**
+ * One CSV cell.
+ *
+ * Two separate concerns, both required:
+ *
+ * 1. RFC-4180 quoting — a name containing a comma must not shift every
+ *    column, and an embedded quote must be doubled.
+ *
+ * 2. FORMULA-INJECTION NEUTRALISATION. Excel, LibreOffice and Sheets execute
+ *    a cell beginning `=`, `+`, `-`, `@`, or a leading tab/CR as a formula.
+ *    An instructor named `=cmd|'/C calc'!A0` would therefore run on the
+ *    machine of whoever opens the export. Prefixing a single quote makes the
+ *    spreadsheet treat it as literal text; the value still reads correctly
+ *    to a human and to any CSV parser. Neutralise BEFORE quoting so the
+ *    guard character ends up inside the quotes.
+ *
+ * Numbers are exempt: they are produced by this module, never user input,
+ * and prefixing them would break every downstream sum.
+ */
 function csvCell(value: string | number | null): string {
   if (value === null) return "";
-  const s = String(value);
+  if (typeof value === "number") return String(value);
+
+  const dangerous = /^[=+\-@\t\r]/;
+  const s = dangerous.test(value) ? `'${value}` : value;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Alert, Breadcrumb, Button, Card, CardBody, CardHeader, Field, PageHeader,
-  inputClass,
+  Alert, Breadcrumb, Button, Card, CardBody, CardHeader, Field, IconButton,
+  PageHeader, Select, inputClass,
 } from "@/app/_components/ui";
+import { useToast } from "@/app/_components/interactive";
+import { IconClose, IconPlus } from "@/app/_components/icons";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -22,6 +24,7 @@ const toMinutes = (hhmm: string) => {
 
 export default function NewUniversityPage() {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: "", code: "", slug: "", timezone: "Asia/Kolkata",
     openingDurationMin: 15, closingDurationMin: 15, breakDurationMin: 60,
@@ -80,6 +83,7 @@ export default function NewUniversityPage() {
         setError(body?.error?.message ?? `Could not create university (HTTP ${res.status})`);
         return;
       }
+      toast("success", `${form.name} created.`);
       router.push(`/admin/universities/${body.university.id}`);
     } finally {
       setSaving(false);
@@ -102,13 +106,13 @@ export default function NewUniversityPage() {
         <Card>
           <CardHeader title="Identity" description="How this university is named and referenced." />
           <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Name" className="lg:col-span-2">
+            <Field label="Name" className="lg:col-span-2" required>
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
             </Field>
-            <Field label="Code" hint="Shown in exports, e.g. UNIV003.">
+            <Field label="Code" hint="Shown in exports, e.g. UNIV003." required>
               <input required placeholder="UNIV003" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inputClass} />
             </Field>
-            <Field label="Slug" hint="Lowercase, used in URLs.">
+            <Field label="Slug" hint="Lowercase, used in URLs." required>
               <input required placeholder="northfield" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className={inputClass} />
             </Field>
             <Field label="Country" hint="Optional.">
@@ -127,15 +131,15 @@ export default function NewUniversityPage() {
           />
           <CardBody className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Timezone" hint="Working days are resolved in this zone.">
-                <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} className={inputClass}>
+              <Field label="Timezone" hint="Working days are resolved in this zone." required>
+                <Select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
                   {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-                </select>
+                </Select>
               </Field>
-              <Field label="Day starts">
+              <Field label="Day starts" required>
                 <input type="time" required value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} className={inputClass} />
               </Field>
-              <Field label="Day ends">
+              <Field label="Day ends" required>
                 <input type="time" required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} className={inputClass} />
               </Field>
               <Field label="Break (min)" hint="Excluded from capacity.">
@@ -181,6 +185,7 @@ export default function NewUniversityPage() {
             description="Optional — holidays can also be added later from the university's configuration."
             actions={
               <Button type="button" variant="secondary" size="sm" onClick={() => setHolidays([...holidays, { date: "", name: "" }])}>
+                <IconPlus size={16} />
                 Add holiday
               </Button>
             }
@@ -207,9 +212,14 @@ export default function NewUniversityPage() {
                       onChange={(e) => setHolidays(holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                       className={inputClass}
                     />
-                    <Button type="button" variant="secondary" onClick={() => setHolidays(holidays.filter((_, j) => j !== i))}>
-                      Remove
-                    </Button>
+                    <IconButton
+                      type="button"
+                      label="Remove holiday"
+                      onClick={() => setHolidays(holidays.filter((_, j) => j !== i))}
+                      className="shrink-0 border border-line-strong"
+                    >
+                      <IconClose size={16} />
+                    </IconButton>
                   </div>
                 ))}
               </div>

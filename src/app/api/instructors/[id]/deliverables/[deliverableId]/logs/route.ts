@@ -100,6 +100,7 @@ export const POST = withAuth<{ id: string; deliverableId: string }>(
       action: "DELIVERABLE_PROGRESS_LOGGED",
       entityType: "DeliverableLog",
       entityId: log.id,
+      universityId: instructor.universityId,
       metadata: { deliverableId: deliverable.id, quantityCompleted: input.quantityCompleted },
     });
 

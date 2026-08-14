@@ -48,6 +48,7 @@ export const POST = withAuth<{ id: string }>(
       action: "HOLIDAY_ADDED",
       entityType: "UniversityHoliday",
       entityId: holiday.id,
+      universityId: params.id,
       metadata: { date: input.date, name: input.name },
     });
 

@@ -26,6 +26,7 @@ const ConfigPatch = z
     timezone: z.string().min(1).optional(),
     openingDurationMin: z.number().int().positive().optional(),
     closingDurationMin: z.number().int().positive().optional(),
+    breakDurationMin: z.number().int().min(0).optional(),
     /** Partial: only the supplied days are changed. */
     workingHours: z.array(WorkingHourInput).min(1).max(7).optional(),
   })
@@ -52,6 +53,7 @@ export const PATCH = withAuth<{ id: string }>(
       timezone: patch.timezone ?? current.timezone,
       openingDurationMin: patch.openingDurationMin ?? current.openingDurationMin,
       closingDurationMin: patch.closingDurationMin ?? current.closingDurationMin,
+      breakDurationMin: patch.breakDurationMin ?? current.breakDurationMin,
       workingHours: [...mergedHours.values()],
     };
 
@@ -64,6 +66,7 @@ export const PATCH = withAuth<{ id: string }>(
           timezone: merged.timezone,
           openingDurationMin: merged.openingDurationMin,
           closingDurationMin: merged.closingDurationMin,
+          breakDurationMin: merged.breakDurationMin,
         },
       }),
       ...(patch.workingHours ?? []).map((h) =>
@@ -83,6 +86,7 @@ export const PATCH = withAuth<{ id: string }>(
       action: "UNIVERSITY_CONFIG_UPDATED",
       entityType: "University",
       entityId: params.id,
+      universityId: params.id,
       metadata: { changed: Object.keys(patch) },
     });
 

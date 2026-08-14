@@ -58,10 +58,17 @@ export function detectAnomalies(analytics: AnalyticsResult): AnomalyCondition[] 
   if (t.instructors === 0) return conditions;
 
   // ── Nothing recorded at all ────────────────────────────────────────────
-  // Checked first and exclusively: with no activity, every other ratio is
-  // either zero or undefined, and reporting "underutilization" would assert
-  // something the data cannot support.
-  if (t.capacityHours > 0 && t.productiveHours === 0) {
+  // With no activity, every ACTIVITY-DERIVED ratio is either zero or
+  // undefined, and reporting "underutilization" would assert something the
+  // data cannot support. So this suppresses those rules — but only those.
+  //
+  // It used to `return` here, which also silently discarded DELIVERABLE_RISK.
+  // That rule reads the Deliverable table, not activity logs, so an overdue
+  // deliverable went unreported in exactly the periods where work is most
+  // likely slipping — the period with no activity recorded against it.
+  const noActivityRecorded = t.capacityHours > 0 && t.productiveHours === 0;
+
+  if (noActivityRecorded) {
     conditions.push({
       type: "NO_DATA_RECORDED",
       severity: "HIGH",
@@ -74,10 +81,13 @@ export function detectAnomalies(analytics: AnalyticsResult): AnomalyCondition[] 
       },
       threshold: {},
     });
-    return conditions;
   }
 
-  const measurable = (i: InstructorBreakdown) => i.capacityHours > 0 && i.utilizationPct !== null;
+  // Activity-derived rules only run when there IS activity to derive from.
+  // `measurable` already excludes an instructor with no capacity; this adds
+  // the university-wide "nothing recorded at all" case.
+  const measurable = (i: InstructorBreakdown) =>
+    !noActivityRecorded && i.capacityHours > 0 && i.utilizationPct !== null;
 
   // ── OVERLOAD ───────────────────────────────────────────────────────────
   for (const i of analytics.instructors.filter(measurable)) {
@@ -121,7 +131,9 @@ export function detectAnomalies(analytics: AnalyticsResult): AnomalyCondition[] 
   // ── LEARNING_DROP ──────────────────────────────────────────────────────
   // Requires a trend; without a comparison period there is no drop to detect,
   // and inferring one from a single period would be fabrication.
-  const learning = analytics.trend?.hoursByActivityType?.LEARNING;
+  // Activity-derived: with nothing recorded, "learning fell 100%" is just
+  // NO_DATA_RECORDED restated, so it is suppressed rather than duplicated.
+  const learning = noActivityRecorded ? undefined : analytics.trend?.hoursByActivityType?.LEARNING;
   if (learning && learning.previous !== null && learning.current !== null && learning.previous > 0) {
     const dropPct = Math.round(((learning.previous - learning.current) / learning.previous) * 100);
     if (dropPct >= THRESHOLDS.learningDropPct) {
@@ -142,10 +154,16 @@ export function detectAnomalies(analytics: AnalyticsResult): AnomalyCondition[] 
   }
 
   // ── COMPLIANCE_RISK ────────────────────────────────────────────────────
-  for (const [kind, pct] of [
-    ["opening", t.openingCompliancePct],
-    ["closing", t.closingCompliancePct],
-  ] as const) {
+  // Also activity-derived: compliance is measured from logged opening/closing
+  // records, so with nothing recorded it restates NO_DATA_RECORDED.
+  for (const [kind, pct] of (
+    noActivityRecorded
+      ? []
+      : ([
+          ["opening", t.openingCompliancePct],
+          ["closing", t.closingCompliancePct],
+        ] as const)
+  )) {
     if (pct !== null && pct < THRESHOLDS.compliancePct) {
       conditions.push({
         type: "COMPLIANCE_RISK",

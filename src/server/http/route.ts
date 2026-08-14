@@ -19,12 +19,25 @@ export function jsonError(status: number, code: string, message: string, details
   return NextResponse.json({ error: { code, message, details } }, { status });
 }
 
+/** Duck-typed rather than an `instanceof` import: every caller of this module
+ *  already has its own Prisma import, and matching on `.code` avoids pulling
+ *  the generated client into a file that otherwise has no need of it. */
+function isUniqueConstraintViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002";
+}
+
 function toResponse(err: unknown): Response {
   if (err instanceof ApiError) {
     return jsonError(err.status, err.code, err.message, err.details);
   }
   if (err instanceof ZodError) {
     return jsonError(400, "VALIDATION_ERROR", "Invalid request", err.issues);
+  }
+  if (isUniqueConstraintViolation(err)) {
+    // A once-per-day (or other unique) constraint firing at the database is a
+    // conflict with existing state, not a server failure — the caller can act
+    // on a 409 (e.g. "already recorded today"), but not on a 500.
+    return jsonError(409, "CONFLICT", "This already exists.");
   }
   // Never leak internals to the client; the detail goes to the server log only.
   console.error("[unhandled route error]", err);

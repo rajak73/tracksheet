@@ -71,6 +71,7 @@ export const POST = withAuth<{ id: string }>(
       action: "WORKLOAD_TARGET_CHANGED",
       entityType: "WorkloadTarget",
       entityId: target.id,
+      universityId: params.id,
       metadata: { activityType: input.activityTypeCode, targetMinutes: input.targetMinutes },
     });
 

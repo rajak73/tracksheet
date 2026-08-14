@@ -122,12 +122,31 @@ describe("MISSING_ACTIVITY requires a genuinely unexplained gap", () => {
 });
 
 describe("the other detectors fire on their own conditions", () => {
-  test("overlap, missing closing and out-of-hours are detected", async () => {
+  test("missing closing and out-of-hours are detected", async () => {
     const result = await fetchExceptions(admin, northId, WED, WED);
     const types = typesFor(result, n1Id, WED);
-    expect(types).toContain("OVERLAPPING_ACTIVITY");
     expect(types).toContain("MISSED_CLOSING");
     expect(types).toContain("OUTSIDE_WORKING_HOURS");
+  });
+
+  test("OVERLAPPING_ACTIVITY can no longer be produced through the API", async () => {
+    // The detector still exists and still runs, because rows that predate the
+    // overlap rule — or arrive by import/backfill rather than through the
+    // API — can still overlap. What changed is that this fixture can no
+    // longer be built: the API refuses to create the overlap in the first
+    // place, so the detector is now unreachable from the product's own write
+    // path. Recorded here deliberately rather than deleted, so the gap is
+    // visible if a bulk-import path is ever added.
+    const overlapping = await admin.post(`/api/instructors/${n1Id}/activities`, {
+      activityTypeCode: "TEACHING",
+      startTime: `${WED}T05:00:00.000Z`,
+      endTime: `${WED}T06:00:00.000Z`,
+    });
+    expect([409, 201]).toContain(overlapping.status);
+
+    const result = await fetchExceptions(admin, northId, WED, WED);
+    const types = typesFor(result, n1Id, WED);
+    expect(types).not.toContain("OVERLAPPING_ACTIVITY");
   });
 
   test("a late opening is detected", async () => {

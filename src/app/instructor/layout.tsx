@@ -1,18 +1,13 @@
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/server/auth/session";
 import { AppShell } from "@/app/_components/AppShell";
-import type { NavItem } from "@/app/_components/RoleNav";
 
 /**
- * Server-side role guard for the entire /instructor tree. This runs before any page
- * renders; the API layer enforces the same boundary independently, so a route
- * guard is never the only thing standing between a role and another's data.
+ * Server-side role guard for the entire /instructor tree. This runs before any
+ * page renders; the API layer enforces the same boundary independently, so a
+ * route guard is never the only thing standing between a role and another's
+ * data.
  */
-const NAV: NavItem[] = [
-  { href: "/instructor/dashboard", label: "Today" },
-  { href: "/instructor/activities", label: "My Activities" },
-];
-
 export default async function INSTRUCTORLayout({ children }: { children: React.ReactNode }) {
   const principal = await getPrincipal();
 
@@ -21,7 +16,7 @@ export default async function INSTRUCTORLayout({ children }: { children: React.R
   }
 
   return (
-    <AppShell role="Instructor" userName={principal.name} nav={NAV}>
+    <AppShell role="INSTRUCTOR" userName={principal.name}>
       {children}
     </AppShell>
   );

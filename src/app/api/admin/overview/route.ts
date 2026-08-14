@@ -55,6 +55,51 @@ export const GET = withAuth(
           _avg: { openingCompliancePct: true, closingCompliancePct: true },
         });
 
+        // ── Rollup coverage ───────────────────────────────────────────────
+        // These figures come from a CACHE. If the scheduler has not yet
+        // summarised part of the requested window, the aggregate above is
+        // silently computed over fewer days than the caller asked for — and
+        // this endpoint would report a smaller capacity and a HIGHER
+        // utilisation than the live engine does for the same period. That is
+        // exactly how an admin and a manager end up quoting different numbers
+        // for the same university.
+        //
+        // The fix is not to guess the missing days: it is to say so. The
+        // response now reports which days are actually covered, so the UI can
+        // warn instead of presenting incomplete data as complete.
+        const covered = await prisma.universityDailyMetric.findMany({
+          where: {
+            universityId: u.id,
+            metricDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
+          },
+          select: { metricDate: true },
+          distinct: ["metricDate"],
+          orderBy: { metricDate: "asc" },
+        });
+        const expectedDays =
+          Math.round(
+            (Date.parse(`${period.to}T00:00:00Z`) - Date.parse(`${period.from}T00:00:00Z`)) /
+              86_400_000,
+          ) + 1;
+        // A university with no active instructors produces no metric rows at
+        // all — the rollup iterates instructor-days, so there is genuinely
+        // nothing to summarise. Without this, an empty tenant would report
+        // "incomplete" forever and show a permanent false warning.
+        //
+        // The instructor count MUST come from the Instructor table, not from
+        // `agg._max.activeInstructors`: that field is read out of the metric
+        // rows, so a genuinely stale rollup has no rows, reports zero
+        // instructors, and would mask exactly the staleness this check
+        // exists to catch.
+        const activeInstructorCount = await prisma.instructor.count({
+          where: { universityId: u.id, user: { isActive: true } },
+        });
+        const coverage = {
+          expectedDays,
+          coveredDays: covered.length,
+          complete: activeInstructorCount === 0 || covered.length >= expectedDays,
+        };
+
         // Prisma cannot aggregate inside a JSON column, so the per-type
         // breakdown is summed here over the same (universityId, metricDate)
         // rows the aggregate above already covers.
@@ -98,6 +143,7 @@ export const GET = withAuth(
           hoursByActivityType: Object.fromEntries(
             Object.entries(byType).map(([code, minutes]) => [code, round(minutes / 60)]),
           ),
+          coverage,
         };
       }),
     );
@@ -131,6 +177,10 @@ export const GET = withAuth(
         teachingHours: hoursByActivityType.TEACHING ?? 0,
         learningHours: hoursByActivityType.LEARNING ?? 0,
         hoursByActivityType,
+        // True only when every university's rollup covers the whole requested
+        // window. When false the figures above are computed over fewer days
+        // than were asked for and will not match the live analytics engine.
+        rollupComplete: perUniversity.every((u) => u.coverage.complete),
       },
       universities: perUniversity,
     });

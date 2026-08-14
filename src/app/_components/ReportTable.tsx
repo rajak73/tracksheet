@@ -1,7 +1,16 @@
 "use client";
 
 import {
-  Card, EmptyState, Meter, Table, TableWrap, TBody, TD, THead, TR,
+  Card,
+  EmptyState,
+  Meter,
+  Table,
+  TableWrap,
+  TBody,
+  TD,
+  THead,
+  TR,
+  utilizationLabel,
   utilizationTone,
 } from "@/app/_components/ui";
 
@@ -29,15 +38,15 @@ export function ReportTable({ rows }: { rows: ReportRow[] }) {
         />
       ) : (
         <TableWrap>
-          <Table>
+          <Table caption="Workload report">
             <THead
               columns={[
                 { label: "Instructor" },
-                { label: "ID" },
+                { label: "Employee code" },
                 { label: "Capacity", align: "right" },
-                { label: "Productive", align: "right" },
+                { label: "Recorded", align: "right" },
                 { label: "Unutilized", align: "right" },
-                { label: "Missing", align: "right" },
+                { label: "No records", align: "right" },
                 { label: "Utilization" },
               ]}
             />
@@ -57,7 +66,11 @@ export function ReportTable({ rows }: { rows: ReportRow[] }) {
                     )}
                   </TD>
                   <TD>
-                    <Meter value={r.utilizationPct} tone={utilizationTone(r.utilizationPct)} />
+                    <Meter
+                      value={r.utilizationPct}
+                      tone={utilizationTone(r.utilizationPct)}
+                      label={utilizationLabel(r.utilizationPct)}
+                    />
                   </TD>
                 </TR>
               ))}

@@ -1,63 +1,70 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ButtonLink, ErrorState, PageHeader, TableSkeleton } from "@/app/_components/ui";
 import { ReportTable, type ReportRow } from "@/app/_components/ReportTable";
+import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
+import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
+import { formatDate } from "@/app/_lib/format";
 
 type Report = { from: string; to: string; rows: ReportRow[] };
 
 export default function ManagerReportsPage() {
-  const [universityId, setUniversityId] = useState<string | null>(null);
-  const [report, setReport] = useState<Report | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const meRes = await fetch("/api/auth/me");
-        if (!meRes.ok) return setError("Your session has expired.");
-        const me = await meRes.json();
-        const uid = me.user.universityId as string;
-        setUniversityId(uid);
+  const load = useCallback(async () => {
+    const me = await fetchMe();
+    if (!me.user.universityId) throw new Error("No university is linked to this account.");
+    const body = await apiGet<{ report: Report }>(
+      `/api/universities/${me.user.universityId}/reports${periodQuery(period)}`,
+      "Could not load the report for this period.",
+    );
+    return { universityId: me.user.universityId, report: body.report };
+  }, [period]);
 
-        const res = await fetch(`/api/universities/${uid}/reports`);
-        if (!res.ok) return setError(`Could not load the report (HTTP ${res.status})`);
-        setReport((await res.json()).report);
-      } catch {
-        setError("Could not reach the server");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data, error, loading, reload } = useLoad(
+    load,
+    period ? `${period.from}:${period.to}` : "default",
+  );
+
+  const selector = <PeriodSelector value={period} onChange={setPeriod} />;
 
   if (loading) {
     return (
-      <div>
-        <PageHeader title="Workload report" />
+      <div className="space-y-6">
+        <PageHeader title="Workload report" actions={selector} />
         <TableSkeleton cols={7} />
       </div>
     );
   }
-  if (error || !report) return <ErrorState message={error ?? "No data returned."} />;
+  if (error || !data) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Workload report" actions={selector} />
+        <ErrorState message="Unable to load the report" detail={error ?? undefined} onRetry={reload} />
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Workload report"
-        description={`${report.from} to ${report.to} — the same figures shown on the dashboard.`}
+        description={`${formatDate(data.report.from)} to ${formatDate(data.report.to)} — the same figures shown on the dashboard.`}
         actions={
-          universityId ? (
+          <>
+            {selector}
             <ButtonLink
-              href={`/api/universities/${universityId}/reports?from=${report.from}&to=${report.to}&export=csv`}
+              external
+              href={`/api/universities/${data.universityId}/reports?from=${data.report.from}&to=${data.report.to}&export=csv`}
+              variant="secondary"
             >
               Export CSV
             </ButtonLink>
-          ) : null
+          </>
         }
       />
-      <ReportTable rows={report.rows} />
+      <ReportTable rows={data.report.rows} />
     </div>
   );
 }

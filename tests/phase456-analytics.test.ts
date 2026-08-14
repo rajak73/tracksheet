@@ -46,8 +46,15 @@ beforeAll(async () => {
   north1Id = me.user.instructorId!;
   northId = me.user.universityId!;
 
-  // MONDAY: two OVERLAPPING teaching blocks, 09:00-12:00 and 11:00-13:00 IST.
-  // Union = 09:00-13:00 = 4h. Naive sum would be 5h.
+  // MONDAY: 4h of teaching as two ADJACENT blocks, 09:00-12:00 and 12:00-13:00
+  // IST.
+  //
+  // These used to overlap (09:00-12:00 + 11:00-13:00) to prove the engine
+  // unions intervals instead of summing them. Overlapping activity is now
+  // rejected at the API — an instructor cannot be in two places at once — so
+  // the fixture can no longer be created that way. The blocks are adjacent
+  // instead, which keeps Monday at exactly 4h and leaves every capacity,
+  // utilisation and missing-data assertion below testing what it always did.
   await north1.post(`/api/instructors/${north1Id}/activities`, {
     activityTypeCode: "TEACHING",
     startTime: istToUtc(MON, "09:00"),
@@ -55,7 +62,7 @@ beforeAll(async () => {
   });
   await north1.post(`/api/instructors/${north1Id}/activities`, {
     activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "11:00"),
+    startTime: istToUtc(MON, "12:00"),
     endTime: istToUtc(MON, "13:00"),
   });
 
@@ -97,15 +104,23 @@ async function analytics(client: ApiClient, from = WEEK_FROM, to = WEEK_TO) {
   return res.body.analytics;
 }
 
-describe("overlapping activities are merged, never summed", () => {
-  test("Monday's two overlapping blocks count as 4h, not 5h", async () => {
+describe("multiple activities on one day accumulate correctly", () => {
+  test("Monday's two adjacent blocks count as 4h", async () => {
     const a = await analytics(admin);
     const me = a.instructors.find((i: { instructorId: string }) => i.instructorId === north1Id);
     const monday = me.days.find((d: { date: string }) => d.date === MON);
 
     expect(monday.productiveHours).toBe(4);
-    // The double-count is surfaced as a data-quality signal rather than hidden.
-    expect(me.overlapHours).toBeGreaterThan(0);
+  });
+
+  test("no overlap is reported, because overlap can no longer be recorded", async () => {
+    // The engine still computes worked time as a union rather than a sum —
+    // that defence stays, since historical or imported rows may overlap. But
+    // the API now refuses to create overlapping activity, so a freshly
+    // recorded day should carry no overlap signal at all.
+    const a = await analytics(admin);
+    const me = a.instructors.find((i: { instructorId: string }) => i.instructorId === north1Id);
+    expect(me.overlapHours).toBe(0);
   });
 });
 

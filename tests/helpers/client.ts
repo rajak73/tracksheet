@@ -54,6 +54,17 @@ export class ApiClient {
     });
   }
 
+  patch(path: string, json?: unknown) {
+    return this.request(path, {
+      method: "PATCH",
+      body: json === undefined ? undefined : JSON.stringify(json),
+    });
+  }
+
+  delete(path: string) {
+    return this.request(path, { method: "DELETE" });
+  }
+
   async login(email: string, password = "Password123!") {
     const res = await this.post("/api/auth/login", { email, password });
     if (res.status !== 200) {

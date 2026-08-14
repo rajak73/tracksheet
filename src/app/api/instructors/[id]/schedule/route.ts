@@ -140,6 +140,7 @@ export const POST = withAuth<{ id: string }>(
       action: "SCHEDULE_SLOT_CREATED",
       entityType: "ScheduleSlot",
       entityId: slot.id,
+      universityId: instructor.universityId,
       metadata: { instructorId: instructor.id, date: input.date },
     });
 

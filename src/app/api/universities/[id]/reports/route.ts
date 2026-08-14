@@ -82,6 +82,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
       action: "REPORT_EXPORTED",
       entityType: "ReportJob",
       entityId: job.id,
+      universityId: params.id,
       metadata: { from: period.from, to: period.to, rows: report.rows.length, format: "CSV" },
     });
 
@@ -95,9 +96,16 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
       dedupeKey: `REPORT_READY:${job.id}`,
     });
 
-    return new NextResponse(csv, {
+    // The BOM has to be in the BODY — the comment here previously claimed one
+    // was emitted while nothing prepended it, so Excel still mangled accented
+    // names. `charset=utf-8` alone does not fix that: Excel ignores it for
+    // .csv and falls back to the system codepage unless the bytes lead with
+    // EF BB BF. Written as an escape, not a literal BOM character — a literal
+    // U+FEFF at the start of a template string is exactly what source
+    // tooling strips as "stray BOM", which is how the first attempt at this
+    // fix silently vanished in the build.
+    return new NextResponse("\uFEFF" + csv, {
       headers: {
-        // BOM so Excel opens UTF-8 correctly rather than mangling accents.
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="workload_${period.from}_to_${period.to}.csv"`,
         "X-Report-Job-Id": job.id,

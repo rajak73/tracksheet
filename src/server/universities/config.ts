@@ -17,6 +17,7 @@ const CONFIG_SELECT = {
   timezone: true,
   openingDurationMin: true,
   closingDurationMin: true,
+  breakDurationMin: true,
   workingHours: {
     orderBy: { dayOfWeek: "asc" },
     select: { dayOfWeek: true, isWorkingDay: true, startMinute: true, endMinute: true },
@@ -31,6 +32,13 @@ export type UniversityConfig = UniversityTimeConfig & {
   name: string;
   slug: string;
   holidays: Array<{ id: string; date: string; name: string }>;
+  /**
+   * Minutes excluded from capacity per working day. It affects capacity the
+   * same way opening/closing duration do, so it belongs in the one loader
+   * everything else reads its time configuration from — engine.ts previously
+   * fetched it with a second, separate query instead.
+   */
+  breakDurationMin: number;
 };
 
 /** Holidays are stored as DATE; render them as `YYYY-MM-DD` in UTC terms,
@@ -56,6 +64,7 @@ export async function loadUniversityConfig(universityId: string): Promise<Univer
     timezone: university.timezone,
     openingDurationMin: university.openingDurationMin,
     closingDurationMin: university.closingDurationMin,
+    breakDurationMin: university.breakDurationMin,
     workingHours: university.workingHours,
     holidays: university.holidays.map((h) => ({
       id: h.id,

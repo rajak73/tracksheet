@@ -83,6 +83,7 @@ export const POST = withAuth(
       action: "INSTRUCTOR_CREATED",
       entityType: "Instructor",
       entityId: result.instructor.id,
+      universityId,
       metadata: { universityId, email: result.user.email },
     });
 

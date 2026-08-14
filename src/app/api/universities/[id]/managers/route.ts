@@ -77,6 +77,7 @@ export const POST = withAuth<{ id: string }>(
       action: "MANAGER_ASSIGNED",
       entityType: "Manager",
       entityId: result.manager.id,
+      universityId: params.id,
       metadata: { universityId: params.id, isPrimary: result.isPrimary },
     });
 

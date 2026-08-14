@@ -298,6 +298,12 @@ model LeaveRequest {
 
   @@index([instructorId, startDate, endDate])
   @@index([universityId])
+  /// The analytics engine, exception detector, notification sweep and every
+  /// report run this exact predicate on every request:
+  ///   universityId = ? AND status = 'APPROVED' AND startDate <= ? AND endDate >= ?
+  /// `@@index([universityId])` alone leaves the status and period filters to a
+  /// row filter, which grows with a tenant's whole leave history.
+  @@index([universityId, status, startDate, endDate])
 }
 
 /// Server-side sessions (Phase 0 §2): revocable, and role/universityId are

@@ -158,3 +158,29 @@ describe("deliverables are not visible to a colleague", () => {
     expect((await admin.get(`/api/instructors/${west1Id}/deliverables`)).status).toBe(200);
   });
 });
+
+describe("insights are a management artifact, not a self-service one", () => {
+  // PATCH /api/insights/[id] previously had no role gate — an instructor's
+  // `self` scope passed the tenant-only `assertCanAccessUniversity` check
+  // used inside it, so they could mutate (and read back) a university-scoped
+  // insight belonging to their own tenant. The role gate now rejects the
+  // role BEFORE the handler runs, so this holds even against a made-up id —
+  // the fix does not depend on a real insight existing to be provable.
+  test("an instructor is refused before the handler ever looks up the id", async () => {
+    const res = await north1.patch("/api/insights/does-not-exist", { status: "DISMISSED" });
+    expect(res.status).toBe(403);
+  });
+
+  test("a manager can reach the same route", async () => {
+    // Still refused, but for a DIFFERENT reason: the id itself is unknown.
+    // A manager passing the role gate and landing on 404 (not 403) proves the
+    // gate is role-based, not a blanket lockout.
+    const res = await managerNorth.patch("/api/insights/does-not-exist", { status: "DISMISSED" });
+    expect(res.status).toBe(404);
+  });
+
+  test("an admin can reach the same route", async () => {
+    const res = await admin.patch("/api/insights/does-not-exist", { status: "DISMISSED" });
+    expect(res.status).toBe(404);
+  });
+});

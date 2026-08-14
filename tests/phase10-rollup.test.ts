@@ -39,7 +39,9 @@ beforeAll(async () => {
   n1Id = me.user.instructorId!;
   northId = me.user.universityId!;
 
-  // Monday: 4h of teaching from two overlapping blocks (union, not sum).
+  // Monday: 4h of teaching across two ADJACENT blocks. These used to overlap;
+  // overlapping activity is now rejected at the API, so the fixture is
+  // adjacent instead and Monday still totals exactly 4h.
   await n1.post(`/api/instructors/${n1Id}/activities`, {
     activityTypeCode: "TEACHING",
     startTime: istToUtc(MON, "09:00"),
@@ -47,7 +49,7 @@ beforeAll(async () => {
   });
   await n1.post(`/api/instructors/${n1Id}/activities`, {
     activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "11:00"),
+    startTime: istToUtc(MON, "12:00"),
     endTime: istToUtc(MON, "13:00"),
   });
   // Tuesday: opening + 2h teaching.
@@ -90,12 +92,12 @@ describe("the rollup agrees with the live engine", () => {
     expect(north.utilizationPct).toBe(totals.utilizationPct);
   });
 
-  test("overlapping activity is merged in the summary too", async () => {
+  test("multiple blocks on one day are summarised correctly", async () => {
     const overview = await admin.get(`/api/admin/overview?from=${MON}&to=${MON}`);
     const north = overview.body.universities.find(
       (u: { universityId: string }) => u.universityId === northId,
     );
-    // Monday's two overlapping blocks are 4h of union, not 5h of sum.
+    // Monday's two adjacent blocks total 4h.
     expect(north.productiveHours).toBe(4);
   });
 

@@ -1,10 +1,16 @@
-# Tracksheet — University Workforce Intelligence Platform
+# NEXTWAVE — University Workforce Intelligence Platform
 
 One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 11 complete — UI/UX polish pass.**
+**Current state: Phase 12 complete — NEXTWAVE visual identity and design
+system.** The product-facing brand is NEXTWAVE; the repository, package name,
+session cookie, and database/container names are unchanged (infrastructure
+identifiers, not UI). See [DESIGN.md](DESIGN.md) for the full design system —
+colour tokens, typography, the role-based information-density model, and the
+rationale for the palette. Phase 11 (UI/UX polish pass) is the design system
+this phase refined, not replaced.
 Deploys to **Render** (`starter` plan, **single instance**). See
 [DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
 requirement and not a cost choice.
@@ -15,9 +21,35 @@ scale-oriented database architecture and an automatic metric rollup.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
 index strategy, aggregation design, and measured query plans.
 See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what was found and how each
-finding was proven fixed. Known gaps are listed there too — schedules, breaks,
-workload targets, deliverable progress logging, admin write endpoints, and
-Excel/PDF export are not built.
+finding was proven fixed.
+
+## Known gaps
+
+Schedules, breaks, workload targets, deliverable progress logging and admin
+write endpoints **are** built and verified — an earlier revision of this
+section listed them as missing and was out of date.
+
+What is genuinely not built:
+
+- **Native `.xlsx` and PDF export.** CSV only; both need a document library.
+- **Activity edit and delete.** *Not implemented because it is not part of the
+  confirmed business requirements.* `ActivityLog` is an append-only event
+  ledger by design: it carries `createdBy`, `source` and `updatedAt` but
+  deliberately has **no `deletedAt`**, while six entity models (`User`,
+  `University`, `Deliverable`, `Department`, `Program`, `Course`) do carry
+  it — soft delete was applied selectively to entities, not to events. No
+  requirement document asks for amending a recorded activity.
+
+  This is a **product decision, not an oversight**, and it has a real
+  consequence worth surfacing: an instructor who mistypes a time cannot
+  correct it, and a manager cannot remove an erroneous record. If correcting
+  recorded activity becomes a requirement, the shape is already scoped —
+  `logActivity` accepts an `excludeActivityId` so an edit can re-run the
+  overlap check against every *other* activity without conflicting with
+  itself, and soft delete would need `deletedAt`/`deletedBy`/`deletionReason`
+  plus exclusion from the analytics engine, rollup, reports and AI metrics
+  while remaining visible to audit. Until that requirement exists, none of it
+  is built.
 
 ## Stack
 

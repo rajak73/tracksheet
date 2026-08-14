@@ -38,6 +38,7 @@ export const POST = withAuth<{ id: string }>(
 
     await logAudit(principal, scope, {
       action: "INSIGHT_GENERATED",
+      universityId: params.id,
       metadata: { count: created.length, from: period.from, to: period.to },
     });
 

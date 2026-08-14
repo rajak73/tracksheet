@@ -57,7 +57,12 @@ describe("Phase 3 - Activity Logging", () => {
     expect(res.body.error.code).toBe("DUPLICATE_ONCE_PER_DAY_ACTIVITY");
   });
 
-  test("Instructor can log overlapping TEACHING activities (stored, flagged later)", async () => {
+  test("Instructor cannot log overlapping TEACHING activities", async () => {
+    // This assertion was inverted during the integrity audit. The original
+    // design stored overlapping activity and merged it in the analytics
+    // maths; the requirement is now that an instructor cannot be in two
+    // places at once, so the overlap is refused at the point of entry
+    // instead of being reconciled afterwards.
     const res1 = await instructorNorth1.post(`/api/instructors/${north1InstructorId}/activities`, {
       activityTypeCode: "TEACHING",
       startTime: "2026-08-11T10:00:00Z",
@@ -67,10 +72,19 @@ describe("Phase 3 - Activity Logging", () => {
 
     const res2 = await instructorNorth1.post(`/api/instructors/${north1InstructorId}/activities`, {
       activityTypeCode: "TEACHING",
-      startTime: "2026-08-11T10:30:00Z", // Overlaps with res1
+      startTime: "2026-08-11T10:30:00Z", // Overlaps res1
       endTime: "2026-08-11T11:30:00Z",
     });
-    expect(res2.status).toBe(201); // No 409 error
+    expect(res2.status).toBe(409);
+    expect(res2.body.error.code).toBe("ACTIVITY_OVERLAP");
+
+    // Back-to-back remains legal: touching at a boundary is not overlapping.
+    const res3 = await instructorNorth1.post(`/api/instructors/${north1InstructorId}/activities`, {
+      activityTypeCode: "TEACHING",
+      startTime: "2026-08-11T11:00:00Z",
+      endTime: "2026-08-11T12:00:00Z",
+    });
+    expect(res3.status).toBe(201);
   });
 
   test("Manager can fetch activities for their university", async () => {

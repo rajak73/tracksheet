@@ -29,6 +29,20 @@ import { loadUniversityConfig } from "@/server/universities/config";
 
 const MS_PER_HOUR = 3_600_000;
 
+/**
+ * A logged activity counts toward productive time only if it actually
+ * happened. MISSED is the exceptions detector's UNEXPECTED_ABSENCE signal
+ * (src/server/analytics/exceptions.ts) — counting it as productive here would
+ * make the same row simultaneously a HIGH-severity absence and evidence of
+ * work done, which is a direct contradiction between the two subsystems.
+ * EXCUSED is the sanctioned counterpart of the same thing: an absence that
+ * was approved rather than flagged, still not work performed. COMPLETED and
+ * LATE both represent the activity actually happening.
+ */
+function countsTowardProductive(status: string): boolean {
+  return status !== "MISSED" && status !== "EXCUSED";
+}
+
 export type Interval = { start: Date; end: Date };
 
 export type DayBreakdown = {
@@ -300,12 +314,7 @@ function summariseDeliverables(
 export async function computeAnalytics(query: AnalyticsQuery): Promise<AnalyticsResult> {
   const { universityId, from, to } = query;
   const config = await loadUniversityConfig(universityId);
-
-  const university = await prisma.university.findUniqueOrThrow({
-    where: { id: universityId },
-    select: { breakDurationMin: true },
-  });
-  const breakMin = university.breakDurationMin;
+  const breakMin = config.breakDurationMin;
 
   const instructors = await prisma.instructor.findMany({
     where: {
@@ -336,6 +345,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         workDate: true,
         startTime: true,
         endTime: true,
+        status: true,
         activityType: {
           select: { code: true, countsAsProductive: true, isOncePerDay: true },
         },
@@ -426,6 +436,33 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       const dayLogs = perDate.get(date) ?? [];
       const leave = onLeave(inst.id, date);
 
+      // Productive hours and the per-type split are computed for every day,
+      // working or not, and always folded into the running totals below. A
+      // holiday or an approved leave day does not erase work someone actually
+      // logged on it — and the rollup (rollup.ts) sums every day's
+      // `productiveHours` unconditionally, so the engine's own total has to
+      // include the same days or the two disagree on the same period.
+      const productiveLogs = dayLogs.filter(
+        (l) => l.activityType.countsAsProductive && countsTowardProductive(l.status),
+      );
+      const productiveIntervals = productiveLogs.map((l) => ({
+        start: l.startTime,
+        end: l.endTime,
+      }));
+      const dayProductive = unionHours(productiveIntervals);
+      const dayOverlap = overlapHours(productiveIntervals);
+
+      const dayByType: Record<string, number> = {};
+      for (const l of dayLogs) {
+        if (!countsTowardProductive(l.status)) continue;
+        const hrs = (l.endTime.getTime() - l.startTime.getTime()) / MS_PER_HOUR;
+        hoursByType[l.activityType.code] = round((hoursByType[l.activityType.code] ?? 0) + hrs);
+        dayByType[l.activityType.code] = round((dayByType[l.activityType.code] ?? 0) + hrs);
+      }
+
+      productive += dayProductive;
+      overlap += dayOverlap;
+
       // Approved leave removes the day from capacity entirely, so the
       // percentage is not punished for a day nobody expected work on.
       if (!windows.isWorkingDay || leave) {
@@ -434,20 +471,12 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           isWorkingDay: false,
           nonWorkingReason: leave ? "LEAVE" : windows.nonWorkingReason,
           capacityHours: 0,
-          productiveHours: dayLogs.length
-            ? round(
-                unionHours(
-                  dayLogs
-                    .filter((l) => l.activityType.countsAsProductive)
-                    .map((l) => ({ start: l.startTime, end: l.endTime })),
-                ),
-              )
-            : 0,
+          productiveHours: round(dayProductive),
           unutilizedHours: 0,
           hasData: dayLogs.length > 0,
           openingLogged: false,
           closingLogged: false,
-          hoursByActivityType: {},
+          hoursByActivityType: dayByType,
         });
         continue;
       }
@@ -455,19 +484,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       expectedDays += 1;
       const dayCapacity = dayCapacityHours(config, breakMin, date);
       capacity += dayCapacity;
-
-      const productiveIntervals = dayLogs
-        .filter((l) => l.activityType.countsAsProductive)
-        .map((l) => ({ start: l.startTime, end: l.endTime }));
-      const dayProductive = unionHours(productiveIntervals);
-      const dayOverlap = overlapHours(productiveIntervals);
-
-      const dayByType: Record<string, number> = {};
-      for (const l of dayLogs) {
-        const hrs = (l.endTime.getTime() - l.startTime.getTime()) / MS_PER_HOUR;
-        hoursByType[l.activityType.code] = round((hoursByType[l.activityType.code] ?? 0) + hrs);
-        dayByType[l.activityType.code] = round((dayByType[l.activityType.code] ?? 0) + hrs);
-      }
 
       const hasOpening = dayLogs.some(
         (l) => l.activityType.isOncePerDay && l.activityType.code === "DAILY_OPENING",
@@ -484,8 +500,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       // did nothing, which the data does not support.
       const dayUnutilized = hasData ? Math.max(0, dayCapacity - dayProductive) : null;
 
-      productive += dayProductive;
-      overlap += dayOverlap;
       if (dayUnutilized === null) missing += dayCapacity;
       else unutilized += dayUnutilized;
 

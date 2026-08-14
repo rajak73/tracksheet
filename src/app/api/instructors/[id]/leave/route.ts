@@ -60,12 +60,43 @@ export const POST = withAuth<{ id: string }>(
       throw new ApiError(403, "FORBIDDEN", "Only a manager or admin can approve leave");
     }
 
+    const startDate = toDateOnly(input.startDate);
+    const endDate = toDateOnly(input.endDate);
+
+    // Overlapping leave is rejected because APPROVED leave REMOVES a day from
+    // available capacity (see `computeAnalytics`). Two rows covering the same
+    // day would deduct it twice, shrinking the denominator below the real
+    // figure and inflating utilization — a silent corruption of every
+    // downstream metric rather than a visible duplicate.
+    //
+    // Only APPROVED leave affects capacity, but a PENDING duplicate is
+    // blocked too: it would otherwise become a double deduction the moment a
+    // manager approves it. Standard interval test — existing.start <= new.end
+    // AND existing.end >= new.start.
+    const clash = await prisma.leaveRequest.findFirst({
+      where: {
+        instructorId: instructor.id,
+        status: { in: ["PENDING", "APPROVED"] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      select: { id: true, startDate: true, endDate: true, status: true },
+    });
+    if (clash) {
+      const d = (x: Date) => x.toISOString().slice(0, 10);
+      throw new ApiError(
+        409,
+        "OVERLAPPING_LEAVE",
+        `This overlaps ${clash.status.toLowerCase()} leave already recorded from ${d(clash.startDate)} to ${d(clash.endDate)}.`,
+      );
+    }
+
     const leave = await prisma.leaveRequest.create({
       data: {
         instructorId: instructor.id,
         universityId: instructor.universityId,
-        startDate: toDateOnly(input.startDate),
-        endDate: toDateOnly(input.endDate),
+        startDate,
+        endDate,
         status: isSelfScoped ? "PENDING" : (input.status ?? "PENDING"),
         reason: input.reason,
       },
@@ -75,6 +106,7 @@ export const POST = withAuth<{ id: string }>(
       action: "LEAVE_RECORDED",
       entityType: "LeaveRequest",
       entityId: leave.id,
+      universityId: instructor.universityId,
       metadata: { instructorId: instructor.id, status: leave.status },
     });
 

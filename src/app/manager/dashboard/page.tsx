@@ -1,12 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+/**
+ * The manager's university.
+ *
+ * Ordered to answer one question first — "who needs attention?" (§17). The
+ * health figures set context, the instructor table names the people, and
+ * exceptions say what specifically is wrong. Trends come last because they
+ * inform next week rather than today.
+ *
+ * The instructor table is sortable in the browser over rows the server already
+ * returned, so ranking by utilisation costs no request and cannot disagree with
+ * the totals above it.
+ */
+
+import { useCallback, useMemo, useState } from "react";
 import {
-  Alert, Badge, Button, Card, CardHeader, Dot, EmptyState, ErrorState, Meter,
-  PageHeader, StatGridSkeleton, StatTile, Table, TableSkeleton, TableWrap, TBody,
-  TD, THead, TR, complianceTone, utilizationTone, type Tone,
+  Alert,
+  Badge,
+  ButtonLink,
+  Card,
+  CardHeader,
+  CardList,
+  CardListItem,
+  EmptyState,
+  ErrorState,
+  Meter,
+  PageHeader,
+  SearchInput,
+  Section,
+  StatGridSkeleton,
+  StatTile,
+  Table,
+  TableSkeleton,
+  TableWrap,
+  TBody,
+  TD,
+  THead,
+  TR,
+  complianceLabel,
+  complianceTone,
+  utilizationLabel,
+  utilizationTone,
+  type SortDirection,
 } from "@/app/_components/ui";
+import { AllocationBar, ChartCard } from "@/app/_components/charts";
+import {
+  InsightCard,
+  PeriodSelector,
+  periodQuery,
+  type Period,
+} from "@/app/_components/interactive";
+import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
+import { formatDate, formatHours } from "@/app/_lib/format";
 
 type InstructorRow = {
   instructorId: string;
@@ -22,274 +67,398 @@ type InstructorRow = {
   closingCompliancePct: number | null;
 };
 
-type Analytics = {
-  from: string;
-  to: string;
-  totals: {
-    instructors: number;
-    capacityHours: number;
-    productiveHours: number;
-    unutilizedHours: number;
-    missingDataHours: number;
-    utilizationPct: number | null;
-    openingCompliancePct: number | null;
-    closingCompliancePct: number | null;
-    hoursByActivityType: Record<string, number>;
-  };
-  instructors: InstructorRow[];
+type Totals = {
+  instructors: number;
+  capacityHours: number;
+  productiveHours: number;
+  unutilizedHours: number;
+  missingDataHours: number;
+  utilizationPct: number | null;
+  openingCompliancePct: number | null;
+  closingCompliancePct: number | null;
+  hoursByActivityType: Record<string, number>;
 };
 
-type AiInsight = {
+type Insight = {
   id: string;
   type: string;
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  period: string;
+  severity: string;
   title?: string;
   summary?: string;
   recommendation: string;
+  period?: string;
+  status?: string;
+  sourceMetrics?: Record<string, unknown> | null;
 };
 
-type Notification = { id: string; title: string; message: string };
-
-const SEVERITY_TONE: Record<string, Tone> = {
-  CRITICAL: "danger",
-  HIGH: "danger",
-  MEDIUM: "warning",
-  LOW: "info",
+type ExceptionFlag = {
+  type: string;
+  severity: string;
+  instructorName: string;
+  date: string;
+  detail: string;
 };
 
 export default function ManagerDashboardPage() {
-  const [universityId, setUniversityId] = useState<string | null>(null);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [insights, setInsights] = useState<AiInsight[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<{ key: string; direction: SortDirection }>({
+    key: "utilizationPct",
+    direction: "asc",
+  });
 
   const load = useCallback(async () => {
-    try {
-      const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) {
-        setError("Your session has expired.");
-        return;
-      }
-      const me = await meRes.json();
-      const uid = me.user.universityId as string;
-      setUniversityId(uid);
+    const me = await fetchMe();
+    const universityId = me.user.universityId;
+    if (!universityId) throw new Error("No university is linked to this account.");
 
-      const [aRes, iRes, nRes] = await Promise.all([
-        fetch(`/api/universities/${uid}/analytics`),
-        fetch(`/api/universities/${uid}/insights`),
-        fetch(`/api/notifications`),
-      ]);
+    const query = periodQuery(period);
+    const [analytics, insights, exceptions] = await Promise.all([
+      apiGet<{ analytics: { from: string; to: string; totals: Totals; instructors: InstructorRow[] } }>(
+        `/api/universities/${universityId}/analytics${query}`,
+        "Could not load your university's workload for this period.",
+      ),
+      apiGet<{ insights: Insight[] }>(
+        `/api/universities/${universityId}/insights${query}`,
+        "Could not load insights.",
+      ).catch(() => ({ insights: [] as Insight[] })),
+      apiGet<{ exceptions: { total: number; exceptions: ExceptionFlag[] } }>(
+        `/api/universities/${universityId}/exceptions${query}`,
+        "Could not load exceptions.",
+      ).catch(() => ({ exceptions: { total: 0, exceptions: [] as ExceptionFlag[] } })),
+    ]);
 
-      if (aRes.ok) setAnalytics((await aRes.json()).analytics);
-      else setError(`Could not load analytics (HTTP ${aRes.status})`);
+    return {
+      universityId,
+      from: analytics.analytics.from,
+      to: analytics.analytics.to,
+      totals: analytics.analytics.totals,
+      instructors: analytics.analytics.instructors,
+      insights: insights.insights,
+      exceptions: exceptions.exceptions,
+    };
+  }, [period]);
 
-      if (iRes.ok) setInsights((await iRes.json()).insights);
-      if (nRes.ok) setNotifications((await nRes.json()).notifications);
-    } catch {
-      setError("Could not reach the server");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data, error, loading, reload } = useLoad(
+    load,
+    period ? `${period.from}:${period.to}` : "default",
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
+  /** Sorting and filtering over rows the server already sent. No refetch. */
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const needle = query.trim().toLowerCase();
+    const filtered = data.instructors.filter(
+      (i) =>
+        !needle ||
+        i.instructorName.toLowerCase().includes(needle) ||
+        (i.employeeCode ?? "").toLowerCase().includes(needle),
+    );
 
-  async function generateInsights() {
-    if (!universityId) return;
-    setGenerating(true);
-    try {
-      await fetch(`/api/universities/${universityId}/insights`, { method: "POST" });
-      const res = await fetch(`/api/universities/${universityId}/insights`);
-      if (res.ok) setInsights((await res.json()).insights);
-    } finally {
-      setGenerating(false);
-    }
+    return [...filtered].sort((a, b) => {
+      const key = sort.key as keyof InstructorRow;
+      const av = a[key];
+      const bv = b[key];
+
+      // Nulls last in both directions: "not measurable" is never the most
+      // interesting row, whichever way the column is sorted.
+      if (av === null) return 1;
+      if (bv === null) return -1;
+
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av).localeCompare(String(bv));
+      return sort.direction === "asc" ? cmp : -cmp;
+    });
+  }, [data, query, sort]);
+
+  function toggleSort(key: string) {
+    setSort((s) => ({
+      key,
+      direction: s.key === key && s.direction === "asc" ? "desc" : "asc",
+    }));
   }
+
+  const selector = (
+    <>
+      <PeriodSelector value={period} onChange={setPeriod} />
+      <ButtonLink href="/manager/reports" variant="secondary">
+        View reports
+      </ButtonLink>
+    </>
+  );
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Overview" description="Your university's workload this period." />
+        <PageHeader title="Overview" actions={selector} />
         <StatGridSkeleton />
         <TableSkeleton cols={6} />
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Overview" actions={selector} />
+        <ErrorState message="Unable to load your university" detail={error} onRetry={reload} />
+      </div>
+    );
+  }
+  if (!data) return null;
 
-  if (error || !analytics) return <ErrorState message={error ?? "No data returned."} />;
-
-  const t = analytics.totals;
+  const t = data.totals;
+  const attention = data.instructors.filter(
+    (i) => i.utilizationPct !== null && i.utilizationPct < 60,
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="Overview"
-        description={`${analytics.from} to ${analytics.to}`}
-        actions={
-          <Link
-            href="/manager/reports"
-            className="rounded-lg border border-line-strong bg-surface px-4 py-2 text-sm font-medium text-content hover:bg-hovered"
-          >
-            View reports
-          </Link>
-        }
+        description={`${formatDate(data.from)} to ${formatDate(data.to)}`}
+        actions={selector}
       />
 
-      {notifications.length > 0 ? (
-        <Alert tone="info" title={`${notifications.length} unread notification${notifications.length === 1 ? "" : "s"}`}>
-          {notifications[0].title}
-        </Alert>
-      ) : null}
-
+      {/* 1 — University health. */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
           label="Utilization"
           value={t.utilizationPct}
           suffix="%"
           tone={utilizationTone(t.utilizationPct)}
+          status={utilizationLabel(t.utilizationPct)}
           emphasis
           hint={`${t.productiveHours} of ${t.capacityHours} hrs`}
         />
-        <StatTile label="Instructors" value={t.instructors} />
+        <StatTile label="Active instructors" value={t.instructors} />
         <StatTile
           label="Opening compliance"
           value={t.openingCompliancePct}
           suffix="%"
           tone={complianceTone(t.openingCompliancePct)}
+          status={complianceLabel(t.openingCompliancePct)}
         />
         <StatTile
           label="Closing compliance"
           value={t.closingCompliancePct}
           suffix="%"
           tone={complianceTone(t.closingCompliancePct)}
+          status={complianceLabel(t.closingCompliancePct)}
         />
       </div>
 
       {t.missingDataHours > 0 ? (
         <Alert tone="warning" title="Some working time has no records">
-          {t.missingDataHours} hours carry no activity records. That is missing data, not
-          unutilized time.
+          {formatHours(t.missingDataHours)} carry no activity. That is missing data, not
+          unutilized time — the utilization figure above is calculated over what was recorded.
         </Alert>
       ) : null}
 
-      <Card>
-        <CardHeader title="Instructor workload" description="Utilization against configured capacity." />
-        {analytics.instructors.length === 0 ? (
-          <EmptyState
-            title="No active instructors"
-            description="Add instructors to start tracking workload for this university."
-            action={
-              <Link
-                href="/manager/instructors"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-              >
-                Add an instructor
-              </Link>
+      {/* 2 — Who needs attention. */}
+      <Section
+        title="Instructor workload"
+        description="Sorted by utilization, lowest first — the people most likely to need a conversation."
+      >
+        <Card>
+          <CardHeader
+            title="Instructors"
+            description={
+              attention.length > 0
+                ? `${attention.length} below 60% utilization in this period.`
+                : "All instructors are at or above 60% utilization."
+            }
+            actions={
+              data.instructors.length > 5 ? (
+                <SearchInput
+                  label="Search instructors"
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search by name or code…"
+                  className="w-full sm:w-56"
+                />
+              ) : null
             }
           />
-        ) : (
-          <TableWrap>
-            <Table>
-              <THead
-                columns={[
-                  { label: "Instructor" },
-                  { label: "Capacity", align: "right" },
-                  { label: "Productive", align: "right" },
-                  { label: "Missing", align: "right" },
-                  { label: "Utilization" },
-                  { label: "Open / Close" },
-                ]}
-              />
-              <TBody>
-                {analytics.instructors.map((i) => (
-                  <TR key={i.instructorId}>
-                    <TD strong>
-                      {i.instructorName}
-                      {i.employeeCode ? (
-                        <span className="ml-2 text-xs text-subtle">{i.employeeCode}</span>
-                      ) : null}
-                      {i.overlapHours > 0 ? (
-                        <span className="ml-2">
-                          <Badge tone="warning">overlap</Badge>
-                        </span>
-                      ) : null}
-                    </TD>
-                    <TD align="right">{i.capacityHours}</TD>
-                    <TD align="right">{i.productiveHours}</TD>
-                    <TD align="right">
-                      {i.missingDataHours > 0 ? (
-                        <span className="text-warning">{i.missingDataHours}</span>
-                      ) : (
-                        0
-                      )}
-                    </TD>
-                    <TD>
-                      <Meter value={i.utilizationPct} tone={utilizationTone(i.utilizationPct)} />
-                    </TD>
-                    <TD>
-                      <div className="flex items-center gap-1.5">
-                        <Badge tone={complianceTone(i.openingCompliancePct)}>
-                          {i.openingCompliancePct === null ? "—" : `${i.openingCompliancePct}%`}
-                        </Badge>
-                        <Badge tone={complianceTone(i.closingCompliancePct)}>
-                          {i.closingCompliancePct === null ? "—" : `${i.closingCompliancePct}%`}
-                        </Badge>
-                      </div>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          </TableWrap>
-        )}
-      </Card>
 
-      <Card>
-        <CardHeader
-          title="AI insights"
-          description="Derived from recorded activity — each one traceable to its metrics."
-          actions={
-            <Button size="sm" variant="secondary" onClick={generateInsights} disabled={generating}>
-              {generating ? "Generating…" : "Generate"}
-            </Button>
-          }
+          {data.instructors.length === 0 ? (
+            <EmptyState
+              title="No active instructors"
+              description="Add instructors to start tracking workload for this university."
+              action={<ButtonLink href="/manager/instructors">Add an instructor</ButtonLink>}
+            />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              title="No instructor matches that search"
+              description="Try a different name or employee code."
+            />
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <TableWrap>
+                  <Table caption="Instructor workload for the selected period">
+                    <THead
+                      sort={sort}
+                      onSort={toggleSort}
+                      columns={[
+                        { label: "Instructor", sortKey: "instructorName" },
+                        { label: "Capacity", align: "right", sortKey: "capacityHours" },
+                        { label: "Recorded", align: "right", sortKey: "productiveHours" },
+                        { label: "No records", align: "right", sortKey: "missingDataHours" },
+                        { label: "Utilization", sortKey: "utilizationPct" },
+                        { label: "Open / close" },
+                      ]}
+                    />
+                    <TBody>
+                      {rows.map((i) => (
+                        <TR key={i.instructorId}>
+                          <TD strong>
+                            <span className="whitespace-nowrap">{i.instructorName}</span>
+                            {i.employeeCode ? (
+                              <span className="ml-2 text-xs text-subtle">{i.employeeCode}</span>
+                            ) : null}
+                            {i.overlapHours > 0 ? (
+                              <span className="ml-2">
+                                <Badge tone="warning">Overlapping records</Badge>
+                              </span>
+                            ) : null}
+                          </TD>
+                          <TD align="right">{i.capacityHours}</TD>
+                          <TD align="right">{i.productiveHours}</TD>
+                          <TD align="right">
+                            {i.missingDataHours > 0 ? (
+                              <span className="text-warning">{i.missingDataHours}</span>
+                            ) : (
+                              0
+                            )}
+                          </TD>
+                          <TD>
+                            <Meter
+                              value={i.utilizationPct}
+                              tone={utilizationTone(i.utilizationPct)}
+                              label={utilizationLabel(i.utilizationPct)}
+                            />
+                          </TD>
+                          <TD>
+                            <div className="flex items-center gap-1.5">
+                              <Badge tone={complianceTone(i.openingCompliancePct)}>
+                                {i.openingCompliancePct === null
+                                  ? "—"
+                                  : `${i.openingCompliancePct}%`}
+                              </Badge>
+                              <Badge tone={complianceTone(i.closingCompliancePct)}>
+                                {i.closingCompliancePct === null
+                                  ? "—"
+                                  : `${i.closingCompliancePct}%`}
+                              </Badge>
+                            </div>
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                </TableWrap>
+              </div>
+
+              {/* Mobile: name, utilization, status — the three fields that
+                  answer "who needs attention". The rest is a drill-down. */}
+              <div className="md:hidden">
+                <CardList>
+                  {rows.map((i) => (
+                    <CardListItem
+                      key={i.instructorId}
+                      title={i.instructorName}
+                      subtitle={utilizationLabel(i.utilizationPct)}
+                      meta={
+                        <Meter
+                          value={i.utilizationPct}
+                          tone={utilizationTone(i.utilizationPct)}
+                        />
+                      }
+                    />
+                  ))}
+                </CardList>
+              </div>
+            </>
+          )}
+        </Card>
+      </Section>
+
+      {/* 3 — Exceptions. */}
+      {data.exceptions.total > 0 ? (
+        <Section
+          title="Exceptions"
+          description="Data-quality flags detected in this period. Each one names the measurement, not a judgement about a person."
+        >
+          <Card>
+            <CardHeader
+              title={`${data.exceptions.total} flagged`}
+              description={
+                data.exceptions.exceptions.length < data.exceptions.total
+                  ? `Showing the first ${data.exceptions.exceptions.length}.`
+                  : undefined
+              }
+            />
+            <CardList>
+              {data.exceptions.exceptions.slice(0, 8).map((e, i) => (
+                <CardListItem
+                  key={`${e.type}-${e.instructorName}-${e.date}-${i}`}
+                  title={e.instructorName}
+                  subtitle={e.detail}
+                  trailing={
+                    <Badge
+                      tone={
+                        e.severity === "HIGH"
+                          ? "danger"
+                          : e.severity === "MEDIUM"
+                            ? "warning"
+                            : "info"
+                      }
+                    >
+                      {e.type.replaceAll("_", " ").toLowerCase()}
+                    </Badge>
+                  }
+                />
+              ))}
+            </CardList>
+          </Card>
+        </Section>
+      ) : null}
+
+      {/* 4 — Trends. */}
+      <ChartCard
+        question="How was your university's capacity allocated?"
+        description={`${formatDate(data.from)} to ${formatDate(data.to)}`}
+        isEmpty={Object.keys(t.hoursByActivityType).length === 0}
+        emptyTitle="No activity recorded in this period"
+        emptyDescription="Once instructors record activity, the distribution appears here."
+      >
+        <AllocationBar
+          slices={Object.entries(t.hoursByActivityType).map(([code, hours]) => ({ code, hours }))}
+          unutilizedHours={t.unutilizedHours}
+          missingDataHours={t.missingDataHours}
         />
-        {insights.length === 0 ? (
-          <EmptyState
-            title="No insights yet"
-            description="Insights are derived from recorded activity. If nothing has been logged for this period, none will be generated."
-          />
-        ) : (
-          <ul className="divide-y divide-line">
-            {insights.map((insight) => (
-              <li key={insight.id} className="flex gap-3 px-5 py-4">
-                <span className="mt-1.5">
-                  <Dot tone={SEVERITY_TONE[insight.severity] ?? "neutral"} />
-                </span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="text-sm font-medium text-content">
-                      {insight.title ?? insight.type.replaceAll("_", " ")}
-                    </p>
-                    <span className="text-xs text-subtle">{insight.period}</span>
-                  </div>
-                  {insight.summary ? (
-                    <p className="mt-1 text-sm text-muted">{insight.summary}</p>
-                  ) : null}
-                  <p className="mt-1 text-sm text-muted">{insight.recommendation}</p>
-                </div>
-              </li>
+      </ChartCard>
+
+      {/* 5 — Insights. */}
+      {data.insights.length > 0 ? (
+        <Section
+          title="AI insights"
+          description="Each one shows the metrics it was derived from."
+          actions={
+            <ButtonLink href="/manager/insights" variant="ghost" size="sm">
+              View all
+            </ButtonLink>
+          }
+        >
+          <div className="space-y-3">
+            {data.insights.slice(0, 3).map((insight) => (
+              <InsightCard key={insight.id} insight={insight} />
             ))}
-          </ul>
-        )}
-      </Card>
+          </div>
+        </Section>
+      ) : null}
     </div>
   );
 }

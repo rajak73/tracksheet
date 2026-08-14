@@ -1,103 +1,144 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Design tokens.
+   NEXTWAVE design tokens.
 
    Every colour is a SEMANTIC role (surface, border, muted text, danger…),
    never a raw palette step. Components then say `bg-surface` rather than
    `bg-white dark:bg-zinc-900`, which is what stops light and dark drifting
-   apart one component at a time — the drift this pass exists to fix.
+   apart one component at a time.
 
-   Light values live on :root; the dark block redefines only the same names.
+   Palette direction: Dark Navy + Enterprise Blue + Cool White. Navy
+   (#08213D) is the structural brand anchor and belongs almost exclusively to
+   the sidebar and mobile navigation. Enterprise Blue (#2563EB) is the
+   interaction colour — primary buttons, links, active indicators, the
+   primary chart series. The workspace is a very light cool grey-blue
+   (#F7F9FC), never stark white everywhere, so the layering reads
+   NAVY SIDEBAR -> LIGHT WORKSPACE -> WHITE CARDS. Roughly 70-80% of any
+   screen stays neutral, ~10-15% navy, ~5-10% blue, with semantic colour used
+   sparingly on top.
+
+   ── THIS IS A FIXED LIGHT THEME. NO DARK MODE. ────────────────────────────
+
+   There is deliberately NO `prefers-color-scheme: dark` block. One existed
+   and was removed, because it was an actual defect: with an OS set to dark,
+   every content surface repainted near-black (#0d1219 canvas, #151c26
+   cards) while the sidebar stayed navy — so the product rendered as a dark
+   dashboard, which is not the design. The navy-sidebar-against-light-content
+   contrast IS the visual identity; a dark content area destroys it.
+
+   `color-scheme: light` below is the other half of that fix: it stops the
+   BROWSER from dark-ifying native UI it controls — date pickers, select
+   popups, scrollbars, autofill — which CSS variables alone cannot reach.
+
+   If dark mode is ever genuinely wanted, it needs its own designed palette
+   (and a sidebar treatment that still reads as navigation against it), not a
+   re-inverted copy of this one.
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Page and panel backgrounds, back to front. */
-  --app-canvas: #f8fafc;
+  /* Pin the rendering intent. Without this, an OS in dark mode still paints
+     native controls dark inside our light UI. */
+  color-scheme: light;
+
+  /* Page and panel backgrounds, back to front. Cool grey-blue workspace —
+     never stark #FFFFFF everywhere, so the layering reads
+     NAVY SIDEBAR -> LIGHT WORKSPACE -> WHITE CARD. */
+  --app-canvas: #f7f9fc;
   --app-surface: #ffffff;
-  --app-surface-sunken: #f1f5f9;
-  --app-surface-hover: #f8fafc;
+  --app-surface-sunken: #f8fafc;
+  --app-surface-hover: #f1f5f9;
 
   /* Text, in descending emphasis. */
   --app-text: #0f172a;
-  --app-text-muted: #64748b;
-  --app-text-subtle: #94a3b8;
+  --app-text-muted: #475569;
+  --app-text-subtle: #64748b;
   --app-text-inverted: #ffffff;
 
   --app-border: #e2e8f0;
+  /* Subtle border for inner rules that must not compete with the card edge. */
+  --app-border-subtle: #edf2f7;
   --app-border-strong: #cbd5e1;
 
-  /* One accent. Used for primary actions and the active nav item — nothing
-     decorative, so its presence always means "this is the thing to press". */
-  --app-primary: #4f46e5;
-  --app-primary-hover: #4338ca;
-  --app-primary-subtle: #eef2ff;
-  --app-primary-text: #3730a3;
+  /* Brand interaction colour: Enterprise Blue. Primary buttons, links, active
+     indicators, selected controls, the primary chart series — nothing
+     decorative, so its presence always means "this is interactive". The
+     sidebar's navy is a separate token set below (structural, not
+     interactive). */
+  --app-primary: #2563eb;
+  --app-primary-hover: #1d4ed8;
+  --app-primary-subtle: #eff6ff;
+  --app-primary-text: #1d4ed8;
+  /* A lighter step of the same family, for a second data series or a
+     secondary interactive emphasis. Never a second brand colour. */
+  --app-primary-bright: #3b82f6;
 
-  /* Status. Applied to data (utilisation, compliance, severity), so these
-     have to stay legible against surface at small sizes. */
-  --app-success: #059669;
-  --app-success-subtle: #ecfdf5;
-  --app-success-text: #065f46;
+  /* Structural brand navy. Exposed as tokens so anything genuinely
+     structural/brand-level can reach them, but in practice this is
+     navigation — the workspace itself stays light. */
+  --app-brand-navy: #0b2342;
+  --app-brand-navy-dark: #071a33;
 
-  --app-warning: #d97706;
+  /* Status. Restrained semantic colours — used for data (utilisation,
+     compliance, severity), never for brand emphasis. */
+  --app-success: #16a34a;
+  --app-success-subtle: #f0fdf4;
+  --app-success-text: #15803d;
+
+  --app-warning: #f59e0b;
   --app-warning-subtle: #fffbeb;
-  --app-warning-text: #92400e;
+  --app-warning-text: #b45309;
 
-  --app-danger: #dc2626;
+  --app-danger: #ef4444;
   --app-danger-subtle: #fef2f2;
-  --app-danger-text: #991b1b;
+  --app-danger-text: #b91c1c;
 
-  --app-info: #0284c7;
-  --app-info-subtle: #f0f9ff;
-  --app-info-text: #075985;
+  --app-info: #2563eb;
+  --app-info-subtle: #eff6ff;
+  --app-info-text: #1d4ed8;
 
   /* Deliberately shallow. Depth here comes from borders and background
-     steps, not drop shadows — heavy shadow is the tell of a template. */
-  --app-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --app-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+     steps, not drop shadows — cards must not look like floating balloons. */
+  --app-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --app-shadow: 0 2px 6px -1px rgb(15 23 42 / 0.08), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+
+  /* The sidebar is a fixed Navy surface — a brand anchor, not a workspace
+     surface, so it does not participate in light/dark switching. The active
+     item is a SOLID blue pill against the navy: at that contrast a
+     translucent wash reads as a smudge rather than a selection. */
+  --app-sidebar-bg: #08213d;
+  --app-sidebar-text: #ffffff;
+  --app-sidebar-text-muted: #94a3b8;
+  --app-sidebar-border: rgb(255 255 255 / 0.08);
+  --app-sidebar-hover-bg: rgb(255 255 255 / 0.06);
+  --app-sidebar-active-bg: #2563eb;
+  --app-sidebar-active-accent: #3b82f6;
+
+  /* Workload categories.
+
+     A CONTROLLED palette drawn ONLY from the navy → blue → slate ramp plus
+     the semantic trio. No purple, pink, cyan or magenta: a distribution
+     chart has to look like it belongs to this product, and a rainbow
+     categorical palette is the fastest way to make an enterprise dashboard
+     look like a chart-library demo.
+
+     Assignment is fixed by activity-type code in `categoryColor()`
+     (charts.tsx), never by array index — otherwise "Teaching" changes colour
+     the day a category is added. */
+  --cat-teaching: #2563eb;
+  --cat-learning: #3b82f6;
+  --cat-meeting: #64748b;
+  --cat-admin: #f59e0b;
+  --cat-support: #16a34a;
+  --cat-deliverable: #0b2342;
+  --cat-research: #1d4ed8;
+  --cat-other: #94a3b8;
+  --cat-opening: #3b82f6;
+  --cat-closing: #1d4ed8;
+  /* Not a category — the absence of one. Rendered as a hatched track. */
+  --cat-unutilized: #cbd5e1;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --app-canvas: #09090b;
-    --app-surface: #18181b;
-    --app-surface-sunken: #27272a;
-    --app-surface-hover: #27272a;
-
-    --app-text: #fafafa;
-    --app-text-muted: #a1a1aa;
-    --app-text-subtle: #71717a;
-    --app-text-inverted: #09090b;
-
-    --app-border: #27272a;
-    --app-border-strong: #3f3f46;
-
-    --app-primary: #6366f1;
-    --app-primary-hover: #818cf8;
-    --app-primary-subtle: #1e1b4b;
-    --app-primary-text: #c7d2fe;
-
-    --app-success: #10b981;
-    --app-success-subtle: #022c22;
-    --app-success-text: #6ee7b7;
-
-    --app-warning: #f59e0b;
-    --app-warning-subtle: #2b1a02;
-    --app-warning-text: #fcd34d;
-
-    --app-danger: #ef4444;
-    --app-danger-subtle: #2a0a0a;
-    --app-danger-text: #fca5a5;
-
-    --app-info: #38bdf8;
-    --app-info-subtle: #082f49;
-    --app-info-text: #7dd3fc;
-
-    --app-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --app-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-  }
-}
 
 @theme inline {
   --color-canvas: var(--app-canvas);
@@ -111,12 +152,17 @@
   --color-inverted: var(--app-text-inverted);
 
   --color-line: var(--app-border);
+  --color-line-subtle: var(--app-border-subtle);
   --color-line-strong: var(--app-border-strong);
 
   --color-primary: var(--app-primary);
   --color-primary-hover: var(--app-primary-hover);
   --color-primary-subtle: var(--app-primary-subtle);
   --color-primary-text: var(--app-primary-text);
+  --color-primary-bright: var(--app-primary-bright);
+
+  --color-brand-navy: var(--app-brand-navy);
+  --color-brand-navy-dark: var(--app-brand-navy-dark);
 
   --color-success: var(--app-success);
   --color-success-subtle: var(--app-success-subtle);
@@ -134,14 +180,48 @@
   --color-info-subtle: var(--app-info-subtle);
   --color-info-text: var(--app-info-text);
 
-  /* Geist, loaded in the root layout. The previous stylesheet overrode this
-     with Arial, so the font the app went to the trouble of loading never
-     actually rendered. */
+  --color-sidebar-bg: var(--app-sidebar-bg);
+  --color-sidebar-text: var(--app-sidebar-text);
+  --color-sidebar-text-muted: var(--app-sidebar-text-muted);
+  --color-sidebar-border: var(--app-sidebar-border);
+  --color-sidebar-hover-bg: var(--app-sidebar-hover-bg);
+  --color-sidebar-active-bg: var(--app-sidebar-active-bg);
+  --color-sidebar-active-accent: var(--app-sidebar-active-accent);
+
+  /* Geist for everything that is UI or data: body copy, controls, table
+     cells, KPI figures. Its tabular numerals are why figures stay Geist even
+     under a serif page title. */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
+  /* The one deliberate typographic accent (see the comment in layout.tsx):
+     the wordmark and page titles only, via the `font-display` utility this
+     token generates. Never body copy, never a number. */
+  --font-display: var(--font-source-serif), ui-serif, Georgia, serif;
+
   --shadow-card: var(--app-shadow-sm);
   --shadow-raised: var(--app-shadow);
+
+  --color-cat-teaching: var(--cat-teaching);
+  --color-cat-learning: var(--cat-learning);
+  --color-cat-meeting: var(--cat-meeting);
+  --color-cat-admin: var(--cat-admin);
+  --color-cat-support: var(--cat-support);
+  --color-cat-deliverable: var(--cat-deliverable);
+  --color-cat-research: var(--cat-research);
+  --color-cat-other: var(--cat-other);
+  --color-cat-opening: var(--cat-opening);
+  --color-cat-closing: var(--cat-closing);
+  --color-cat-unutilized: var(--cat-unutilized);
+
+  /* Radius, by role rather than by size name. Controls (buttons, inputs) and
+     cards both stay restrained rectangles; `pill` is reserved for status
+     badges, tags and compact metadata, per the brief's own rule — pills
+     everywhere is what makes a dashboard look playful rather than serious. */
+  --radius-control: 0.5rem;
+  --radius-chip: 0.25rem;
+  --radius-card: 0.75rem;
+  --radius-pill: 9999px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -162,11 +242,46 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* Unutilized capacity is drawn hatched rather than as a solid block. It is the
+   absence of recorded work, and a solid swatch reads as a category of its own —
+   which is exactly the confusion between "no data" and "zero hours" that this
+   product exists to keep apart. */
+.hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--cat-unutilized) 0,
+    var(--cat-unutilized) 2px,
+    transparent 2px,
+    transparent 5px
+  );
+}
+
+/* Screen-reader-only, for the text half of every status that also uses colour. */
+.sr-only-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* One focus treatment everywhere, visible in both themes. */
 *:focus-visible {
   outline: 2px solid var(--app-primary);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* The sidebar is a fixed Deep Teal surface in both light and dark mode (see
+   the token block above), so the default primary-coloured ring — teal on
+   teal — would be invisible there. `<aside>` is used nowhere else in the
+   app, so this scopes cleanly to just the two sidebar instances. */
+aside :focus-visible {
+  outline-color: var(--app-sidebar-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

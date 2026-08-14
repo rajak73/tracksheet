@@ -33,6 +33,7 @@ export const DELETE = withAuth<{ id: string; leaveId: string }>(
       action: "LEAVE_REVOKED",
       entityType: "LeaveRequest",
       entityId: params.leaveId,
+      universityId: instructor.universityId,
       metadata: { instructorId: instructor.id },
     });
 

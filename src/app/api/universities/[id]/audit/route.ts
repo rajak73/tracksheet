@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { assertCanAccessUniversity } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
+import { parseLimit } from "@/server/http/params";
 
 /**
  * Audit trail for one university.
@@ -16,7 +17,7 @@ export const GET = withAuth<{ id: string }>(
 
     const action = req.nextUrl.searchParams.get("action");
     const entityType = req.nextUrl.searchParams.get("entityType");
-    const limit = Math.min(200, Number(req.nextUrl.searchParams.get("limit") ?? 100));
+    const limit = parseLimit(req.nextUrl.searchParams.get("limit"), { fallback: 100, max: 200 });
 
     const entries = await prisma.auditLog.findMany({
       where: {
