@@ -11,6 +11,16 @@ identifiers, not UI). See [DESIGN.md](DESIGN.md) for the full design system —
 colour tokens, typography, the role-based information-density model, and the
 rationale for the palette. Phase 11 (UI/UX polish pass) is the design system
 this phase refined, not replaced.
+
+**Since then: a production-hardening pass.** AI narration is now gated by a
+deterministic validator before it ever reaches a user (see "AI insights"
+below); the six list-returning endpoints are server-side paginated end to
+end — API *and* every frontend page that calls them, not just the API; the
+admin overview's per-university N+1 was batched into grouped queries; and two
+indexes were added on real `EXPLAIN ANALYZE` evidence rather than because a
+column happened to be queried. See "Pagination" below for the endpoint
+contract and the measured numbers.
+
 Deploys to **Render** (`starter` plan, **single instance**). See
 [DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
 requirement and not a cost choice.
@@ -152,6 +162,70 @@ These are enforced, not merely documented:
 10. **AI states only what it can show.** Every insight stores the metric snapshot it
    was derived from, and a test asserts every number in its prose appears there.
 
+## Pagination
+
+Six list-returning endpoints are server-side paginated: Universities,
+Instructors, an instructor's Activities, an instructor's Deliverables, a
+university's Audit Log, and a university's workload Reports (paginates
+`report.rows`; `report.totals` is always computed over the whole university
+regardless of which page is visible).
+
+The shape is additive on purpose: every route keeps its existing top-level
+array key (`universities`, `instructors`, ...) and adds `page`, `limit`,
+`total`, `hasMore` as sibling fields, so nothing that already read the array
+directly had to change. Universities and Instructors both also take `search`
+(server-side `contains`, case-insensitive, across name/email/employee code —
+and, for Instructors, university name too, since the page it feeds is
+platform-wide). Only Universities takes `sort`/`order` — `name`, `code` or
+`createdAt`, the fields that exist directly on the model; Instructors has no
+sort param and keeps its fixed `createdAt` ordering.
+
+- **`page`/`limit` validate like everything else here** — malformed input is
+  `400`, not a silent fallback (`parsePage`/`parseLimit` in
+  [params.ts](src/server/http/params.ts)). An oversized `limit` is clamped to
+  the route's own max, never honoured verbatim.
+- **The frontend actually uses it.** A paginated API with no UI consuming
+  `page`/`total`/`hasMore` is just a lower, silent cap — this repo's own
+  `db:perf-seed` dataset (100 universities, 10,000 instructors) already
+  exceeds the default page size. Seven pages, covering five of the six
+  endpoints, render a shared `Pagination` control
+  ([ui.tsx](src/app/_components/ui.tsx)) and reset to page 1 on
+  search/filter/sort changes. Picker `<select>`s (choosing a university or
+  instructor from a dropdown, not browsing a table) are bumped to
+  `limit=200` instead — a click-through control inside a `<select>` isn't a
+  sensible UI, and 200 is a safe ceiling at this app's realistic scale. The
+  Deliverables view is the deliberate sixth exception, not an oversight: it
+  renders derived summary tiles (assigned/outstanding/completed/overdue)
+  computed by counting the *whole* fetched array, and paginating that array
+  would make those tiles silently wrong past page one — so it also gets
+  `limit=200` rather than click-through pages, since deliverables-per-
+  instructor is realistically a small, bounded list anyway (confirmed via
+  `EXPLAIN ANALYZE` up to a deliberately unrealistic 2,000-row edge case).
+- **Indexes were added on evidence, not assumption.** The new pagination
+  query shapes (`WHERE ... ORDER BY ... LIMIT ... OFFSET`) were checked
+  against `EXPLAIN ANALYZE` at bulk scale (100k rows) before touching the
+  schema. Two were real: `ActivityLog` gained `(instructorId, startTime)`
+  because the activities route orders by `startTime` while the existing
+  index only covered `(instructorId, workDate)` — every page-one request was
+  sorting the instructor's entire matching set before applying `LIMIT`,
+  12.8ms → 0.07ms at 20k rows for one instructor. `Instructor`'s bare
+  `(universityId)` index was replaced with `(universityId, createdAt)` plus a
+  new `(createdAt)`, for the same reason on the list's default sort — 90×+
+  faster, filtered and unfiltered. Every other candidate (`Deliverable`,
+  `University`'s search, `AuditLog`, `LeaveRequest`, `ScheduleSlot`,
+  `AiInsight`, `UniversityDailyMetric`) was measured and left alone; a
+  leading-wildcard university search, for one, cannot benefit from a btree
+  index regardless of what gets added to it.
+- **The admin overview's N+1 was fixed the same pass.** It cost four queries
+  *per university* — the classic N+1 pattern — on top of a handful of fixed
+  queries that don't scale with N. Universities are now grouped by their
+  resolved reporting period (almost always one group) and each group runs
+  one batched query per concern instead of one per university: measured via
+  Prisma's own query-event log against real seeded rows, isolating just the
+  per-university portion — 3 universities: 12 → 4 queries; 10: 40 → 4; 100:
+  400 → 4 queries, exactly the 4N the per-university loop predicts. Response
+  shape is unchanged.
+
 ## Layout
 
 ```
@@ -171,6 +245,8 @@ src/server/
   activities/logger.ts     activity writes, once-per-day rule, interval validation
   reports/generator.ts     report shaping only; all maths delegated to the engine
   ai/insights.ts           rule-based insights, each traceable to its snapshot
+  ai/validate.ts           the gate between model output and the UI (§ AI insights)
+  http/params.ts           shared page/limit/date query-param validation (400, not 500)
   audit/logger.ts          audit trail, including global admin actions
   universities/config.ts   university configuration loading
 src/app/api/               login, logout, me, universities, instructors, activity-types
@@ -325,6 +401,16 @@ conditions exist, and the model only phrases them.
 - **Fallback on every failure** — no key, timeout, rate limit, HTTP error,
   malformed or empty reply. The deterministic narrator is not dead code; it is
   the floor the system stands on, and stays fully tested.
+- **A model answering successfully is not the same as a model answering
+  correctly.** [validate.ts](src/server/ai/validate.ts) sits between the model
+  and the UI: every numeric and date-like token in the model's text is
+  extracted and must be justified by a value the condition's own `metrics` or
+  `threshold` actually produced (rounding accepted as paraphrase, never used
+  to rewrite the text). This is not "does the true number appear somewhere in
+  the text" — that check passes "utilisation of 44.38%, down from 61% last
+  period" while missing the invented 61. A failure **discards** the narration
+  rather than repairing it and falls back to the deterministic text; the
+  rejected text itself is never logged, only which rule it broke.
 - The title stays deterministic so grouping and filtering do not fragment.
 
 Run `GEMINI_API_KEY=... npm run ai:sample` to print five real narrations with

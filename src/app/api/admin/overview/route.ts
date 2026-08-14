@@ -13,9 +13,12 @@ import { toDateOnly } from "@/server/time/workday";
  *
  * ── Query count ─────────────────────────────────────────────────────────────
  * A first version issued 4 queries PER university (aggregate, coverage
- * findMany, active-instructor count, activity-type findMany) on top of 4 fixed
- * queries — Q(N) = 4N + 8, so 100 universities meant ~408 round trips on every
- * dashboard load.
+ * findMany, active-instructor count, activity-type findMany), on top of a
+ * handful of fixed queries (the university list itself, and the platform-wide
+ * manager/instructor/insight counts) that do not scale with N. Measured via
+ * Prisma's own query-event log against real seeded rows, isolating just the
+ * per-university portion: 3 universities -> 12 queries, 10 -> 40, 100 -> 400 —
+ * exactly 4N, confirming that loop as the actual N+1 rather than an estimate.
  *
  * `resolvePeriod` only varies per university when NO explicit ?from=&to= is
  * given (the default "trailing 7 days" is resolved in each university's own
@@ -25,9 +28,10 @@ import { toDateOnly } from "@/server/time/workday";
  * grouped by their resolved {from, to} (almost always ONE group, since an
  * explicit period is shared by every caller), and each group is fetched with
  * one `groupBy`/`findMany({where: {universityId: {in: [...]}}})` covering every
- * university in it. Query count becomes 8 fixed + 1 (active-instructor counts,
- * period-independent, batched once for every university) + 3 per DISTINCT
- * PERIOD — O(1) for the common case, O(number of timezones) at worst, and
+ * university in it. The same isolated portion becomes 1 (active-instructor
+ * counts, period-independent, batched once for every university) + 3 per
+ * DISTINCT PERIOD, regardless of N — O(1) for the common case, O(number of
+ * timezones) at worst, and
  * never O(N).
  */
 const round = (n: number) => Number(n.toFixed(2));
