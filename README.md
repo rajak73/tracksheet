@@ -14,32 +14,39 @@ this phase refined, not replaced.
 
 **Since then: a production-hardening pass.** AI narration is now gated by a
 deterministic validator before it ever reaches a user (see "AI insights"
-below); the six list-returning endpoints are server-side paginated end to
-end — API *and* every frontend page that calls them, not just the API; the
-admin overview's per-university N+1 was batched into grouped queries; and two
-indexes were added on real `EXPLAIN ANALYZE` evidence rather than because a
-column happened to be queried. See "Pagination" below for the endpoint
-contract and the measured numbers.
+below); six list-returning endpoints are server-side paginated, with a
+Pagination control wired into the frontend for five of the six (the exception
+and its reason are in "Pagination" below); the admin overview's per-university
+N+1 was batched into grouped queries; and three indexes were added on real
+`EXPLAIN ANALYZE` evidence rather than because a column happened to be
+queried. See "Pagination" below for the endpoint contract and the measured
+numbers.
+
+For the current verified state — including what is *not* verified and the open
+defects — read [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md), which is the
+authoritative status document. This README describes how the system is built;
+that one records what has actually been proven about it.
 
 Deploys to **Render** (`starter` plan, **single instance**). See
 [DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
 requirement and not a cost choice.
-All phases 1–9 implemented and gated. See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md)
-for what was audited and [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for
-the schema and measured query plans. Phases 1–8 implemented, plus a
-scale-oriented database architecture and an automatic metric rollup.
-See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema audit,
-index strategy, aggregation design, and measured query plans.
-See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what was found and how each
-finding was proven fixed.
+See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema, index
+strategy, aggregation design and measured query plans, and
+[VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what has been verified,
+what has not, and the open defects.
 
 ## Known gaps
 
 Schedules, breaks, workload targets, deliverable progress logging and admin
-write endpoints **are** built and verified — an earlier revision of this
-section listed them as missing and was out of date.
+write endpoints **are** built — an earlier revision of this section listed them
+as missing and was out of date. Schedule specifically is built but only
+*partially* verified: slot creation has no overlap check and an invalid
+`courseId` returns a 500. See [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md)
+§6.
 
-What is genuinely not built:
+The two entries below are the deliberate product decisions. They are **not** the
+complete list of everything absent — [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md)
+§14 is authoritative for that, and §15 lists the open defects.
 
 - **Native `.xlsx` and PDF export.** CSV only; both need a document library.
 - **Activity edit and delete.** *Not implemented because it is not part of the
@@ -174,11 +181,13 @@ The shape is additive on purpose: every route keeps its existing top-level
 array key (`universities`, `instructors`, ...) and adds `page`, `limit`,
 `total`, `hasMore` as sibling fields, so nothing that already read the array
 directly had to change. Universities and Instructors both also take `search`
-(server-side `contains`, case-insensitive, across name/email/employee code —
-and, for Instructors, university name too, since the page it feeds is
-platform-wide). Only Universities takes `sort`/`order` — `name`, `code` or
-`createdAt`, the fields that exist directly on the model; Instructors has no
-sort param and keeps its fixed `createdAt` ordering.
+(server-side `contains`, case-insensitive), but over **different fields**:
+Universities matches `name`, `code` and `slug`; Instructors matches the user's
+name and email, the employee code, and the university name (that last one
+because the page it feeds is platform-wide). Only Universities takes
+`sort`/`order` — `name`, `code` or `createdAt`, the fields that exist directly
+on the model; Instructors has no sort param and keeps its fixed `createdAt`
+ordering, silently ignoring a `sort` query param rather than rejecting it.
 
 - **`page`/`limit` validate like everything else here** — malformed input is
   `400`, not a silent fallback (`parsePage`/`parseLimit` in
@@ -193,18 +202,23 @@ sort param and keeps its fixed `createdAt` ordering.
   search/filter/sort changes. Picker `<select>`s (choosing a university or
   instructor from a dropdown, not browsing a table) are bumped to
   `limit=200` instead — a click-through control inside a `<select>` isn't a
-  sensible UI, and 200 is a safe ceiling at this app's realistic scale. The
-  Deliverables view is the deliberate sixth exception, not an oversight: it
+  sensible UI, and 200 is a safe ceiling at this app's realistic scale.
+
+  **Deliverables is the sixth endpoint and has no Pagination control.** The
+  instructor view deliberately raises the limit instead of paging, because it
   renders derived summary tiles (assigned/outstanding/completed/overdue)
-  computed by counting the *whole* fetched array, and paginating that array
-  would make those tiles silently wrong past page one — so it also gets
-  `limit=200` rather than click-through pages, since deliverables-per-
-  instructor is realistically a small, bounded list anyway (confirmed via
-  `EXPLAIN ANALYZE` up to a deliberately unrealistic 2,000-row edge case).
+  computed over the *whole* fetched array — paginating it would make those
+  tiles silently wrong past page one. That reasoning is sound, but the
+  implementation is not complete: the instructor view requests exactly
+  `limit=200`, which is also the server's maximum, so a 201st deliverable is
+  invisible; and the **manager view passes no limit at all**, silently
+  truncating at the fallback of 50 per instructor. Both are open defects, not
+  finished design — see [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) §15.
 - **Indexes were added on evidence, not assumption.** The new pagination
   query shapes (`WHERE ... ORDER BY ... LIMIT ... OFFSET`) were checked
   against `EXPLAIN ANALYZE` at bulk scale (100k rows) before touching the
-  schema. Two were real: `ActivityLog` gained `(instructorId, startTime)`
+  schema. Three were added (and one dropped, so net +2): `ActivityLog` gained
+  `(instructorId, startTime)`
   because the activities route orders by `startTime` while the existing
   index only covered `(instructorId, workDate)` — every page-one request was
   sorting the instructor's entire matching set before applying `LIMIT`,

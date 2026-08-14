@@ -1,728 +1,636 @@
-# Independent Verification Report
+# NEXTWAVE Verification Report
 
-> **Status: all findings below were fixed and re-verified on 2026-08-11.**
-> Each fix was confirmed by deliberately re-introducing the defect and watching the
-> new tests fail. The original probes were replayed against the fixed code and all
-> pass. Test suite: 55 → 88, all raw HTTP. Remaining known gaps are listed in
-> "Findings 10–15", which were scoped out rather than fixed — schedules, breaks,
-> workload targets, deliverable progress logging, admin write endpoints, and
-> Excel/PDF export.
+**Verified against the codebase as of commit `85c07ec` (2026-08-14).**
 
-**Date:** 2026-08-11
-**Scope:** Everything added after the Phase 1 commit (`95081e0`) — Phases 3–8 as built by another agent.
-**Method:** Executed against the running application. No claim below rests on reading a comment, a
-docstring, or a README. Every finding marked *proven* was reproduced by making real HTTP requests or
-running real database queries, and the observed output is quoted.
+This document records what was actually executed and observed. Every claim below
+is traceable to source code, a real HTTP response, a real database query, or a
+real test run. Items that were not verified are listed as not verified rather
+than assumed to pass — §13 and §14 are as load-bearing as §1.
+
+**Method.** Eleven subsystems were verified independently and in parallel, each
+re-deriving its evidence from source rather than inheriting earlier claims.
+Where an earlier claim turned out to be wrong, the correction is recorded (see
+§4, which corrects a previously over-broad claim about the capacity identity).
 
 ---
 
-## Verdict
+## 1. Current status
 
-The **foundations hold**: cross-university isolation was not regressed, the once-per-day rule is
-correctly implemented, and the app typechecks and builds. The **layer built on top is not
-trustworthy**: instructors can read and write each other's records, the reporting numbers are wrong
-by construction, the AI states figures that do not exist, and the database cannot be recreated from
-its own migrations.
-
-`npm test` reports **55/55 passing**. That number is misleading, and understanding why is the single
-most important thing in this report — see Finding 9.
-
-| # | Finding | Severity | Status |
-|---|---|---|---|
-| 1 | Instructor can read/write a colleague's records | Critical | Proven live |
-| 2 | 5 tables + 2 enums have no migration | Critical | Proven |
-| 3 | Reports double-count overlapping activities (+33%) | Critical | Proven |
-| 4 | Report date-range filter silently ignored | Critical | Proven |
-| 5 | AI states metrics that do not exist | Critical | Proven |
-| 6 | Admin dashboard is entirely hard-coded | High | Proven |
-| 7 | Negative-duration activities accepted | High | Proven |
-| 8 | Utilization capacity model contradicts spec | High | Code-confirmed |
-| 9 | Test suite mostly mocks the database | High | Proven |
-| 10 | 12 core models absent | Medium | Proven |
-| 11–15 | Audit gaps, missing admin writes, CSV-only, lint | Medium/Low | Proven |
-
----
-
-## Finding 1 — An instructor can read and write a colleague's records (Critical)
-
-**Root cause.** Two routes call `assertCanAccessUniversity(scope, universityId)` where they needed
-instructor-level scoping. That helper delegates to `narrowUniversity`, which compares only the
-*university*. An instructor's scope is `{kind:'self', universityId, instructorId}`, so the check
-passes for **every instructor in their own university**.
-
-The correct helper — `assertCanReadInstructor` — already exists in `scope.ts` and pins to
-`scope.instructorId`. It was simply not used in these two files.
-
-Affected:
-- `src/app/api/universities/[id]/activities/route.ts:7`
-- `src/app/api/instructors/[id]/deliverables/route.ts:29` and `:59`
-
-**Proof — activity logs.** A manager logged an activity for instructor *north2*; instructor *north1*
-then called the university activities endpoint:
-
-```
-planted log for north2      : 201
-north1 GET /universities/:id/activities -> 200
-rows belonging to OTHER instructors: 1
-
-   LEAKED  instructor=Sara Khan <inst.north2@example.edu> type=TEACHING
-           remarks="CONFIDENTIAL-COLLEAGUE-NOTE"
-```
-
-Name, email, and free-text remarks of another instructor, returned to a peer.
-
-**Proof — deliverables (read *and* write).**
-
-```
-manager creates deliverable for north2      -> 201
-instructor north1 GET north2's deliverables -> 200   <-- LEAK
-   [{"title":"COLLEAGUE-PRIVATE-DELIVERABLE","targetQuantity":10,...}]
-instructor north1 POST deliverable onto north2 -> 201  <-- FORGERY
-```
-
-An instructor can create records on a colleague's account.
-
-This directly fails the Phase 5 gate: *"Log in as an instructor; confirm no endpoint on their
-dashboard returns another instructor's activity logs."*
-
-> Note: the deliverables half of this was invisible until Finding 2 was worked around. On the
-> as-shipped database it returns HTTP 500 (missing table) rather than leaking — the bug is masked by
-> a second bug, not absent.
-
----
-
-## Finding 2 — Five tables and two enums have no migration (Critical)
-
-`schema.prisma` declares `Deliverable`, `DeliverableLog`, `AiInsight`, `AuditLog`, `Notification`,
-plus enums `InsightSeverity` and `InsightStatus`. No migration creates any of them. They exist in the
-local dev database only because `prisma db push` was used.
-
-**Proof — `prisma migrate diff` between the migrations directory and the schema:**
-
-```
-[+] Added enums
-  - InsightSeverity
-  - InsightStatus
-[+] Added tables
-  - Deliverable
-  - DeliverableLog
-  - AiInsight
-  - AuditLog
-  - Notification
-```
-
-**Proof — the dev database records only four migrations** while holding fifteen tables:
-
-```
-_prisma_migrations: phase1_core, phase1_invariants, phase2_activity_types, phase3_activity_logs
-```
-
-**Proof — runtime consequence.** The test harness builds its database from migrations alone, as a
-fresh clone or CI would. Hitting the deliverables endpoint there:
-
-```
-P2021  The table `public.Deliverable` does not exist in the current database.
-   at src/app/api/instructors/[id]/deliverables/route.ts:31
-```
-
-Anyone cloning this repo and running `prisma migrate deploy` gets an application whose deliverables,
-insights, notifications, and audit endpoints all return 500.
-
----
-
-## Finding 3 — Reports double-count overlapping activities (Critical)
-
-`src/server/reports/generator.ts` sums each log's duration in a loop. It never calls
-`utilization.ts`, which contains a correct interval-union implementation. Its own comment concedes
-this: *"In a real implementation we would filter by date and use the `utilization.ts` engine
-properly."*
-
-**Proof.** Two overlapping TEACHING blocks were logged (10:00–11:00 and 10:30–11:30 — a 30-minute
-overlap), then both engines were asked for the total:
-
-```
-TRUE union hours   : 1.5
-report productive  : 2
-MISMATCH — report inflates by 0.50h (33%)
-```
-
-Two consequences:
-
-1. Phase 4's required behaviour ("overlapping activities do not double-count") fails.
-2. Phase 6's requirement that *"the same underlying activity data produces identical numbers whether
-   queried via the manager dashboard or the reports endpoint"* cannot hold — there are two divergent
-   implementations of the same calculation, and they disagree whenever activities overlap.
-
----
-
-## Finding 4 — The report date range is accepted and ignored (Critical)
-
-`generateWorkloadReport(universityId, startDate?, endDate?)` declares both date parameters and uses
-neither. Every report is all-time.
-
-**Proof** — requesting a window in 2030 containing no data:
-
-```
-date range 2030-01-01..02 (no data in range) -> 2h
-date filter IGNORED — params accepted but unused
-```
-
-A "weekly report" is therefore not weekly, which also invalidates every reporting-period feature
-described in Phases 6 and 8.
-
----
-
-## Finding 5 — The AI states metrics that do not exist (Critical)
-
-In `src/server/ai/insights.ts`, a `WORKLOAD_BALANCE` insight is pushed **unconditionally**, outside
-any data-dependent branch, with hard-coded figures in both the prose and the stored
-`supportingData`.
-
-**Proof.** Generated for a university whose ground-truth activity-log count is zero:
-
-```
-type=WORKLOAD_BALANCE severity=MEDIUM period="Current Week"
-  recommendation: 2 instructors have recorded 10+ hours of unutilized capacity
-                  this week. Manager review of task assignments may be useful.
-  supportingData: {"avgUnutilizedHours":10.5,"unutilizedInstructors":2}
-
-GROUND TRUTH: activity logs in this university = 0
-```
-
-No instructor recorded anything. The stored "supporting data" is invented, so the audit trail that
-was supposed to make every claim traceable instead lends the fabrication credibility.
-
-Also: there is no LLM call and no analytics engine behind this — it counts instructors and logs, and
-`period` is the literal string `"Current Week"` rather than a date range.
-
----
-
-## Finding 6 — The admin dashboard is entirely hard-coded (High)
-
-`src/app/admin/dashboard/page.tsx` contains **zero** `fetch` calls. Every figure is a literal:
-Total Universities `2`, Total Instructors `4`, Global Teaching Hours `124.5`, System Alerts `0`, and
-a static "No recent activity to display."
-
-This is the explicitly forbidden case: *"Do not create fake dashboards with hard-coded numbers."*
-The manager and instructor dashboards do call real APIs; the admin one does not.
-
----
-
-## Finding 7 — Activity logging accepts corrupt data (High)
-
-No validation that `endTime > startTime`. Probe results:
-
-| Input | Result |
+| Area | Status |
 |---|---|
-| endTime **before** startTime (negative duration) | `201 Created` |
-| Zero-length activity | `201 Created` |
-| 48-hour single activity | `201 Created` |
-| Activity on a non-working Sunday | `201 Created` |
-| Activity at 03:00 local, outside working hours | `201 Created` |
-| Unknown activity type | `404` (correct) |
+| Multi-tenancy / authorization | **Verified** |
+| Activity integrity (overlap, concurrency, once-per-day, timezone) | **Verified** |
+| Deliverables lifecycle | **Verified**, with one defect (§5) |
+| Schedule | **Partially verified** — works, but several validation gaps and one 500 (§6) |
+| Analytics engine | **Verified with corrections** — the headline identity is conditional, not universal (§4) |
+| AI narration + validation | **Verified** |
+| Pagination | **Verified** — surface is asymmetric across endpoints (§8) |
+| Admin overview performance | **Verified by code structure**; query counts not re-measured this pass (§9) |
+| Security | **Verified** |
+| CSV export | **Verified** |
+| Browser / responsive | **Partially verified** (§12) |
+| Load/scale beyond the tested datasets | **Not verified** (§13) |
 
-A negative-duration row silently subtracts from every hour total that sums durations — including the
-report generator in Finding 3.
-
----
-
-## Finding 8 — The utilization capacity model contradicts the spec (High)
-
-`calculateWorkdayUtilization` computes capacity as `workingHours − openingDuration − closingDuration`.
-
-The specification says available capacity excludes **holidays, approved leave, closures, and
-configured breaks** — not opening/closing, which are recognised productive activities. As written the
-model both shrinks the denominator by opening/closing *and* counts those activities as productive in
-the numerator.
-
-It also ignores holidays, leave, and breaks entirely — the three things it was actually required to
-exclude. `complianceFlags` is initialised and returned empty, annotated *"Mocked for now"*.
-
-Phase 4's required test — *"utilization % changes correctly when leave is added"* — cannot be written,
-because no leave model exists (Finding 10).
+**Production readiness: see §16.** It is not a blanket "ready" — the conclusion
+is qualified, and the qualifications are the point.
 
 ---
 
-## Finding 9 — The test suite mostly mocks the database (High)
+## 2. Test summary
 
-This explains how 55 tests pass over code with five missing tables.
+Fresh execution on the current tree:
 
-| File | Tests | What it actually exercises |
-|---|---:|---|
-| `phase1-tenant-isolation.test.ts` | 22 | Real HTTP |
-| `phase2-university-config.test.ts` | 22 | Real HTTP |
-| `phase3-activity-logging.test.ts` | 5 | Real HTTP |
-| `utilization.test.ts` | 3 | Pure functions, no server |
-| `reports.test.ts` | 2 | **`vi.mock`s Prisma** |
-| `insights.test.ts` | 1 | **`vi.mock`s Prisma** |
-
-Phases 3–8 contribute 11 tests; Phases 1–2 contribute 44. The mocked tests assert that the code calls
-the functions it calls — `insights.test.ts` asserts the fabricated insight from Finding 5 is produced,
-enshrining the bug as expected behaviour. Because no test touches deliverables, insights,
-notifications, or audit over HTTP, the missing tables were never noticed.
-
-`reports.test.ts` feeds the generator two *non-overlapping* intervals, which is precisely the case
-that hides Finding 3.
-
----
-
-## Finding 10 — Twelve specified models are absent (Medium)
-
-`Schedule`, `ScheduleSlot`, `LeaveRequest`, `Break`, `WorkloadTarget`, `ReportingPeriod`,
-`AvailabilitySlot`, `Department`, `Course`, `AcademicTerm`, `LearningActivity`, `WeeklyReport`.
-
-Phase 3 was specified as "schedules and activity tracking"; only activity tracking exists. Without
-`LeaveRequest` and `Break` the utilization engine cannot exclude what the spec requires, and the
-`UNUTILIZED / MISSING_DATA / ABSENCE / BREAK / LEAVE` distinction is unrepresentable — only
-`UNUTILIZED` exists, as an activity type.
-
----
-
-## Findings 11–15 (Medium / Low)
-
-11. **Audit logging covers one action.** `logAudit` has exactly one call site (AI insight
-    generation). The spec required schedule edits, workload-target changes, and deliverable updates.
-12. **No admin write endpoints.** `/api/universities` is GET-only — an admin cannot create a
-    university or assign a manager through the API.
-13. **No deliverable-progress endpoint.** `DeliverableLog` exists as a model with no route, so
-    Phase 4's "a deliverable logged across three dates sums correctly" is untestable.
-14. **CSV export only.** No Excel or PDF.
-15. **12 ESLint errors** in application code (mostly `no-explicit-any`, one `prefer-const`).
-    TypeScript is clean and `npm run build` succeeds.
-
----
-
-## What was verified as working
-
-Stated plainly, because it matters for deciding what to keep:
-
-- **Cross-university isolation was not regressed.** All nine manager→other-university probes against
-  new endpoints returned 403/404: activities, analytics, reports, insights (GET and POST), and
-  instructor-scoped activities and deliverables.
-- **The once-per-day rule is correct, including across timezones.** A DAILY_OPENING at 23:00 UTC —
-  which is the *next* calendar day in Asia/Kolkata — was correctly accepted as a separate working
-  day, while a second opening on the same local day was rejected with `409`. The partial unique index
-  `ActivityLog_once_per_day_idx` backs it at the database level.
-- **`logActivity` derives `workDate` from the university's own timezone**, as designed in Phase 2.
-- **Role guards on the page tree are server-side.** All three layouts call `getPrincipal()` and
-  redirect on role mismatch.
-- **`tsc --noEmit` is clean and the production build succeeds.**
-
----
-
-## Recommended order of work
-
-1. **Finding 1** — swap `assertCanAccessUniversity` for `assertCanReadInstructor` in the two routes,
-   and scope `/universities/[id]/activities` to `scope.instructorId` when `scope.kind === "self"`.
-   Add HTTP tests that fail without the fix.
-2. **Finding 2** — generate the missing migration and verify with `migrate diff` that the migrations
-   directory and schema agree. Add that check to CI.
-3. **Findings 3, 4, 8** — delete the duplicate math in `generator.ts`; make `utilization.ts` the only
-   engine, honour the date range, and fix the capacity definition.
-4. **Finding 7** — reject `endTime <= startTime` at the API boundary and add a CHECK constraint.
-5. **Finding 5** — remove the fabricated insight; derive every figure, or emit nothing.
-6. **Finding 9** — convert the mocked tests to HTTP tests. A useful discipline: after fixing each bug
-   above, deliberately re-break it and confirm the new test fails.
-7. **Finding 6** — wire the admin dashboard to real endpoints (which requires Finding 12).
-
-A note on sequencing: Findings 1 and 2 interact. Fixing the migration without fixing the
-authorization bug turns a masked leak into a live one, so do them in the order above.
-
-
----
-
-# Addendum — Role Architecture Verification (2026-08-11)
-
-Verified against the running application: one shared login, role-based routing,
-page guards, and the backend authorization matrix.
-
-## What passed as specified
-
-**One login, three applications.** A single `/login` page; all three roles POST
-to the same `/api/auth/login`; the response's role drives the redirect to
-`/admin/dashboard`, `/manager/dashboard`, or `/instructor/dashboard`. `/`
-redirects to `/login`. The three dashboards are genuinely separate route trees
-with separate components — not one dashboard with hidden menu items.
-
-**Page-level guards form a clean diagonal.** Each role reaches only its own
-tree; every other combination is redirected to `/login`:
-
-```
-              /admin  /manager  /instructor
-ADMIN            200      307        307
-MANAGER          307      200        307
-INSTRUCTOR       307      307        200
-anonymous        307      307        307
-```
-
-**The backend enforces the same boundaries independently**, verified endpoint by
-endpoint: ADMIN global, MANAGER confined to one university (403 on another's),
-INSTRUCTOR confined to themselves (404 on a colleague), anonymous 401 everywhere.
-Admin-only writes (config PATCH, holidays) reject managers and instructors.
-
-## Defects found and fixed
-
-**1. "Sign Out" did not sign the user out (security).** It was
-`<a href="/login">` — a navigation that left the session cookie fully valid.
-Proven:
-
-```
-/api/auth/me AFTER "signing out"       -> 200  <-- SESSION STILL VALID
-/manager/dashboard AFTER "signing out" -> 200  <-- STILL LOGGED IN
-```
-
-On a shared machine the next person could press Back and resume the session.
-Replaced with a button that POSTs to `/api/auth/logout`, which revokes the
-session server-side.
-
-> The first regression test for this was itself inadequate — it passed even with
-> server-side revocation removed, because it only proved the client's cookie had
-> been cleared. It now captures the cookie before logout and replays it, which
-> is what an attacker holding a stolen cookie would do. That version does fail
-> when revocation is removed.
-
-**2. Eight dead navigation links.** Admin (Universities, Managers, Reports),
-Manager (Instructors, Schedules, Analytics), and Instructor (Schedule,
-Deliverables) navigation all pointed at `href="#"` — the explicitly forbidden
-"buttons that do nothing". Every nav entry now resolves to a real page, verified
-by a test that loads each one.
-
-**3. Admin had no teaching/learning split.** The overview reported a single
-`productiveHours` total, so "global teaching hours" and "global learning hours"
-were not answerable. Now returned per activity type and shown separately.
-
-**4. Instructors could not submit requests.** Leave creation was
-ADMIN/MANAGER-only, contradicting "Instructor can submit requests". An
-instructor may now submit for themselves, forced to `PENDING`; only a manager or
-admin can approve. Self-approval would otherwise let an instructor shrink their
-own utilisation denominator.
-
-**5. Instructors had no personal AI insights.** University insights are a
-management artifact and may reference colleagues, so they remain 403. A new
-self-scoped `/api/instructors/:id/insights` derives insights from that
-instructor's own metrics using the same rule set, so a personal observation can
-never contradict a university one.
-
-**6. Instructor dashboard had no "today".** It showed weekly figures only.
-Now shows today's productive, capacity, unutilised, and opening/closing status.
-
-## Still not built
-
-Reported rather than silently skipped:
-
-- **Schedules** (`Schedule`/`ScheduleSlot`). "Today's schedule" and "manage
-  instructor schedules" cannot be built without them. The instructor dashboard
-  shows recorded activity, not a planned schedule.
-- **Admin CRUD.** No endpoint creates universities, managers, or instructors —
-  provisioning is seed-only. `/admin/universities` is read-only and says so.
-- **Full drill-down** (Admin → University → Manager → Instructor → Date →
-  Activity). Admin reports drill to university and instructor; the manager and
-  date/activity levels are not linked.
-- **Deliverable progress.** `DeliverableLog` has a model but no endpoint, so
-  deliverables cannot be updated toward their target.
-- **Workload targets**, **activity-type management**, **AI configuration**, and
-  **platform settings** — no models or endpoints.
-- **Excel/PDF export.** CSV only.
-- **Approval workflow** beyond leave status.
-
----
-
-# Addendum — Reconciliation Check (DB architecture doc vs schema)
-
-Reporting only; no schema changes made in this step.
-
-## Premise correction: the opening/closing tables never existed
-
-The request states that "Phase 1 already implemented daily opening/closing
-tracking as `daily_opening_logs` and `daily_closing_logs`". That is not the case
-in this repository, and the belief matters because it changes what "resolve the
-duplicate" would mean.
-
-Every `CREATE TABLE` across all 11 migrations:
-
-| Migration | Tables created |
-|---|---|
-| phase1_core | User, University, UniversityWorkingHours, UniversityHoliday, Manager, Instructor, Session |
-| phase1_invariants | — (CHECK constraints only) |
-| phase2_activity_types | ActivityType |
-| phase3_activity_logs | ActivityLog |
-| phase4_deliverables… | Deliverable, DeliverableLog, AiInsight, AuditLog, Notification |
-| phase4_leave_and_breaks | LeaveRequest |
-| phase8_auditable_global_actions | — |
-| phase4_activity_interval_check | — |
-| phase10_scale_architecture | UniversitySettings, Department, Program, AcademicTerm, Course, CourseAssignment, Schedule, ScheduleSlot, BreakPolicy, WorkloadTarget, ReportingPeriod, InstructorDailyMetric, InstructorWeeklyMetric, UniversityDailyMetric, ReportJob |
-| phase10_deliverable_status_indexes | — |
-
-Phase 1 created identity and tenancy only. Opening/closing arrived in Phase 3 as
-**activity types**, not tables. A repo-wide grep for `daily_opening`,
-`daily_closing`, `daily_workday` returns only the string constants
-`"DAILY_OPENING"` / `"DAILY_CLOSING"` — rows in `ActivityType`.
-
-So there is **one** shape, not two, and no duplicate system to resolve.
-
-The once-per-day rule is enforced by a partial unique index:
-
-```sql
-CREATE UNIQUE INDEX "ActivityLog_once_per_day_idx"
-  ON "ActivityLog" ("instructorId", "workDate", "activityTypeId")
-  WHERE ("isOncePerDay" = true);
-```
-
-This is the generalised option §50 explicitly permits. It is verified by test,
-including across a UTC/tenant-local boundary: an opening at 23:00 UTC — the next
-calendar day in Asia/Kolkata — is correctly accepted as a separate working day,
-while a second opening on the same local day is rejected with 409.
-
-## Tenant scope compliance
-
-No route reads `principal.universityId` to build a query. The only reads are in
-`scope.ts` (where the scope is derived) and `/api/auth/me` (echoing the session
-back to the client). No route performs its own `principal.role` authorization —
-role gating is `withAuth({roles})` throughout.
-
-Five routes do not call a scope helper. Each was checked individually:
-
-| Route | Predicate | Assessment |
+| Check | Command | Result |
 |---|---|---|
-| `activity-types` | none | `ActivityType` has no `universityId` — a global table. Correct. |
-| `auth/login` | none | Pre-authentication. Correct. |
-| `auth/logout`, `auth/me` | `principal.sessionId` / `.userId` | Self-only by construction. Correct. |
-| `notifications` | `userId: principal.userId` | User-owned, not tenant-scoped. Session-derived, never client-supplied. Correct, but it is a hand-built predicate — there is no scope helper for user-owned rows. |
-| `admin/overview`, `admin/rollup`, `holidays/[holidayId]` | own `where` clauses | ADMIN-only (global scope), so there is no tenant restriction to apply. Safe, but these are the three places that build a tenant predicate outside `scope.ts`. |
+| Full test suite | `npx vitest run` | **339 passed / 339**, 23 files (clean isolated run) |
+| Build | `npx next build` | **Pass** (TypeScript checked as part of the build) |
+| Lint | `npx eslint src/ tests/` | **Pass**, no output |
+| Migration drift | `npx prisma migrate status` | "Database schema is up to date!" (14 migrations) |
 
-All three route-level callers of `computeAnalytics` assert scope first. The
-service-layer callers (`ai/insights.ts`, `reports/generator.ts`, `rollup.ts`)
-receive an already-authorised `universityId`; the engine trusts its argument by
-design and is never reachable from a request without passing a route first.
+**Test files (23):** `phase1-tenant-isolation`, `phase2-university-config`,
+`phase3-activity-logging`, `phase45-exceptions`, `phase456-analytics`,
+`phase5-dashboards`, `phase6-analytics`, `phase65-scheduler`,
+`phase7-ai-insights`, `phase78-insights-admin`, `phase8-reports-notifications`,
+`phase9-instructor-isolation`, `phase9-role-architecture`,
+`phase9-security-audit`, `phase10-gemini`, `phase10-provisioning`,
+`phase10-rollup`, `workday-timezone`, `regression-activity-integrity`,
+`regression-audit-findings`, `pagination`, `ai-narration-validation`,
+`ai-narration-integration`.
 
-## Summary tables
+**Added in the most recent work:** `pagination.test.ts` (29 tests),
+`ai-narration-validation.test.ts` (20), `ai-narration-integration.test.ts` (9).
 
-All three exist. Population status on a freshly seeded database:
+No test was weakened, skipped, or deleted to reach a green run.
 
-| Table | Rows | Written by |
-|---|---:|---|
-| `InstructorDailyMetric` | 0 | `rollupUniversityDaily()` |
-| `UniversityDailyMetric` | 0 | `rollupUniversityDaily()` |
-| `InstructorWeeklyMetric` | 0 | **nothing — defined but never written** |
-| `ReportJob` | 0 | nothing — schema and contract only |
+**Known suite-level contention.** The suite uses one shared test database and a
+fixed port (3100). It is **not safe to run two suites concurrently**, and doing
+so is not a product defect — it is a property of the harness. During this
+verification pass two full suites were launched simultaneously and produced
+12 and 179 spurious failures respectively; re-running a single suite in
+isolation, with no other process touching the harness, produced the clean
+339/339 recorded above. Any failure observed under concurrent execution must be
+reproduced in isolation before it is treated as real.
 
-**Trigger: manual only.** `POST /api/admin/rollup` (admin-gated). There is no job
-queue, no cron, no scheduler, and no on-write trigger. BullMQ appears only in
-comments describing where a worker would attach.
-
-### Consequence worth acting on
-
-The admin dashboard now reads `UniversityDailyMetric`. On a freshly seeded
-database that table is empty, so **the admin dashboard shows zeros until someone
-manually calls the rollup endpoint** — verified directly against the seeded
-database. Before Phase 10 it computed live and was always current. This is a
-real regression in default behaviour introduced by the aggregation change, and
-it is the strongest argument for wiring an actual scheduler next.
-
-## Migration safety
-
-No table was dropped or restructured destructively. Two statements in
-`phase10_scale_architecture` warrant naming:
-
-1. `ALTER TABLE "Deliverable" DROP COLUMN "status"` — preceded by a temporary
-   column and an `UPDATE` mapping every old `ActivityStatus` value into the new
-   `DeliverableStatus`. Values are carried across, not discarded.
-2. `DELETE FROM "DeliverableLog" WHERE "universityId" IS NULL OR "instructorId"
-   IS NULL` — removes rows the backfill could not resolve. Such rows require a
-   `DeliverableLog` with no parent `Deliverable`, which the FK added in phase4
-   (`ON DELETE CASCADE`) makes impossible. It is a no-op safety net, but it is a
-   real `DELETE` and is named here rather than buried.
-
-The generator's own output was corrected in two places where it would have lost
-data: `DeliverableLog.date` was being `DROP`ped and re-added instead of renamed,
-and `Deliverable.status` was being dropped without migrating its values.
-
-The database was **not** reset. The migration was applied to the populated dev
-database and succeeded, backfilling `UNIV001`/`UNIV002`. It was separately timed
-against the 3.9M-row perf database at 18.7 s.
-
-`npm run db:seed` produces exactly what the README documents: 7 accounts
-(1 admin, 2 managers, 4 instructors), 2 universities with differing timezones and
-working hours, 11 activity types, password `Password123!`.
-
+Separately, one genuine shared-fixture race *was* found earlier and fixed at the
+root rather than retried away: `phase7-ai-insights.test.ts` asserted "no measured
+condition without data" while other files concurrently created deliverables for
+the same seeded instructors, legitimately tripping `DELIVERABLE_RISK` (which is
+deliberately period-independent). Fixed by giving that test its own university
+and instructor — commit `0d13dbe`.
 
 ---
 
-# Addendum — Phases 4.5 through 9 complete (2026-08-12)
+## 3. Multi-tenancy and authorization
 
-All remaining phases implemented and gated. Tests **196 → 208** across 15 files,
-all raw HTTP against a real server.
+**Mechanism.** Opaque 32-byte random token in an httpOnly cookie
+(`sameSite=lax`, `secure` in production, 12h default TTL). Only a SHA-256 hash
+of the token is stored (`Session.tokenHash`); verification is a database lookup
+on the hash, rejecting on missing/revoked/expired session or inactive user.
+Passwords use **scrypt** (N=2¹⁵, r=8, p=1) with `timingSafeEqual`, plus a
+dummy-hash delay on unknown accounts so login timing does not reveal account
+existence.
 
-## Phase 9 isolation checklist
+**`TenantScope` is a tagged union** — `{kind:"global"}` / `{kind:"university"}` /
+`{kind:"self"}` — so an admin's global access can never be an accidental
+`WHERE universityId IS NULL`.
 
-The gate required an endpoint-by-endpoint checklist rather than a pass/fail
-summary. All **32 routes** are enumerated and probed with three callers who must
-be refused — anonymous, a manager from another university, and a colleague
-instructor:
+**Probed with real HTTP requests** (raw client, no browser, no frontend):
 
-```
-32 routes checked · 0 failing
-```
+| Caller | Request | Result |
+|---|---|---|
+| anonymous | `GET /api/instructors` | `401 UNAUTHENTICATED` |
+| anonymous | `GET /api/auth/me` | `401 UNAUTHENTICATED` |
+| anonymous | `POST /api/instructors` | `401 UNAUTHENTICATED` |
+| forged cookie | `GET /api/auth/me` | `401` |
+| managerNorth | `GET /api/instructors?universityId=<westbrook>` | `403 CROSS_TENANT_DENIED` |
+| managerNorth | `GET /api/universities/<westbrook>/audit` | `403 CROSS_TENANT_DENIED` |
+| managerNorth | `GET /api/universities/<westbrook>/config` | `403 CROSS_TENANT_DENIED` |
+| instructorNorth1 | `GET /api/universities/<westbrook>/audit` | `403 FORBIDDEN` (role gate — audit excludes INSTRUCTOR) |
+| instructorNorth1 | `GET /api/instructors/<westbrookInstructor>` | `404` (does not confirm existence) |
+| instructorNorth1 | `GET /api/instructors/<colleague>/deliverables` | `404 NOT_FOUND` |
+| managerWest | `GET /api/universities/<north>/reports?export=csv` | `403 CROSS_TENANT_DENIED` |
 
-University-scoped routes refuse anonymous with 401 and a foreign manager with
-403. Instructor-scoped routes refuse a foreign manager and a colleague with 404
-rather than 403, so neither can confirm that an id exists. Admin routes refuse
-managers and instructors alike with 403.
+**Deliberate 403-vs-404 split, confirmed:** a cross-tenant *scope widening*
+returns a loud `403`; a specific record the caller should not know exists returns
+`404`. Both behaviours are intentional and verified.
 
-The three routes that build their own tenant predicate outside `scope.ts`
-(`admin/overview`, `admin/rollup`, `holidays/[holidayId]`) have a dedicated test
-asserting they remain ADMIN-only. They are safe only while global-scope; if one
-is ever opened to managers it must move through `scope.ts` first.
+**Database-level invariants** (not merely application checks): a CHECK
+constraint `user_role_tenant_binding` enforcing `ADMIN ⟺ universityId IS NULL`,
+and a composite FK `(userId, universityId) → User(id, universityId)` on both
+`Manager` and `Instructor` making a cross-tenant profile structurally
+impossible.
 
-## What each phase added
-
-| Phase | Delivered |
-|---|---|
-| 4.5 | Eight derived data-quality exception types, computed on read with no exceptions table |
-| 5 | Admin drill-down (university → manager → instructor → date → activity), manager deliverables, instructor today's schedule, schedule API |
-| 6 | Workload variance, deliverable completion, trends; deliverable-progress and workload-target endpoints |
-| 6.5 | Automatic rollup scheduler with database lease; weekly metrics written |
-| 7 | Anomaly detection split from narration; structural model boundary |
-| 8 | ReportJob records on export, four notification categories with dedupe, audit read endpoint |
-| 9 | Rate limiting on login, 32-route isolation checklist, input-validation and secret-exposure tests |
-
-## Bugs the negative controls found
-
-Each phase was verified by deliberately re-breaking it. Four of those runs found
-defects that the passing tests had missed:
-
-1. **Session-level advisory lock leaked under connection pooling** (6.5). The
-   lock was acquired on one pooled connection and released on another, so the
-   release silently no-opped. Five rollup calls produced two run rows. Replaced
-   with a lease claimed under a transaction-scoped lock.
-2. **`InstructorDailyMetric` was written but never read or asserted** (Phase 10
-   work, found during 6.5). Corrupting it was invisible. Now exposed and checked
-   day-by-day against the engine.
-3. **A duplicate notification aborted the rest of the sweep** (8). Found while
-   chasing why removing the application-level dedupe check changed nothing — the
-   unique index was the real guarantee, and the resulting constraint violation
-   propagated out of the sweep.
-4. **The no-data guard was untested** (7). Removing it let `UNDERUTILIZATION` be
-   asserted against zero records, and the Phase 7 file passed anyway because it
-   only checked which condition was present, never which were absent.
-
-Two design errors were also corrected because a test forced the question:
-trend windows are now weekday-aligned (comparing Mon–Fri against the previous
-five calendar days lands on Wed–Sun, inventing a fall in teaching hours), and
-deliverable completion is scoped to the reporting period rather than counting
-every open deliverable.
-
-## Known limitations
-
-- **Rate limiting is in-memory and per-process.** Behind multiple instances the
-  effective limit multiplies; a restart clears counters. Redis is the upgrade
-  path and `hit()` is the only thing that changes.
-- **The rollup scheduler is an in-process timer**, so it will not fire on a
-  serverless deployment. That is the point at which a queue becomes necessary.
-- **CSV is the only export format.** Native `.xlsx` and PDF need a document
-  library.
-- **No LLM is wired.** The narration layer is deterministic; the boundary is
-  built so a model call replaces one function body.
-- **Academic tables** (`Department`, `Program`, `Course`, `AcademicTerm`,
-  `CourseAssignment`) have schema, indexes and constraints but no API or UI.
-- **Admin provisioning** — creating universities, managers, or instructors — is
-  still seed-only.
-
+`tests/phase1-tenant-isolation.test.ts` — 22/22 passed.
 
 ---
 
-# Addendum — Phase 10 (2026-08-13)
+## 4. Activity integrity and analytics
 
-Render deployment readiness, Gemini wiring, admin provisioning. Tests
-**208 → 240**.
+### 4.1 Activity integrity — verified by real requests
 
-## §1 Render fit — no reversal needed
-
-**No Vercel-specific work was ever started.** No `vercel.json`, no `.vercel`,
-no cron route handlers, no Redis/KV client (`redis` appears only in a comment
-in `rate-limit.ts` describing the upgrade path, and is not a dependency). There
-is nothing orphaned to remove or gate.
-
-The Phase 6.5 scheduler and Phase 9 rate limiter are correct as originally
-built for a persistent Render process. Two conditions are documented in
-[DEPLOYMENT.md](DEPLOYMENT.md) as load-bearing:
-
-- **Plan `starter` or above, not free.** Free services sleep, which stops the
-  timer and clears rate-limit counters on every wake — the regression Phase 6.5
-  exists to prevent.
-- **`numInstances: 1`.** The scheduler is already multi-instance-safe via its
-  database lease, so a second instance wastes work but stays correct. The rate
-  limiter is *not*: two instances mean two counter sets and roughly 2× the
-  attempt budget. That is the thing to fix before scaling out.
-
-## §2 Gemini — what is verified, and what needs your key
-
-Wired, isolated to [gemini.ts](src/server/ai/gemini.ts), with fallback on every
-failure mode. Verified against a **fake Gemini server** so the assertions are
-about the request that actually goes over the wire, not the object a builder
-returns:
-
-| Requirement | Status |
+| Case | Result |
 |---|---|
-| No raw activity rows sent | Verified — asserted against the captured request body |
-| No unnecessary personal detail | Verified — name and instructor id never leave the process; `{{SUBJECT}}` is substituted locally |
-| Key never in the URL | Verified — header only |
-| Fallback on timeout / 429 / 5xx / malformed / empty / no key | Verified — five failure modes, each falls back |
-| Traceability preserved | Verified — `sourceMetrics` and condition still stored |
+| Overlapping interval (10:00–11:00 then 10:30–11:30) | `409 ACTIVITY_OVERLAP` |
+| Fully contained, fully containing, identical | `409` (all three) |
+| **Touching boundaries** (10:00–11:00 then 11:00–12:00) | **both `201`** — correct; half-open comparison uses `<`/`>`, not `<=`/`>=` |
+| Two simultaneous identical creates (`Promise.all`) | exactly one `201`, one `409` |
+| Second `DAILY_OPENING` same day | `409 DUPLICATE_ONCE_PER_DAY_ACTIVITY` |
 
-**Not verified: the five samples narrated by the real Gemini API.** That needs
-`GEMINI_API_KEY`, which this environment does not have. `npm run ai:sample`
-prints all five with automatic checks for invented numbers, judgemental
-language, and name leakage, and exits non-zero on any. It refuses to run
-without a key rather than silently passing.
+Concurrency is serialised by `pg_advisory_xact_lock(hashtext('activity:{instructorId}:{workDate}'))`
+taken inside the transaction before the checks — plus a database-level partial
+unique index as a second line of defence.
 
-## §3 Provisioning — complete
+**Timezone / work-date.** Posting `local: {date:"2033-01-10", start:"10:00",
+end:"11:00"}` for a Kolkata university stored `startTime 04:30Z`, `endTime
+05:30Z`, `workDate 2033-01-10` — the typed calendar date, resolved against the
+*university's* IANA zone via `Intl.DateTimeFormat` (DST-safe), never the server's
+or browser's.
 
-A university can be created and staffed with **zero database access**:
-`/admin/universities/new` → add primary manager on the detail page → manager
-signs in and adds instructors.
+### 4.2 The capacity identity — a correction
 
-The substantive check is that a created university is *immediately operational*:
-its working hours feed the Phase 2 engine with no special-casing (opening
-08:00–08:20, closing 16:50–17:00 from the posted configuration), its holidays
-are honoured, and a newly created instructor can log activity that appears in
-analytics with the right capacity (8.25h = 9h day − 45min configured break).
+**Formula, verbatim from `engine.ts:569`:**
+`utilizationPct = capacity > 0 ? round((productive / capacity) * 100) : null`
+— exactly `productiveHours / capacityHours`, nothing else.
 
-**Initial password, not emailed invite** — documented in
-[provision.ts](src/server/users/provision.ts). There is no mail transport, so an
-invite could not be delivered. The trade-off is an out-of-band credential, which
-the UI states rather than hides.
+**Mutual exclusion of unutilized and missing-data: verified.** A day contributes
+to one or the other, never both (`engine.ts:503-504`, `if (dayUnutilized ===
+null) missing += …; else unutilized += …`). **No double-counting.**
 
-A manager's `universityId` comes from the session; one in the request body is
-rejected with `CROSS_TENANT_DENIED`, not trusted.
+**However — `capacityHours = productiveHours + unutilizedHours +
+missingDataHours` is NOT a universal identity.** An earlier report in this
+project's history stated it as if it always held. It does not. Two reachable
+violations, both measured:
 
-## §4 Deployment — configured, not yet deployed
+1. **Work on a non-working day.** `productive` is accumulated *before* the
+   non-working-day early-exit, so productive hours are added while capacity is
+   not. Measured: 1h Saturday + 2h Monday → `capacity 8, productive 3,
+   unutilized 6, missing 0` → sum 9 ≠ 8.
+2. **Overtime.** `Math.max(0, dayCapacity - dayProductive)` floors at zero.
+   Measured: 9h logged against 8h capacity → `capacity 8, productive 9,
+   unutilized 0, missing 0` → sum 9 ≠ 8, `utilizationPct 112.5`.
 
-[render.yaml](render.yaml) with build/pre-deploy/start commands, env vars, and
-`healthCheckPath`. `GET /api/health` runs `SELECT 1` rather than returning a
-static ok — a process that is up but cannot reach Postgres is not healthy — and
-discloses nothing about the data, since it is an unauthenticated surface.
+Both are reachable through the normal API — `logActivity` imposes no
+working-day or window restriction. The UI already anticipates it
+(`pct > 100` renders as "Over capacity"). **The correct statement is: the
+identity holds on working days that have data and no overtime**, which is
+exactly the condition the permanent suite asserts it under
+(`tests/phase456-analytics.test.ts:146`).
 
-Migrations run via `preDeployCommand`, before the new instance takes traffic.
-Seeding stays manual because it truncates.
+**Also worth knowing:** `missingDataHours` remains inside the utilization
+denominator. The engine separates "unknown" from "idle" in the breakdown, then
+folds "unknown" back into the ratio. Measured: 2h logged across one recorded and
+one blank working day → `utilizationPct 12.5` (2/16), not 25 (2/8).
 
-**On the Phase 6.5 pooling bug under Render:** the fix removed the assumption
-rather than tuning around a particular pool. The lease is claimed inside a
-single transaction, which is one connection wherever it runs, so it does not
-depend on Render's pooling. Render managed Postgres has no PgBouncer by default;
-if one is added in transaction mode later, `?pgbouncer=true` is required and
-prepared-statement behaviour changes.
+### 4.3 Live reconciliation
 
-**Not done: the actual deploy.** This environment has no Render account or
-credentials, so §4's required end-to-end test is unrun. The post-deploy
-checklist in DEPLOYMENT.md is written as the concrete steps to execute it.
+Northfield: Mon–Fri 09:00–18:00 Asia/Kolkata, 60-minute break → 8h capacity by
+hand. Logged one 2h TEACHING activity on a Monday, queried the analytics
+endpoint for that single day:
 
-## Negative controls
+```json
+{ "capacityHours": 8, "productiveHours": 2, "unutilizedHours": 6,
+  "missingDataHours": 0, "utilizationPct": 25,
+  "hoursByActivityType": { "TEACHING": 2 }, "overlapHours": 0 }
+```
 
-Three sabotages, all caught: sending the instructor's real name upstream,
-removing the provider fallback, and letting a manager smuggle a foreign
-`universityId` when creating an instructor.
+Matches hand-calculation exactly. Adding a blank Tuesday produced
+`capacity 16, productive 2, unutilized 6, missingData 8`, and that day's
+`unutilizedHours` was **`null`, not `0`** — the "we measured zero" vs "there was
+nothing to measure" distinction survives to the API.
 
-Four older assertions had to be loosened from exact counts to floors, because
-universities can now be provisioned through the API and a fixed total is
-order-dependent on which test file ran first.
+### 4.4 Opening/closing separation — verified
+
+Per-activity-type hours are keyed on the activity type's own `code` with no
+mapping or folding. Measured across four types in one day:
+`{DAILY_OPENING: 0.25, TEACHING: 2, LEARNING: 1, DAILY_CLOSING: 0.25}` —
+TEACHING is exactly 2, opening/closing are not folded in.
+
+Two caveats found: `hoursByActivityType` filters on status only, **not** on
+`countsAsProductive`, so it includes non-productive types and
+`sum(hoursByActivityType) ≠ productiveHours`; and it uses a naive per-log
+duration sum rather than the union used for `productiveHours` (harmless while
+overlaps are rejected at write time, which they are).
+
+### 4.5 Rollup
+
+Weekly metrics are **derived from the daily rows**, not recomputed from raw
+activity — so a week is by construction the sum of its days. Verified: a week row
+of `capacity 16 / productive 2` equalled the summed daily rows exactly.
+
+Two defects found (see §15):
+- **Partial weeks are written as whole weeks.** The code widens the date range
+  but sums only the daily rows that exist, so a rollup over a 2-day window
+  produced a week row with `capacityHours 16` where a real week is 40h — and it
+  is exposed as the week's total.
+- **`minutesByActivityType` is hardcoded `{}` on the weekly row**, despite the
+  schema declaring it. An earlier fix (`7cfcbed`) corrected exactly this on the
+  daily and university rows but missed the weekly one.
+
+---
+
+## 5. Deliverables
+
+Verified end to end with real requests:
+
+| Step | Result |
+|---|---|
+| Manager creates deliverable | `201`, `status: NOT_STARTED` |
+| Instructor attempts to create one for themselves | `403 FORBIDDEN` (role gate fires before ownership) |
+| Instructor logs progress (2 then 1 of target 5) | `201`, reads back `quantityCompleted 3`, `hoursSpent 1.5`, `status IN_PROGRESS` |
+| Progress reaching target | `status COMPLETED` |
+| Cross-instructor / cross-tenant read | `404 NOT_FOUND` |
+| Cross-tenant create | `403`/`404` per role |
+
+Status is recomputed from the log aggregate on every write and is not a
+client-writable field.
+
+**`DELIVERABLE_RISK` logic** (`anomalies.ts:178-194`): fires when
+`total > 0 AND (overdue > 0 OR completionPct < 60)` — an **OR**, severity `HIGH`
+iff overdue. Reproduced live on a dedicated probe university: a 10-unit
+deliverable with zero logs past its due date produced
+`{"type":"DELIVERABLE_RISK","severity":"HIGH","metrics":{"total":1,"overdue":1,"completionPct":0,…},"threshold":{"completionPct":60}}`.
+Confirmed it is deliberately *not* suppressed when no activity was recorded,
+unlike the activity-derived rules.
+
+**Defect: `Deliverable.status` can never be `OVERDUE` or `CANCELLED`.** Both
+values exist in the enum; no code path writes either. Overdue is computed ad hoc
+(`dueDate < now`) and never persisted — yet frontend code filters on
+`status === "OVERDUE"`, which cannot match a row. See §15.
+
+---
+
+## 6. Schedule
+
+**What exists:** `GET` and `POST /api/instructors/{id}/schedule`. That is the
+entire schedule API.
+
+| Check | Result |
+|---|---|
+| Instructor creating a slot for themselves | `403 FORBIDDEN` — manager/admin only, by design |
+| Cross-tenant manager creating a slot | `404 NOT_FOUND` |
+| `DAILY_OPENING` / `DAILY_CLOSING` as a slot | `400 NOT_SCHEDULABLE` — derived from working hours, correctly rejected |
+| `endTime <= startTime` | `400 INVALID_INTERVAL` |
+| Malformed / non-real date | `400 INVALID_DATE` |
+| `DELETE` on the route | `405` |
+
+`GET` returns planned slots **and** the day's actual logged activity in one
+response, alongside computed opening/closing windows.
+
+**Gaps found, all verified by execution** (see §15):
+- **No overlap validation.** Two slots at 04:00–06:00 and 05:00–07:00 for the
+  same instructor/day both returned `201`. Nothing at the database level guards
+  it either.
+- **`workDate` is never cross-checked against `startTime`/`endTime`.** A slot
+  dated `2026-08-20` with times on `2027-01-01` was accepted (`201`) and is
+  invisible on both days' views.
+- **An invalid `courseId` produces `500 INTERNAL_ERROR`.** It is passed straight
+  to `create` with no existence or tenant check; the resulting Prisma `P2003` is
+  unmapped (only `P2002` is handled), so a client input error surfaces as a
+  server fault.
+- **No edit or delete for slots** — create-and-read only.
+- **The `Schedule` parent model is unused.** `prisma.schedule.*` has zero call
+  sites; `ScheduleSlot.scheduleId` is never populated, so every slot is an
+  orphan.
+- **`ActivityLog.scheduleSlotId` is never written.** It is read in the route and
+  the UI but no write path sets it, so planned and actual are returned side by
+  side yet never linked — the UI's "against a slot" affordance cannot fire.
+
+---
+
+## 7. AI reliability
+
+**Pipeline, verified in order:**
+
+```
+deterministic anomaly detection → AnomalyCondition → Gemini narration
+   → validation → fallback on failure → persisted AiInsight
+```
+
+**The model never decides whether an anomaly exists.** `detectAnomalies` is a
+plain synchronous function over named numeric thresholds — no `fetch`, no import
+of the model layer. The model is invoked downstream, one already-decided
+condition at a time.
+
+**What is sent:** exactly `type`, `severity`, `scope`, `metrics`, `threshold`.
+**What is not:** `instructorId` and `instructorName` are omitted from the request
+payload entirely. `narrateCondition(condition)` takes one argument — no database
+handle, no activity rows — so the "never send raw ActivityLog to the model"
+requirement is enforced by the input type rather than by convention. The real
+name is substituted **locally, after validation passes**; the model is instructed
+to emit `{{SUBJECT}}` and never invent a name.
+
+**The validator inverts the usual check.** Rather than confirming a true number
+appears somewhere in the prose, it extracts *every* numeric and date-like token
+and requires each to be justified by a value the condition actually produced
+(rounded forms accepted as paraphrase). It additionally rejects invented
+honorific-plus-name patterns, judgemental language about a person, and
+comparisons the engine never computed. Any single violation fails the whole
+narration, which is then **discarded, not repaired** — the rejected text is never
+logged, only the rule it broke.
+
+**Test evidence — `npx vitest run tests/ai-narration-validation.test.ts
+tests/ai-narration-integration.test.ts` → 29/29 passed.** Observed rejection
+logs:
+
+```
+[ai] narration failed validation for UNDERUTILIZATION (summary: unsupported number "91"); using deterministic text
+[ai] narration failed validation for UNDERUTILIZATION (summary: unsupported date "2020-01-01"; …); using deterministic text
+```
+
+Failure modes each covered by a named passing test: hallucinated percentage,
+hallucinated date, malformed JSON body, real timeout, HTTP 429, HTTP 500, and no
+API key configured — all fall back to deterministic narration.
+
+**Persistence:** insights are written with `sourceMetrics` and `supportingData`
+carrying the exact condition, its metrics and its threshold, so every stored
+insight remains traceable to the numbers it came from.
+
+---
+
+## 8. Pagination
+
+Six endpoints use `parsePage`. **Their parameter surfaces are not symmetric** —
+this is the single most misdocumented area historically, so it is tabulated
+exactly:
+
+| Endpoint | search | sort/order | default limit | max | Pagination UI |
+|---|---|---|---:|---:|---|
+| `GET /api/universities` | **yes** — name, code, slug | **yes** — `name`/`code`/`createdAt`; invalid → `400 INVALID_SORT` | 50 | 200 | yes |
+| `GET /api/instructors` | **yes** — user.name, user.email, employeeCode, university.name | **no** — hardcoded `createdAt asc`; `sort`/`order` **silently ignored**, returns `200` | 50 | 200 | yes |
+| `GET /api/universities/[id]/audit` | no (`action`/`entityType` exact filters) | no — `createdAt desc` | **100** | 200 | yes |
+| `GET /api/universities/[id]/reports` | no | no | 50 | 200 | yes (ignored on `?export=csv`) |
+| `GET /api/instructors/[id]/deliverables` | no | no — `dueDate asc` | 50 | 200 | **no** |
+| `GET /api/instructors/[id]/activities` | no (`from`/`to` filters) | no — `startTime asc` | **100** | **500** | yes |
+
+**Validation**, identical on all six: malformed/`NaN`/`Infinity` → `400`
+(`INVALID_PAGE` / `INVALID_LIMIT`); `0` or negative → `400 "must be at least 1"`;
+**oversized limit is silently clamped to max, never rejected**; oversized page
+returns an empty `200` page, not a `404`; fractional values are silently
+truncated.
+
+**Response shapes differ**: `/api/universities` and `/api/instructors` add a
+`scope` key; `/api/instructors/[id]/activities` adds `timezone`;
+`/api/universities/[id]/reports` nests its array at `report.rows` rather than at
+the top level, and its `report.totals` is computed over the whole university and
+is *not* re-derived from the visible slice.
+
+**Isolation under pagination, probed live:** unauthenticated requests → `401` on
+all tested endpoints; a manager searching for another tenant's records → `200`
+with an empty array and `total: 0` (never the foreign row); explicit
+cross-tenant ids → `403` (or `404` on instructor-scoped routes, which do not
+confirm existence).
+
+`tests/pagination.test.ts` — 29/29 passed.
+
+**Frontend consumption:** seven pages render the shared `Pagination` control,
+covering five of the six endpoints. Eight call sites bypass paging with
+`limit=200` — seven are genuine picker dropdowns (choosing a university or
+instructor, where click-through paging inside a `<select>` makes no sense); the
+eighth, `instructor/deliverables`, is a main list view, for the stat-tile reason
+below.
+
+**Gap: `/api/instructors/[id]/deliverables` has no Pagination UI anywhere.**
+`instructor/deliverables` requests `limit=200` (exactly the server max, so a
+201st deliverable is silently invisible) and **`manager/deliverables` passes no
+limit at all**, taking the fallback and silently truncating at **50 per
+instructor**. The deliverables view renders aggregate stat tiles computed over
+the whole fetched array, which is why it was given a raised limit rather than
+click-through paging — but the manager-side call site does not even do that. See
+§15.
+
+---
+
+## 9. Performance
+
+**Admin overview N+1 removal.** Previously 4 queries per university. Universities
+are now grouped by resolved reporting period, each group running one batched
+`groupBy`/`findMany({where:{universityId:{in:[…]}}})` per concern; the
+active-instructor count is period-independent and batched once across all.
+
+| Universities | Before | After |
+|---:|---:|---:|
+| 3 | 12 | 4 |
+| 10 | 40 | 4 |
+| 100 | 400 | 4 |
+
+**These figures were measured when the change was made and were NOT re-measured
+in this pass.** What *was* re-verified this pass: the current code structure
+contains no per-university query loop, and the grouping logic is as described.
+O(1) holds when `?from=`/`?to=` are supplied (all universities resolve to one
+period); otherwise it is O(distinct resolved periods), bounded by timezone count
+— never O(N).
+
+**Pagination indexes**, measured on a targeted bulk dataset:
+`ActivityLog (instructorId, startTime)` 12.8 ms → 0.07 ms on page one (20k rows
+for one instructor); `Instructor (universityId, createdAt)` 6.6 ms → 0.07 ms and
+`(createdAt)` 7.4 ms → 0.06 ms on a 20,514-row table. Deep-offset pagination
+remains O(offset) regardless of index (~10.5 ms → ~9.4 ms at offset 15,000) —
+a property of OFFSET paging, not something an index fixes.
+
+Dashboard-query figures against the 3.9M-row Phase-10 dataset are in
+[DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) §6 and were **not**
+re-measured this pass.
+
+**Remaining N+1 / scale risks:** `/api/admin/overview` is itself unpaginated —
+its query count is constant but its response size and per-row work remain O(N)
+in universities.
+
+---
+
+## 10. Security
+
+- **Rate limiting** on `POST /api/auth/login` only, keyed by **both** IP and
+  account email (whichever trips first). Defaults 30/5min per IP, 10/5min per
+  email, env-overridable. **In-memory, per-process, fixed-window** — the module
+  states plainly that behind multiple instances the effective limit multiplies
+  and a restart clears counters. Bounded at 10,000 tracked keys.
+- **CSV formula injection — neutralised, verified on raw bytes.** An instructor
+  named `=cmd|'/C calc'!A0` exported as `'=cmd|'/C calc'!A0` — guard apostrophe
+  prefixed. Guard set: `= + - @ tab CR`. Sanitisation is export-time, not
+  input-time (the raw value is stored and echoed unmangled, which is correct).
+- **Error bodies leak nothing.** A genuinely triggered 500 returned
+  `{"error":{"code":"INTERNAL_ERROR","message":"Something went wrong"}}`; the
+  Prisma stack and internal paths went to the server log only. Checked
+  programmatically for stack frames, file paths, `PrismaClient` and SQL keywords
+  — no match. Validation errors return `400 VALIDATION_ERROR` with field-level
+  Zod issues only.
+- **Exactly two hand-written `catch` blocks in the API tree.** The report-export
+  path writes `error.message` to a database column and rethrows to the central
+  handler; the health check returns a `503` carrying no error detail. No route
+  returns `error.stack` or a raw Prisma message to a client.
+- **Export tenant isolation:** cross-university export → `403
+  CROSS_TENANT_DENIED`; the owning manager → `200`.
+- **Input validation:** malformed JSON and wrong-typed fields return `400`, not
+  `500`, on every endpoint probed.
+
+**Exception:** an invalid `courseId` on schedule-slot creation returns `500`
+(§6) — the one confirmed case where a client input error is reported as a server
+fault.
+
+---
+
+## 11. Export verification
+
+Verified on **raw bytes** (`arrayBuffer()`, never `.text()`, which would strip a
+BOM and give a false negative):
+
+- **UTF-8 BOM present** — first three bytes `EF BB BF`.
+- **RFC-4180 escaping.** An instructor named `=SUM(A1,"x")` exported as
+  `"'=SUM(A1,""x"")"` — guard apostrophe applied first, whole field quoted
+  because it contains a comma and a quote, interior quote doubled. A plain
+  `Smith, Jane` exported as `"Smith, Jane"` — quoted for the comma, no guard
+  added, confirming the guard is prefix-conditional rather than blanket.
+- **Totals match the JSON report** for the same university and period — row
+  count and every compared per-row numeric field matched exactly. Both paths
+  consume one `computeAnalytics` result.
+- **Tenant scope.** A self-scoped instructor's export contained exactly one data
+  row — their own. The same period as manager returned four, confirming the
+  restriction is scope-conditional.
+- **No timestamp column exists** in the export, so there is no per-row
+  timezone ambiguity to resolve. The period bounds are calendar dates resolved
+  in the university's timezone.
+- **XLSX / PDF: NOT IMPLEMENTED**, confirmed by exhaustive grep — no `xlsx`,
+  `exceljs`, `pdfkit` or equivalent dependency, and no route producing either
+  format.
+
+---
+
+## 12. Browser verification
+
+Performed with a real headless Chromium driving the running application against
+seeded data — not asserted from API tests.
+
+**Verified in-browser:**
+- Pagination controls on the admin instructors and admin universities lists:
+  correct `Page N of M · T total` text, correct Previous/Next disabled states at
+  boundaries, row content genuinely changing between pages, Previous returning
+  correctly.
+- Server-side search narrowing results and resetting to page 1.
+- Admin audit log paging through a 424-row filtered set (`Page 1 of 5` → `Page 2
+  of 5`, list contents changed).
+- Responsive layout at **375 / 768 / 1024 / 1440 px** across all 24 pages that
+  use the shared page header with actions: no horizontal overflow, controls
+  within viewport. A real overflow defect found at 375px during this check was
+  fixed and re-verified.
+
+**Not verified in-browser:** every remaining page and interactive control;
+cross-browser behaviour (Chromium only — no Firefox or WebKit run).
+
+---
+
+## 13. NOT VERIFIED
+
+Stated explicitly rather than left to inference:
+
+- **Admin-overview query counts were not re-measured this pass.** The 12/40/400
+  → 4 figures come from the commit that made the change. Only the code structure
+  was re-confirmed.
+- **Dashboard-query timings on the 3.9M-row dataset were not re-measured.**
+- **Scale beyond the tested datasets** — 100 universities / 10,000 instructors /
+  3.9M activities (Phase-10) and the smaller pagination dataset. Anything larger
+  is projected from query plans, not demonstrated. No 1,000-university or
+  500,000-instructor run exists.
+- **Cross-browser rendering** — Chromium only.
+- **Most pages and interactive controls were not individually browser-tested**;
+  §12 lists what was.
+- **Rate limiting was not load-tested** in this pass — the code path was read and
+  an existing test covers it, but no fresh 429-tripping run was performed here.
+- **The live Gemini provider was not exercised.** All AI verification used a
+  local stub and the deterministic fallback path. No real API key run.
+- **CSV edge cases beyond those listed** in §11 — e.g. very large exports,
+  non-Latin scripts beyond BOM handling, embedded newlines in fields.
+- **`prisma migrate diff` does not detect the undeclared partial index**
+  documented in [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) §8, so
+  "no drift" is verified only for what Prisma tracks.
+- **Deployment to Render has not been performed** from this codebase state.
+
+---
+
+## 14. NOT IMPLEMENTED
+
+Confirmed absent by direct inspection, not assumed:
+
+- **Activity edit and delete.** The route exports only `POST` and `GET`; no
+  `PATCH`/`PUT`/`DELETE` and no `[activityId]` subroute exists. `ActivityLog` has
+  no `deletedAt` while six other models do. Note that `logActivity` accepts an
+  `excludeActivityId` intended for re-validating an edit, but **no caller
+  anywhere passes it** — half-built plumbing with no HTTP surface. The product
+  decision is recorded in the README's "Known gaps".
+- **XLSX and PDF export** — CSV only (§11).
+- **Schedule slot edit and delete** — create-and-read only; `DELETE` returns
+  `405`.
+- **The `Schedule` parent model** — declared, indexed, and never used by any code
+  path.
+- **Cursor/keyset pagination** — OFFSET only.
+- **Pagination on `/api/admin/overview`.**
+- **Overlap validation for schedule slots** — no application or database guard.
+- **`Deliverable.status` transitions to `OVERDUE`/`CANCELLED`** — enum values
+  exist, nothing writes them.
+- **Redis / BullMQ / caching layer** — the rollup uses an in-process scheduler
+  with a database lease.
+- **Partitioning, read replicas, RLS** — reasoned about in
+  [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md), deliberately not applied.
+
+---
+
+## 15. Remaining risks
+
+**P0 — none identified.** No data-corruption, cross-tenant leak, or
+system-unusable defect was found in this pass.
+
+**P1 — none identified.**
+
+**P2 — real defects with user-visible consequences:**
+
+| # | Defect | Consequence |
+|---|---|---|
+| 1 | Invalid `courseId` on schedule-slot create returns `500 INTERNAL_ERROR` (Prisma `P2003` unmapped) | A client input error is reported as a server fault; no actionable message |
+| 2 | Partial weeks are written as whole weeks in the weekly rollup | A week row can understate the real week and is exposed as the week's total |
+| 3 | `manager/deliverables` fetches with no limit, silently truncating at 50 per instructor | Deliverables beyond the 50th are invisible with no indication |
+| 4 | `Deliverable.status` never becomes `OVERDUE`; UI filters on it | The overdue view can never match a row |
+| 5 | No overlap validation on schedule slots | An instructor can be double-booked with no warning |
+
+**P3 — correctness/consistency issues with limited blast radius:**
+
+| # | Issue |
+|---|---|
+| 6 | `ActivityLog.scheduleSlotId` never written — planned and actual are never linked |
+| 7 | Schedule `workDate` not cross-checked against slot times; a mismatched slot is invisible on both days |
+| 8 | `minutesByActivityType` hardcoded `{}` on weekly metric rows |
+| 9 | `overlapMinutes` hardcoded `0` on daily metric rows |
+| 10 | `sort`/`order` silently ignored (not rejected) on `/api/instructors`; `order` unvalidated on `/api/universities` |
+| 11 | `instructor/deliverables` requests exactly the server max (200) — a 201st row is silently invisible |
+| 12 | `InstructorWeeklyMetric` is API-exposed but no page renders it |
+| 13 | The once-per-day partial unique index is absent from `schema.prisma` and invisible to `migrate diff` |
+| 14 | Deep-offset pagination remains O(offset) |
+| 15 | Suite-level flakiness under full-parallel execution (shared DB + fixed port) |
+
+---
+
+## 16. Production readiness
+
+**Verdict: READY FOR STAGING. NOT YET "production ready" without qualification.**
+
+**What supports readiness.** Tenant isolation, authorization, activity
+integrity (including the concurrency race), the AI hallucination gate, CSV
+export safety, and error-body hygiene were each verified this pass with real
+requests and real bytes — not inferred. 339/339 tests pass, the build and lint
+are clean, and there is no migration drift. No P0 or P1 defect was found.
+
+**What holds back an unqualified claim.** Five P2 defects remain open (§15),
+including one endpoint that returns a 500 on ordinary bad input and two places
+where data is silently truncated or understated — the failure mode being
+*silence*, which is the kind a user cannot detect. Separately, scale is
+demonstrated only to 100 universities / 3.9M activity rows; the 5,000-university
+target in the architecture document is projected from query plans, not measured.
+The live AI provider has never been exercised — only a stub and the fallback
+path.
+
+**Recommended before an unqualified production claim:** fix the five P2 items;
+exercise the real Gemini provider once against a live key; and either paginate
+`/api/admin/overview` or establish the university count at which its O(N)
+response becomes a problem.
+
+None of these are architectural. They are bounded, individually small, and
+listed here specifically so that shipping is a decision made with them in view
+rather than around them.
