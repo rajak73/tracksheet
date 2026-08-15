@@ -41,6 +41,7 @@ export type Role = "ADMIN" | "MANAGER" | "INSTRUCTOR";
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Overview", icon: IconOverview, group: "main" },
   { href: "/admin/universities", label: "Universities", icon: IconUniversity, group: "main" },
+  { href: "/admin/staff", label: "Staff", icon: IconUsers, group: "main" },
   { href: "/admin/managers", label: "Managers", icon: IconUsers, group: "main" },
   { href: "/admin/instructors", label: "Instructors", icon: IconUser, group: "main" },
   { href: "/admin/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
@@ -58,6 +59,7 @@ const MANAGER_NAV: NavItem[] = [
   { href: "/manager/deliverables", label: "Deliverables", icon: IconDeliverable, group: "main" },
   { href: "/manager/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
   { href: "/manager/insights", label: "AI Insights", icon: IconInsight, group: "intelligence" },
+  { href: "/manager/tracker", label: "Weekly Tracker", icon: IconReport, group: "intelligence" },
   { href: "/manager/reports", label: "Reports", icon: IconReport, group: "intelligence" },
   { href: "/manager/settings", label: "Settings", icon: IconSettings, group: "admin" },
 ];
@@ -68,6 +70,7 @@ const INSTRUCTOR_NAV: NavItem[] = [
   { href: "/instructor/activities", label: "Activities", icon: IconActivity, group: "main" },
   { href: "/instructor/learning", label: "Learning", icon: IconLearning, group: "main" },
   { href: "/instructor/deliverables", label: "Deliverables", icon: IconDeliverable, group: "main" },
+  { href: "/instructor/report", label: "My Report", icon: IconReport, group: "intelligence" },
   { href: "/instructor/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
   { href: "/instructor/profile", label: "Profile", icon: IconUser, group: "admin" },
 ];

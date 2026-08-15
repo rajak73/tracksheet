@@ -85,7 +85,7 @@ const HEADERS = [
  * Numbers are exempt: they are produced by this module, never user input,
  * and prefixing them would break every downstream sum.
  */
-function csvCell(value: string | number | null): string {
+export function csvCell(value: string | number | null): string {
   if (value === null) return "";
   if (typeof value === "number") return String(value);
 

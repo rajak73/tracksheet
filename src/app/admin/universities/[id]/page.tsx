@@ -8,6 +8,7 @@ import { use, useCallback } from "react";
 import {
   Badge,
   Breadcrumb,
+  ButtonLink,
   Card,
   CardList,
   CardListItem,
@@ -101,6 +102,11 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
         title={data.name}
         description={analytics ? `${formatDate(analytics.from)} to ${formatDate(analytics.to)}` : undefined}
         breadcrumb={<Breadcrumb items={[{ label: "Universities", href: "/admin/universities" }, { label: data.name }]} />}
+        actions={
+          <ButtonLink href={`/admin/universities/${id}/tracker`} variant="secondary">
+            Weekly tracker
+          </ButtonLink>
+        }
       />
 
       {/* Health summary. */}

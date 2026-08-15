@@ -85,6 +85,8 @@ export type DeliverableProgress = {
 export type InstructorBreakdown = {
   instructorId: string;
   instructorName: string;
+  /** Current employment state. Historical rows for former staff carry `false`. */
+  isActive: boolean;
   employeeCode: string | null;
   capacityHours: number;
   productiveHours: number;
@@ -213,6 +215,12 @@ export type AnalyticsQuery = {
   instructorId?: string;
   /** Also compute the preceding period for comparison. Off by default. */
   includeTrend?: boolean;
+  /**
+   * Include instructors whose user account is deactivated. Off by default, so
+   * every existing caller keeps its current meaning. Historical reporting sets
+   * it; operational dashboards must not.
+   */
+  includeInactive?: boolean;
 };
 
 function trendPoint(current: number | null, previous: number | null): TrendPoint {
@@ -316,16 +324,23 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   const config = await loadUniversityConfig(universityId);
   const breakMin = config.breakDurationMin;
 
+  // Deactivated staff are excluded BY DEFAULT, because every operational
+  // surface (dashboards, utilisation, notifications, insights) is about who is
+  // working now. Historical REPORTING is the exception: someone who left in
+  // September did real work in August, and a report for August that silently
+  // drops them is wrong. `includeInactive` is opt-in per call so this stays a
+  // reporting concession rather than a global change of meaning — see
+  // tracker.ts, the only caller that sets it.
   const instructors = await prisma.instructor.findMany({
     where: {
       universityId,
       ...(query.instructorId ? { id: query.instructorId } : {}),
-      user: { isActive: true },
+      ...(query.includeInactive ? {} : { user: { isActive: true } }),
     },
     select: {
       id: true,
       employeeCode: true,
-      user: { select: { name: true } },
+      user: { select: { name: true, isActive: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -561,6 +576,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
     return {
       instructorId: inst.id,
       instructorName: inst.user.name,
+      isActive: inst.user.isActive,
       employeeCode: inst.employeeCode,
       capacityHours: round(capacity),
       productiveHours: round(productive),

@@ -721,6 +721,10 @@ export function Dot({ tone = "neutral" }: { tone?: Tone }) {
 export const STATUS: Record<string, { label: string; tone: Tone }> = {
   ACTIVE: { label: "Active", tone: "success" },
   INACTIVE: { label: "Inactive", tone: "neutral" },
+  // Distinct from INACTIVE on purpose: a historical report shows people who
+  // have left, and "Former" says that plainly where "Inactive" reads like a
+  // temporary state.
+  FORMER: { label: "Former", tone: "neutral" },
   ON_LEAVE: { label: "On leave", tone: "info" },
   PENDING: { label: "Pending", tone: "warning" },
   APPROVED: { label: "Approved", tone: "success" },
