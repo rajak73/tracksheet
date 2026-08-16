@@ -544,7 +544,24 @@ build`. `dotenv` and `tsx` are real dependencies rather than dev ones, because
 Node is pinned by `engines` (`>=20.9.0 <25`) and by `NODE_VERSION` in
 [render.yaml](render.yaml).
 
-**Bring-up is migrate, then bootstrap one administrator.** A freshly migrated
+**Migrate, then provision reference data.** A migrated database is not yet a
+working one. `ActivityType` is global reference data — the taxonomy every
+activity record points at — and without it `GET /api/activity-types` returns
+`[]` and logging any activity fails with `ACTIVITY_TYPE_NOT_FOUND`:
+
+```bash
+npx prisma migrate deploy
+npm run db:reference-data
+```
+
+`db:reference-data` upserts the 11 canonical activity types on their natural
+key. It **deletes nothing**, is **idempotent** (safe on every deploy, not just
+the first), preserves existing ids so historical activity keeps pointing at the
+same types, and leaves any type it does not define untouched. It is **not**
+`prisma db seed` — that command wipes fourteen tables and installs development
+credentials, and must never run against production.
+
+**Then bootstrap one administrator.** A freshly migrated
 database has no accounts, and every provisioning route needs an authenticated
 ADMIN, so one command creates the first one:
 
@@ -575,6 +592,7 @@ destroying a production database.
 | `npm run db:migrate` | Create and apply a migration |
 | `npm run db:seed` | Reseed — **local/test only, wipes every table** |
 | `npm run db:reset` | Drop and recreate the schema — **local/test only** |
+| `npm run db:reference-data` | Provision required ActivityType reference data — **idempotent, deletes nothing, production-safe** |
 | `npm run admin:create` | Create the first ADMIN on a fresh database (production bootstrap) |
 | `npm run db:perf-seed` | Generate a 100-university / 3.9M-activity perf dataset |
 | `npm run db:drift` | Fail if migrations and schema.prisma disagree |

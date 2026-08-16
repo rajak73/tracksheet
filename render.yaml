@@ -42,8 +42,16 @@ services:
     # survive even a pruned production install.
     buildCommand: npm ci --include=dev && npx prisma generate && npm run build
     # Migrations run on deploy, before the new instance serves traffic, so the
-    # schema is never behind the code that expects it.
-    preDeployCommand: npx prisma migrate deploy
+    # schema is never behind the code that expects it. Reference data follows
+    # immediately, in the same step and in that order: `ActivityType` is global
+    # reference data the app cannot function without — with an empty taxonomy,
+    # logging any activity fails with ACTIVITY_TYPE_NOT_FOUND and every report
+    # is permanently empty. `db:reference-data` only upserts and deletes
+    # nothing, so it is safe on every redeploy, not just the first.
+    #
+    # This is emphatically NOT `prisma db seed`, which wipes fourteen tables and
+    # installs development credentials. The seed must never run here.
+    preDeployCommand: npx prisma migrate deploy && npm run db:reference-data
     startCommand: npm run start
 
     healthCheckPath: /api/health

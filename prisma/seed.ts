@@ -4,6 +4,7 @@ loadEnv({ path: process.env.TEST_ENV ? ".env.test" : ".env", quiet: true });
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/server/auth/password";
+import { ACTIVITY_TYPE_COUNT, provisionActivityTypes } from "./reference-data";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -50,59 +51,6 @@ const UNIVERSITIES = [
   },
 ];
 
-/**
- * The activity taxonomy. Seeded as DATA so a new type is an insert, not a
- * migration. Downstream logic keys off the behavioural flags, never the code.
- *
- * MISSING_DATA is deliberately absent: it is the absence of any record over a
- * window the university expected to be covered, so it is computed, never stored
- * (Phase 0 §3.5). Adding it here would let "we don't know" be written down as
- * if it were an observation.
- */
-const ACTIVITY_TYPES = [
-  {
-    code: "DAILY_OPENING",
-    label: "Daily Opening",
-    description: "Once-per-working-day opening routine, derived from the university's hours.",
-    sortOrder: 10,
-    isOncePerDay: true,
-    isDerivedFromWorkingHours: true,
-  },
-  { code: "TEACHING", label: "Teaching", sortOrder: 20 },
-  { code: "LEARNING", label: "Learning", sortOrder: 30 },
-  { code: "STUDENT_SUPPORT", label: "Student Support", sortOrder: 40 },
-  { code: "ADMINISTRATIVE", label: "Administrative", sortOrder: 50 },
-  { code: "MEETING", label: "Meeting", sortOrder: 60 },
-  { code: "DELIVERABLE", label: "Deliverable Work", sortOrder: 70 },
-  { code: "RESEARCH", label: "Research", sortOrder: 80 },
-  { code: "OTHER", label: "Other", sortOrder: 90 },
-  {
-    code: "DAILY_CLOSING",
-    label: "Daily Closing",
-    description: "Once-per-working-day closing routine, derived from the university's hours.",
-    sortOrder: 100,
-    isOncePerDay: true,
-    isDerivedFromWorkingHours: true,
-  },
-  {
-    code: "UNUTILIZED",
-    label: "Unutilized Time",
-    description: "Known idle time. Distinct from missing data, which is never recorded.",
-    sortOrder: 110,
-    countsAsProductive: false,
-    isUnutilized: true,
-  },
-] satisfies Array<{
-  code: string;
-  label: string;
-  description?: string;
-  sortOrder: number;
-  isOncePerDay?: boolean;
-  isDerivedFromWorkingHours?: boolean;
-  countsAsProductive?: boolean;
-  isUnutilized?: boolean;
-}>;
-
 const DEV_PASSWORD = "Password123!";
 
 async function main() {
@@ -129,27 +77,13 @@ async function main() {
   await prisma.universityHoliday.deleteMany();
   await prisma.university.deleteMany();
 
-  // Upserted rather than deleted-and-recreated: activity types are referenced
-  // by historical activity records from Phase 3 onward, so reseeding must not
-  // change their ids.
-  for (const type of ACTIVITY_TYPES) {
-    const data = {
-      label: type.label,
-      description: type.description ?? null,
-      sortOrder: type.sortOrder,
-      isSystem: true,
-      isOncePerDay: type.isOncePerDay ?? false,
-      isDerivedFromWorkingHours: type.isDerivedFromWorkingHours ?? false,
-      countsAsProductive: type.countsAsProductive ?? true,
-      isUnutilized: type.isUnutilized ?? false,
-    };
-    await prisma.activityType.upsert({
-      where: { code: type.code },
-      create: { code: type.code, ...data },
-      update: data,
-    });
-  }
-  console.log(`  activity types: ${ACTIVITY_TYPES.length}`);
+  // Reference data comes from the shared module, which upserts rather than
+  // deleting and recreating: activity types are referenced by historical
+  // activity records from Phase 3 onward, so reseeding must not change their
+  // ids. The same function backs `npm run db:reference-data`, so development
+  // and production provision an identical taxonomy from one definition.
+  await provisionActivityTypes(prisma);
+  console.log(`  activity types: ${ACTIVITY_TYPE_COUNT}`);
 
   const passwordHash = await hashPassword(DEV_PASSWORD);
 

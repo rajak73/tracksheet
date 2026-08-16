@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "admin:create": "tsx scripts/create-admin.ts",
+    "db:reference-data": "tsx scripts/reference-data.ts",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
     "test:watch": "vitest",

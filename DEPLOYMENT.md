@@ -67,16 +67,46 @@ them on the host after the build:
 | Package | Needed by | Why it is a runtime dependency |
 |---|---|---|
 | `dotenv` | `npx prisma migrate deploy` | [prisma.config.ts](prisma.config.ts) imports it, and the prisma CLI loads that config on every invocation |
-| `tsx` | `npm run admin:create` | the first-administrator command runs a TypeScript file directly |
+| `tsx` | `npm run db:reference-data`, `npm run admin:create` | both operator commands run TypeScript files directly, and the first of them runs on **every** deploy |
 
 Build-only tools — `typescript`, `tailwindcss`, `@tailwindcss/postcss`, `eslint`,
 `vitest` — stay in devDependencies where they belong.
 
-## Migrations
+## Migrations and reference data
 
-`preDeployCommand: npx prisma migrate deploy` — runs **before** the new instance
-serves traffic, so the schema is never behind the code expecting it. No manual
-step. Never `migrate dev`, never `db push`, never `db seed`.
+```
+preDeployCommand: npx prisma migrate deploy && npm run db:reference-data
+```
+
+Both run **before** the new instance serves traffic, in that order. Never
+`migrate dev`, never `db push`, never `db seed`.
+
+`migrate deploy` gets the schema right. It does not get the database *usable* —
+that takes one more step.
+
+**`npm run db:reference-data` is required, not optional.** `ActivityType` is
+global reference data: the activity taxonomy every `ActivityLog` points at, and
+the taxonomy the analytics engine keys off by name (`DAILY_OPENING` decides
+opening compliance). A migrated-but-unprovisioned database has none, and the
+consequences are total rather than subtle — `GET /api/activity-types` returns
+`[]`, logging any activity fails with `ACTIVITY_TYPE_NOT_FOUND`, and every
+report stays empty forever. The schema is perfect and the product cannot record
+an hour of work.
+
+What the command does:
+
+- **Upserts the 11 canonical activity types** on their natural key, `code`.
+- **Deletes nothing.** No `deleteMany`, no truncate, no reset, on any path.
+- **Idempotent.** Safe on a fresh database, on a fully provisioned one, and on
+  anything in between — so it belongs on every deploy, not just the first.
+- **Preserves ids.** An existing type is updated in place, so historical
+  `ActivityLog` rows keep pointing at the same record.
+- **Leaves unknown rows alone.** Types it does not define are never touched.
+- Not an HTTP endpoint; run against whatever `DATABASE_URL` is set.
+
+**It is not `prisma db seed`.** The seed wipes fourteen tables and installs
+development accounts. This command exists so production never needs it — see
+the prohibition below, which is unchanged.
 
 ## The first administrator
 
@@ -191,17 +221,21 @@ Section 4's required test, as concrete steps:
 
 1. Deploy — confirm the build succeeds and `migrate deploy` reports applied migrations.
 2. `GET /api/health` returns `{"status":"ok"}`.
-3. Create the first administrator, once, against the production database:
+3. `GET /api/activity-types` returns **11** types, including `TEACHING` and
+   `DAILY_OPENING`. An empty array means `db:reference-data` did not run, and
+   nothing below will work — fix that before continuing.
+4. Create the first administrator, once, against the production database:
    `npm run admin:create -- --email you@org.com --name "Your Name"`.
    Do **not** seed. See the section above.
-4. Sign in at `/login` with that account. The dashboards are empty at this
-   point, which is correct — a new deployment has no tenants yet, and step 5
+5. Sign in at `/login` with that account. The dashboards are empty at this
+   point, which is correct — a new deployment has no tenants yet, and step 6
    creates the first one.
-5. Create a university through `/admin/universities/new`, add a manager, sign in
-   as them, add an instructor. No database access needed at any point.
-6. Wait one `ROLLUP_INTERVAL_MINUTES`, then check `GET /api/admin/rollup`: a run
+6. Create a university through `/admin/universities/new`, add a manager, sign in
+   as them, add an instructor, and log one activity. No database access needed
+   at any point.
+7. Wait one `ROLLUP_INTERVAL_MINUTES`, then check `GET /api/admin/rollup`: a run
    with `trigger: "SCHEDULED"` and `status: "COMPLETED"` confirms the timer
    fires in the deployed environment as it does locally.
-7. If `GEMINI_API_KEY` is set, generate insights and confirm the text is
+8. If `GEMINI_API_KEY` is set, generate insights and confirm the text is
    model-written; unset it and confirm insights still generate with
    deterministic wording.
