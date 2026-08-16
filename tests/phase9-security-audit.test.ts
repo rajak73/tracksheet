@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { artifactPath } from "./helpers/artifact";
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
 
@@ -15,7 +16,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * through 8 is included.
  */
 
-const OUT = "/private/tmp/claude-501/-Users-rajakumar-tracksheet/c90e5578-5de3-4733-99f7-94dd47c462d7/scratchpad/phase9-checklist.txt";
+const OUT = artifactPath("phase9-checklist.txt");
 
 let admin: ApiClient, mgrN: ApiClient, mgrW: ApiClient, n1: ApiClient, n2: ApiClient, anon: ApiClient;
 let northId: string, n1Id: string, n2Id: string;

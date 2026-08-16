@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { artifactPath } from "./helpers/artifact";
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
 
@@ -12,7 +13,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * asserted on.
  */
 
-const OUT = "/private/tmp/claude-501/-Users-rajakumar-tracksheet/c90e5578-5de3-4733-99f7-94dd47c462d7/scratchpad/insights-sample.txt";
+const OUT = artifactPath("insights-sample.txt");
 
 let admin: ApiClient, mgrN: ApiClient, n1: ApiClient, n2: ApiClient;
 let northId: string, n1Id: string, n2Id: string;

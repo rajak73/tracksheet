@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { writeFileSync } from "node:fs";
+import { artifactPath } from "./helpers/artifact";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { AnomalyCondition } from "../src/server/ai/anomalies";
 import { buildGeminiRequest, generateNarration, SUBJECT_TOKEN } from "../src/server/ai/gemini";
@@ -18,7 +19,7 @@ import { narrateCondition, narrateConditionDeterministic } from "../src/server/a
  * the automated suite — see `npm run ai:sample`.
  */
 
-const OUT = "/private/tmp/claude-501/-Users-rajakumar-tracksheet/c90e5578-5de3-4733-99f7-94dd47c462d7/scratchpad/gemini-samples.txt";
+const OUT = artifactPath("gemini-samples.txt");
 
 type Captured = { url: string; headers: Record<string, string>; body: unknown };
 

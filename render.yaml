@@ -28,7 +28,19 @@ services:
     region: oregon
     branch: main
 
-    buildCommand: npm ci && npx prisma generate && npm run build
+    # `--include=dev` is load-bearing, not sloppiness. NODE_ENV=production is set
+    # below, and npm reads that as `omit=dev` — so a plain `npm ci` skips
+    # devDependencies. The build needs two of them: `tailwindcss` and
+    # `@tailwindcss/postcss`, without which PostCSS cannot resolve its plugin and
+    # `next build` fails. Build-only tools therefore stay in devDependencies and
+    # the build asks for them explicitly, rather than being promoted to runtime
+    # dependencies they are not.
+    #
+    # What the operator needs AFTER deploy — `dotenv` (loaded by
+    # prisma.config.ts on every prisma CLI call, including the migration below)
+    # and `tsx` (runs `npm run admin:create`) — are real `dependencies`, so they
+    # survive even a pruned production install.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
     # Migrations run on deploy, before the new instance serves traffic, so the
     # schema is never behind the code that expects it.
     preDeployCommand: npx prisma migrate deploy
@@ -43,6 +55,11 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      # Pinned so the deployed runtime matches what the suite is verified on,
+      # and cannot drift to a new major on a redeploy. `engines` in package.json
+      # states the same supported range; this is the half the platform enforces.
+      - key: NODE_VERSION
+        value: "24.11.1"
       - key: SESSION_COOKIE_NAME
         value: tracksheet_session
       - key: SESSION_TTL_HOURS

@@ -8,15 +8,31 @@ import { logAudit } from "@/server/audit/logger";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 
-export const GET = withAuth<{ id: string }>(async ({ params, scope }) => {
-  assertCanAccessUniversity(scope, params.id);
-  const targets = await prisma.workloadTarget.findMany({
-    where: { universityId: params.id },
-    orderBy: [{ effectiveFrom: "desc" }],
-    include: { activityType: { select: { code: true, label: true } } },
-  });
-  return NextResponse.json({ targets });
-});
+/**
+ * Reading the tenant's workload targets.
+ *
+ * Admin-and-manager only, deliberately. A target row may name a single
+ * instructor (`instructorId` below), so an unrestricted read lets one
+ * instructor enumerate what every colleague is measured against. No product
+ * flow needs that — nothing in `src/app` fetches this endpoint — so the role
+ * gate is the whole fix, and INSTRUCTOR gets a 403 rather than a filtered list.
+ *
+ * The tenant check stays where it was: a manager may still only read their own
+ * university, and asking for another one is the same 403 every other route
+ * produces.
+ */
+export const GET = withAuth<{ id: string }>(
+  async ({ params, scope }) => {
+    assertCanAccessUniversity(scope, params.id);
+    const targets = await prisma.workloadTarget.findMany({
+      where: { universityId: params.id },
+      orderBy: [{ effectiveFrom: "desc" }],
+      include: { activityType: { select: { code: true, label: true } } },
+    });
+    return NextResponse.json({ targets });
+  },
+  { roles: ["ADMIN", "MANAGER"] },
+);
 
 const TargetInput = z.object({
   activityTypeCode: z.string().min(1),

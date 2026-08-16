@@ -11,6 +11,7 @@
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "admin:create": "tsx scripts/create-admin.ts",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,14 +19,19 @@
     "db:drift": "docker exec tracksheet-db-test psql -U tracksheet -d tracksheet_test -c \"CREATE DATABASE tracksheet_shadow\" >/dev/null 2>&1; prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
     "ai:sample": "tsx scripts/ai-sample.ts"
   },
+  "engines": {
+    "node": ">=20.9.0 <25"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "dotenv": "^17.4.2",
     "next": "16.3.0",
     "pg": "^8.23.0",
     "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -34,12 +40,10 @@
     "@types/pg": "^8.21.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv": "^17.4.2",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
-    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

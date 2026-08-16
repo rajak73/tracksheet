@@ -79,20 +79,30 @@ complete list of everything absent — [VERIFICATION-REPORT.md](VERIFICATION-REP
 | Auth | Server-side sessions, httpOnly cookie, scrypt password hashing |
 | Tests | Vitest driving raw HTTP against a running server |
 
-## Setup
+## Setup — local development only
+
+Every command in this section is for a local or test database. `db:seed` and
+`db:reset` are destructive and carry development credentials; see
+[Production deployment](#production-deployment) for how a real environment is
+brought up instead.
 
 ```bash
 npm install
 npm run db:up        # starts postgres (dev :5433, test :5434)
 npm run db:migrate   # applies migrations
-npm run db:seed      # seeds 2 universities, 1 admin, 2 managers, 4 instructors
+npm run db:seed      # LOCAL ONLY — wipes every table, then seeds 2 universities,
+                     # 1 admin, 2 managers, 4 instructors
 npm run dev
 ```
 
 The test database runs on tmpfs and is disposable; the dev database persists in
 a named volume.
 
-### Seeded accounts
+### Seeded accounts — development only
+
+These accounts exist only on a seeded local or test database, and their password
+is committed to this repository. They must never exist in production; the seed
+that creates them must never be run there.
 
 All use password `Password123!`.
 
@@ -512,13 +522,48 @@ connection than the lock, so it leaks.
 - `POST /api/admin/rollup` — force a recompute now (admin). Still supported; no
   longer the only way the tables get populated.
 - `GET /api/admin/rollup` — run history, last success, and staleness in seconds.
-- `npm run db:seed` runs an initial rollup, so a fresh database has populated
-  dashboards without anyone pressing a button.
+- `npm run db:seed` runs an initial rollup, so a fresh *local* database has
+  populated dashboards without anyone pressing a button. In production the
+  dashboards populate on the first scheduler tick instead.
 
 The periodic timer is disabled under test (`DISABLE_ROLLUP_SCHEDULER=1`) so it
 cannot race the explicit rollups the tests trigger. The function it calls is
 covered by the suite through the `MANUAL` and `SEED` paths; the timer wiring was
 verified separately against a live server.
+
+## Production deployment
+
+Full runbook: [DEPLOYMENT.md](DEPLOYMENT.md). Two things matter enough to repeat
+here.
+
+**Install with dev dependencies at build time.** `NODE_ENV=production` makes npm
+skip devDependencies, and the build needs `tailwindcss` / `@tailwindcss/postcss`,
+so the build step is `npm ci --include=dev && npx prisma generate && npm run
+build`. `dotenv` and `tsx` are real dependencies rather than dev ones, because
+`prisma migrate deploy` and `admin:create` need them on the host after the build.
+Node is pinned by `engines` (`>=20.9.0 <25`) and by `NODE_VERSION` in
+[render.yaml](render.yaml).
+
+**Bring-up is migrate, then bootstrap one administrator.** A freshly migrated
+database has no accounts, and every provisioning route needs an authenticated
+ADMIN, so one command creates the first one:
+
+```bash
+npm run admin:create -- --email you@org.com --name "Your Name"
+```
+
+Run once, against the intended production `DATABASE_URL`. The password is
+prompted for rather than passed as an argument — echo suppressed, minimum 12
+characters, hashed with the application's existing scrypt implementation. The
+command deletes nothing, refuses if an ADMIN already exists, refuses a duplicate
+email, and is not exposed as an HTTP endpoint. Everything after this — tenants,
+managers, instructors — is created through the application.
+
+**Never seed or reset production.** `npm run db:seed` begins with fourteen
+unconditional `deleteMany()` calls and installs accounts whose password is
+committed to this repository; `npm run db:reset` drops the schema. Both are
+development and test commands, with no environment guard to stop them from
+destroying a production database.
 
 ## Scripts
 
@@ -528,6 +573,8 @@ verified separately against a live server.
 | `npm test` | Full gate: isolation, config, activities, analytics, insights |
 | `npm run db:up` / `db:down` | Start / stop Postgres |
 | `npm run db:migrate` | Create and apply a migration |
-| `npm run db:seed` | Reseed |
+| `npm run db:seed` | Reseed — **local/test only, wipes every table** |
+| `npm run db:reset` | Drop and recreate the schema — **local/test only** |
+| `npm run admin:create` | Create the first ADMIN on a fresh database (production bootstrap) |
 | `npm run db:perf-seed` | Generate a 100-university / 3.9M-activity perf dataset |
 | `npm run db:drift` | Fail if migrations and schema.prisma disagree |
