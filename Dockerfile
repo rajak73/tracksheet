@@ -81,7 +81,15 @@ WORKDIR /app
 COPY --from=build /app/node_modules      ./node_modules
 COPY --from=build /app/.next             ./.next
 COPY --from=build /app/public            ./public
-COPY --from=build /app/src/generated     ./src/generated
+# The whole `src`, not just `src/generated`.
+#
+# `next start` serves from `.next` and needs none of this — but the operator
+# scripts do. `admin:create` imports `src/server/users/bootstrap-admin`, and
+# `db:inspect --detail` imports `src/server/analytics/working-hours`; with only
+# the generated client copied, both died on MODULE_NOT_FOUND the first time
+# anybody tried to create the first administrator on a fresh deployment. Source
+# is a few megabytes and it is what makes the container operable.
+COPY --from=build /app/src               ./src
 COPY --from=build /app/package.json      ./package.json
 COPY --from=build /app/next.config.ts    ./next.config.ts
 # `prisma migrate deploy` reads the schema and the migration folder; the
