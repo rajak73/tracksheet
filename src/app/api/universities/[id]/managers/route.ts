@@ -6,9 +6,7 @@ import { withAuth } from "@/server/http/route";
 import { logAudit } from "@/server/audit/logger";
 import { provisionManager } from "@/server/users/provision";
 import { computeAnalytics } from "@/server/analytics/engine";
-import { loadUniversityConfig } from "@/server/universities/config";
-import { mondayOf } from "@/server/analytics/tracker";
-import { workDateFor } from "@/server/time/workday";
+import { currentWeekFor } from "@/server/analytics/roster";
 
 /**
  * Managers of a university — the level the admin drill-down was missing
@@ -28,9 +26,12 @@ export const GET = withAuth<{ id: string }>(
   async ({ params, scope }) => {
     assertCanAccessUniversity(scope, params.id);
 
-    const config = await loadUniversityConfig(params.id);
-    const today = workDateFor(new Date(), config.timezone);
-    const weekFrom = mondayOf(today);
+    // The WHOLE ISO week in the university's own zone. This used to be
+    // `mondayOf(today)` used as both bounds, so every figure below covered
+    // MONDAY and was published as the week: on a Thursday a manager whose
+    // roster had recorded four full days showed only the first of them.
+    // `currentWeekFor` is the one definition of this period — see roster.ts.
+    const week = await currentWeekFor(params.id);
 
     const [managers, university, rosterCounts, unassignedCount] = await Promise.all([
       prisma.manager.findMany({
@@ -63,8 +64,8 @@ export const GET = withAuth<{ id: string }>(
       managers.map((m) =>
         computeAnalytics({
           universityId: params.id,
-          from: weekFrom,
-          to: weekFrom,
+          from: week.from,
+          to: week.to,
           managerId: m.id,
         }),
       ),
@@ -73,7 +74,7 @@ export const GET = withAuth<{ id: string }>(
     return NextResponse.json({
       universityName: university?.name ?? null,
       universityCode: university?.code ?? null,
-      currentWeek: { from: weekFrom, to: weekFrom },
+      currentWeek: week,
       // Instructors nobody leads yet. Surfaced rather than hidden: they are
       // real people doing real work, and an admin needs to see who still needs
       // placing instead of discovering them missing from every roster.

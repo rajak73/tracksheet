@@ -29,7 +29,7 @@
  * without deactivated staff cluttering a current-week view they had no part in.
  */
 
-import { countsAsWorkingHours } from "@/domain/working-hours";
+import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 import { prisma } from "@/server/db";
 import { computeAnalytics, type InstructorBreakdown } from "@/server/analytics/engine";
 import { csvCell } from "@/server/reports/generator";
@@ -353,6 +353,11 @@ export async function buildTracker(args: {
       ...("instructorId" in args ? { instructorId: args.instructorId } : {}),
       ...("managerId" in args ? { instructor: { managerId: args.managerId } } : {}),
       workDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
+      /* A class that was MISSED, or a day EXCUSED as leave, is not time spent
+       * with students — the engine has always excluded both from its own
+       * totals, and a sheet that counts them puts an instructor in a room they
+       * were never in. LATE stays: it happened, just not on time. */
+      status: { notIn: [...DID_NOT_HAPPEN] },
       /* No `deliverableTypeId: { not: null }` here, deliberately.
        *
        * It used to be, and it silently emptied the report of real teaching.

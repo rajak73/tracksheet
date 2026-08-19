@@ -235,7 +235,16 @@ async function writeActivity(input: LogActivityInput, targetId: string | null) {
       workDate,
       startTime,
       endTime,
-      status: input.status ?? "COMPLETED",
+      // On an UPDATE an absent status means "leave it as it stands", the same
+      // rule `remarks` follows. Defaulting it here reset a MISSED or EXCUSED
+      // entry to COMPLETED whenever anything ELSE on the row was corrected —
+      // the edit route makes `status` optional, so fixing a deliverable or a
+      // remark quietly asserted the activity had happened.
+      ...(targetId
+        ? input.status !== undefined
+          ? { status: input.status }
+          : {}
+        : { status: input.status ?? "COMPLETED" }),
       remarks: input.remarks,
       isOncePerDay: activityType.isOncePerDay,
       ...(input.rawText !== undefined ? { rawText: input.rawText } : {}),

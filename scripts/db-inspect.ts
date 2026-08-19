@@ -40,7 +40,18 @@ async function main() {
   if (!url) throw new Error("DATABASE_URL is not set");
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+  // `finally`, not a trailing call: a query that throws — which is exactly what
+  // happens against a database whose migrations have not been applied, the case
+  // this tool exists for — otherwise leaves the pool open and the process never
+  // exits, so the operator sees the error and then a hang.
+  try {
+    await report(db, url);
+  } finally {
+    await db.$disconnect();
+  }
+}
 
+async function report(db: PrismaClient, url: string) {
   // Host only — never the password, because this output gets pasted into chats.
   const host = url.replace(/^.*@/, "").replace(/\?.*$/, "");
   console.log(`\nDatabase: ${host}\n`);
@@ -153,7 +164,6 @@ async function main() {
   }
 
   console.log("");
-  await db.$disconnect();
 }
 
 main().catch((err) => {

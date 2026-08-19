@@ -18,9 +18,16 @@ import { MAX_BULLETS, MAX_BULLET_CHARS, submitWorklog } from "@/server/worklog/s
  * and the client polls or waits for the notification.
  *
  * ── Scope ──────────────────────────────────────────────────────────────────
- * `assertCanReadInstructor` is the same check the activity routes use. An
- * instructor reaches only themselves; the id in the path is verified against
- * the session rather than trusted.
+ * READING uses `assertCanReadInstructor`, the same check the activity routes
+ * use: an instructor reaches only themselves, a manager their own university.
+ *
+ * WRITING does NOT. A submission is the instructor's own words, and posting one
+ * supersedes whatever they last wrote for that day and deletes the activities
+ * it produced. `assertCanReadInstructor` compares only `universityId` for a
+ * manager, so it would have let any manager in the tenant overwrite any
+ * instructor's day — including one on nobody else's roster — and store their
+ * text as that person's own. So POST is self-or-admin, matching the sibling
+ * write routes (`worklog/notes`, `activities/[activityId]`).
  */
 
 const SubmitWorklog = z.object({
@@ -58,7 +65,21 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     select: { id: true, universityId: true },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-  assertCanReadInstructor(scope, instructor);
+
+  /* Self or admin only — see the note at the top of this file. A worklog is a
+   * statement in the first person, and it destroys the day it replaces, so
+   * "may read this instructor" is the wrong question to ask of it. */
+  if (scope.kind === "self") {
+    if (scope.instructorId !== instructor.id) {
+      throw new ApiError(404, "NOT_FOUND", "Instructor not found");
+    }
+  } else if (scope.kind !== "global") {
+    throw new ApiError(
+      403,
+      "FORBIDDEN",
+      "Only the instructor whose day this is, or an administrator, can submit it.",
+    );
+  }
 
   /* A refusal is reported through the bell, not only through the response.
    *

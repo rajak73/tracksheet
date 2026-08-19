@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
-import { countsAsWorkingHours } from "@/domain/working-hours";
+import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 
 /**
  * Working Hours — time spent WITH STUDENTS — per instructor, over one period.
@@ -41,6 +41,13 @@ export async function workingHoursByInstructor(args: {
       ...(args.universityId ? { universityId: args.universityId } : {}),
       ...(args.instructorIds ? { instructorId: { in: args.instructorIds } } : {}),
       workDate: { gte: toDateOnly(args.from), lte: toDateOnly(args.to) },
+      // An activity that did not happen is not time spent with students. The
+      // analytics engine has always excluded these two from `productiveHours`;
+      // counting them here made Working Hours — the narrower figure — able to
+      // exceed Recorded hours for the same person and period, which is the one
+      // thing the pair can never do. The list is in `domain/working-hours.ts`
+      // with the rule it belongs to, so the three readers cannot drift.
+      status: { notIn: [...DID_NOT_HAPPEN] },
     },
     select: {
       instructorId: true,

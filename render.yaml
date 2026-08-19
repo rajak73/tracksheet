@@ -75,12 +75,19 @@ services:
       # Set in the Render dashboard, never committed.
       - key: GEMINI_API_KEY
         sync: false
-      # An alias, not a pinned version: gemini-2.0-flash was retired and every
-      # call started returning 404, which the AI layer absorbed as a silent
-      # fallback to deterministic text. Pin a version here only to hold a
-      # specific one deliberately.
-      - key: GEMINI_MODEL
-        value: gemini-flash-latest
+      # GEMINI_MODEL is deliberately NOT set.
+      #
+      # `src/server/ai/gemini.ts` tries an alias first and named alternates
+      # behind it, because the two observed failures defeat each other's fix: a
+      # pinned version dies when the model is RETIRED (gemini-2.0-flash started
+      # returning 404 and the AI layer absorbed it as silent fallback text), and
+      # the alias that survives retirement returns 503 "high demand" for minutes
+      # at a time while other current models answer instantly.
+      #
+      # Setting this variable PINS one model and disables that chain — so
+      # setting it to the alias here would have reintroduced the 503 outage the
+      # chain exists to absorb. Set it only to hold one specific model on
+      # purpose, and accept losing the fallbacks when you do.
       # Rollup cadence. Defaults are fine; here so they are visible and tunable
       # without a redeploy of code.
       - key: ROLLUP_INTERVAL_MINUTES

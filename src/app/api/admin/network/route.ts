@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { toDateOnly } from "@/server/time/workday";
-import { countsAsWorkingHours } from "@/domain/working-hours";
+import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 
 /**
  * The network, one row per university, for the admin dashboard.
@@ -85,7 +85,12 @@ export const GET = withAuth(
         _count: { _all: true },
       }),
       prisma.activityLog.findMany({
-        where: { workDate: { gte: toDateOnly(from), lte: toDateOnly(to) } },
+        where: {
+          workDate: { gte: toDateOnly(from), lte: toDateOnly(to) },
+          // Same rule as every other Working Hours reader: an activity marked
+          // MISSED or EXCUSED did not happen, so it is not time with students.
+          status: { notIn: [...DID_NOT_HAPPEN] },
+        },
         select: {
           universityId: true,
           instructorId: true,

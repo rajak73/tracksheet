@@ -184,6 +184,15 @@ export type ParseOutcome = {
   rejected: Array<{ index: number; rawText: string; reason: string }>;
 };
 
+/** Has this submission been replaced while we were reading it? */
+async function isSuperseded(submissionId: string): Promise<boolean> {
+  const row = await prisma.worklogSubmission.findUnique({
+    where: { id: submissionId },
+    select: { supersededAt: true },
+  });
+  return row === null || row.supersededAt !== null;
+}
+
 export async function runParse(submissionId: string): Promise<ParseOutcome | null> {
   const submission = await prisma.worklogSubmission.findUnique({
     where: { id: submissionId },
@@ -194,10 +203,25 @@ export async function runParse(submissionId: string): Promise<ParseOutcome | nul
       workDate: true,
       rawBullets: true,
       submittedAt: true,
+      supersededAt: true,
       instructor: { select: { userId: true } },
     },
   });
   if (!submission) return null;
+
+  /* Withdrawn before this got to it.
+   *
+   * Parsing is fire-and-forget and can take a minute when the provider is
+   * retrying, and an instructor who rewrites the day in the meantime
+   * supersedes this submission and deletes whatever it had produced. Without
+   * this check the late parse still ran `writeActivities`, putting the
+   * WITHDRAWN text's hours back on the day — and, because the replacement's
+   * entries sit at different times, without an overlap to refuse them. The
+   * result was a day holding lines nobody could see the source of.
+   *
+   * Re-read here rather than trusted from the caller: the supersession happens
+   * after this function is already in flight, which is the whole problem. */
+  if (submission.supersededAt) return null;
 
   const bullets = Array.isArray(submission.rawBullets)
     ? (submission.rawBullets as string[])
@@ -245,6 +269,13 @@ export async function runParse(submissionId: string): Promise<ParseOutcome | nul
           endMinute: toMinutes(b.endLocal!),
         })),
     });
+
+    /* The window between loading the row and writing against it is the one
+     * that matters: `parseBullets` retries a busy provider for over a minute,
+     * and the instructor can rewrite the day inside it. So the question is
+     * asked again HERE, immediately before anything is written or any manager
+     * is asked to look. */
+    if (await isSuperseded(submissionId)) return null;
 
     if (verdict.kind === "needs_approval") {
       await prisma.worklogSubmission.update({
@@ -491,12 +522,27 @@ export async function decideSubmission(input: {
       workDate: true,
       rawBullets: true,
       approval: true,
+      supersededAt: true,
       instructor: { select: { userId: true } },
     },
   });
   if (!submission) throw new ApiError(404, "NOT_FOUND", "Submission not found");
   if (submission.approval !== "PENDING") {
     throw new ApiError(409, "ALREADY_DECIDED", "This worklog has already been decided.");
+  }
+  /* Rewritten since it was held.
+   *
+   * Superseding a held submission leaves `approval` at PENDING — nothing was
+   * ever written for it, so there is nothing to un-decide — which meant a
+   * manager's already-open queue could still approve it, and approval WRITES.
+   * The withdrawn text's hours would land on the day beside the replacement's.
+   * The instructor's newer submission is the one to act on. */
+  if (submission.supersededAt) {
+    throw new ApiError(
+      409,
+      "SUPERSEDED",
+      "This worklog has been rewritten since it was held. Review the newer submission instead.",
+    );
   }
 
   const workDate = submission.workDate.toISOString().slice(0, 10);

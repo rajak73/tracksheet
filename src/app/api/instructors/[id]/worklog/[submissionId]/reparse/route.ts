@@ -28,10 +28,22 @@ export const POST = withAuth<{ id: string; submissionId: string }>(
 
     const submission = await prisma.worklogSubmission.findUnique({
       where: { id: params.submissionId },
-      select: { id: true, instructorId: true, status: true },
+      select: { id: true, instructorId: true, status: true, supersededAt: true },
     });
     if (!submission || submission.instructorId !== instructor.id) {
       throw new ApiError(404, "NOT_FOUND", "Submission not found");
+    }
+    /* Withdrawn. A FAILED submission the instructor has since rewritten still
+     * looks re-readable to a stale tab, and re-reading it would write the
+     * WITHDRAWN text's activities onto a day the replacement already owns —
+     * hanging off a submission the day view hides, so the hours would appear
+     * with nothing on screen to explain them. */
+    if (submission.supersededAt) {
+      throw new ApiError(
+        409,
+        "SUPERSEDED",
+        "You have since rewritten this day. There is nothing left to read here.",
+      );
     }
     if (submission.status === "PARSED") {
       throw new ApiError(

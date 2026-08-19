@@ -80,13 +80,26 @@ export const GET = withAuth(async ({ scope, req }) => {
    */
   const mine = { ...instructorWhere(scope), ...narrowManager(scope, null), user: { isActive: true } };
 
-  const primary = await prisma.university.findFirst({
-    where: { primaryManagerId: { not: null } },
-    select: { primaryManagerId: true },
-  });
+  /* The primary manager OF THIS CALLER'S UNIVERSITY.
+   *
+   * This was `findFirst({ where: { primaryManagerId: { not: null } } })` with a
+   * tenant filter that expanded to `{}` in both branches — so on a multi-tenant
+   * install it returned whichever university happened to sort first, and a
+   * primary manager of any OTHER university failed the comparison below. Their
+   * unassigned instructors then belonged to no roster at all: absent from the
+   * table, the counts and the approval queue, with nothing to say so. */
+  const primary =
+    scope.kind === "university"
+      ? await prisma.university.findUnique({
+          where: { id: scope.universityId },
+          select: { primaryManagerId: true },
+        })
+      : null;
   const answersForUnassigned =
     scope.kind === "global" ||
-    (scope.kind === "university" && primary?.primaryManagerId === scope.managerId);
+    (scope.kind === "university" &&
+      primary?.primaryManagerId != null &&
+      primary.primaryManagerId === scope.managerId);
 
   const where = answersForUnassigned
     ? { OR: [mine, { ...instructorWhere(scope), managerId: null, user: { isActive: true } }] }

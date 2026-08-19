@@ -58,3 +58,19 @@ export function countsAsWorkingHours(
 ): boolean {
   return deliverableIsCountable ?? isStudentFacingCategory(activityTypeCode);
 }
+
+/**
+ * Statuses that mean the activity did NOT happen.
+ *
+ * Working Hours is time spent with students, so a session marked MISSED or
+ * EXCUSED is not any of it. This was left out when the rule was written down:
+ * the queries behind Working Hours filtered no status at all, while the
+ * analytics engine has always excluded these two from `recordedHours`. The
+ * result was the impossible pair — a lecture set to MISSED showed 2h of
+ * "Working hours" beside 0h of "Recorded hours" on the same row, with Working
+ * Hours, a subset by definition, larger than the total it is a subset of.
+ *
+ * Exported as a plain array so it can be handed straight to a Prisma
+ * `notIn` and there is still one list rather than one per query.
+ */
+export const DID_NOT_HAPPEN = ["MISSED", "EXCUSED"] as const;
