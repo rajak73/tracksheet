@@ -44,6 +44,52 @@ export type UniversityHoliday = $Result.DefaultSelection<Prisma.$UniversityHolid
  */
 export type Manager = $Result.DefaultSelection<Prisma.$ManagerPayload>
 /**
+ * Model WorklogDayNote
+ * The instructor's own note about a day: "all planned sessions completed",
+ * "lab ran short, two students to follow up".
+ * 
+ * ── Why this is not the activity remarks joined together ──────────────────
+ * Those are read out of the sentences and describe individual entries — a
+ * topic, a batch, a unit. This is a judgement about the DAY as a whole, and
+ * only the person who lived it can make it. The client's report has a column
+ * for exactly this, and filling it by concatenating topics would put "binary
+ * trees, section A" where "all planned sessions completed" belongs.
+ * 
+ * One per instructor per day, so writing it again is a correction rather than
+ * a second opinion.
+ */
+export type WorklogDayNote = $Result.DefaultSelection<Prisma.$WorklogDayNotePayload>
+/**
+ * Model InstructorCategory
+ * What an instructor TEACHES: Technical, English, Aptitude or Mathematics.
+ * 
+ * ── It is a specialism, not a department ──────────────────────────────────
+ * Somebody from any tech discipline delivering programming is TECH; the column
+ * says what they teach, not which department they came from. Confirmed against
+ * the client's own roster: TECH instructors sit against Programming
+ * Foundations, Python, Node JS, DSA and React; ENGLISH against Communicative
+ * English Foundation and Advanced; APTITUDE against Logical Reasoning and
+ * Quantitative Aptitude; MATH against Numerical Ability and Probability &
+ * Statistics. Four categories, ~600 instructors, and the split is clean.
+ * 
+ * ── Why it cannot be derived, and must be set ─────────────────────────────
+ * The obvious shortcut is to read somebody's courses and infer their stream.
+ * The data says no: below the top few courses the associations overlap heavily
+ * — ENGLISH instructors are attached to "Build Your Own Static Website",
+ * MATH instructors to "Generative AI" — because an instructor is linked to the
+ * whole programme their students take, not only what they personally deliver.
+ * Any inference from activity would therefore be wrong for a large minority,
+ * and wrong differently each month: somebody who spent a month on meetings
+ * would change category, and a signed-off sheet would reshuffle its own rows
+ * between two readings of the same period. Somebody is hired into a stream and
+ * stays in it, so an admin sets it and it stays set.
+ * 
+ * Held as a TABLE rather than an enum for the same reason the activity
+ * taxonomy is: adding "Data Science" should be an insert and a seed run, not
+ * a migration and a deploy.
+ */
+export type InstructorCategory = $Result.DefaultSelection<Prisma.$InstructorCategoryPayload>
+/**
  * Model Instructor
  * 
  */
@@ -200,6 +246,70 @@ export type ReportJob = $Result.DefaultSelection<Prisma.$ReportJobPayload>
  * every entry there is an act by a person, and a scheduled job has no actor.
  */
 export type MetricsJobRun = $Result.DefaultSelection<Prisma.$MetricsJobRunPayload>
+/**
+ * Model ImportJob
+ * One bulk import, from upload to written rows.
+ * 
+ * ── Why this table exists at all ───────────────────────────────────────────
+ * A row here is not architecture for its own sake; four requirements make it
+ * unavoidable, and each one is a requirement the feature cannot drop:
+ * 
+ * 1. The workflow is four steps (upload -> map -> validate -> confirm) and
+ * the dataset has to survive between them. The alternative is making the
+ * browser re-upload a 10,000-row file at every step.
+ * 2. Writing 10,000 rows cannot finish inside one HTTP request, so the
+ * request must hand off and the client must be able to ask "how far".
+ * 3. "Who imported what, and what did it do" has to be answerable later.
+ * 4. Re-running an interrupted import must not duplicate anything, which
+ * needs the parsed rows and the progress counter to be durable.
+ * 
+ * ── Why not an AuditLog row ────────────────────────────────────────────────
+ * The same reason `MetricsJobRun` is not one: `AuditLog.userId` is NOT NULL,
+ * and progress is written repeatedly by background work with no actor at the
+ * keyboard. The audit trail still records the import as an event — this table
+ * records its execution. Neither replaces the other.
+ * 
+ * ── What is deliberately NOT stored ────────────────────────────────────────
+ * Not the uploaded file, and no credential. `rows` holds the PARSED,
+ * structurally-typed records only, which is what steps 2-4 operate on; the
+ * original bytes are dropped once parsed. The batch password supplied at
+ * confirmation is hashed and used, never written here.
+ */
+export type ImportJob = $Result.DefaultSelection<Prisma.$ImportJobPayload>
+/**
+ * Model DeliverableType
+ * One deliverable within a broad category — "Lecture" inside Teaching.
+ * 
+ * ── Why this is a table and not a string on ActivityLog ────────────────────
+ * It is a CLOSED vocabulary the client supplied, and closed vocabularies stop
+ * being closed the moment they are free text: "Lecture", "lecture" and "Lec"
+ * become three deliverables and the sheet's quantity column stops adding up.
+ * A foreign key makes the AI's output checkable — a deliverable that is not in
+ * this table simply cannot be written.
+ * 
+ * ── Not the same thing as `Deliverable` ────────────────────────────────────
+ * `Deliverable` is a piece of work ASSIGNED to one instructor, with a target
+ * and a due date. This is the taxonomy those pieces of work are classified by.
+ * They are different nouns that unfortunately share a word.
+ */
+export type DeliverableType = $Result.DefaultSelection<Prisma.$DeliverableTypePayload>
+/**
+ * Model WorklogSubmission
+ * One press of Submit: the bullets exactly as typed, and the clock they start.
+ * 
+ * ── Why this exists rather than living on ActivityLog ──────────────────────
+ * Three requirements need a row that is neither an activity nor an instructor:
+ * 
+ * 1. The text must survive a parsing failure. Saving the submission FIRST and
+ * parsing afterwards is what makes "the instructor's data is never lost"
+ * true rather than aspirational.
+ * 2. The review clock is PER SUBMISSION — two submissions on two days each
+ * run their own — so it needs somewhere to live that is not the instructor
+ * and not any one activity.
+ * 3. A bullet can fail to parse while its siblings succeed. This row holds
+ * every bullet; `ActivityLog` holds only the ones that became work.
+ */
+export type WorklogSubmission = $Result.DefaultSelection<Prisma.$WorklogSubmissionPayload>
 
 /**
  * Enums
@@ -379,6 +489,55 @@ export const MetricsJobStatus: {
 
 export type MetricsJobStatus = (typeof MetricsJobStatus)[keyof typeof MetricsJobStatus]
 
+
+export const ImportSourceType: {
+  CSV: 'CSV',
+  PDF: 'PDF'
+};
+
+export type ImportSourceType = (typeof ImportSourceType)[keyof typeof ImportSourceType]
+
+
+export const ImportStatus: {
+  UPLOADED: 'UPLOADED',
+  MAPPED: 'MAPPED',
+  VALIDATED: 'VALIDATED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  COMPLETED_WITH_WARNINGS: 'COMPLETED_WITH_WARNINGS',
+  FAILED: 'FAILED'
+};
+
+export type ImportStatus = (typeof ImportStatus)[keyof typeof ImportStatus]
+
+
+export const WorklogApproval: {
+  NOT_REQUIRED: 'NOT_REQUIRED',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED'
+};
+
+export type WorklogApproval = (typeof WorklogApproval)[keyof typeof WorklogApproval]
+
+
+export const WorklogExceptionReason: {
+  SUBMITTED_OFF_HOURS: 'SUBMITTED_OFF_HOURS',
+  ACTIVITY_OFF_HOURS: 'ACTIVITY_OFF_HOURS',
+  BOTH: 'BOTH'
+};
+
+export type WorklogExceptionReason = (typeof WorklogExceptionReason)[keyof typeof WorklogExceptionReason]
+
+
+export const WorklogParseStatus: {
+  PENDING: 'PENDING',
+  PARSED: 'PARSED',
+  FAILED: 'FAILED'
+};
+
+export type WorklogParseStatus = (typeof WorklogParseStatus)[keyof typeof WorklogParseStatus]
+
 }
 
 export type Role = $Enums.Role
@@ -452,6 +611,26 @@ export const MetricsJobTrigger: typeof $Enums.MetricsJobTrigger
 export type MetricsJobStatus = $Enums.MetricsJobStatus
 
 export const MetricsJobStatus: typeof $Enums.MetricsJobStatus
+
+export type ImportSourceType = $Enums.ImportSourceType
+
+export const ImportSourceType: typeof $Enums.ImportSourceType
+
+export type ImportStatus = $Enums.ImportStatus
+
+export const ImportStatus: typeof $Enums.ImportStatus
+
+export type WorklogApproval = $Enums.WorklogApproval
+
+export const WorklogApproval: typeof $Enums.WorklogApproval
+
+export type WorklogExceptionReason = $Enums.WorklogExceptionReason
+
+export const WorklogExceptionReason: typeof $Enums.WorklogExceptionReason
+
+export type WorklogParseStatus = $Enums.WorklogParseStatus
+
+export const WorklogParseStatus: typeof $Enums.WorklogParseStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -623,6 +802,26 @@ export class PrismaClient<
     * ```
     */
   get manager(): Prisma.ManagerDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.worklogDayNote`: Exposes CRUD operations for the **WorklogDayNote** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WorklogDayNotes
+    * const worklogDayNotes = await prisma.worklogDayNote.findMany()
+    * ```
+    */
+  get worklogDayNote(): Prisma.WorklogDayNoteDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.instructorCategory`: Exposes CRUD operations for the **InstructorCategory** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more InstructorCategories
+    * const instructorCategories = await prisma.instructorCategory.findMany()
+    * ```
+    */
+  get instructorCategory(): Prisma.InstructorCategoryDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.instructor`: Exposes CRUD operations for the **Instructor** model.
@@ -883,6 +1082,36 @@ export class PrismaClient<
     * ```
     */
   get metricsJobRun(): Prisma.MetricsJobRunDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.importJob`: Exposes CRUD operations for the **ImportJob** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ImportJobs
+    * const importJobs = await prisma.importJob.findMany()
+    * ```
+    */
+  get importJob(): Prisma.ImportJobDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.deliverableType`: Exposes CRUD operations for the **DeliverableType** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more DeliverableTypes
+    * const deliverableTypes = await prisma.deliverableType.findMany()
+    * ```
+    */
+  get deliverableType(): Prisma.DeliverableTypeDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.worklogSubmission`: Exposes CRUD operations for the **WorklogSubmission** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WorklogSubmissions
+    * const worklogSubmissions = await prisma.worklogSubmission.findMany()
+    * ```
+    */
+  get worklogSubmission(): Prisma.WorklogSubmissionDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1335,6 +1564,8 @@ export namespace Prisma {
     UniversityWorkingHours: 'UniversityWorkingHours',
     UniversityHoliday: 'UniversityHoliday',
     Manager: 'Manager',
+    WorklogDayNote: 'WorklogDayNote',
+    InstructorCategory: 'InstructorCategory',
     Instructor: 'Instructor',
     ActivityType: 'ActivityType',
     LeaveRequest: 'LeaveRequest',
@@ -1360,7 +1591,10 @@ export namespace Prisma {
     InstructorWeeklyMetric: 'InstructorWeeklyMetric',
     UniversityDailyMetric: 'UniversityDailyMetric',
     ReportJob: 'ReportJob',
-    MetricsJobRun: 'MetricsJobRun'
+    MetricsJobRun: 'MetricsJobRun',
+    ImportJob: 'ImportJob',
+    DeliverableType: 'DeliverableType',
+    WorklogSubmission: 'WorklogSubmission'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1376,7 +1610,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1747,6 +1981,154 @@ export namespace Prisma {
           count: {
             args: Prisma.ManagerCountArgs<ExtArgs>
             result: $Utils.Optional<ManagerCountAggregateOutputType> | number
+          }
+        }
+      }
+      WorklogDayNote: {
+        payload: Prisma.$WorklogDayNotePayload<ExtArgs>
+        fields: Prisma.WorklogDayNoteFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WorklogDayNoteFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WorklogDayNoteFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          findFirst: {
+            args: Prisma.WorklogDayNoteFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WorklogDayNoteFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          findMany: {
+            args: Prisma.WorklogDayNoteFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>[]
+          }
+          create: {
+            args: Prisma.WorklogDayNoteCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          createMany: {
+            args: Prisma.WorklogDayNoteCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WorklogDayNoteCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>[]
+          }
+          delete: {
+            args: Prisma.WorklogDayNoteDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          update: {
+            args: Prisma.WorklogDayNoteUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          deleteMany: {
+            args: Prisma.WorklogDayNoteDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WorklogDayNoteUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WorklogDayNoteUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>[]
+          }
+          upsert: {
+            args: Prisma.WorklogDayNoteUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDayNotePayload>
+          }
+          aggregate: {
+            args: Prisma.WorklogDayNoteAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWorklogDayNote>
+          }
+          groupBy: {
+            args: Prisma.WorklogDayNoteGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WorklogDayNoteGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WorklogDayNoteCountArgs<ExtArgs>
+            result: $Utils.Optional<WorklogDayNoteCountAggregateOutputType> | number
+          }
+        }
+      }
+      InstructorCategory: {
+        payload: Prisma.$InstructorCategoryPayload<ExtArgs>
+        fields: Prisma.InstructorCategoryFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.InstructorCategoryFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.InstructorCategoryFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          findFirst: {
+            args: Prisma.InstructorCategoryFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.InstructorCategoryFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          findMany: {
+            args: Prisma.InstructorCategoryFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
+          }
+          create: {
+            args: Prisma.InstructorCategoryCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          createMany: {
+            args: Prisma.InstructorCategoryCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.InstructorCategoryCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
+          }
+          delete: {
+            args: Prisma.InstructorCategoryDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          update: {
+            args: Prisma.InstructorCategoryUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          deleteMany: {
+            args: Prisma.InstructorCategoryDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.InstructorCategoryUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.InstructorCategoryUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
+          }
+          upsert: {
+            args: Prisma.InstructorCategoryUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
+          }
+          aggregate: {
+            args: Prisma.InstructorCategoryAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateInstructorCategory>
+          }
+          groupBy: {
+            args: Prisma.InstructorCategoryGroupByArgs<ExtArgs>
+            result: $Utils.Optional<InstructorCategoryGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.InstructorCategoryCountArgs<ExtArgs>
+            result: $Utils.Optional<InstructorCategoryCountAggregateOutputType> | number
           }
         }
       }
@@ -3674,6 +4056,228 @@ export namespace Prisma {
           }
         }
       }
+      ImportJob: {
+        payload: Prisma.$ImportJobPayload<ExtArgs>
+        fields: Prisma.ImportJobFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ImportJobFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ImportJobFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          findFirst: {
+            args: Prisma.ImportJobFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ImportJobFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          findMany: {
+            args: Prisma.ImportJobFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>[]
+          }
+          create: {
+            args: Prisma.ImportJobCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          createMany: {
+            args: Prisma.ImportJobCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ImportJobCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>[]
+          }
+          delete: {
+            args: Prisma.ImportJobDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          update: {
+            args: Prisma.ImportJobUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          deleteMany: {
+            args: Prisma.ImportJobDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ImportJobUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.ImportJobUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>[]
+          }
+          upsert: {
+            args: Prisma.ImportJobUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ImportJobPayload>
+          }
+          aggregate: {
+            args: Prisma.ImportJobAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateImportJob>
+          }
+          groupBy: {
+            args: Prisma.ImportJobGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ImportJobGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ImportJobCountArgs<ExtArgs>
+            result: $Utils.Optional<ImportJobCountAggregateOutputType> | number
+          }
+        }
+      }
+      DeliverableType: {
+        payload: Prisma.$DeliverableTypePayload<ExtArgs>
+        fields: Prisma.DeliverableTypeFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.DeliverableTypeFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.DeliverableTypeFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          findFirst: {
+            args: Prisma.DeliverableTypeFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.DeliverableTypeFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          findMany: {
+            args: Prisma.DeliverableTypeFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>[]
+          }
+          create: {
+            args: Prisma.DeliverableTypeCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          createMany: {
+            args: Prisma.DeliverableTypeCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.DeliverableTypeCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>[]
+          }
+          delete: {
+            args: Prisma.DeliverableTypeDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          update: {
+            args: Prisma.DeliverableTypeUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          deleteMany: {
+            args: Prisma.DeliverableTypeDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.DeliverableTypeUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.DeliverableTypeUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>[]
+          }
+          upsert: {
+            args: Prisma.DeliverableTypeUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DeliverableTypePayload>
+          }
+          aggregate: {
+            args: Prisma.DeliverableTypeAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateDeliverableType>
+          }
+          groupBy: {
+            args: Prisma.DeliverableTypeGroupByArgs<ExtArgs>
+            result: $Utils.Optional<DeliverableTypeGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.DeliverableTypeCountArgs<ExtArgs>
+            result: $Utils.Optional<DeliverableTypeCountAggregateOutputType> | number
+          }
+        }
+      }
+      WorklogSubmission: {
+        payload: Prisma.$WorklogSubmissionPayload<ExtArgs>
+        fields: Prisma.WorklogSubmissionFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WorklogSubmissionFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WorklogSubmissionFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          findFirst: {
+            args: Prisma.WorklogSubmissionFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WorklogSubmissionFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          findMany: {
+            args: Prisma.WorklogSubmissionFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>[]
+          }
+          create: {
+            args: Prisma.WorklogSubmissionCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          createMany: {
+            args: Prisma.WorklogSubmissionCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WorklogSubmissionCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>[]
+          }
+          delete: {
+            args: Prisma.WorklogSubmissionDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          update: {
+            args: Prisma.WorklogSubmissionUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          deleteMany: {
+            args: Prisma.WorklogSubmissionDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WorklogSubmissionUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WorklogSubmissionUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>[]
+          }
+          upsert: {
+            args: Prisma.WorklogSubmissionUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogSubmissionPayload>
+          }
+          aggregate: {
+            args: Prisma.WorklogSubmissionAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWorklogSubmission>
+          }
+          groupBy: {
+            args: Prisma.WorklogSubmissionGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WorklogSubmissionGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WorklogSubmissionCountArgs<ExtArgs>
+            result: $Utils.Optional<WorklogSubmissionCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -3802,6 +4406,8 @@ export namespace Prisma {
     universityWorkingHours?: UniversityWorkingHoursOmit
     universityHoliday?: UniversityHolidayOmit
     manager?: ManagerOmit
+    worklogDayNote?: WorklogDayNoteOmit
+    instructorCategory?: InstructorCategoryOmit
     instructor?: InstructorOmit
     activityType?: ActivityTypeOmit
     leaveRequest?: LeaveRequestOmit
@@ -3828,6 +4434,9 @@ export namespace Prisma {
     universityDailyMetric?: UniversityDailyMetricOmit
     reportJob?: ReportJobOmit
     metricsJobRun?: MetricsJobRunOmit
+    importJob?: ImportJobOmit
+    deliverableType?: DeliverableTypeOmit
+    worklogSubmission?: WorklogSubmissionOmit
   }
 
   /* Types for Logging */
@@ -3912,6 +4521,8 @@ export namespace Prisma {
     auditLogs: number
     notifications: number
     reportJobs: number
+    importJobs: number
+    worklogDecisions: number
     activityLogsCreated: number
     deliverablesCreated: number
   }
@@ -3921,6 +4532,8 @@ export namespace Prisma {
     auditLogs?: boolean | UserCountOutputTypeCountAuditLogsArgs
     notifications?: boolean | UserCountOutputTypeCountNotificationsArgs
     reportJobs?: boolean | UserCountOutputTypeCountReportJobsArgs
+    importJobs?: boolean | UserCountOutputTypeCountImportJobsArgs
+    worklogDecisions?: boolean | UserCountOutputTypeCountWorklogDecisionsArgs
     activityLogsCreated?: boolean | UserCountOutputTypeCountActivityLogsCreatedArgs
     deliverablesCreated?: boolean | UserCountOutputTypeCountDeliverablesCreatedArgs
   }
@@ -3967,6 +4580,20 @@ export namespace Prisma {
   /**
    * UserCountOutputType without action
    */
+  export type UserCountOutputTypeCountImportJobsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ImportJobWhereInput
+  }
+
+  /**
+   * UserCountOutputType without action
+   */
+  export type UserCountOutputTypeCountWorklogDecisionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogSubmissionWhereInput
+  }
+
+  /**
+   * UserCountOutputType without action
+   */
   export type UserCountOutputTypeCountActivityLogsCreatedArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ActivityLogWhereInput
   }
@@ -3994,6 +4621,7 @@ export namespace Prisma {
     deliverables: number
     aiInsights: number
     auditLogs: number
+    worklogSubmissions: number
     notifications: number
     departments: number
     programs: number
@@ -4023,6 +4651,7 @@ export namespace Prisma {
     deliverables?: boolean | UniversityCountOutputTypeCountDeliverablesArgs
     aiInsights?: boolean | UniversityCountOutputTypeCountAiInsightsArgs
     auditLogs?: boolean | UniversityCountOutputTypeCountAuditLogsArgs
+    worklogSubmissions?: boolean | UniversityCountOutputTypeCountWorklogSubmissionsArgs
     notifications?: boolean | UniversityCountOutputTypeCountNotificationsArgs
     departments?: boolean | UniversityCountOutputTypeCountDepartmentsArgs
     programs?: boolean | UniversityCountOutputTypeCountProgramsArgs
@@ -4120,6 +4749,13 @@ export namespace Prisma {
    */
   export type UniversityCountOutputTypeCountAuditLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: AuditLogWhereInput
+  }
+
+  /**
+   * UniversityCountOutputType without action
+   */
+  export type UniversityCountOutputTypeCountWorklogSubmissionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogSubmissionWhereInput
   }
 
   /**
@@ -4241,10 +4877,12 @@ export namespace Prisma {
 
   export type ManagerCountOutputType = {
     aiInsights: number
+    instructors: number
   }
 
   export type ManagerCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     aiInsights?: boolean | ManagerCountOutputTypeCountAiInsightsArgs
+    instructors?: boolean | ManagerCountOutputTypeCountInstructorsArgs
   }
 
   // Custom InputTypes
@@ -4265,6 +4903,53 @@ export namespace Prisma {
     where?: AiInsightWhereInput
   }
 
+  /**
+   * ManagerCountOutputType without action
+   */
+  export type ManagerCountOutputTypeCountInstructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: InstructorWhereInput
+  }
+
+
+  /**
+   * Count Type InstructorCategoryCountOutputType
+   */
+
+  export type InstructorCategoryCountOutputType = {
+    instructors: number
+    activityLogs: number
+  }
+
+  export type InstructorCategoryCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructors?: boolean | InstructorCategoryCountOutputTypeCountInstructorsArgs
+    activityLogs?: boolean | InstructorCategoryCountOutputTypeCountActivityLogsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * InstructorCategoryCountOutputType without action
+   */
+  export type InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategoryCountOutputType
+     */
+    select?: InstructorCategoryCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * InstructorCategoryCountOutputType without action
+   */
+  export type InstructorCategoryCountOutputTypeCountInstructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: InstructorWhereInput
+  }
+
+  /**
+   * InstructorCategoryCountOutputType without action
+   */
+  export type InstructorCategoryCountOutputTypeCountActivityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ActivityLogWhereInput
+  }
+
 
   /**
    * Count Type InstructorCountOutputType
@@ -4282,6 +4967,8 @@ export namespace Prisma {
     deliverableLogs: number
     instructorDailyMetrics: number
     instructorWeeklyMetrics: number
+    worklogDayNotes: number
+    worklogSubmissions: number
   }
 
   export type InstructorCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4296,6 +4983,8 @@ export namespace Prisma {
     deliverableLogs?: boolean | InstructorCountOutputTypeCountDeliverableLogsArgs
     instructorDailyMetrics?: boolean | InstructorCountOutputTypeCountInstructorDailyMetricsArgs
     instructorWeeklyMetrics?: boolean | InstructorCountOutputTypeCountInstructorWeeklyMetricsArgs
+    worklogDayNotes?: boolean | InstructorCountOutputTypeCountWorklogDayNotesArgs
+    worklogSubmissions?: boolean | InstructorCountOutputTypeCountWorklogSubmissionsArgs
   }
 
   // Custom InputTypes
@@ -4386,6 +5075,20 @@ export namespace Prisma {
     where?: InstructorWeeklyMetricWhereInput
   }
 
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountWorklogDayNotesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogDayNoteWhereInput
+  }
+
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountWorklogSubmissionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogSubmissionWhereInput
+  }
+
 
   /**
    * Count Type ActivityTypeCountOutputType
@@ -4395,12 +5098,14 @@ export namespace Prisma {
     activityLogs: number
     scheduleSlots: number
     workloadTargets: number
+    deliverableTypes: number
   }
 
   export type ActivityTypeCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     activityLogs?: boolean | ActivityTypeCountOutputTypeCountActivityLogsArgs
     scheduleSlots?: boolean | ActivityTypeCountOutputTypeCountScheduleSlotsArgs
     workloadTargets?: boolean | ActivityTypeCountOutputTypeCountWorkloadTargetsArgs
+    deliverableTypes?: boolean | ActivityTypeCountOutputTypeCountDeliverableTypesArgs
   }
 
   // Custom InputTypes
@@ -4433,6 +5138,13 @@ export namespace Prisma {
    */
   export type ActivityTypeCountOutputTypeCountWorkloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: WorkloadTargetWhereInput
+  }
+
+  /**
+   * ActivityTypeCountOutputType without action
+   */
+  export type ActivityTypeCountOutputTypeCountDeliverableTypesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DeliverableTypeWhereInput
   }
 
 
@@ -4690,6 +5402,68 @@ export namespace Prisma {
 
 
   /**
+   * Count Type DeliverableTypeCountOutputType
+   */
+
+  export type DeliverableTypeCountOutputType = {
+    activityLogs: number
+  }
+
+  export type DeliverableTypeCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    activityLogs?: boolean | DeliverableTypeCountOutputTypeCountActivityLogsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * DeliverableTypeCountOutputType without action
+   */
+  export type DeliverableTypeCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableTypeCountOutputType
+     */
+    select?: DeliverableTypeCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * DeliverableTypeCountOutputType without action
+   */
+  export type DeliverableTypeCountOutputTypeCountActivityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ActivityLogWhereInput
+  }
+
+
+  /**
+   * Count Type WorklogSubmissionCountOutputType
+   */
+
+  export type WorklogSubmissionCountOutputType = {
+    activities: number
+  }
+
+  export type WorklogSubmissionCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    activities?: boolean | WorklogSubmissionCountOutputTypeCountActivitiesArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * WorklogSubmissionCountOutputType without action
+   */
+  export type WorklogSubmissionCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmissionCountOutputType
+     */
+    select?: WorklogSubmissionCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * WorklogSubmissionCountOutputType without action
+   */
+  export type WorklogSubmissionCountOutputTypeCountActivitiesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ActivityLogWhereInput
+  }
+
+
+  /**
    * Models
    */
 
@@ -4711,8 +5485,10 @@ export namespace Prisma {
     role: $Enums.Role | null
     isActive: boolean | null
     phone: string | null
+    avatarUrl: string | null
     lastLoginAt: Date | null
     deletedAt: Date | null
+    leftReason: string | null
     universityId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -4726,8 +5502,10 @@ export namespace Prisma {
     role: $Enums.Role | null
     isActive: boolean | null
     phone: string | null
+    avatarUrl: string | null
     lastLoginAt: Date | null
     deletedAt: Date | null
+    leftReason: string | null
     universityId: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -4741,8 +5519,10 @@ export namespace Prisma {
     role: number
     isActive: number
     phone: number
+    avatarUrl: number
     lastLoginAt: number
     deletedAt: number
+    leftReason: number
     universityId: number
     createdAt: number
     updatedAt: number
@@ -4758,8 +5538,10 @@ export namespace Prisma {
     role?: true
     isActive?: true
     phone?: true
+    avatarUrl?: true
     lastLoginAt?: true
     deletedAt?: true
+    leftReason?: true
     universityId?: true
     createdAt?: true
     updatedAt?: true
@@ -4773,8 +5555,10 @@ export namespace Prisma {
     role?: true
     isActive?: true
     phone?: true
+    avatarUrl?: true
     lastLoginAt?: true
     deletedAt?: true
+    leftReason?: true
     universityId?: true
     createdAt?: true
     updatedAt?: true
@@ -4788,8 +5572,10 @@ export namespace Prisma {
     role?: true
     isActive?: true
     phone?: true
+    avatarUrl?: true
     lastLoginAt?: true
     deletedAt?: true
+    leftReason?: true
     universityId?: true
     createdAt?: true
     updatedAt?: true
@@ -4876,8 +5662,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive: boolean
     phone: string | null
+    avatarUrl: string | null
     lastLoginAt: Date | null
     deletedAt: Date | null
+    leftReason: string | null
     universityId: string | null
     createdAt: Date
     updatedAt: Date
@@ -4908,8 +5696,10 @@ export namespace Prisma {
     role?: boolean
     isActive?: boolean
     phone?: boolean
+    avatarUrl?: boolean
     lastLoginAt?: boolean
     deletedAt?: boolean
+    leftReason?: boolean
     universityId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -4920,6 +5710,8 @@ export namespace Prisma {
     auditLogs?: boolean | User$auditLogsArgs<ExtArgs>
     notifications?: boolean | User$notificationsArgs<ExtArgs>
     reportJobs?: boolean | User$reportJobsArgs<ExtArgs>
+    importJobs?: boolean | User$importJobsArgs<ExtArgs>
+    worklogDecisions?: boolean | User$worklogDecisionsArgs<ExtArgs>
     activityLogsCreated?: boolean | User$activityLogsCreatedArgs<ExtArgs>
     deliverablesCreated?: boolean | User$deliverablesCreatedArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -4933,8 +5725,10 @@ export namespace Prisma {
     role?: boolean
     isActive?: boolean
     phone?: boolean
+    avatarUrl?: boolean
     lastLoginAt?: boolean
     deletedAt?: boolean
+    leftReason?: boolean
     universityId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -4949,8 +5743,10 @@ export namespace Prisma {
     role?: boolean
     isActive?: boolean
     phone?: boolean
+    avatarUrl?: boolean
     lastLoginAt?: boolean
     deletedAt?: boolean
+    leftReason?: boolean
     universityId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -4965,14 +5761,16 @@ export namespace Prisma {
     role?: boolean
     isActive?: boolean
     phone?: boolean
+    avatarUrl?: boolean
     lastLoginAt?: boolean
     deletedAt?: boolean
+    leftReason?: boolean
     universityId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "role" | "isActive" | "phone" | "lastLoginAt" | "deletedAt" | "universityId" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "passwordHash" | "name" | "role" | "isActive" | "phone" | "avatarUrl" | "lastLoginAt" | "deletedAt" | "leftReason" | "universityId" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | User$universityArgs<ExtArgs>
     managerProfile?: boolean | User$managerProfileArgs<ExtArgs>
@@ -4981,6 +5779,8 @@ export namespace Prisma {
     auditLogs?: boolean | User$auditLogsArgs<ExtArgs>
     notifications?: boolean | User$notificationsArgs<ExtArgs>
     reportJobs?: boolean | User$reportJobsArgs<ExtArgs>
+    importJobs?: boolean | User$importJobsArgs<ExtArgs>
+    worklogDecisions?: boolean | User$worklogDecisionsArgs<ExtArgs>
     activityLogsCreated?: boolean | User$activityLogsCreatedArgs<ExtArgs>
     deliverablesCreated?: boolean | User$deliverablesCreatedArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -5002,6 +5802,8 @@ export namespace Prisma {
       auditLogs: Prisma.$AuditLogPayload<ExtArgs>[]
       notifications: Prisma.$NotificationPayload<ExtArgs>[]
       reportJobs: Prisma.$ReportJobPayload<ExtArgs>[]
+      importJobs: Prisma.$ImportJobPayload<ExtArgs>[]
+      worklogDecisions: Prisma.$WorklogSubmissionPayload<ExtArgs>[]
       /**
        * Records this user authored on someone else's behalf (§14 created_by).
        */
@@ -5016,11 +5818,34 @@ export namespace Prisma {
       role: $Enums.Role
       isActive: boolean
       phone: string | null
+      /**
+       * The user's own profile picture, held as a size-capped `data:` URI.
+       * 
+       * A column rather than a file because this application has no object storage
+       * and deliberately writes no uploads to disk — the bulk importer drops the
+       * files it reads for the same reason. An avatar is small and is read only by
+       * the profile endpoints, never by session validation, so the cost stays where
+       * it belongs. The endpoint enforces the image type and the size cap; nothing
+       * else in the application writes this field.
+       */
+      avatarUrl: string | null
       lastLoginAt: Date | null
       /**
-       * Soft delete: an instructor leaving must not erase their recorded work.
+       * When this person left. Soft delete: someone leaving must not erase their
+       * recorded work. Set together with `isActive: false`, cleared if they are
+       * ever reinstated.
+       * 
+       * `isActive` alone answered "can they sign in", which is the security
+       * question, and left the OPERATIONAL one — who left, and when — recoverable
+       * only by reading the audit log. A company keeps a leavers list; this is the
+       * column that makes one queryable.
        */
       deletedAt: Date | null
+      /**
+       * Why they left, in the operator's own words. Never a credential, and never
+       * a judgement the system invented — it is typed by whoever processes the exit.
+       */
+      leftReason: string | null
       universityId: string | null
       createdAt: Date
       updatedAt: Date
@@ -5425,6 +6250,8 @@ export namespace Prisma {
     auditLogs<T extends User$auditLogsArgs<ExtArgs> = {}>(args?: Subset<T, User$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     notifications<T extends User$notificationsArgs<ExtArgs> = {}>(args?: Subset<T, User$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     reportJobs<T extends User$reportJobsArgs<ExtArgs> = {}>(args?: Subset<T, User$reportJobsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ReportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    importJobs<T extends User$importJobsArgs<ExtArgs> = {}>(args?: Subset<T, User$importJobsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogDecisions<T extends User$worklogDecisionsArgs<ExtArgs> = {}>(args?: Subset<T, User$worklogDecisionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     activityLogsCreated<T extends User$activityLogsCreatedArgs<ExtArgs> = {}>(args?: Subset<T, User$activityLogsCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverablesCreated<T extends User$deliverablesCreatedArgs<ExtArgs> = {}>(args?: Subset<T, User$deliverablesCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverablePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
@@ -5463,8 +6290,10 @@ export namespace Prisma {
     readonly role: FieldRef<"User", 'Role'>
     readonly isActive: FieldRef<"User", 'Boolean'>
     readonly phone: FieldRef<"User", 'String'>
+    readonly avatarUrl: FieldRef<"User", 'String'>
     readonly lastLoginAt: FieldRef<"User", 'DateTime'>
     readonly deletedAt: FieldRef<"User", 'DateTime'>
+    readonly leftReason: FieldRef<"User", 'String'>
     readonly universityId: FieldRef<"User", 'String'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
     readonly updatedAt: FieldRef<"User", 'DateTime'>
@@ -6022,6 +6851,54 @@ export namespace Prisma {
   }
 
   /**
+   * User.importJobs
+   */
+  export type User$importJobsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    where?: ImportJobWhereInput
+    orderBy?: ImportJobOrderByWithRelationInput | ImportJobOrderByWithRelationInput[]
+    cursor?: ImportJobWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ImportJobScalarFieldEnum | ImportJobScalarFieldEnum[]
+  }
+
+  /**
+   * User.worklogDecisions
+   */
+  export type User$worklogDecisionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    where?: WorklogSubmissionWhereInput
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    cursor?: WorklogSubmissionWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
+  }
+
+  /**
    * User.activityLogsCreated
    */
   export type User$activityLogsCreatedArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -6409,6 +7286,7 @@ export namespace Prisma {
     deliverables?: boolean | University$deliverablesArgs<ExtArgs>
     aiInsights?: boolean | University$aiInsightsArgs<ExtArgs>
     auditLogs?: boolean | University$auditLogsArgs<ExtArgs>
+    worklogSubmissions?: boolean | University$worklogSubmissionsArgs<ExtArgs>
     notifications?: boolean | University$notificationsArgs<ExtArgs>
     universitySettings?: boolean | University$universitySettingsArgs<ExtArgs>
     departments?: boolean | University$departmentsArgs<ExtArgs>
@@ -6507,6 +7385,7 @@ export namespace Prisma {
     deliverables?: boolean | University$deliverablesArgs<ExtArgs>
     aiInsights?: boolean | University$aiInsightsArgs<ExtArgs>
     auditLogs?: boolean | University$auditLogsArgs<ExtArgs>
+    worklogSubmissions?: boolean | University$worklogSubmissionsArgs<ExtArgs>
     notifications?: boolean | University$notificationsArgs<ExtArgs>
     universitySettings?: boolean | University$universitySettingsArgs<ExtArgs>
     departments?: boolean | University$departmentsArgs<ExtArgs>
@@ -6547,6 +7426,7 @@ export namespace Prisma {
       deliverables: Prisma.$DeliverablePayload<ExtArgs>[]
       aiInsights: Prisma.$AiInsightPayload<ExtArgs>[]
       auditLogs: Prisma.$AuditLogPayload<ExtArgs>[]
+      worklogSubmissions: Prisma.$WorklogSubmissionPayload<ExtArgs>[]
       notifications: Prisma.$NotificationPayload<ExtArgs>[]
       universitySettings: Prisma.$UniversitySettingsPayload<ExtArgs> | null
       departments: Prisma.$DepartmentPayload<ExtArgs>[]
@@ -7014,6 +7894,7 @@ export namespace Prisma {
     deliverables<T extends University$deliverablesArgs<ExtArgs> = {}>(args?: Subset<T, University$deliverablesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverablePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     aiInsights<T extends University$aiInsightsArgs<ExtArgs> = {}>(args?: Subset<T, University$aiInsightsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     auditLogs<T extends University$auditLogsArgs<ExtArgs> = {}>(args?: Subset<T, University$auditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogSubmissions<T extends University$worklogSubmissionsArgs<ExtArgs> = {}>(args?: Subset<T, University$worklogSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     notifications<T extends University$notificationsArgs<ExtArgs> = {}>(args?: Subset<T, University$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     universitySettings<T extends University$universitySettingsArgs<ExtArgs> = {}>(args?: Subset<T, University$universitySettingsArgs<ExtArgs>>): Prisma__UniversitySettingsClient<$Result.GetResult<Prisma.$UniversitySettingsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     departments<T extends University$departmentsArgs<ExtArgs> = {}>(args?: Subset<T, University$departmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -7735,6 +8616,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: AuditLogScalarFieldEnum | AuditLogScalarFieldEnum[]
+  }
+
+  /**
+   * University.worklogSubmissions
+   */
+  export type University$worklogSubmissionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    where?: WorklogSubmissionWhereInput
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    cursor?: WorklogSubmissionWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
   }
 
   /**
@@ -10510,6 +11415,7 @@ export namespace Prisma {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     primaryOf?: boolean | Manager$primaryOfArgs<ExtArgs>
     aiInsights?: boolean | Manager$aiInsightsArgs<ExtArgs>
+    instructors?: boolean | Manager$instructorsArgs<ExtArgs>
     _count?: boolean | ManagerCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["manager"]>
 
@@ -10550,6 +11456,7 @@ export namespace Prisma {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     primaryOf?: boolean | Manager$primaryOfArgs<ExtArgs>
     aiInsights?: boolean | Manager$aiInsightsArgs<ExtArgs>
+    instructors?: boolean | Manager$instructorsArgs<ExtArgs>
     _count?: boolean | ManagerCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ManagerIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -10568,6 +11475,12 @@ export namespace Prisma {
       university: Prisma.$UniversityPayload<ExtArgs>
       primaryOf: Prisma.$UniversityPayload<ExtArgs> | null
       aiInsights: Prisma.$AiInsightPayload<ExtArgs>[]
+      /**
+       * The instructors this manager leads. A manager owns a roster, not the whole
+       * university: two managers in one tenant have different people reporting to
+       * them, which is the distinction the university-level scope cannot express.
+       */
+      instructors: Prisma.$InstructorPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -10974,6 +11887,7 @@ export namespace Prisma {
     university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     primaryOf<T extends Manager$primaryOfArgs<ExtArgs> = {}>(args?: Subset<T, Manager$primaryOfArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     aiInsights<T extends Manager$aiInsightsArgs<ExtArgs> = {}>(args?: Subset<T, Manager$aiInsightsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    instructors<T extends Manager$instructorsArgs<ExtArgs> = {}>(args?: Subset<T, Manager$instructorsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -11453,6 +12367,30 @@ export namespace Prisma {
   }
 
   /**
+   * Manager.instructors
+   */
+  export type Manager$instructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Instructor
+     */
+    select?: InstructorSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Instructor
+     */
+    omit?: InstructorOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorInclude<ExtArgs> | null
+    where?: InstructorWhereInput
+    orderBy?: InstructorOrderByWithRelationInput | InstructorOrderByWithRelationInput[]
+    cursor?: InstructorWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: InstructorScalarFieldEnum | InstructorScalarFieldEnum[]
+  }
+
+  /**
    * Manager without action
    */
   export type ManagerDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -11472,6 +12410,2261 @@ export namespace Prisma {
 
 
   /**
+   * Model WorklogDayNote
+   */
+
+  export type AggregateWorklogDayNote = {
+    _count: WorklogDayNoteCountAggregateOutputType | null
+    _min: WorklogDayNoteMinAggregateOutputType | null
+    _max: WorklogDayNoteMaxAggregateOutputType | null
+  }
+
+  export type WorklogDayNoteMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    note: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogDayNoteMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    note: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogDayNoteCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    universityId: number
+    workDate: number
+    note: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WorklogDayNoteMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    note?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogDayNoteMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    note?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogDayNoteCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    note?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WorklogDayNoteAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogDayNote to aggregate.
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDayNotes to fetch.
+     */
+    orderBy?: WorklogDayNoteOrderByWithRelationInput | WorklogDayNoteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WorklogDayNoteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDayNotes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDayNotes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WorklogDayNotes
+    **/
+    _count?: true | WorklogDayNoteCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WorklogDayNoteMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WorklogDayNoteMaxAggregateInputType
+  }
+
+  export type GetWorklogDayNoteAggregateType<T extends WorklogDayNoteAggregateArgs> = {
+        [P in keyof T & keyof AggregateWorklogDayNote]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWorklogDayNote[P]>
+      : GetScalarType<T[P], AggregateWorklogDayNote[P]>
+  }
+
+
+
+
+  export type WorklogDayNoteGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogDayNoteWhereInput
+    orderBy?: WorklogDayNoteOrderByWithAggregationInput | WorklogDayNoteOrderByWithAggregationInput[]
+    by: WorklogDayNoteScalarFieldEnum[] | WorklogDayNoteScalarFieldEnum
+    having?: WorklogDayNoteScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WorklogDayNoteCountAggregateInputType | true
+    _min?: WorklogDayNoteMinAggregateInputType
+    _max?: WorklogDayNoteMaxAggregateInputType
+  }
+
+  export type WorklogDayNoteGroupByOutputType = {
+    id: string
+    instructorId: string
+    universityId: string
+    workDate: Date
+    note: string
+    createdAt: Date
+    updatedAt: Date
+    _count: WorklogDayNoteCountAggregateOutputType | null
+    _min: WorklogDayNoteMinAggregateOutputType | null
+    _max: WorklogDayNoteMaxAggregateOutputType | null
+  }
+
+  type GetWorklogDayNoteGroupByPayload<T extends WorklogDayNoteGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WorklogDayNoteGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WorklogDayNoteGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WorklogDayNoteGroupByOutputType[P]>
+            : GetScalarType<T[P], WorklogDayNoteGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WorklogDayNoteSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    note?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDayNote"]>
+
+  export type WorklogDayNoteSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    note?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDayNote"]>
+
+  export type WorklogDayNoteSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    note?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDayNote"]>
+
+  export type WorklogDayNoteSelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    note?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WorklogDayNoteOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "workDate" | "note" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogDayNote"]>
+  export type WorklogDayNoteInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type WorklogDayNoteIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type WorklogDayNoteIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+
+  export type $WorklogDayNotePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WorklogDayNote"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      universityId: string
+      /**
+       * The day being described, in the university's zone.
+       */
+      workDate: Date
+      note: string
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["worklogDayNote"]>
+    composites: {}
+  }
+
+  type WorklogDayNoteGetPayload<S extends boolean | null | undefined | WorklogDayNoteDefaultArgs> = $Result.GetResult<Prisma.$WorklogDayNotePayload, S>
+
+  type WorklogDayNoteCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WorklogDayNoteFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WorklogDayNoteCountAggregateInputType | true
+    }
+
+  export interface WorklogDayNoteDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorklogDayNote'], meta: { name: 'WorklogDayNote' } }
+    /**
+     * Find zero or one WorklogDayNote that matches the filter.
+     * @param {WorklogDayNoteFindUniqueArgs} args - Arguments to find a WorklogDayNote
+     * @example
+     * // Get one WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WorklogDayNoteFindUniqueArgs>(args: SelectSubset<T, WorklogDayNoteFindUniqueArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WorklogDayNote that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WorklogDayNoteFindUniqueOrThrowArgs} args - Arguments to find a WorklogDayNote
+     * @example
+     * // Get one WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WorklogDayNoteFindUniqueOrThrowArgs>(args: SelectSubset<T, WorklogDayNoteFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogDayNote that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteFindFirstArgs} args - Arguments to find a WorklogDayNote
+     * @example
+     * // Get one WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WorklogDayNoteFindFirstArgs>(args?: SelectSubset<T, WorklogDayNoteFindFirstArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogDayNote that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteFindFirstOrThrowArgs} args - Arguments to find a WorklogDayNote
+     * @example
+     * // Get one WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WorklogDayNoteFindFirstOrThrowArgs>(args?: SelectSubset<T, WorklogDayNoteFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WorklogDayNotes that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WorklogDayNotes
+     * const worklogDayNotes = await prisma.worklogDayNote.findMany()
+     * 
+     * // Get first 10 WorklogDayNotes
+     * const worklogDayNotes = await prisma.worklogDayNote.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const worklogDayNoteWithIdOnly = await prisma.worklogDayNote.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WorklogDayNoteFindManyArgs>(args?: SelectSubset<T, WorklogDayNoteFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WorklogDayNote.
+     * @param {WorklogDayNoteCreateArgs} args - Arguments to create a WorklogDayNote.
+     * @example
+     * // Create one WorklogDayNote
+     * const WorklogDayNote = await prisma.worklogDayNote.create({
+     *   data: {
+     *     // ... data to create a WorklogDayNote
+     *   }
+     * })
+     * 
+     */
+    create<T extends WorklogDayNoteCreateArgs>(args: SelectSubset<T, WorklogDayNoteCreateArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WorklogDayNotes.
+     * @param {WorklogDayNoteCreateManyArgs} args - Arguments to create many WorklogDayNotes.
+     * @example
+     * // Create many WorklogDayNotes
+     * const worklogDayNote = await prisma.worklogDayNote.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WorklogDayNoteCreateManyArgs>(args?: SelectSubset<T, WorklogDayNoteCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WorklogDayNotes and returns the data saved in the database.
+     * @param {WorklogDayNoteCreateManyAndReturnArgs} args - Arguments to create many WorklogDayNotes.
+     * @example
+     * // Create many WorklogDayNotes
+     * const worklogDayNote = await prisma.worklogDayNote.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WorklogDayNotes and only return the `id`
+     * const worklogDayNoteWithIdOnly = await prisma.worklogDayNote.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WorklogDayNoteCreateManyAndReturnArgs>(args?: SelectSubset<T, WorklogDayNoteCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WorklogDayNote.
+     * @param {WorklogDayNoteDeleteArgs} args - Arguments to delete one WorklogDayNote.
+     * @example
+     * // Delete one WorklogDayNote
+     * const WorklogDayNote = await prisma.worklogDayNote.delete({
+     *   where: {
+     *     // ... filter to delete one WorklogDayNote
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WorklogDayNoteDeleteArgs>(args: SelectSubset<T, WorklogDayNoteDeleteArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WorklogDayNote.
+     * @param {WorklogDayNoteUpdateArgs} args - Arguments to update one WorklogDayNote.
+     * @example
+     * // Update one WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WorklogDayNoteUpdateArgs>(args: SelectSubset<T, WorklogDayNoteUpdateArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WorklogDayNotes.
+     * @param {WorklogDayNoteDeleteManyArgs} args - Arguments to filter WorklogDayNotes to delete.
+     * @example
+     * // Delete a few WorklogDayNotes
+     * const { count } = await prisma.worklogDayNote.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WorklogDayNoteDeleteManyArgs>(args?: SelectSubset<T, WorklogDayNoteDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogDayNotes.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WorklogDayNotes
+     * const worklogDayNote = await prisma.worklogDayNote.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WorklogDayNoteUpdateManyArgs>(args: SelectSubset<T, WorklogDayNoteUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogDayNotes and returns the data updated in the database.
+     * @param {WorklogDayNoteUpdateManyAndReturnArgs} args - Arguments to update many WorklogDayNotes.
+     * @example
+     * // Update many WorklogDayNotes
+     * const worklogDayNote = await prisma.worklogDayNote.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WorklogDayNotes and only return the `id`
+     * const worklogDayNoteWithIdOnly = await prisma.worklogDayNote.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WorklogDayNoteUpdateManyAndReturnArgs>(args: SelectSubset<T, WorklogDayNoteUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WorklogDayNote.
+     * @param {WorklogDayNoteUpsertArgs} args - Arguments to update or create a WorklogDayNote.
+     * @example
+     * // Update or create a WorklogDayNote
+     * const worklogDayNote = await prisma.worklogDayNote.upsert({
+     *   create: {
+     *     // ... data to create a WorklogDayNote
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WorklogDayNote we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WorklogDayNoteUpsertArgs>(args: SelectSubset<T, WorklogDayNoteUpsertArgs<ExtArgs>>): Prisma__WorklogDayNoteClient<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WorklogDayNotes.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteCountArgs} args - Arguments to filter WorklogDayNotes to count.
+     * @example
+     * // Count the number of WorklogDayNotes
+     * const count = await prisma.worklogDayNote.count({
+     *   where: {
+     *     // ... the filter for the WorklogDayNotes we want to count
+     *   }
+     * })
+    **/
+    count<T extends WorklogDayNoteCountArgs>(
+      args?: Subset<T, WorklogDayNoteCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WorklogDayNoteCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WorklogDayNote.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WorklogDayNoteAggregateArgs>(args: Subset<T, WorklogDayNoteAggregateArgs>): Prisma.PrismaPromise<GetWorklogDayNoteAggregateType<T>>
+
+    /**
+     * Group by WorklogDayNote.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDayNoteGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WorklogDayNoteGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WorklogDayNoteGroupByArgs['orderBy'] }
+        : { orderBy?: WorklogDayNoteGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WorklogDayNoteGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorklogDayNoteGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WorklogDayNote model
+   */
+  readonly fields: WorklogDayNoteFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WorklogDayNote.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WorklogDayNoteClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WorklogDayNote model
+   */
+  interface WorklogDayNoteFieldRefs {
+    readonly id: FieldRef<"WorklogDayNote", 'String'>
+    readonly instructorId: FieldRef<"WorklogDayNote", 'String'>
+    readonly universityId: FieldRef<"WorklogDayNote", 'String'>
+    readonly workDate: FieldRef<"WorklogDayNote", 'DateTime'>
+    readonly note: FieldRef<"WorklogDayNote", 'String'>
+    readonly createdAt: FieldRef<"WorklogDayNote", 'DateTime'>
+    readonly updatedAt: FieldRef<"WorklogDayNote", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WorklogDayNote findUnique
+   */
+  export type WorklogDayNoteFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDayNote to fetch.
+     */
+    where: WorklogDayNoteWhereUniqueInput
+  }
+
+  /**
+   * WorklogDayNote findUniqueOrThrow
+   */
+  export type WorklogDayNoteFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDayNote to fetch.
+     */
+    where: WorklogDayNoteWhereUniqueInput
+  }
+
+  /**
+   * WorklogDayNote findFirst
+   */
+  export type WorklogDayNoteFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDayNote to fetch.
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDayNotes to fetch.
+     */
+    orderBy?: WorklogDayNoteOrderByWithRelationInput | WorklogDayNoteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogDayNotes.
+     */
+    cursor?: WorklogDayNoteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDayNotes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDayNotes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDayNotes.
+     */
+    distinct?: WorklogDayNoteScalarFieldEnum | WorklogDayNoteScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDayNote findFirstOrThrow
+   */
+  export type WorklogDayNoteFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDayNote to fetch.
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDayNotes to fetch.
+     */
+    orderBy?: WorklogDayNoteOrderByWithRelationInput | WorklogDayNoteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogDayNotes.
+     */
+    cursor?: WorklogDayNoteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDayNotes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDayNotes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDayNotes.
+     */
+    distinct?: WorklogDayNoteScalarFieldEnum | WorklogDayNoteScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDayNote findMany
+   */
+  export type WorklogDayNoteFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDayNotes to fetch.
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDayNotes to fetch.
+     */
+    orderBy?: WorklogDayNoteOrderByWithRelationInput | WorklogDayNoteOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WorklogDayNotes.
+     */
+    cursor?: WorklogDayNoteWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDayNotes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDayNotes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDayNotes.
+     */
+    distinct?: WorklogDayNoteScalarFieldEnum | WorklogDayNoteScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDayNote create
+   */
+  export type WorklogDayNoteCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * The data needed to create a WorklogDayNote.
+     */
+    data: XOR<WorklogDayNoteCreateInput, WorklogDayNoteUncheckedCreateInput>
+  }
+
+  /**
+   * WorklogDayNote createMany
+   */
+  export type WorklogDayNoteCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WorklogDayNotes.
+     */
+    data: WorklogDayNoteCreateManyInput | WorklogDayNoteCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogDayNote createManyAndReturn
+   */
+  export type WorklogDayNoteCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * The data used to create many WorklogDayNotes.
+     */
+    data: WorklogDayNoteCreateManyInput | WorklogDayNoteCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogDayNote update
+   */
+  export type WorklogDayNoteUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * The data needed to update a WorklogDayNote.
+     */
+    data: XOR<WorklogDayNoteUpdateInput, WorklogDayNoteUncheckedUpdateInput>
+    /**
+     * Choose, which WorklogDayNote to update.
+     */
+    where: WorklogDayNoteWhereUniqueInput
+  }
+
+  /**
+   * WorklogDayNote updateMany
+   */
+  export type WorklogDayNoteUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WorklogDayNotes.
+     */
+    data: XOR<WorklogDayNoteUpdateManyMutationInput, WorklogDayNoteUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogDayNotes to update
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * Limit how many WorklogDayNotes to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogDayNote updateManyAndReturn
+   */
+  export type WorklogDayNoteUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * The data used to update WorklogDayNotes.
+     */
+    data: XOR<WorklogDayNoteUpdateManyMutationInput, WorklogDayNoteUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogDayNotes to update
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * Limit how many WorklogDayNotes to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogDayNote upsert
+   */
+  export type WorklogDayNoteUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * The filter to search for the WorklogDayNote to update in case it exists.
+     */
+    where: WorklogDayNoteWhereUniqueInput
+    /**
+     * In case the WorklogDayNote found by the `where` argument doesn't exist, create a new WorklogDayNote with this data.
+     */
+    create: XOR<WorklogDayNoteCreateInput, WorklogDayNoteUncheckedCreateInput>
+    /**
+     * In case the WorklogDayNote was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WorklogDayNoteUpdateInput, WorklogDayNoteUncheckedUpdateInput>
+  }
+
+  /**
+   * WorklogDayNote delete
+   */
+  export type WorklogDayNoteDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    /**
+     * Filter which WorklogDayNote to delete.
+     */
+    where: WorklogDayNoteWhereUniqueInput
+  }
+
+  /**
+   * WorklogDayNote deleteMany
+   */
+  export type WorklogDayNoteDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogDayNotes to delete
+     */
+    where?: WorklogDayNoteWhereInput
+    /**
+     * Limit how many WorklogDayNotes to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogDayNote without action
+   */
+  export type WorklogDayNoteDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model InstructorCategory
+   */
+
+  export type AggregateInstructorCategory = {
+    _count: InstructorCategoryCountAggregateOutputType | null
+    _avg: InstructorCategoryAvgAggregateOutputType | null
+    _sum: InstructorCategorySumAggregateOutputType | null
+    _min: InstructorCategoryMinAggregateOutputType | null
+    _max: InstructorCategoryMaxAggregateOutputType | null
+  }
+
+  export type InstructorCategoryAvgAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type InstructorCategorySumAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type InstructorCategoryMinAggregateOutputType = {
+    id: string | null
+    code: string | null
+    label: string | null
+    sortOrder: number | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type InstructorCategoryMaxAggregateOutputType = {
+    id: string | null
+    code: string | null
+    label: string | null
+    sortOrder: number | null
+    isActive: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type InstructorCategoryCountAggregateOutputType = {
+    id: number
+    code: number
+    label: number
+    sortOrder: number
+    isActive: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type InstructorCategoryAvgAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type InstructorCategorySumAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type InstructorCategoryMinAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    sortOrder?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type InstructorCategoryMaxAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    sortOrder?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type InstructorCategoryCountAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    sortOrder?: true
+    isActive?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type InstructorCategoryAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which InstructorCategory to aggregate.
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of InstructorCategories to fetch.
+     */
+    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: InstructorCategoryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` InstructorCategories from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` InstructorCategories.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned InstructorCategories
+    **/
+    _count?: true | InstructorCategoryCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: InstructorCategoryAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: InstructorCategorySumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: InstructorCategoryMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: InstructorCategoryMaxAggregateInputType
+  }
+
+  export type GetInstructorCategoryAggregateType<T extends InstructorCategoryAggregateArgs> = {
+        [P in keyof T & keyof AggregateInstructorCategory]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateInstructorCategory[P]>
+      : GetScalarType<T[P], AggregateInstructorCategory[P]>
+  }
+
+
+
+
+  export type InstructorCategoryGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: InstructorCategoryWhereInput
+    orderBy?: InstructorCategoryOrderByWithAggregationInput | InstructorCategoryOrderByWithAggregationInput[]
+    by: InstructorCategoryScalarFieldEnum[] | InstructorCategoryScalarFieldEnum
+    having?: InstructorCategoryScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: InstructorCategoryCountAggregateInputType | true
+    _avg?: InstructorCategoryAvgAggregateInputType
+    _sum?: InstructorCategorySumAggregateInputType
+    _min?: InstructorCategoryMinAggregateInputType
+    _max?: InstructorCategoryMaxAggregateInputType
+  }
+
+  export type InstructorCategoryGroupByOutputType = {
+    id: string
+    code: string
+    label: string
+    sortOrder: number
+    isActive: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: InstructorCategoryCountAggregateOutputType | null
+    _avg: InstructorCategoryAvgAggregateOutputType | null
+    _sum: InstructorCategorySumAggregateOutputType | null
+    _min: InstructorCategoryMinAggregateOutputType | null
+    _max: InstructorCategoryMaxAggregateOutputType | null
+  }
+
+  type GetInstructorCategoryGroupByPayload<T extends InstructorCategoryGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<InstructorCategoryGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof InstructorCategoryGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], InstructorCategoryGroupByOutputType[P]>
+            : GetScalarType<T[P], InstructorCategoryGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type InstructorCategorySelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructors?: boolean | InstructorCategory$instructorsArgs<ExtArgs>
+    activityLogs?: boolean | InstructorCategory$activityLogsArgs<ExtArgs>
+    _count?: boolean | InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["instructorCategory"]>
+
+  export type InstructorCategorySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["instructorCategory"]>
+
+  export type InstructorCategorySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["instructorCategory"]>
+
+  export type InstructorCategorySelectScalar = {
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type InstructorCategoryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "code" | "label" | "sortOrder" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["instructorCategory"]>
+  export type InstructorCategoryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructors?: boolean | InstructorCategory$instructorsArgs<ExtArgs>
+    activityLogs?: boolean | InstructorCategory$activityLogsArgs<ExtArgs>
+    _count?: boolean | InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type InstructorCategoryIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+  export type InstructorCategoryIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
+
+  export type $InstructorCategoryPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "InstructorCategory"
+    objects: {
+      instructors: Prisma.$InstructorPayload<ExtArgs>[]
+      activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      code: string
+      label: string
+      sortOrder: number
+      isActive: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["instructorCategory"]>
+    composites: {}
+  }
+
+  type InstructorCategoryGetPayload<S extends boolean | null | undefined | InstructorCategoryDefaultArgs> = $Result.GetResult<Prisma.$InstructorCategoryPayload, S>
+
+  type InstructorCategoryCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<InstructorCategoryFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: InstructorCategoryCountAggregateInputType | true
+    }
+
+  export interface InstructorCategoryDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['InstructorCategory'], meta: { name: 'InstructorCategory' } }
+    /**
+     * Find zero or one InstructorCategory that matches the filter.
+     * @param {InstructorCategoryFindUniqueArgs} args - Arguments to find a InstructorCategory
+     * @example
+     * // Get one InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends InstructorCategoryFindUniqueArgs>(args: SelectSubset<T, InstructorCategoryFindUniqueArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one InstructorCategory that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {InstructorCategoryFindUniqueOrThrowArgs} args - Arguments to find a InstructorCategory
+     * @example
+     * // Get one InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends InstructorCategoryFindUniqueOrThrowArgs>(args: SelectSubset<T, InstructorCategoryFindUniqueOrThrowArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first InstructorCategory that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryFindFirstArgs} args - Arguments to find a InstructorCategory
+     * @example
+     * // Get one InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends InstructorCategoryFindFirstArgs>(args?: SelectSubset<T, InstructorCategoryFindFirstArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first InstructorCategory that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryFindFirstOrThrowArgs} args - Arguments to find a InstructorCategory
+     * @example
+     * // Get one InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends InstructorCategoryFindFirstOrThrowArgs>(args?: SelectSubset<T, InstructorCategoryFindFirstOrThrowArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more InstructorCategories that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all InstructorCategories
+     * const instructorCategories = await prisma.instructorCategory.findMany()
+     * 
+     * // Get first 10 InstructorCategories
+     * const instructorCategories = await prisma.instructorCategory.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends InstructorCategoryFindManyArgs>(args?: SelectSubset<T, InstructorCategoryFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a InstructorCategory.
+     * @param {InstructorCategoryCreateArgs} args - Arguments to create a InstructorCategory.
+     * @example
+     * // Create one InstructorCategory
+     * const InstructorCategory = await prisma.instructorCategory.create({
+     *   data: {
+     *     // ... data to create a InstructorCategory
+     *   }
+     * })
+     * 
+     */
+    create<T extends InstructorCategoryCreateArgs>(args: SelectSubset<T, InstructorCategoryCreateArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many InstructorCategories.
+     * @param {InstructorCategoryCreateManyArgs} args - Arguments to create many InstructorCategories.
+     * @example
+     * // Create many InstructorCategories
+     * const instructorCategory = await prisma.instructorCategory.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends InstructorCategoryCreateManyArgs>(args?: SelectSubset<T, InstructorCategoryCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many InstructorCategories and returns the data saved in the database.
+     * @param {InstructorCategoryCreateManyAndReturnArgs} args - Arguments to create many InstructorCategories.
+     * @example
+     * // Create many InstructorCategories
+     * const instructorCategory = await prisma.instructorCategory.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many InstructorCategories and only return the `id`
+     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends InstructorCategoryCreateManyAndReturnArgs>(args?: SelectSubset<T, InstructorCategoryCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a InstructorCategory.
+     * @param {InstructorCategoryDeleteArgs} args - Arguments to delete one InstructorCategory.
+     * @example
+     * // Delete one InstructorCategory
+     * const InstructorCategory = await prisma.instructorCategory.delete({
+     *   where: {
+     *     // ... filter to delete one InstructorCategory
+     *   }
+     * })
+     * 
+     */
+    delete<T extends InstructorCategoryDeleteArgs>(args: SelectSubset<T, InstructorCategoryDeleteArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one InstructorCategory.
+     * @param {InstructorCategoryUpdateArgs} args - Arguments to update one InstructorCategory.
+     * @example
+     * // Update one InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends InstructorCategoryUpdateArgs>(args: SelectSubset<T, InstructorCategoryUpdateArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more InstructorCategories.
+     * @param {InstructorCategoryDeleteManyArgs} args - Arguments to filter InstructorCategories to delete.
+     * @example
+     * // Delete a few InstructorCategories
+     * const { count } = await prisma.instructorCategory.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends InstructorCategoryDeleteManyArgs>(args?: SelectSubset<T, InstructorCategoryDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more InstructorCategories.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many InstructorCategories
+     * const instructorCategory = await prisma.instructorCategory.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends InstructorCategoryUpdateManyArgs>(args: SelectSubset<T, InstructorCategoryUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more InstructorCategories and returns the data updated in the database.
+     * @param {InstructorCategoryUpdateManyAndReturnArgs} args - Arguments to update many InstructorCategories.
+     * @example
+     * // Update many InstructorCategories
+     * const instructorCategory = await prisma.instructorCategory.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more InstructorCategories and only return the `id`
+     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends InstructorCategoryUpdateManyAndReturnArgs>(args: SelectSubset<T, InstructorCategoryUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one InstructorCategory.
+     * @param {InstructorCategoryUpsertArgs} args - Arguments to update or create a InstructorCategory.
+     * @example
+     * // Update or create a InstructorCategory
+     * const instructorCategory = await prisma.instructorCategory.upsert({
+     *   create: {
+     *     // ... data to create a InstructorCategory
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the InstructorCategory we want to update
+     *   }
+     * })
+     */
+    upsert<T extends InstructorCategoryUpsertArgs>(args: SelectSubset<T, InstructorCategoryUpsertArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of InstructorCategories.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryCountArgs} args - Arguments to filter InstructorCategories to count.
+     * @example
+     * // Count the number of InstructorCategories
+     * const count = await prisma.instructorCategory.count({
+     *   where: {
+     *     // ... the filter for the InstructorCategories we want to count
+     *   }
+     * })
+    **/
+    count<T extends InstructorCategoryCountArgs>(
+      args?: Subset<T, InstructorCategoryCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], InstructorCategoryCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a InstructorCategory.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends InstructorCategoryAggregateArgs>(args: Subset<T, InstructorCategoryAggregateArgs>): Prisma.PrismaPromise<GetInstructorCategoryAggregateType<T>>
+
+    /**
+     * Group by InstructorCategory.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {InstructorCategoryGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends InstructorCategoryGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: InstructorCategoryGroupByArgs['orderBy'] }
+        : { orderBy?: InstructorCategoryGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, InstructorCategoryGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetInstructorCategoryGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the InstructorCategory model
+   */
+  readonly fields: InstructorCategoryFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for InstructorCategory.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__InstructorCategoryClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructors<T extends InstructorCategory$instructorsArgs<ExtArgs> = {}>(args?: Subset<T, InstructorCategory$instructorsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    activityLogs<T extends InstructorCategory$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, InstructorCategory$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the InstructorCategory model
+   */
+  interface InstructorCategoryFieldRefs {
+    readonly id: FieldRef<"InstructorCategory", 'String'>
+    readonly code: FieldRef<"InstructorCategory", 'String'>
+    readonly label: FieldRef<"InstructorCategory", 'String'>
+    readonly sortOrder: FieldRef<"InstructorCategory", 'Int'>
+    readonly isActive: FieldRef<"InstructorCategory", 'Boolean'>
+    readonly createdAt: FieldRef<"InstructorCategory", 'DateTime'>
+    readonly updatedAt: FieldRef<"InstructorCategory", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * InstructorCategory findUnique
+   */
+  export type InstructorCategoryFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter, which InstructorCategory to fetch.
+     */
+    where: InstructorCategoryWhereUniqueInput
+  }
+
+  /**
+   * InstructorCategory findUniqueOrThrow
+   */
+  export type InstructorCategoryFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter, which InstructorCategory to fetch.
+     */
+    where: InstructorCategoryWhereUniqueInput
+  }
+
+  /**
+   * InstructorCategory findFirst
+   */
+  export type InstructorCategoryFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter, which InstructorCategory to fetch.
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of InstructorCategories to fetch.
+     */
+    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for InstructorCategories.
+     */
+    cursor?: InstructorCategoryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` InstructorCategories from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` InstructorCategories.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of InstructorCategories.
+     */
+    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
+  }
+
+  /**
+   * InstructorCategory findFirstOrThrow
+   */
+  export type InstructorCategoryFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter, which InstructorCategory to fetch.
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of InstructorCategories to fetch.
+     */
+    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for InstructorCategories.
+     */
+    cursor?: InstructorCategoryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` InstructorCategories from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` InstructorCategories.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of InstructorCategories.
+     */
+    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
+  }
+
+  /**
+   * InstructorCategory findMany
+   */
+  export type InstructorCategoryFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter, which InstructorCategories to fetch.
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of InstructorCategories to fetch.
+     */
+    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing InstructorCategories.
+     */
+    cursor?: InstructorCategoryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` InstructorCategories from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` InstructorCategories.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of InstructorCategories.
+     */
+    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
+  }
+
+  /**
+   * InstructorCategory create
+   */
+  export type InstructorCategoryCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * The data needed to create a InstructorCategory.
+     */
+    data: XOR<InstructorCategoryCreateInput, InstructorCategoryUncheckedCreateInput>
+  }
+
+  /**
+   * InstructorCategory createMany
+   */
+  export type InstructorCategoryCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many InstructorCategories.
+     */
+    data: InstructorCategoryCreateManyInput | InstructorCategoryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * InstructorCategory createManyAndReturn
+   */
+  export type InstructorCategoryCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * The data used to create many InstructorCategories.
+     */
+    data: InstructorCategoryCreateManyInput | InstructorCategoryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * InstructorCategory update
+   */
+  export type InstructorCategoryUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * The data needed to update a InstructorCategory.
+     */
+    data: XOR<InstructorCategoryUpdateInput, InstructorCategoryUncheckedUpdateInput>
+    /**
+     * Choose, which InstructorCategory to update.
+     */
+    where: InstructorCategoryWhereUniqueInput
+  }
+
+  /**
+   * InstructorCategory updateMany
+   */
+  export type InstructorCategoryUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update InstructorCategories.
+     */
+    data: XOR<InstructorCategoryUpdateManyMutationInput, InstructorCategoryUncheckedUpdateManyInput>
+    /**
+     * Filter which InstructorCategories to update
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * Limit how many InstructorCategories to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * InstructorCategory updateManyAndReturn
+   */
+  export type InstructorCategoryUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * The data used to update InstructorCategories.
+     */
+    data: XOR<InstructorCategoryUpdateManyMutationInput, InstructorCategoryUncheckedUpdateManyInput>
+    /**
+     * Filter which InstructorCategories to update
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * Limit how many InstructorCategories to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * InstructorCategory upsert
+   */
+  export type InstructorCategoryUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * The filter to search for the InstructorCategory to update in case it exists.
+     */
+    where: InstructorCategoryWhereUniqueInput
+    /**
+     * In case the InstructorCategory found by the `where` argument doesn't exist, create a new InstructorCategory with this data.
+     */
+    create: XOR<InstructorCategoryCreateInput, InstructorCategoryUncheckedCreateInput>
+    /**
+     * In case the InstructorCategory was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<InstructorCategoryUpdateInput, InstructorCategoryUncheckedUpdateInput>
+  }
+
+  /**
+   * InstructorCategory delete
+   */
+  export type InstructorCategoryDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    /**
+     * Filter which InstructorCategory to delete.
+     */
+    where: InstructorCategoryWhereUniqueInput
+  }
+
+  /**
+   * InstructorCategory deleteMany
+   */
+  export type InstructorCategoryDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which InstructorCategories to delete
+     */
+    where?: InstructorCategoryWhereInput
+    /**
+     * Limit how many InstructorCategories to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * InstructorCategory.instructors
+   */
+  export type InstructorCategory$instructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Instructor
+     */
+    select?: InstructorSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Instructor
+     */
+    omit?: InstructorOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorInclude<ExtArgs> | null
+    where?: InstructorWhereInput
+    orderBy?: InstructorOrderByWithRelationInput | InstructorOrderByWithRelationInput[]
+    cursor?: InstructorWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: InstructorScalarFieldEnum | InstructorScalarFieldEnum[]
+  }
+
+  /**
+   * InstructorCategory.activityLogs
+   */
+  export type InstructorCategory$activityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ActivityLog
+     */
+    select?: ActivityLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ActivityLog
+     */
+    omit?: ActivityLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ActivityLogInclude<ExtArgs> | null
+    where?: ActivityLogWhereInput
+    orderBy?: ActivityLogOrderByWithRelationInput | ActivityLogOrderByWithRelationInput[]
+    cursor?: ActivityLogWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ActivityLogScalarFieldEnum | ActivityLogScalarFieldEnum[]
+  }
+
+  /**
+   * InstructorCategory without action
+   */
+  export type InstructorCategoryDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model Instructor
    */
 
@@ -11485,6 +14678,8 @@ export namespace Prisma {
     id: string | null
     userId: string | null
     universityId: string | null
+    categoryId: string | null
+    managerId: string | null
     employeeCode: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -11494,6 +14689,8 @@ export namespace Prisma {
     id: string | null
     userId: string | null
     universityId: string | null
+    categoryId: string | null
+    managerId: string | null
     employeeCode: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -11503,6 +14700,8 @@ export namespace Prisma {
     id: number
     userId: number
     universityId: number
+    categoryId: number
+    managerId: number
     employeeCode: number
     createdAt: number
     updatedAt: number
@@ -11514,6 +14713,8 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
+    categoryId?: true
+    managerId?: true
     employeeCode?: true
     createdAt?: true
     updatedAt?: true
@@ -11523,6 +14724,8 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
+    categoryId?: true
+    managerId?: true
     employeeCode?: true
     createdAt?: true
     updatedAt?: true
@@ -11532,6 +14735,8 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
+    categoryId?: true
+    managerId?: true
     employeeCode?: true
     createdAt?: true
     updatedAt?: true
@@ -11614,6 +14819,8 @@ export namespace Prisma {
     id: string
     userId: string
     universityId: string
+    categoryId: string | null
+    managerId: string | null
     employeeCode: string | null
     createdAt: Date
     updatedAt: Date
@@ -11640,11 +14847,15 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
+    categoryId?: boolean
+    managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
     activityLogs?: boolean | Instructor$activityLogsArgs<ExtArgs>
     deliverables?: boolean | Instructor$deliverablesArgs<ExtArgs>
     leaveRequests?: boolean | Instructor$leaveRequestsArgs<ExtArgs>
@@ -11656,6 +14867,8 @@ export namespace Prisma {
     deliverableLogs?: boolean | Instructor$deliverableLogsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | Instructor$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
+    worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
+    worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
@@ -11663,37 +14876,49 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
+    categoryId?: boolean
+    managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
   export type InstructorSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     userId?: boolean
     universityId?: boolean
+    categoryId?: boolean
+    managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
   export type InstructorSelectScalar = {
     id?: boolean
     userId?: boolean
     universityId?: boolean
+    categoryId?: boolean
+    managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type InstructorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "employeeCode" | "createdAt" | "updatedAt", ExtArgs["result"]["instructor"]>
+  export type InstructorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "categoryId" | "managerId" | "employeeCode" | "createdAt" | "updatedAt", ExtArgs["result"]["instructor"]>
   export type InstructorInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
     activityLogs?: boolean | Instructor$activityLogsArgs<ExtArgs>
     deliverables?: boolean | Instructor$deliverablesArgs<ExtArgs>
     leaveRequests?: boolean | Instructor$leaveRequestsArgs<ExtArgs>
@@ -11705,22 +14930,30 @@ export namespace Prisma {
     deliverableLogs?: boolean | Instructor$deliverableLogsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | Instructor$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
+    worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
+    worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
   }
   export type InstructorIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
+    manager?: boolean | Instructor$managerArgs<ExtArgs>
   }
 
   export type $InstructorPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Instructor"
     objects: {
+      category: Prisma.$InstructorCategoryPayload<ExtArgs> | null
       user: Prisma.$UserPayload<ExtArgs>
       university: Prisma.$UniversityPayload<ExtArgs>
+      manager: Prisma.$ManagerPayload<ExtArgs> | null
       activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
       deliverables: Prisma.$DeliverablePayload<ExtArgs>[]
       leaveRequests: Prisma.$LeaveRequestPayload<ExtArgs>[]
@@ -11732,11 +14965,36 @@ export namespace Prisma {
       deliverableLogs: Prisma.$DeliverableLogPayload<ExtArgs>[]
       instructorDailyMetrics: Prisma.$InstructorDailyMetricPayload<ExtArgs>[]
       instructorWeeklyMetrics: Prisma.$InstructorWeeklyMetricPayload<ExtArgs>[]
+      worklogDayNotes: Prisma.$WorklogDayNotePayload<ExtArgs>[]
+      worklogSubmissions: Prisma.$WorklogSubmissionPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       userId: string
       universityId: string
+      /**
+       * Nullable because it is ASSIGNED, never inferred — an instructor nobody has
+       * categorised yet is a real state, and the sheet shows it as blank rather
+       * than guessing. `Restrict`, so a category in use cannot be deleted out from
+       * under the rows that report on it.
+       */
+      categoryId: string | null
+      /**
+       * Who this instructor reports to. Nullable because ownership is assigned by
+       * an admin, never inferred: an instructor who has not been placed on a
+       * roster yet is "unassigned", which is a real state and not a defect.
+       * 
+       * The FK is COMPOSITE — (managerId, universityId) against Manager's
+       * (id, universityId) — so PostgreSQL itself refuses an instructor whose
+       * manager belongs to another university. That is the same technique the
+       * User relation above uses, and it means cross-tenant assignment is
+       * impossible rather than merely guarded against in application code.
+       * 
+       * Restrict, not SetNull: on a composite FK, SET NULL would null BOTH
+       * columns, and universityId is NOT NULL. Managers are deactivated rather
+       * than deleted, so nothing legitimate is blocked.
+       */
+      managerId: string | null
       employeeCode: string | null
       createdAt: Date
       updatedAt: Date
@@ -12134,8 +15392,10 @@ export namespace Prisma {
    */
   export interface Prisma__InstructorClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
+    category<T extends Instructor$categoryArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$categoryArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    manager<T extends Instructor$managerArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$managerArgs<ExtArgs>>): Prisma__ManagerClient<$Result.GetResult<Prisma.$ManagerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     activityLogs<T extends Instructor$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverables<T extends Instructor$deliverablesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$deliverablesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverablePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     leaveRequests<T extends Instructor$leaveRequestsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$leaveRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$LeaveRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -12147,6 +15407,8 @@ export namespace Prisma {
     deliverableLogs<T extends Instructor$deliverableLogsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$deliverableLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorDailyMetrics<T extends Instructor$instructorDailyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$instructorDailyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorDailyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorWeeklyMetrics<T extends Instructor$instructorWeeklyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$instructorWeeklyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorWeeklyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogDayNotes<T extends Instructor$worklogDayNotesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDayNotesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogSubmissions<T extends Instructor$worklogSubmissionsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -12179,6 +15441,8 @@ export namespace Prisma {
     readonly id: FieldRef<"Instructor", 'String'>
     readonly userId: FieldRef<"Instructor", 'String'>
     readonly universityId: FieldRef<"Instructor", 'String'>
+    readonly categoryId: FieldRef<"Instructor", 'String'>
+    readonly managerId: FieldRef<"Instructor", 'String'>
     readonly employeeCode: FieldRef<"Instructor", 'String'>
     readonly createdAt: FieldRef<"Instructor", 'DateTime'>
     readonly updatedAt: FieldRef<"Instructor", 'DateTime'>
@@ -12583,6 +15847,44 @@ export namespace Prisma {
   }
 
   /**
+   * Instructor.category
+   */
+  export type Instructor$categoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    where?: InstructorCategoryWhereInput
+  }
+
+  /**
+   * Instructor.manager
+   */
+  export type Instructor$managerArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Manager
+     */
+    select?: ManagerSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Manager
+     */
+    omit?: ManagerOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ManagerInclude<ExtArgs> | null
+    where?: ManagerWhereInput
+  }
+
+  /**
    * Instructor.activityLogs
    */
   export type Instructor$activityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -12844,6 +16146,54 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: InstructorWeeklyMetricScalarFieldEnum | InstructorWeeklyMetricScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.worklogDayNotes
+   */
+  export type Instructor$worklogDayNotesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDayNote
+     */
+    select?: WorklogDayNoteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDayNote
+     */
+    omit?: WorklogDayNoteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDayNoteInclude<ExtArgs> | null
+    where?: WorklogDayNoteWhereInput
+    orderBy?: WorklogDayNoteOrderByWithRelationInput | WorklogDayNoteOrderByWithRelationInput[]
+    cursor?: WorklogDayNoteWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogDayNoteScalarFieldEnum | WorklogDayNoteScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.worklogSubmissions
+   */
+  export type Instructor$worklogSubmissionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    where?: WorklogSubmissionWhereInput
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    cursor?: WorklogSubmissionWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
   }
 
   /**
@@ -13130,6 +16480,7 @@ export namespace Prisma {
     activityLogs?: boolean | ActivityType$activityLogsArgs<ExtArgs>
     scheduleSlots?: boolean | ActivityType$scheduleSlotsArgs<ExtArgs>
     workloadTargets?: boolean | ActivityType$workloadTargetsArgs<ExtArgs>
+    deliverableTypes?: boolean | ActivityType$deliverableTypesArgs<ExtArgs>
     _count?: boolean | ActivityTypeCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["activityType"]>
 
@@ -13186,6 +16537,7 @@ export namespace Prisma {
     activityLogs?: boolean | ActivityType$activityLogsArgs<ExtArgs>
     scheduleSlots?: boolean | ActivityType$scheduleSlotsArgs<ExtArgs>
     workloadTargets?: boolean | ActivityType$workloadTargetsArgs<ExtArgs>
+    deliverableTypes?: boolean | ActivityType$deliverableTypesArgs<ExtArgs>
     _count?: boolean | ActivityTypeCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ActivityTypeIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -13197,6 +16549,7 @@ export namespace Prisma {
       activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
       scheduleSlots: Prisma.$ScheduleSlotPayload<ExtArgs>[]
       workloadTargets: Prisma.$WorkloadTargetPayload<ExtArgs>[]
+      deliverableTypes: Prisma.$DeliverableTypePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -13634,6 +16987,7 @@ export namespace Prisma {
     activityLogs<T extends ActivityType$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scheduleSlots<T extends ActivityType$scheduleSlotsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$scheduleSlotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScheduleSlotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     workloadTargets<T extends ActivityType$workloadTargetsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$workloadTargetsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    deliverableTypes<T extends ActivityType$deliverableTypesArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$deliverableTypesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -14138,6 +17492,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
+  }
+
+  /**
+   * ActivityType.deliverableTypes
+   */
+  export type ActivityType$deliverableTypesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    where?: DeliverableTypeWhereInput
+    orderBy?: DeliverableTypeOrderByWithRelationInput | DeliverableTypeOrderByWithRelationInput[]
+    cursor?: DeliverableTypeWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: DeliverableTypeScalarFieldEnum | DeliverableTypeScalarFieldEnum[]
   }
 
   /**
@@ -16393,8 +19771,18 @@ export namespace Prisma {
 
   export type AggregateActivityLog = {
     _count: ActivityLogCountAggregateOutputType | null
+    _avg: ActivityLogAvgAggregateOutputType | null
+    _sum: ActivityLogSumAggregateOutputType | null
     _min: ActivityLogMinAggregateOutputType | null
     _max: ActivityLogMaxAggregateOutputType | null
+  }
+
+  export type ActivityLogAvgAggregateOutputType = {
+    quantity: number | null
+  }
+
+  export type ActivityLogSumAggregateOutputType = {
+    quantity: number | null
   }
 
   export type ActivityLogMinAggregateOutputType = {
@@ -16412,6 +19800,11 @@ export namespace Prisma {
     deliverableId: string | null
     createdById: string | null
     isOncePerDay: boolean | null
+    rawText: string | null
+    submissionId: string | null
+    broadCategoryId: string | null
+    deliverableTypeId: string | null
+    quantity: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -16431,6 +19824,11 @@ export namespace Prisma {
     deliverableId: string | null
     createdById: string | null
     isOncePerDay: boolean | null
+    rawText: string | null
+    submissionId: string | null
+    broadCategoryId: string | null
+    deliverableTypeId: string | null
+    quantity: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -16450,11 +19848,24 @@ export namespace Prisma {
     deliverableId: number
     createdById: number
     isOncePerDay: number
+    rawText: number
+    submissionId: number
+    broadCategoryId: number
+    deliverableTypeId: number
+    quantity: number
     createdAt: number
     updatedAt: number
     _all: number
   }
 
+
+  export type ActivityLogAvgAggregateInputType = {
+    quantity?: true
+  }
+
+  export type ActivityLogSumAggregateInputType = {
+    quantity?: true
+  }
 
   export type ActivityLogMinAggregateInputType = {
     id?: true
@@ -16471,6 +19882,11 @@ export namespace Prisma {
     deliverableId?: true
     createdById?: true
     isOncePerDay?: true
+    rawText?: true
+    submissionId?: true
+    broadCategoryId?: true
+    deliverableTypeId?: true
+    quantity?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -16490,6 +19906,11 @@ export namespace Prisma {
     deliverableId?: true
     createdById?: true
     isOncePerDay?: true
+    rawText?: true
+    submissionId?: true
+    broadCategoryId?: true
+    deliverableTypeId?: true
+    quantity?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -16509,6 +19930,11 @@ export namespace Prisma {
     deliverableId?: true
     createdById?: true
     isOncePerDay?: true
+    rawText?: true
+    submissionId?: true
+    broadCategoryId?: true
+    deliverableTypeId?: true
+    quantity?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -16552,6 +19978,18 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
+     * Select which fields to average
+    **/
+    _avg?: ActivityLogAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: ActivityLogSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
      * Select which fields to find the minimum value
     **/
     _min?: ActivityLogMinAggregateInputType
@@ -16582,6 +20020,8 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: ActivityLogCountAggregateInputType | true
+    _avg?: ActivityLogAvgAggregateInputType
+    _sum?: ActivityLogSumAggregateInputType
     _min?: ActivityLogMinAggregateInputType
     _max?: ActivityLogMaxAggregateInputType
   }
@@ -16601,9 +20041,16 @@ export namespace Prisma {
     deliverableId: string | null
     createdById: string | null
     isOncePerDay: boolean
+    rawText: string | null
+    submissionId: string | null
+    broadCategoryId: string | null
+    deliverableTypeId: string | null
+    quantity: number
     createdAt: Date
     updatedAt: Date
     _count: ActivityLogCountAggregateOutputType | null
+    _avg: ActivityLogAvgAggregateOutputType | null
+    _sum: ActivityLogSumAggregateOutputType | null
     _min: ActivityLogMinAggregateOutputType | null
     _max: ActivityLogMaxAggregateOutputType | null
   }
@@ -16637,6 +20084,11 @@ export namespace Prisma {
     deliverableId?: boolean
     createdById?: boolean
     isOncePerDay?: boolean
+    rawText?: boolean
+    submissionId?: boolean
+    broadCategoryId?: boolean
+    deliverableTypeId?: boolean
+    quantity?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -16645,6 +20097,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
   export type ActivityLogSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -16662,6 +20117,11 @@ export namespace Prisma {
     deliverableId?: boolean
     createdById?: boolean
     isOncePerDay?: boolean
+    rawText?: boolean
+    submissionId?: boolean
+    broadCategoryId?: boolean
+    deliverableTypeId?: boolean
+    quantity?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -16670,6 +20130,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
   export type ActivityLogSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -16687,6 +20150,11 @@ export namespace Prisma {
     deliverableId?: boolean
     createdById?: boolean
     isOncePerDay?: boolean
+    rawText?: boolean
+    submissionId?: boolean
+    broadCategoryId?: boolean
+    deliverableTypeId?: boolean
+    quantity?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -16695,6 +20163,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
   export type ActivityLogSelectScalar = {
@@ -16712,11 +20183,16 @@ export namespace Prisma {
     deliverableId?: boolean
     createdById?: boolean
     isOncePerDay?: boolean
+    rawText?: boolean
+    submissionId?: boolean
+    broadCategoryId?: boolean
+    deliverableTypeId?: boolean
+    quantity?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
+  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
   export type ActivityLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -16724,6 +20200,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
   export type ActivityLogIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -16732,6 +20211,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
   export type ActivityLogIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -16740,6 +20222,9 @@ export namespace Prisma {
     scheduleSlot?: boolean | ActivityLog$scheduleSlotArgs<ExtArgs>
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
+    submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
+    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
+    deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
 
   export type $ActivityLogPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -16758,6 +20243,9 @@ export namespace Prisma {
        * a manager may log on an instructor's behalf.
        */
       createdBy: Prisma.$UserPayload<ExtArgs> | null
+      submission: Prisma.$WorklogSubmissionPayload<ExtArgs> | null
+      broadCategory: Prisma.$InstructorCategoryPayload<ExtArgs> | null
+      deliverableType: Prisma.$DeliverableTypePayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -16778,6 +20266,48 @@ export namespace Prisma {
       deliverableId: string | null
       createdById: string | null
       isOncePerDay: boolean
+      /**
+       * The bullet this row was parsed from, exactly as the instructor typed it.
+       * 
+       * Kept forever, and deliberately on the ROW rather than only on the
+       * submission: somebody asking "did the AI read this right?" is looking at one
+       * activity, and the answer has to sit beside it. Null for rows created by any
+       * other path — a manager logging on somebody's behalf, or the importer.
+       */
+      rawText: string | null
+      /**
+       * Which press of Submit produced this row. Null for non-worklog entries.
+       */
+      submissionId: string | null
+      /**
+       * The specific deliverable the AI matched within the broad category, from the
+       * fixed taxonomy. Null when nothing in the taxonomy fits, which is a real
+       * answer rather than a failure.
+       * Which subject this entry falls under — Technical, English, Aptitude,
+       * Mathematics — as the reader judged it FROM THE SENTENCE.
+       * 
+       * ── Why per entry, and not simply the instructor's own ────────────────
+       * An instructor is filed under one stream, and that is what the client's
+       * monthly sheet prints. But a day is not always one subject: the same
+       * person can take a DSA class and then a communication session, and a
+       * column that answered "Technical" for both would be describing the person
+       * where the row is asking about the work.
+       * 
+       * Nullable, and left null rather than guessed: a line like "staff meeting
+       * 2 to 3" has no subject at all, and filling one in would be inventing the
+       * most consequential column in the report.
+       */
+      broadCategoryId: string | null
+      deliverableTypeId: string | null
+      /**
+       * How many of that deliverable this row accounts for.
+       * 
+       * Defaults to 1 so every pre-existing row keeps meaning exactly what it meant
+       * before this column existed. The free-text parser reconciles repeats ACROSS a
+       * day's bullets into a single row with a higher count, rather than writing two
+       * rows of one — which is what the client's sheet has always counted.
+       */
+      quantity: number
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["activityLog"]>
@@ -17180,6 +20710,9 @@ export namespace Prisma {
     scheduleSlot<T extends ActivityLog$scheduleSlotArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$scheduleSlotArgs<ExtArgs>>): Prisma__ScheduleSlotClient<$Result.GetResult<Prisma.$ScheduleSlotPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     deliverable<T extends ActivityLog$deliverableArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$deliverableArgs<ExtArgs>>): Prisma__DeliverableClient<$Result.GetResult<Prisma.$DeliverablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     createdBy<T extends ActivityLog$createdByArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$createdByArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    submission<T extends ActivityLog$submissionArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$submissionArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    broadCategory<T extends ActivityLog$broadCategoryArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$broadCategoryArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    deliverableType<T extends ActivityLog$deliverableTypeArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$deliverableTypeArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -17223,6 +20756,11 @@ export namespace Prisma {
     readonly deliverableId: FieldRef<"ActivityLog", 'String'>
     readonly createdById: FieldRef<"ActivityLog", 'String'>
     readonly isOncePerDay: FieldRef<"ActivityLog", 'Boolean'>
+    readonly rawText: FieldRef<"ActivityLog", 'String'>
+    readonly submissionId: FieldRef<"ActivityLog", 'String'>
+    readonly broadCategoryId: FieldRef<"ActivityLog", 'String'>
+    readonly deliverableTypeId: FieldRef<"ActivityLog", 'String'>
+    readonly quantity: FieldRef<"ActivityLog", 'Int'>
     readonly createdAt: FieldRef<"ActivityLog", 'DateTime'>
     readonly updatedAt: FieldRef<"ActivityLog", 'DateTime'>
   }
@@ -17680,6 +21218,63 @@ export namespace Prisma {
      */
     include?: UserInclude<ExtArgs> | null
     where?: UserWhereInput
+  }
+
+  /**
+   * ActivityLog.submission
+   */
+  export type ActivityLog$submissionArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    where?: WorklogSubmissionWhereInput
+  }
+
+  /**
+   * ActivityLog.broadCategory
+   */
+  export type ActivityLog$broadCategoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the InstructorCategory
+     */
+    select?: InstructorCategorySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the InstructorCategory
+     */
+    omit?: InstructorCategoryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: InstructorCategoryInclude<ExtArgs> | null
+    where?: InstructorCategoryWhereInput
+  }
+
+  /**
+   * ActivityLog.deliverableType
+   */
+  export type ActivityLog$deliverableTypeArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    where?: DeliverableTypeWhereInput
   }
 
   /**
@@ -42988,6 +46583,3903 @@ export namespace Prisma {
 
 
   /**
+   * Model ImportJob
+   */
+
+  export type AggregateImportJob = {
+    _count: ImportJobCountAggregateOutputType | null
+    _avg: ImportJobAvgAggregateOutputType | null
+    _sum: ImportJobSumAggregateOutputType | null
+    _min: ImportJobMinAggregateOutputType | null
+    _max: ImportJobMaxAggregateOutputType | null
+  }
+
+  export type ImportJobAvgAggregateOutputType = {
+    fileSize: number | null
+    rowCount: number | null
+    processedRows: number | null
+  }
+
+  export type ImportJobSumAggregateOutputType = {
+    fileSize: number | null
+    rowCount: number | null
+    processedRows: number | null
+  }
+
+  export type ImportJobMinAggregateOutputType = {
+    id: string | null
+    createdById: string | null
+    sourceType: $Enums.ImportSourceType | null
+    fileName: string | null
+    fileSize: number | null
+    checksum: string | null
+    status: $Enums.ImportStatus | null
+    rowCount: number | null
+    processedRows: number | null
+    extractionConfidence: string | null
+    errorMessage: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ImportJobMaxAggregateOutputType = {
+    id: string | null
+    createdById: string | null
+    sourceType: $Enums.ImportSourceType | null
+    fileName: string | null
+    fileSize: number | null
+    checksum: string | null
+    status: $Enums.ImportStatus | null
+    rowCount: number | null
+    processedRows: number | null
+    extractionConfidence: string | null
+    errorMessage: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ImportJobCountAggregateOutputType = {
+    id: number
+    createdById: number
+    sourceType: number
+    fileName: number
+    fileSize: number
+    checksum: number
+    status: number
+    mapping: number
+    rows: number
+    rowCount: number
+    processedRows: number
+    errors: number
+    warnings: number
+    summary: number
+    extractionConfidence: number
+    errorMessage: number
+    startedAt: number
+    completedAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ImportJobAvgAggregateInputType = {
+    fileSize?: true
+    rowCount?: true
+    processedRows?: true
+  }
+
+  export type ImportJobSumAggregateInputType = {
+    fileSize?: true
+    rowCount?: true
+    processedRows?: true
+  }
+
+  export type ImportJobMinAggregateInputType = {
+    id?: true
+    createdById?: true
+    sourceType?: true
+    fileName?: true
+    fileSize?: true
+    checksum?: true
+    status?: true
+    rowCount?: true
+    processedRows?: true
+    extractionConfidence?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ImportJobMaxAggregateInputType = {
+    id?: true
+    createdById?: true
+    sourceType?: true
+    fileName?: true
+    fileSize?: true
+    checksum?: true
+    status?: true
+    rowCount?: true
+    processedRows?: true
+    extractionConfidence?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ImportJobCountAggregateInputType = {
+    id?: true
+    createdById?: true
+    sourceType?: true
+    fileName?: true
+    fileSize?: true
+    checksum?: true
+    status?: true
+    mapping?: true
+    rows?: true
+    rowCount?: true
+    processedRows?: true
+    errors?: true
+    warnings?: true
+    summary?: true
+    extractionConfidence?: true
+    errorMessage?: true
+    startedAt?: true
+    completedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ImportJobAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ImportJob to aggregate.
+     */
+    where?: ImportJobWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ImportJobs to fetch.
+     */
+    orderBy?: ImportJobOrderByWithRelationInput | ImportJobOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ImportJobWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ImportJobs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ImportJobs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ImportJobs
+    **/
+    _count?: true | ImportJobCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: ImportJobAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: ImportJobSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ImportJobMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ImportJobMaxAggregateInputType
+  }
+
+  export type GetImportJobAggregateType<T extends ImportJobAggregateArgs> = {
+        [P in keyof T & keyof AggregateImportJob]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateImportJob[P]>
+      : GetScalarType<T[P], AggregateImportJob[P]>
+  }
+
+
+
+
+  export type ImportJobGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ImportJobWhereInput
+    orderBy?: ImportJobOrderByWithAggregationInput | ImportJobOrderByWithAggregationInput[]
+    by: ImportJobScalarFieldEnum[] | ImportJobScalarFieldEnum
+    having?: ImportJobScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ImportJobCountAggregateInputType | true
+    _avg?: ImportJobAvgAggregateInputType
+    _sum?: ImportJobSumAggregateInputType
+    _min?: ImportJobMinAggregateInputType
+    _max?: ImportJobMaxAggregateInputType
+  }
+
+  export type ImportJobGroupByOutputType = {
+    id: string
+    createdById: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status: $Enums.ImportStatus
+    mapping: JsonValue
+    rows: JsonValue
+    rowCount: number
+    processedRows: number
+    errors: JsonValue
+    warnings: JsonValue
+    summary: JsonValue
+    extractionConfidence: string | null
+    errorMessage: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    _count: ImportJobCountAggregateOutputType | null
+    _avg: ImportJobAvgAggregateOutputType | null
+    _sum: ImportJobSumAggregateOutputType | null
+    _min: ImportJobMinAggregateOutputType | null
+    _max: ImportJobMaxAggregateOutputType | null
+  }
+
+  type GetImportJobGroupByPayload<T extends ImportJobGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ImportJobGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ImportJobGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ImportJobGroupByOutputType[P]>
+            : GetScalarType<T[P], ImportJobGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ImportJobSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    createdById?: boolean
+    sourceType?: boolean
+    fileName?: boolean
+    fileSize?: boolean
+    checksum?: boolean
+    status?: boolean
+    mapping?: boolean
+    rows?: boolean
+    rowCount?: boolean
+    processedRows?: boolean
+    errors?: boolean
+    warnings?: boolean
+    summary?: boolean
+    extractionConfidence?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["importJob"]>
+
+  export type ImportJobSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    createdById?: boolean
+    sourceType?: boolean
+    fileName?: boolean
+    fileSize?: boolean
+    checksum?: boolean
+    status?: boolean
+    mapping?: boolean
+    rows?: boolean
+    rowCount?: boolean
+    processedRows?: boolean
+    errors?: boolean
+    warnings?: boolean
+    summary?: boolean
+    extractionConfidence?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["importJob"]>
+
+  export type ImportJobSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    createdById?: boolean
+    sourceType?: boolean
+    fileName?: boolean
+    fileSize?: boolean
+    checksum?: boolean
+    status?: boolean
+    mapping?: boolean
+    rows?: boolean
+    rowCount?: boolean
+    processedRows?: boolean
+    errors?: boolean
+    warnings?: boolean
+    summary?: boolean
+    extractionConfidence?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["importJob"]>
+
+  export type ImportJobSelectScalar = {
+    id?: boolean
+    createdById?: boolean
+    sourceType?: boolean
+    fileName?: boolean
+    fileSize?: boolean
+    checksum?: boolean
+    status?: boolean
+    mapping?: boolean
+    rows?: boolean
+    rowCount?: boolean
+    processedRows?: boolean
+    errors?: boolean
+    warnings?: boolean
+    summary?: boolean
+    extractionConfidence?: boolean
+    errorMessage?: boolean
+    startedAt?: boolean
+    completedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ImportJobOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "createdById" | "sourceType" | "fileName" | "fileSize" | "checksum" | "status" | "mapping" | "rows" | "rowCount" | "processedRows" | "errors" | "warnings" | "summary" | "extractionConfidence" | "errorMessage" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["importJob"]>
+  export type ImportJobInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }
+  export type ImportJobIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }
+  export type ImportJobIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    createdBy?: boolean | UserDefaultArgs<ExtArgs>
+  }
+
+  export type $ImportJobPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ImportJob"
+    objects: {
+      createdBy: Prisma.$UserPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      /**
+       * Restrict, not Cascade: import history outlives the admin who ran it.
+       * (`ReportJob` uses Cascade and loses its history with the user; that is the
+       * wrong trade for a record of what entered the database.)
+       */
+      createdById: string
+      sourceType: $Enums.ImportSourceType
+      fileName: string
+      fileSize: number
+      /**
+       * SHA-256 of the uploaded bytes. Not a uniqueness constraint: re-importing a
+       * corrected file is legitimate, and the upsert is idempotent regardless. It
+       * is here so the UI can warn "this exact file was already imported".
+       */
+      checksum: string
+      status: $Enums.ImportStatus
+      /**
+       * Source column header -> canonical field name, as confirmed by the admin.
+       */
+      mapping: Prisma.JsonValue
+      /**
+       * The parsed records. Structurally typed, never the raw file.
+       */
+      rows: Prisma.JsonValue
+      rowCount: number
+      processedRows: number
+      /**
+       * Bounded diagnostics — the first N of each, never the whole dataset.
+       */
+      errors: Prisma.JsonValue
+      warnings: Prisma.JsonValue
+      /**
+       * Preview counts before confirmation, outcome counts after.
+       */
+      summary: Prisma.JsonValue
+      /**
+       * Populated only for PDF, where extraction is interpretive.
+       */
+      extractionConfidence: string | null
+      errorMessage: string | null
+      startedAt: Date | null
+      completedAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["importJob"]>
+    composites: {}
+  }
+
+  type ImportJobGetPayload<S extends boolean | null | undefined | ImportJobDefaultArgs> = $Result.GetResult<Prisma.$ImportJobPayload, S>
+
+  type ImportJobCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<ImportJobFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: ImportJobCountAggregateInputType | true
+    }
+
+  export interface ImportJobDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ImportJob'], meta: { name: 'ImportJob' } }
+    /**
+     * Find zero or one ImportJob that matches the filter.
+     * @param {ImportJobFindUniqueArgs} args - Arguments to find a ImportJob
+     * @example
+     * // Get one ImportJob
+     * const importJob = await prisma.importJob.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ImportJobFindUniqueArgs>(args: SelectSubset<T, ImportJobFindUniqueArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one ImportJob that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {ImportJobFindUniqueOrThrowArgs} args - Arguments to find a ImportJob
+     * @example
+     * // Get one ImportJob
+     * const importJob = await prisma.importJob.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ImportJobFindUniqueOrThrowArgs>(args: SelectSubset<T, ImportJobFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ImportJob that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobFindFirstArgs} args - Arguments to find a ImportJob
+     * @example
+     * // Get one ImportJob
+     * const importJob = await prisma.importJob.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ImportJobFindFirstArgs>(args?: SelectSubset<T, ImportJobFindFirstArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first ImportJob that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobFindFirstOrThrowArgs} args - Arguments to find a ImportJob
+     * @example
+     * // Get one ImportJob
+     * const importJob = await prisma.importJob.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ImportJobFindFirstOrThrowArgs>(args?: SelectSubset<T, ImportJobFindFirstOrThrowArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more ImportJobs that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ImportJobs
+     * const importJobs = await prisma.importJob.findMany()
+     * 
+     * // Get first 10 ImportJobs
+     * const importJobs = await prisma.importJob.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const importJobWithIdOnly = await prisma.importJob.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ImportJobFindManyArgs>(args?: SelectSubset<T, ImportJobFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a ImportJob.
+     * @param {ImportJobCreateArgs} args - Arguments to create a ImportJob.
+     * @example
+     * // Create one ImportJob
+     * const ImportJob = await prisma.importJob.create({
+     *   data: {
+     *     // ... data to create a ImportJob
+     *   }
+     * })
+     * 
+     */
+    create<T extends ImportJobCreateArgs>(args: SelectSubset<T, ImportJobCreateArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many ImportJobs.
+     * @param {ImportJobCreateManyArgs} args - Arguments to create many ImportJobs.
+     * @example
+     * // Create many ImportJobs
+     * const importJob = await prisma.importJob.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ImportJobCreateManyArgs>(args?: SelectSubset<T, ImportJobCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ImportJobs and returns the data saved in the database.
+     * @param {ImportJobCreateManyAndReturnArgs} args - Arguments to create many ImportJobs.
+     * @example
+     * // Create many ImportJobs
+     * const importJob = await prisma.importJob.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ImportJobs and only return the `id`
+     * const importJobWithIdOnly = await prisma.importJob.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ImportJobCreateManyAndReturnArgs>(args?: SelectSubset<T, ImportJobCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a ImportJob.
+     * @param {ImportJobDeleteArgs} args - Arguments to delete one ImportJob.
+     * @example
+     * // Delete one ImportJob
+     * const ImportJob = await prisma.importJob.delete({
+     *   where: {
+     *     // ... filter to delete one ImportJob
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ImportJobDeleteArgs>(args: SelectSubset<T, ImportJobDeleteArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one ImportJob.
+     * @param {ImportJobUpdateArgs} args - Arguments to update one ImportJob.
+     * @example
+     * // Update one ImportJob
+     * const importJob = await prisma.importJob.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ImportJobUpdateArgs>(args: SelectSubset<T, ImportJobUpdateArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more ImportJobs.
+     * @param {ImportJobDeleteManyArgs} args - Arguments to filter ImportJobs to delete.
+     * @example
+     * // Delete a few ImportJobs
+     * const { count } = await prisma.importJob.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ImportJobDeleteManyArgs>(args?: SelectSubset<T, ImportJobDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ImportJobs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ImportJobs
+     * const importJob = await prisma.importJob.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ImportJobUpdateManyArgs>(args: SelectSubset<T, ImportJobUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ImportJobs and returns the data updated in the database.
+     * @param {ImportJobUpdateManyAndReturnArgs} args - Arguments to update many ImportJobs.
+     * @example
+     * // Update many ImportJobs
+     * const importJob = await prisma.importJob.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more ImportJobs and only return the `id`
+     * const importJobWithIdOnly = await prisma.importJob.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends ImportJobUpdateManyAndReturnArgs>(args: SelectSubset<T, ImportJobUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one ImportJob.
+     * @param {ImportJobUpsertArgs} args - Arguments to update or create a ImportJob.
+     * @example
+     * // Update or create a ImportJob
+     * const importJob = await prisma.importJob.upsert({
+     *   create: {
+     *     // ... data to create a ImportJob
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ImportJob we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ImportJobUpsertArgs>(args: SelectSubset<T, ImportJobUpsertArgs<ExtArgs>>): Prisma__ImportJobClient<$Result.GetResult<Prisma.$ImportJobPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of ImportJobs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobCountArgs} args - Arguments to filter ImportJobs to count.
+     * @example
+     * // Count the number of ImportJobs
+     * const count = await prisma.importJob.count({
+     *   where: {
+     *     // ... the filter for the ImportJobs we want to count
+     *   }
+     * })
+    **/
+    count<T extends ImportJobCountArgs>(
+      args?: Subset<T, ImportJobCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ImportJobCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ImportJob.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ImportJobAggregateArgs>(args: Subset<T, ImportJobAggregateArgs>): Prisma.PrismaPromise<GetImportJobAggregateType<T>>
+
+    /**
+     * Group by ImportJob.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ImportJobGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ImportJobGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ImportJobGroupByArgs['orderBy'] }
+        : { orderBy?: ImportJobGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ImportJobGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetImportJobGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ImportJob model
+   */
+  readonly fields: ImportJobFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ImportJob.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ImportJobClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    createdBy<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ImportJob model
+   */
+  interface ImportJobFieldRefs {
+    readonly id: FieldRef<"ImportJob", 'String'>
+    readonly createdById: FieldRef<"ImportJob", 'String'>
+    readonly sourceType: FieldRef<"ImportJob", 'ImportSourceType'>
+    readonly fileName: FieldRef<"ImportJob", 'String'>
+    readonly fileSize: FieldRef<"ImportJob", 'Int'>
+    readonly checksum: FieldRef<"ImportJob", 'String'>
+    readonly status: FieldRef<"ImportJob", 'ImportStatus'>
+    readonly mapping: FieldRef<"ImportJob", 'Json'>
+    readonly rows: FieldRef<"ImportJob", 'Json'>
+    readonly rowCount: FieldRef<"ImportJob", 'Int'>
+    readonly processedRows: FieldRef<"ImportJob", 'Int'>
+    readonly errors: FieldRef<"ImportJob", 'Json'>
+    readonly warnings: FieldRef<"ImportJob", 'Json'>
+    readonly summary: FieldRef<"ImportJob", 'Json'>
+    readonly extractionConfidence: FieldRef<"ImportJob", 'String'>
+    readonly errorMessage: FieldRef<"ImportJob", 'String'>
+    readonly startedAt: FieldRef<"ImportJob", 'DateTime'>
+    readonly completedAt: FieldRef<"ImportJob", 'DateTime'>
+    readonly createdAt: FieldRef<"ImportJob", 'DateTime'>
+    readonly updatedAt: FieldRef<"ImportJob", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ImportJob findUnique
+   */
+  export type ImportJobFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter, which ImportJob to fetch.
+     */
+    where: ImportJobWhereUniqueInput
+  }
+
+  /**
+   * ImportJob findUniqueOrThrow
+   */
+  export type ImportJobFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter, which ImportJob to fetch.
+     */
+    where: ImportJobWhereUniqueInput
+  }
+
+  /**
+   * ImportJob findFirst
+   */
+  export type ImportJobFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter, which ImportJob to fetch.
+     */
+    where?: ImportJobWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ImportJobs to fetch.
+     */
+    orderBy?: ImportJobOrderByWithRelationInput | ImportJobOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ImportJobs.
+     */
+    cursor?: ImportJobWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ImportJobs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ImportJobs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ImportJobs.
+     */
+    distinct?: ImportJobScalarFieldEnum | ImportJobScalarFieldEnum[]
+  }
+
+  /**
+   * ImportJob findFirstOrThrow
+   */
+  export type ImportJobFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter, which ImportJob to fetch.
+     */
+    where?: ImportJobWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ImportJobs to fetch.
+     */
+    orderBy?: ImportJobOrderByWithRelationInput | ImportJobOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ImportJobs.
+     */
+    cursor?: ImportJobWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ImportJobs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ImportJobs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ImportJobs.
+     */
+    distinct?: ImportJobScalarFieldEnum | ImportJobScalarFieldEnum[]
+  }
+
+  /**
+   * ImportJob findMany
+   */
+  export type ImportJobFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter, which ImportJobs to fetch.
+     */
+    where?: ImportJobWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ImportJobs to fetch.
+     */
+    orderBy?: ImportJobOrderByWithRelationInput | ImportJobOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ImportJobs.
+     */
+    cursor?: ImportJobWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ImportJobs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ImportJobs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ImportJobs.
+     */
+    distinct?: ImportJobScalarFieldEnum | ImportJobScalarFieldEnum[]
+  }
+
+  /**
+   * ImportJob create
+   */
+  export type ImportJobCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ImportJob.
+     */
+    data: XOR<ImportJobCreateInput, ImportJobUncheckedCreateInput>
+  }
+
+  /**
+   * ImportJob createMany
+   */
+  export type ImportJobCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ImportJobs.
+     */
+    data: ImportJobCreateManyInput | ImportJobCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ImportJob createManyAndReturn
+   */
+  export type ImportJobCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * The data used to create many ImportJobs.
+     */
+    data: ImportJobCreateManyInput | ImportJobCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ImportJob update
+   */
+  export type ImportJobUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ImportJob.
+     */
+    data: XOR<ImportJobUpdateInput, ImportJobUncheckedUpdateInput>
+    /**
+     * Choose, which ImportJob to update.
+     */
+    where: ImportJobWhereUniqueInput
+  }
+
+  /**
+   * ImportJob updateMany
+   */
+  export type ImportJobUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ImportJobs.
+     */
+    data: XOR<ImportJobUpdateManyMutationInput, ImportJobUncheckedUpdateManyInput>
+    /**
+     * Filter which ImportJobs to update
+     */
+    where?: ImportJobWhereInput
+    /**
+     * Limit how many ImportJobs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * ImportJob updateManyAndReturn
+   */
+  export type ImportJobUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * The data used to update ImportJobs.
+     */
+    data: XOR<ImportJobUpdateManyMutationInput, ImportJobUncheckedUpdateManyInput>
+    /**
+     * Filter which ImportJobs to update
+     */
+    where?: ImportJobWhereInput
+    /**
+     * Limit how many ImportJobs to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ImportJob upsert
+   */
+  export type ImportJobUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ImportJob to update in case it exists.
+     */
+    where: ImportJobWhereUniqueInput
+    /**
+     * In case the ImportJob found by the `where` argument doesn't exist, create a new ImportJob with this data.
+     */
+    create: XOR<ImportJobCreateInput, ImportJobUncheckedCreateInput>
+    /**
+     * In case the ImportJob was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ImportJobUpdateInput, ImportJobUncheckedUpdateInput>
+  }
+
+  /**
+   * ImportJob delete
+   */
+  export type ImportJobDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+    /**
+     * Filter which ImportJob to delete.
+     */
+    where: ImportJobWhereUniqueInput
+  }
+
+  /**
+   * ImportJob deleteMany
+   */
+  export type ImportJobDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ImportJobs to delete
+     */
+    where?: ImportJobWhereInput
+    /**
+     * Limit how many ImportJobs to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * ImportJob without action
+   */
+  export type ImportJobDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ImportJob
+     */
+    select?: ImportJobSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ImportJob
+     */
+    omit?: ImportJobOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ImportJobInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model DeliverableType
+   */
+
+  export type AggregateDeliverableType = {
+    _count: DeliverableTypeCountAggregateOutputType | null
+    _avg: DeliverableTypeAvgAggregateOutputType | null
+    _sum: DeliverableTypeSumAggregateOutputType | null
+    _min: DeliverableTypeMinAggregateOutputType | null
+    _max: DeliverableTypeMaxAggregateOutputType | null
+  }
+
+  export type DeliverableTypeAvgAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type DeliverableTypeSumAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type DeliverableTypeMinAggregateOutputType = {
+    id: string | null
+    code: string | null
+    label: string | null
+    activityTypeId: string | null
+    sortOrder: number | null
+    isActive: boolean | null
+    isCountable: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DeliverableTypeMaxAggregateOutputType = {
+    id: string | null
+    code: string | null
+    label: string | null
+    activityTypeId: string | null
+    sortOrder: number | null
+    isActive: boolean | null
+    isCountable: boolean | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DeliverableTypeCountAggregateOutputType = {
+    id: number
+    code: number
+    label: number
+    activityTypeId: number
+    sortOrder: number
+    isActive: number
+    isCountable: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type DeliverableTypeAvgAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type DeliverableTypeSumAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type DeliverableTypeMinAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    activityTypeId?: true
+    sortOrder?: true
+    isActive?: true
+    isCountable?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type DeliverableTypeMaxAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    activityTypeId?: true
+    sortOrder?: true
+    isActive?: true
+    isCountable?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type DeliverableTypeCountAggregateInputType = {
+    id?: true
+    code?: true
+    label?: true
+    activityTypeId?: true
+    sortOrder?: true
+    isActive?: true
+    isCountable?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type DeliverableTypeAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which DeliverableType to aggregate.
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DeliverableTypes to fetch.
+     */
+    orderBy?: DeliverableTypeOrderByWithRelationInput | DeliverableTypeOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: DeliverableTypeWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DeliverableTypes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DeliverableTypes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned DeliverableTypes
+    **/
+    _count?: true | DeliverableTypeCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: DeliverableTypeAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: DeliverableTypeSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: DeliverableTypeMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: DeliverableTypeMaxAggregateInputType
+  }
+
+  export type GetDeliverableTypeAggregateType<T extends DeliverableTypeAggregateArgs> = {
+        [P in keyof T & keyof AggregateDeliverableType]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateDeliverableType[P]>
+      : GetScalarType<T[P], AggregateDeliverableType[P]>
+  }
+
+
+
+
+  export type DeliverableTypeGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DeliverableTypeWhereInput
+    orderBy?: DeliverableTypeOrderByWithAggregationInput | DeliverableTypeOrderByWithAggregationInput[]
+    by: DeliverableTypeScalarFieldEnum[] | DeliverableTypeScalarFieldEnum
+    having?: DeliverableTypeScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: DeliverableTypeCountAggregateInputType | true
+    _avg?: DeliverableTypeAvgAggregateInputType
+    _sum?: DeliverableTypeSumAggregateInputType
+    _min?: DeliverableTypeMinAggregateInputType
+    _max?: DeliverableTypeMaxAggregateInputType
+  }
+
+  export type DeliverableTypeGroupByOutputType = {
+    id: string
+    code: string
+    label: string
+    activityTypeId: string
+    sortOrder: number
+    isActive: boolean
+    isCountable: boolean
+    createdAt: Date
+    updatedAt: Date
+    _count: DeliverableTypeCountAggregateOutputType | null
+    _avg: DeliverableTypeAvgAggregateOutputType | null
+    _sum: DeliverableTypeSumAggregateOutputType | null
+    _min: DeliverableTypeMinAggregateOutputType | null
+    _max: DeliverableTypeMaxAggregateOutputType | null
+  }
+
+  type GetDeliverableTypeGroupByPayload<T extends DeliverableTypeGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<DeliverableTypeGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof DeliverableTypeGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], DeliverableTypeGroupByOutputType[P]>
+            : GetScalarType<T[P], DeliverableTypeGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type DeliverableTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    activityTypeId?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+    activityLogs?: boolean | DeliverableType$activityLogsArgs<ExtArgs>
+    _count?: boolean | DeliverableTypeCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["deliverableType"]>
+
+  export type DeliverableTypeSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    activityTypeId?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["deliverableType"]>
+
+  export type DeliverableTypeSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    activityTypeId?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["deliverableType"]>
+
+  export type DeliverableTypeSelectScalar = {
+    id?: boolean
+    code?: boolean
+    label?: boolean
+    activityTypeId?: boolean
+    sortOrder?: boolean
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type DeliverableTypeOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "code" | "label" | "activityTypeId" | "sortOrder" | "isActive" | "isCountable" | "createdAt" | "updatedAt", ExtArgs["result"]["deliverableType"]>
+  export type DeliverableTypeInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+    activityLogs?: boolean | DeliverableType$activityLogsArgs<ExtArgs>
+    _count?: boolean | DeliverableTypeCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type DeliverableTypeIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+  }
+  export type DeliverableTypeIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    activityType?: boolean | ActivityTypeDefaultArgs<ExtArgs>
+  }
+
+  export type $DeliverableTypePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "DeliverableType"
+    objects: {
+      activityType: Prisma.$ActivityTypePayload<ExtArgs>
+      activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      /**
+       * Stable machine name, e.g. `LECTURE`. What the parser is allowed to emit.
+       */
+      code: string
+      label: string
+      /**
+       * The broad category this belongs under.
+       */
+      activityTypeId: string
+      sortOrder: number
+      isActive: boolean
+      /**
+       * Whether a COUNT of this means anything.
+       * 
+       * The client's monthly sheet lists every kind of work with its hours, but
+       * counts only some of them: "12 Classes, 6 Assignments, 3 Doubt Sessions"
+       * beside a deliverable list that also held Lesson Prep and Meetings/Reports.
+       * That is not an omission — "6 lesson preps" is not a sentence anybody says.
+       * Preparation, meetings, reporting and admin are EFFORT: their hours are
+       * real and are reported, but they have no unit to be counted in.
+       * 
+       * Defaulted true because most are countable, and because a wrong default
+       * that shows a number is easier to notice than one that hides it.
+       */
+      isCountable: boolean
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["deliverableType"]>
+    composites: {}
+  }
+
+  type DeliverableTypeGetPayload<S extends boolean | null | undefined | DeliverableTypeDefaultArgs> = $Result.GetResult<Prisma.$DeliverableTypePayload, S>
+
+  type DeliverableTypeCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<DeliverableTypeFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: DeliverableTypeCountAggregateInputType | true
+    }
+
+  export interface DeliverableTypeDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['DeliverableType'], meta: { name: 'DeliverableType' } }
+    /**
+     * Find zero or one DeliverableType that matches the filter.
+     * @param {DeliverableTypeFindUniqueArgs} args - Arguments to find a DeliverableType
+     * @example
+     * // Get one DeliverableType
+     * const deliverableType = await prisma.deliverableType.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends DeliverableTypeFindUniqueArgs>(args: SelectSubset<T, DeliverableTypeFindUniqueArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one DeliverableType that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {DeliverableTypeFindUniqueOrThrowArgs} args - Arguments to find a DeliverableType
+     * @example
+     * // Get one DeliverableType
+     * const deliverableType = await prisma.deliverableType.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends DeliverableTypeFindUniqueOrThrowArgs>(args: SelectSubset<T, DeliverableTypeFindUniqueOrThrowArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first DeliverableType that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeFindFirstArgs} args - Arguments to find a DeliverableType
+     * @example
+     * // Get one DeliverableType
+     * const deliverableType = await prisma.deliverableType.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends DeliverableTypeFindFirstArgs>(args?: SelectSubset<T, DeliverableTypeFindFirstArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first DeliverableType that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeFindFirstOrThrowArgs} args - Arguments to find a DeliverableType
+     * @example
+     * // Get one DeliverableType
+     * const deliverableType = await prisma.deliverableType.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends DeliverableTypeFindFirstOrThrowArgs>(args?: SelectSubset<T, DeliverableTypeFindFirstOrThrowArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more DeliverableTypes that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all DeliverableTypes
+     * const deliverableTypes = await prisma.deliverableType.findMany()
+     * 
+     * // Get first 10 DeliverableTypes
+     * const deliverableTypes = await prisma.deliverableType.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const deliverableTypeWithIdOnly = await prisma.deliverableType.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends DeliverableTypeFindManyArgs>(args?: SelectSubset<T, DeliverableTypeFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a DeliverableType.
+     * @param {DeliverableTypeCreateArgs} args - Arguments to create a DeliverableType.
+     * @example
+     * // Create one DeliverableType
+     * const DeliverableType = await prisma.deliverableType.create({
+     *   data: {
+     *     // ... data to create a DeliverableType
+     *   }
+     * })
+     * 
+     */
+    create<T extends DeliverableTypeCreateArgs>(args: SelectSubset<T, DeliverableTypeCreateArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many DeliverableTypes.
+     * @param {DeliverableTypeCreateManyArgs} args - Arguments to create many DeliverableTypes.
+     * @example
+     * // Create many DeliverableTypes
+     * const deliverableType = await prisma.deliverableType.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends DeliverableTypeCreateManyArgs>(args?: SelectSubset<T, DeliverableTypeCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many DeliverableTypes and returns the data saved in the database.
+     * @param {DeliverableTypeCreateManyAndReturnArgs} args - Arguments to create many DeliverableTypes.
+     * @example
+     * // Create many DeliverableTypes
+     * const deliverableType = await prisma.deliverableType.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many DeliverableTypes and only return the `id`
+     * const deliverableTypeWithIdOnly = await prisma.deliverableType.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends DeliverableTypeCreateManyAndReturnArgs>(args?: SelectSubset<T, DeliverableTypeCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a DeliverableType.
+     * @param {DeliverableTypeDeleteArgs} args - Arguments to delete one DeliverableType.
+     * @example
+     * // Delete one DeliverableType
+     * const DeliverableType = await prisma.deliverableType.delete({
+     *   where: {
+     *     // ... filter to delete one DeliverableType
+     *   }
+     * })
+     * 
+     */
+    delete<T extends DeliverableTypeDeleteArgs>(args: SelectSubset<T, DeliverableTypeDeleteArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one DeliverableType.
+     * @param {DeliverableTypeUpdateArgs} args - Arguments to update one DeliverableType.
+     * @example
+     * // Update one DeliverableType
+     * const deliverableType = await prisma.deliverableType.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends DeliverableTypeUpdateArgs>(args: SelectSubset<T, DeliverableTypeUpdateArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more DeliverableTypes.
+     * @param {DeliverableTypeDeleteManyArgs} args - Arguments to filter DeliverableTypes to delete.
+     * @example
+     * // Delete a few DeliverableTypes
+     * const { count } = await prisma.deliverableType.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends DeliverableTypeDeleteManyArgs>(args?: SelectSubset<T, DeliverableTypeDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more DeliverableTypes.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many DeliverableTypes
+     * const deliverableType = await prisma.deliverableType.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends DeliverableTypeUpdateManyArgs>(args: SelectSubset<T, DeliverableTypeUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more DeliverableTypes and returns the data updated in the database.
+     * @param {DeliverableTypeUpdateManyAndReturnArgs} args - Arguments to update many DeliverableTypes.
+     * @example
+     * // Update many DeliverableTypes
+     * const deliverableType = await prisma.deliverableType.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more DeliverableTypes and only return the `id`
+     * const deliverableTypeWithIdOnly = await prisma.deliverableType.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends DeliverableTypeUpdateManyAndReturnArgs>(args: SelectSubset<T, DeliverableTypeUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one DeliverableType.
+     * @param {DeliverableTypeUpsertArgs} args - Arguments to update or create a DeliverableType.
+     * @example
+     * // Update or create a DeliverableType
+     * const deliverableType = await prisma.deliverableType.upsert({
+     *   create: {
+     *     // ... data to create a DeliverableType
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the DeliverableType we want to update
+     *   }
+     * })
+     */
+    upsert<T extends DeliverableTypeUpsertArgs>(args: SelectSubset<T, DeliverableTypeUpsertArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of DeliverableTypes.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeCountArgs} args - Arguments to filter DeliverableTypes to count.
+     * @example
+     * // Count the number of DeliverableTypes
+     * const count = await prisma.deliverableType.count({
+     *   where: {
+     *     // ... the filter for the DeliverableTypes we want to count
+     *   }
+     * })
+    **/
+    count<T extends DeliverableTypeCountArgs>(
+      args?: Subset<T, DeliverableTypeCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], DeliverableTypeCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a DeliverableType.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends DeliverableTypeAggregateArgs>(args: Subset<T, DeliverableTypeAggregateArgs>): Prisma.PrismaPromise<GetDeliverableTypeAggregateType<T>>
+
+    /**
+     * Group by DeliverableType.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DeliverableTypeGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends DeliverableTypeGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: DeliverableTypeGroupByArgs['orderBy'] }
+        : { orderBy?: DeliverableTypeGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, DeliverableTypeGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetDeliverableTypeGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the DeliverableType model
+   */
+  readonly fields: DeliverableTypeFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for DeliverableType.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__DeliverableTypeClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    activityType<T extends ActivityTypeDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ActivityTypeDefaultArgs<ExtArgs>>): Prisma__ActivityTypeClient<$Result.GetResult<Prisma.$ActivityTypePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    activityLogs<T extends DeliverableType$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, DeliverableType$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the DeliverableType model
+   */
+  interface DeliverableTypeFieldRefs {
+    readonly id: FieldRef<"DeliverableType", 'String'>
+    readonly code: FieldRef<"DeliverableType", 'String'>
+    readonly label: FieldRef<"DeliverableType", 'String'>
+    readonly activityTypeId: FieldRef<"DeliverableType", 'String'>
+    readonly sortOrder: FieldRef<"DeliverableType", 'Int'>
+    readonly isActive: FieldRef<"DeliverableType", 'Boolean'>
+    readonly isCountable: FieldRef<"DeliverableType", 'Boolean'>
+    readonly createdAt: FieldRef<"DeliverableType", 'DateTime'>
+    readonly updatedAt: FieldRef<"DeliverableType", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * DeliverableType findUnique
+   */
+  export type DeliverableTypeFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter, which DeliverableType to fetch.
+     */
+    where: DeliverableTypeWhereUniqueInput
+  }
+
+  /**
+   * DeliverableType findUniqueOrThrow
+   */
+  export type DeliverableTypeFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter, which DeliverableType to fetch.
+     */
+    where: DeliverableTypeWhereUniqueInput
+  }
+
+  /**
+   * DeliverableType findFirst
+   */
+  export type DeliverableTypeFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter, which DeliverableType to fetch.
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DeliverableTypes to fetch.
+     */
+    orderBy?: DeliverableTypeOrderByWithRelationInput | DeliverableTypeOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for DeliverableTypes.
+     */
+    cursor?: DeliverableTypeWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DeliverableTypes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DeliverableTypes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DeliverableTypes.
+     */
+    distinct?: DeliverableTypeScalarFieldEnum | DeliverableTypeScalarFieldEnum[]
+  }
+
+  /**
+   * DeliverableType findFirstOrThrow
+   */
+  export type DeliverableTypeFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter, which DeliverableType to fetch.
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DeliverableTypes to fetch.
+     */
+    orderBy?: DeliverableTypeOrderByWithRelationInput | DeliverableTypeOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for DeliverableTypes.
+     */
+    cursor?: DeliverableTypeWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DeliverableTypes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DeliverableTypes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DeliverableTypes.
+     */
+    distinct?: DeliverableTypeScalarFieldEnum | DeliverableTypeScalarFieldEnum[]
+  }
+
+  /**
+   * DeliverableType findMany
+   */
+  export type DeliverableTypeFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter, which DeliverableTypes to fetch.
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DeliverableTypes to fetch.
+     */
+    orderBy?: DeliverableTypeOrderByWithRelationInput | DeliverableTypeOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing DeliverableTypes.
+     */
+    cursor?: DeliverableTypeWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DeliverableTypes from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DeliverableTypes.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DeliverableTypes.
+     */
+    distinct?: DeliverableTypeScalarFieldEnum | DeliverableTypeScalarFieldEnum[]
+  }
+
+  /**
+   * DeliverableType create
+   */
+  export type DeliverableTypeCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * The data needed to create a DeliverableType.
+     */
+    data: XOR<DeliverableTypeCreateInput, DeliverableTypeUncheckedCreateInput>
+  }
+
+  /**
+   * DeliverableType createMany
+   */
+  export type DeliverableTypeCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many DeliverableTypes.
+     */
+    data: DeliverableTypeCreateManyInput | DeliverableTypeCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * DeliverableType createManyAndReturn
+   */
+  export type DeliverableTypeCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * The data used to create many DeliverableTypes.
+     */
+    data: DeliverableTypeCreateManyInput | DeliverableTypeCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * DeliverableType update
+   */
+  export type DeliverableTypeUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * The data needed to update a DeliverableType.
+     */
+    data: XOR<DeliverableTypeUpdateInput, DeliverableTypeUncheckedUpdateInput>
+    /**
+     * Choose, which DeliverableType to update.
+     */
+    where: DeliverableTypeWhereUniqueInput
+  }
+
+  /**
+   * DeliverableType updateMany
+   */
+  export type DeliverableTypeUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update DeliverableTypes.
+     */
+    data: XOR<DeliverableTypeUpdateManyMutationInput, DeliverableTypeUncheckedUpdateManyInput>
+    /**
+     * Filter which DeliverableTypes to update
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * Limit how many DeliverableTypes to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * DeliverableType updateManyAndReturn
+   */
+  export type DeliverableTypeUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * The data used to update DeliverableTypes.
+     */
+    data: XOR<DeliverableTypeUpdateManyMutationInput, DeliverableTypeUncheckedUpdateManyInput>
+    /**
+     * Filter which DeliverableTypes to update
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * Limit how many DeliverableTypes to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * DeliverableType upsert
+   */
+  export type DeliverableTypeUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * The filter to search for the DeliverableType to update in case it exists.
+     */
+    where: DeliverableTypeWhereUniqueInput
+    /**
+     * In case the DeliverableType found by the `where` argument doesn't exist, create a new DeliverableType with this data.
+     */
+    create: XOR<DeliverableTypeCreateInput, DeliverableTypeUncheckedCreateInput>
+    /**
+     * In case the DeliverableType was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<DeliverableTypeUpdateInput, DeliverableTypeUncheckedUpdateInput>
+  }
+
+  /**
+   * DeliverableType delete
+   */
+  export type DeliverableTypeDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+    /**
+     * Filter which DeliverableType to delete.
+     */
+    where: DeliverableTypeWhereUniqueInput
+  }
+
+  /**
+   * DeliverableType deleteMany
+   */
+  export type DeliverableTypeDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which DeliverableTypes to delete
+     */
+    where?: DeliverableTypeWhereInput
+    /**
+     * Limit how many DeliverableTypes to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * DeliverableType.activityLogs
+   */
+  export type DeliverableType$activityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ActivityLog
+     */
+    select?: ActivityLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ActivityLog
+     */
+    omit?: ActivityLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ActivityLogInclude<ExtArgs> | null
+    where?: ActivityLogWhereInput
+    orderBy?: ActivityLogOrderByWithRelationInput | ActivityLogOrderByWithRelationInput[]
+    cursor?: ActivityLogWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ActivityLogScalarFieldEnum | ActivityLogScalarFieldEnum[]
+  }
+
+  /**
+   * DeliverableType without action
+   */
+  export type DeliverableTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DeliverableType
+     */
+    select?: DeliverableTypeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DeliverableType
+     */
+    omit?: DeliverableTypeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DeliverableTypeInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model WorklogSubmission
+   */
+
+  export type AggregateWorklogSubmission = {
+    _count: WorklogSubmissionCountAggregateOutputType | null
+    _min: WorklogSubmissionMinAggregateOutputType | null
+    _max: WorklogSubmissionMaxAggregateOutputType | null
+  }
+
+  export type WorklogSubmissionMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    status: $Enums.WorklogParseStatus | null
+    parseError: string | null
+    submittedAt: Date | null
+    parsedAt: Date | null
+    supersededAt: Date | null
+    reviewedAt: Date | null
+    escalatedAt: Date | null
+    needsReview: boolean | null
+    approval: $Enums.WorklogApproval | null
+    exceptionReason: $Enums.WorklogExceptionReason | null
+    decidedById: string | null
+    decidedAt: Date | null
+    decisionNote: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogSubmissionMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    status: $Enums.WorklogParseStatus | null
+    parseError: string | null
+    submittedAt: Date | null
+    parsedAt: Date | null
+    supersededAt: Date | null
+    reviewedAt: Date | null
+    escalatedAt: Date | null
+    needsReview: boolean | null
+    approval: $Enums.WorklogApproval | null
+    exceptionReason: $Enums.WorklogExceptionReason | null
+    decidedById: string | null
+    decidedAt: Date | null
+    decisionNote: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogSubmissionCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    universityId: number
+    workDate: number
+    rawBullets: number
+    status: number
+    parseError: number
+    rejections: number
+    submittedAt: number
+    parsedAt: number
+    supersededAt: number
+    reviewedAt: number
+    escalatedAt: number
+    needsReview: number
+    approval: number
+    exceptionReason: number
+    decidedById: number
+    decidedAt: number
+    decisionNote: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WorklogSubmissionMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    status?: true
+    parseError?: true
+    submittedAt?: true
+    parsedAt?: true
+    supersededAt?: true
+    reviewedAt?: true
+    escalatedAt?: true
+    needsReview?: true
+    approval?: true
+    exceptionReason?: true
+    decidedById?: true
+    decidedAt?: true
+    decisionNote?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogSubmissionMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    status?: true
+    parseError?: true
+    submittedAt?: true
+    parsedAt?: true
+    supersededAt?: true
+    reviewedAt?: true
+    escalatedAt?: true
+    needsReview?: true
+    approval?: true
+    exceptionReason?: true
+    decidedById?: true
+    decidedAt?: true
+    decisionNote?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogSubmissionCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    rawBullets?: true
+    status?: true
+    parseError?: true
+    rejections?: true
+    submittedAt?: true
+    parsedAt?: true
+    supersededAt?: true
+    reviewedAt?: true
+    escalatedAt?: true
+    needsReview?: true
+    approval?: true
+    exceptionReason?: true
+    decidedById?: true
+    decidedAt?: true
+    decisionNote?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WorklogSubmissionAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogSubmission to aggregate.
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogSubmissions to fetch.
+     */
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WorklogSubmissionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogSubmissions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogSubmissions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WorklogSubmissions
+    **/
+    _count?: true | WorklogSubmissionCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WorklogSubmissionMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WorklogSubmissionMaxAggregateInputType
+  }
+
+  export type GetWorklogSubmissionAggregateType<T extends WorklogSubmissionAggregateArgs> = {
+        [P in keyof T & keyof AggregateWorklogSubmission]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWorklogSubmission[P]>
+      : GetScalarType<T[P], AggregateWorklogSubmission[P]>
+  }
+
+
+
+
+  export type WorklogSubmissionGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogSubmissionWhereInput
+    orderBy?: WorklogSubmissionOrderByWithAggregationInput | WorklogSubmissionOrderByWithAggregationInput[]
+    by: WorklogSubmissionScalarFieldEnum[] | WorklogSubmissionScalarFieldEnum
+    having?: WorklogSubmissionScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WorklogSubmissionCountAggregateInputType | true
+    _min?: WorklogSubmissionMinAggregateInputType
+    _max?: WorklogSubmissionMaxAggregateInputType
+  }
+
+  export type WorklogSubmissionGroupByOutputType = {
+    id: string
+    instructorId: string
+    universityId: string
+    workDate: Date
+    rawBullets: JsonValue
+    status: $Enums.WorklogParseStatus
+    parseError: string | null
+    rejections: JsonValue | null
+    submittedAt: Date
+    parsedAt: Date | null
+    supersededAt: Date | null
+    reviewedAt: Date | null
+    escalatedAt: Date | null
+    needsReview: boolean
+    approval: $Enums.WorklogApproval
+    exceptionReason: $Enums.WorklogExceptionReason | null
+    decidedById: string | null
+    decidedAt: Date | null
+    decisionNote: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: WorklogSubmissionCountAggregateOutputType | null
+    _min: WorklogSubmissionMinAggregateOutputType | null
+    _max: WorklogSubmissionMaxAggregateOutputType | null
+  }
+
+  type GetWorklogSubmissionGroupByPayload<T extends WorklogSubmissionGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WorklogSubmissionGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WorklogSubmissionGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WorklogSubmissionGroupByOutputType[P]>
+            : GetScalarType<T[P], WorklogSubmissionGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WorklogSubmissionSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    rawBullets?: boolean
+    status?: boolean
+    parseError?: boolean
+    rejections?: boolean
+    submittedAt?: boolean
+    parsedAt?: boolean
+    supersededAt?: boolean
+    reviewedAt?: boolean
+    escalatedAt?: boolean
+    needsReview?: boolean
+    approval?: boolean
+    exceptionReason?: boolean
+    decidedById?: boolean
+    decidedAt?: boolean
+    decisionNote?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+    activities?: boolean | WorklogSubmission$activitiesArgs<ExtArgs>
+    _count?: boolean | WorklogSubmissionCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogSubmission"]>
+
+  export type WorklogSubmissionSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    rawBullets?: boolean
+    status?: boolean
+    parseError?: boolean
+    rejections?: boolean
+    submittedAt?: boolean
+    parsedAt?: boolean
+    supersededAt?: boolean
+    reviewedAt?: boolean
+    escalatedAt?: boolean
+    needsReview?: boolean
+    approval?: boolean
+    exceptionReason?: boolean
+    decidedById?: boolean
+    decidedAt?: boolean
+    decisionNote?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogSubmission"]>
+
+  export type WorklogSubmissionSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    rawBullets?: boolean
+    status?: boolean
+    parseError?: boolean
+    rejections?: boolean
+    submittedAt?: boolean
+    parsedAt?: boolean
+    supersededAt?: boolean
+    reviewedAt?: boolean
+    escalatedAt?: boolean
+    needsReview?: boolean
+    approval?: boolean
+    exceptionReason?: boolean
+    decidedById?: boolean
+    decidedAt?: boolean
+    decisionNote?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogSubmission"]>
+
+  export type WorklogSubmissionSelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    rawBullets?: boolean
+    status?: boolean
+    parseError?: boolean
+    rejections?: boolean
+    submittedAt?: boolean
+    parsedAt?: boolean
+    supersededAt?: boolean
+    reviewedAt?: boolean
+    escalatedAt?: boolean
+    needsReview?: boolean
+    approval?: boolean
+    exceptionReason?: boolean
+    decidedById?: boolean
+    decidedAt?: boolean
+    decisionNote?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WorklogSubmissionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "workDate" | "rawBullets" | "status" | "parseError" | "rejections" | "submittedAt" | "parsedAt" | "supersededAt" | "reviewedAt" | "escalatedAt" | "needsReview" | "approval" | "exceptionReason" | "decidedById" | "decidedAt" | "decisionNote" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogSubmission"]>
+  export type WorklogSubmissionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+    activities?: boolean | WorklogSubmission$activitiesArgs<ExtArgs>
+    _count?: boolean | WorklogSubmissionCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type WorklogSubmissionIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+  }
+  export type WorklogSubmissionIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+    decidedBy?: boolean | WorklogSubmission$decidedByArgs<ExtArgs>
+  }
+
+  export type $WorklogSubmissionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WorklogSubmission"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+      university: Prisma.$UniversityPayload<ExtArgs>
+      decidedBy: Prisma.$UserPayload<ExtArgs> | null
+      activities: Prisma.$ActivityLogPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      universityId: string
+      /**
+       * The day being logged, in the university's zone.
+       */
+      workDate: Date
+      /**
+       * The bullets, in order, exactly as typed. Never rewritten by parsing.
+       */
+      rawBullets: Prisma.JsonValue
+      status: $Enums.WorklogParseStatus
+      /**
+       * Why parsing failed, in words an instructor can act on. Never a stack trace.
+       */
+      parseError: string | null
+      /**
+       * The bullets that produced no activity, each with the reason, in bullet
+       * order: `[{ index, rawText, reason }]`.
+       * 
+       * Without this the review view can only tell an instructor that a line is
+       * missing, which is the least useful half of the answer — "no time could be
+       * read from this line" and "this overlaps 14:00–15:00" ask for completely
+       * different corrections. The reason is produced while writing and is not
+       * recoverable afterwards, so it is kept rather than recomputed.
+       * 
+       * Rewritten in full on every parse, so a re-parse that succeeds clears what
+       * the failed one recorded.
+       */
+      rejections: Prisma.JsonValue | null
+      /**
+       * t0. The review clock runs from here and from nothing else — how fast
+       * parsing happened must not move anybody's deadline.
+       */
+      submittedAt: Date
+      parsedAt: Date | null
+      /**
+       * Replaced by a later submission for the same day.
+       * 
+       * ── Why the old one is kept at all ────────────────────────────────────
+       * Editing a day means "this is what happened, not what I said before", so
+       * the ACTIVITIES from the earlier text are removed — they no longer describe
+       * anything. The submission itself stays, marked here, because it is the
+       * record of what the instructor actually wrote at the time, and deleting
+       * somebody's own words to make a screen tidier is not a trade this product
+       * makes. Reads filter it out; the audit trail can still find it.
+       */
+      supersededAt: Date | null
+      /**
+       * When the instructor first corrected a parsed entry from this submission.
+       * Its presence at the three-hour mark is the whole escalation decision.
+       */
+      reviewedAt: Date | null
+      /**
+       * When the manager was told. Set once and never cleared: a later correction
+       * adds `reviewedAt` beside it rather than erasing the fact that it was
+       * escalated, because "flagged and then fixed" and "never flagged" are
+       * different histories and a manager is entitled to tell them apart.
+       */
+      escalatedAt: Date | null
+      needsReview: boolean
+      /**
+       * ── Approval ─────────────────────────────────────────────────────────────
+       *    * An instructor records their OWN day, inside their university's hours, and
+       *    * that needs no permission — the overwhelming case is `NOT_REQUIRED` and it
+       *    * costs a manager nothing.
+       *    *
+       *    * What is asked about is work that falls outside those hours, or a day
+       *    * written up after them. Both are legitimate — people stay late — but both
+       *    * are also how a timesheet quietly stops reflecting the working day it is
+       *    * measured against, so a person rather than a rule decides.
+       *    *
+       *    * The submission itself carries this rather than a separate request table:
+       *    * what a manager needs in order to decide IS the submission — the sentences,
+       *    * the times, and what they were read as. A request row pointing at it would
+       *    * be the same thing with an extra join.
+       */
+      approval: $Enums.WorklogApproval
+      exceptionReason: $Enums.WorklogExceptionReason | null
+      decidedById: string | null
+      decidedAt: Date | null
+      /**
+       * The manager's own words, shown to the instructor. Never a code.
+       */
+      decisionNote: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["worklogSubmission"]>
+    composites: {}
+  }
+
+  type WorklogSubmissionGetPayload<S extends boolean | null | undefined | WorklogSubmissionDefaultArgs> = $Result.GetResult<Prisma.$WorklogSubmissionPayload, S>
+
+  type WorklogSubmissionCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WorklogSubmissionFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WorklogSubmissionCountAggregateInputType | true
+    }
+
+  export interface WorklogSubmissionDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorklogSubmission'], meta: { name: 'WorklogSubmission' } }
+    /**
+     * Find zero or one WorklogSubmission that matches the filter.
+     * @param {WorklogSubmissionFindUniqueArgs} args - Arguments to find a WorklogSubmission
+     * @example
+     * // Get one WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WorklogSubmissionFindUniqueArgs>(args: SelectSubset<T, WorklogSubmissionFindUniqueArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WorklogSubmission that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WorklogSubmissionFindUniqueOrThrowArgs} args - Arguments to find a WorklogSubmission
+     * @example
+     * // Get one WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WorklogSubmissionFindUniqueOrThrowArgs>(args: SelectSubset<T, WorklogSubmissionFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogSubmission that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionFindFirstArgs} args - Arguments to find a WorklogSubmission
+     * @example
+     * // Get one WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WorklogSubmissionFindFirstArgs>(args?: SelectSubset<T, WorklogSubmissionFindFirstArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogSubmission that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionFindFirstOrThrowArgs} args - Arguments to find a WorklogSubmission
+     * @example
+     * // Get one WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WorklogSubmissionFindFirstOrThrowArgs>(args?: SelectSubset<T, WorklogSubmissionFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WorklogSubmissions that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WorklogSubmissions
+     * const worklogSubmissions = await prisma.worklogSubmission.findMany()
+     * 
+     * // Get first 10 WorklogSubmissions
+     * const worklogSubmissions = await prisma.worklogSubmission.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const worklogSubmissionWithIdOnly = await prisma.worklogSubmission.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WorklogSubmissionFindManyArgs>(args?: SelectSubset<T, WorklogSubmissionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WorklogSubmission.
+     * @param {WorklogSubmissionCreateArgs} args - Arguments to create a WorklogSubmission.
+     * @example
+     * // Create one WorklogSubmission
+     * const WorklogSubmission = await prisma.worklogSubmission.create({
+     *   data: {
+     *     // ... data to create a WorklogSubmission
+     *   }
+     * })
+     * 
+     */
+    create<T extends WorklogSubmissionCreateArgs>(args: SelectSubset<T, WorklogSubmissionCreateArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WorklogSubmissions.
+     * @param {WorklogSubmissionCreateManyArgs} args - Arguments to create many WorklogSubmissions.
+     * @example
+     * // Create many WorklogSubmissions
+     * const worklogSubmission = await prisma.worklogSubmission.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WorklogSubmissionCreateManyArgs>(args?: SelectSubset<T, WorklogSubmissionCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WorklogSubmissions and returns the data saved in the database.
+     * @param {WorklogSubmissionCreateManyAndReturnArgs} args - Arguments to create many WorklogSubmissions.
+     * @example
+     * // Create many WorklogSubmissions
+     * const worklogSubmission = await prisma.worklogSubmission.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WorklogSubmissions and only return the `id`
+     * const worklogSubmissionWithIdOnly = await prisma.worklogSubmission.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WorklogSubmissionCreateManyAndReturnArgs>(args?: SelectSubset<T, WorklogSubmissionCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WorklogSubmission.
+     * @param {WorklogSubmissionDeleteArgs} args - Arguments to delete one WorklogSubmission.
+     * @example
+     * // Delete one WorklogSubmission
+     * const WorklogSubmission = await prisma.worklogSubmission.delete({
+     *   where: {
+     *     // ... filter to delete one WorklogSubmission
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WorklogSubmissionDeleteArgs>(args: SelectSubset<T, WorklogSubmissionDeleteArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WorklogSubmission.
+     * @param {WorklogSubmissionUpdateArgs} args - Arguments to update one WorklogSubmission.
+     * @example
+     * // Update one WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WorklogSubmissionUpdateArgs>(args: SelectSubset<T, WorklogSubmissionUpdateArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WorklogSubmissions.
+     * @param {WorklogSubmissionDeleteManyArgs} args - Arguments to filter WorklogSubmissions to delete.
+     * @example
+     * // Delete a few WorklogSubmissions
+     * const { count } = await prisma.worklogSubmission.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WorklogSubmissionDeleteManyArgs>(args?: SelectSubset<T, WorklogSubmissionDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogSubmissions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WorklogSubmissions
+     * const worklogSubmission = await prisma.worklogSubmission.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WorklogSubmissionUpdateManyArgs>(args: SelectSubset<T, WorklogSubmissionUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogSubmissions and returns the data updated in the database.
+     * @param {WorklogSubmissionUpdateManyAndReturnArgs} args - Arguments to update many WorklogSubmissions.
+     * @example
+     * // Update many WorklogSubmissions
+     * const worklogSubmission = await prisma.worklogSubmission.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WorklogSubmissions and only return the `id`
+     * const worklogSubmissionWithIdOnly = await prisma.worklogSubmission.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WorklogSubmissionUpdateManyAndReturnArgs>(args: SelectSubset<T, WorklogSubmissionUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WorklogSubmission.
+     * @param {WorklogSubmissionUpsertArgs} args - Arguments to update or create a WorklogSubmission.
+     * @example
+     * // Update or create a WorklogSubmission
+     * const worklogSubmission = await prisma.worklogSubmission.upsert({
+     *   create: {
+     *     // ... data to create a WorklogSubmission
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WorklogSubmission we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WorklogSubmissionUpsertArgs>(args: SelectSubset<T, WorklogSubmissionUpsertArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WorklogSubmissions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionCountArgs} args - Arguments to filter WorklogSubmissions to count.
+     * @example
+     * // Count the number of WorklogSubmissions
+     * const count = await prisma.worklogSubmission.count({
+     *   where: {
+     *     // ... the filter for the WorklogSubmissions we want to count
+     *   }
+     * })
+    **/
+    count<T extends WorklogSubmissionCountArgs>(
+      args?: Subset<T, WorklogSubmissionCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WorklogSubmissionCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WorklogSubmission.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WorklogSubmissionAggregateArgs>(args: Subset<T, WorklogSubmissionAggregateArgs>): Prisma.PrismaPromise<GetWorklogSubmissionAggregateType<T>>
+
+    /**
+     * Group by WorklogSubmission.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogSubmissionGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WorklogSubmissionGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WorklogSubmissionGroupByArgs['orderBy'] }
+        : { orderBy?: WorklogSubmissionGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WorklogSubmissionGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorklogSubmissionGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WorklogSubmission model
+   */
+  readonly fields: WorklogSubmissionFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WorklogSubmission.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WorklogSubmissionClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    decidedBy<T extends WorklogSubmission$decidedByArgs<ExtArgs> = {}>(args?: Subset<T, WorklogSubmission$decidedByArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    activities<T extends WorklogSubmission$activitiesArgs<ExtArgs> = {}>(args?: Subset<T, WorklogSubmission$activitiesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WorklogSubmission model
+   */
+  interface WorklogSubmissionFieldRefs {
+    readonly id: FieldRef<"WorklogSubmission", 'String'>
+    readonly instructorId: FieldRef<"WorklogSubmission", 'String'>
+    readonly universityId: FieldRef<"WorklogSubmission", 'String'>
+    readonly workDate: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly rawBullets: FieldRef<"WorklogSubmission", 'Json'>
+    readonly status: FieldRef<"WorklogSubmission", 'WorklogParseStatus'>
+    readonly parseError: FieldRef<"WorklogSubmission", 'String'>
+    readonly rejections: FieldRef<"WorklogSubmission", 'Json'>
+    readonly submittedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly parsedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly supersededAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly reviewedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly escalatedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly needsReview: FieldRef<"WorklogSubmission", 'Boolean'>
+    readonly approval: FieldRef<"WorklogSubmission", 'WorklogApproval'>
+    readonly exceptionReason: FieldRef<"WorklogSubmission", 'WorklogExceptionReason'>
+    readonly decidedById: FieldRef<"WorklogSubmission", 'String'>
+    readonly decidedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly decisionNote: FieldRef<"WorklogSubmission", 'String'>
+    readonly createdAt: FieldRef<"WorklogSubmission", 'DateTime'>
+    readonly updatedAt: FieldRef<"WorklogSubmission", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WorklogSubmission findUnique
+   */
+  export type WorklogSubmissionFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogSubmission to fetch.
+     */
+    where: WorklogSubmissionWhereUniqueInput
+  }
+
+  /**
+   * WorklogSubmission findUniqueOrThrow
+   */
+  export type WorklogSubmissionFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogSubmission to fetch.
+     */
+    where: WorklogSubmissionWhereUniqueInput
+  }
+
+  /**
+   * WorklogSubmission findFirst
+   */
+  export type WorklogSubmissionFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogSubmission to fetch.
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogSubmissions to fetch.
+     */
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogSubmissions.
+     */
+    cursor?: WorklogSubmissionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogSubmissions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogSubmissions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogSubmissions.
+     */
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogSubmission findFirstOrThrow
+   */
+  export type WorklogSubmissionFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogSubmission to fetch.
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogSubmissions to fetch.
+     */
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogSubmissions.
+     */
+    cursor?: WorklogSubmissionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogSubmissions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogSubmissions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogSubmissions.
+     */
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogSubmission findMany
+   */
+  export type WorklogSubmissionFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogSubmissions to fetch.
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogSubmissions to fetch.
+     */
+    orderBy?: WorklogSubmissionOrderByWithRelationInput | WorklogSubmissionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WorklogSubmissions.
+     */
+    cursor?: WorklogSubmissionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogSubmissions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogSubmissions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogSubmissions.
+     */
+    distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogSubmission create
+   */
+  export type WorklogSubmissionCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * The data needed to create a WorklogSubmission.
+     */
+    data: XOR<WorklogSubmissionCreateInput, WorklogSubmissionUncheckedCreateInput>
+  }
+
+  /**
+   * WorklogSubmission createMany
+   */
+  export type WorklogSubmissionCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WorklogSubmissions.
+     */
+    data: WorklogSubmissionCreateManyInput | WorklogSubmissionCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogSubmission createManyAndReturn
+   */
+  export type WorklogSubmissionCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * The data used to create many WorklogSubmissions.
+     */
+    data: WorklogSubmissionCreateManyInput | WorklogSubmissionCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogSubmission update
+   */
+  export type WorklogSubmissionUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * The data needed to update a WorklogSubmission.
+     */
+    data: XOR<WorklogSubmissionUpdateInput, WorklogSubmissionUncheckedUpdateInput>
+    /**
+     * Choose, which WorklogSubmission to update.
+     */
+    where: WorklogSubmissionWhereUniqueInput
+  }
+
+  /**
+   * WorklogSubmission updateMany
+   */
+  export type WorklogSubmissionUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WorklogSubmissions.
+     */
+    data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogSubmissions to update
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * Limit how many WorklogSubmissions to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogSubmission updateManyAndReturn
+   */
+  export type WorklogSubmissionUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * The data used to update WorklogSubmissions.
+     */
+    data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogSubmissions to update
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * Limit how many WorklogSubmissions to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogSubmission upsert
+   */
+  export type WorklogSubmissionUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * The filter to search for the WorklogSubmission to update in case it exists.
+     */
+    where: WorklogSubmissionWhereUniqueInput
+    /**
+     * In case the WorklogSubmission found by the `where` argument doesn't exist, create a new WorklogSubmission with this data.
+     */
+    create: XOR<WorklogSubmissionCreateInput, WorklogSubmissionUncheckedCreateInput>
+    /**
+     * In case the WorklogSubmission was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WorklogSubmissionUpdateInput, WorklogSubmissionUncheckedUpdateInput>
+  }
+
+  /**
+   * WorklogSubmission delete
+   */
+  export type WorklogSubmissionDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+    /**
+     * Filter which WorklogSubmission to delete.
+     */
+    where: WorklogSubmissionWhereUniqueInput
+  }
+
+  /**
+   * WorklogSubmission deleteMany
+   */
+  export type WorklogSubmissionDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogSubmissions to delete
+     */
+    where?: WorklogSubmissionWhereInput
+    /**
+     * Limit how many WorklogSubmissions to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogSubmission.decidedBy
+   */
+  export type WorklogSubmission$decidedByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the User
+     */
+    select?: UserSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the User
+     */
+    omit?: UserOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UserInclude<ExtArgs> | null
+    where?: UserWhereInput
+  }
+
+  /**
+   * WorklogSubmission.activities
+   */
+  export type WorklogSubmission$activitiesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ActivityLog
+     */
+    select?: ActivityLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the ActivityLog
+     */
+    omit?: ActivityLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ActivityLogInclude<ExtArgs> | null
+    where?: ActivityLogWhereInput
+    orderBy?: ActivityLogOrderByWithRelationInput | ActivityLogOrderByWithRelationInput[]
+    cursor?: ActivityLogWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ActivityLogScalarFieldEnum | ActivityLogScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogSubmission without action
+   */
+  export type WorklogSubmissionDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogSubmission
+     */
+    select?: WorklogSubmissionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogSubmission
+     */
+    omit?: WorklogSubmissionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogSubmissionInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -43009,8 +50501,10 @@ export namespace Prisma {
     role: 'role',
     isActive: 'isActive',
     phone: 'phone',
+    avatarUrl: 'avatarUrl',
     lastLoginAt: 'lastLoginAt',
     deletedAt: 'deletedAt',
+    leftReason: 'leftReason',
     universityId: 'universityId',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -43077,10 +50571,38 @@ export namespace Prisma {
   export type ManagerScalarFieldEnum = (typeof ManagerScalarFieldEnum)[keyof typeof ManagerScalarFieldEnum]
 
 
+  export const WorklogDayNoteScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    universityId: 'universityId',
+    workDate: 'workDate',
+    note: 'note',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WorklogDayNoteScalarFieldEnum = (typeof WorklogDayNoteScalarFieldEnum)[keyof typeof WorklogDayNoteScalarFieldEnum]
+
+
+  export const InstructorCategoryScalarFieldEnum: {
+    id: 'id',
+    code: 'code',
+    label: 'label',
+    sortOrder: 'sortOrder',
+    isActive: 'isActive',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type InstructorCategoryScalarFieldEnum = (typeof InstructorCategoryScalarFieldEnum)[keyof typeof InstructorCategoryScalarFieldEnum]
+
+
   export const InstructorScalarFieldEnum: {
     id: 'id',
     userId: 'userId',
     universityId: 'universityId',
+    categoryId: 'categoryId',
+    managerId: 'managerId',
     employeeCode: 'employeeCode',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -43152,6 +50674,11 @@ export namespace Prisma {
     deliverableId: 'deliverableId',
     createdById: 'createdById',
     isOncePerDay: 'isOncePerDay',
+    rawText: 'rawText',
+    submissionId: 'submissionId',
+    broadCategoryId: 'broadCategoryId',
+    deliverableTypeId: 'deliverableTypeId',
+    quantity: 'quantity',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -43519,6 +51046,74 @@ export namespace Prisma {
   export type MetricsJobRunScalarFieldEnum = (typeof MetricsJobRunScalarFieldEnum)[keyof typeof MetricsJobRunScalarFieldEnum]
 
 
+  export const ImportJobScalarFieldEnum: {
+    id: 'id',
+    createdById: 'createdById',
+    sourceType: 'sourceType',
+    fileName: 'fileName',
+    fileSize: 'fileSize',
+    checksum: 'checksum',
+    status: 'status',
+    mapping: 'mapping',
+    rows: 'rows',
+    rowCount: 'rowCount',
+    processedRows: 'processedRows',
+    errors: 'errors',
+    warnings: 'warnings',
+    summary: 'summary',
+    extractionConfidence: 'extractionConfidence',
+    errorMessage: 'errorMessage',
+    startedAt: 'startedAt',
+    completedAt: 'completedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ImportJobScalarFieldEnum = (typeof ImportJobScalarFieldEnum)[keyof typeof ImportJobScalarFieldEnum]
+
+
+  export const DeliverableTypeScalarFieldEnum: {
+    id: 'id',
+    code: 'code',
+    label: 'label',
+    activityTypeId: 'activityTypeId',
+    sortOrder: 'sortOrder',
+    isActive: 'isActive',
+    isCountable: 'isCountable',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type DeliverableTypeScalarFieldEnum = (typeof DeliverableTypeScalarFieldEnum)[keyof typeof DeliverableTypeScalarFieldEnum]
+
+
+  export const WorklogSubmissionScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    universityId: 'universityId',
+    workDate: 'workDate',
+    rawBullets: 'rawBullets',
+    status: 'status',
+    parseError: 'parseError',
+    rejections: 'rejections',
+    submittedAt: 'submittedAt',
+    parsedAt: 'parsedAt',
+    supersededAt: 'supersededAt',
+    reviewedAt: 'reviewedAt',
+    escalatedAt: 'escalatedAt',
+    needsReview: 'needsReview',
+    approval: 'approval',
+    exceptionReason: 'exceptionReason',
+    decidedById: 'decidedById',
+    decidedAt: 'decidedAt',
+    decisionNote: 'decisionNote',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WorklogSubmissionScalarFieldEnum = (typeof WorklogSubmissionScalarFieldEnum)[keyof typeof WorklogSubmissionScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -43871,6 +51466,76 @@ export namespace Prisma {
    */
   export type ListEnumMetricsJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MetricsJobStatus[]'>
     
+
+
+  /**
+   * Reference to a field of type 'ImportSourceType'
+   */
+  export type EnumImportSourceTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ImportSourceType'>
+    
+
+
+  /**
+   * Reference to a field of type 'ImportSourceType[]'
+   */
+  export type ListEnumImportSourceTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ImportSourceType[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'ImportStatus'
+   */
+  export type EnumImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ImportStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'ImportStatus[]'
+   */
+  export type ListEnumImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ImportStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogParseStatus'
+   */
+  export type EnumWorklogParseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogParseStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogParseStatus[]'
+   */
+  export type ListEnumWorklogParseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogParseStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogApproval'
+   */
+  export type EnumWorklogApprovalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogApproval'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogApproval[]'
+   */
+  export type ListEnumWorklogApprovalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogApproval[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogExceptionReason'
+   */
+  export type EnumWorklogExceptionReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogExceptionReason'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogExceptionReason[]'
+   */
+  export type ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogExceptionReason[]'>
+    
   /**
    * Deep Input Types
    */
@@ -43887,8 +51552,10 @@ export namespace Prisma {
     role?: EnumRoleFilter<"User"> | $Enums.Role
     isActive?: BoolFilter<"User"> | boolean
     phone?: StringNullableFilter<"User"> | string | null
+    avatarUrl?: StringNullableFilter<"User"> | string | null
     lastLoginAt?: DateTimeNullableFilter<"User"> | Date | string | null
     deletedAt?: DateTimeNullableFilter<"User"> | Date | string | null
+    leftReason?: StringNullableFilter<"User"> | string | null
     universityId?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -43899,6 +51566,8 @@ export namespace Prisma {
     auditLogs?: AuditLogListRelationFilter
     notifications?: NotificationListRelationFilter
     reportJobs?: ReportJobListRelationFilter
+    importJobs?: ImportJobListRelationFilter
+    worklogDecisions?: WorklogSubmissionListRelationFilter
     activityLogsCreated?: ActivityLogListRelationFilter
     deliverablesCreated?: DeliverableListRelationFilter
   }
@@ -43911,8 +51580,10 @@ export namespace Prisma {
     role?: SortOrder
     isActive?: SortOrder
     phone?: SortOrderInput | SortOrder
+    avatarUrl?: SortOrderInput | SortOrder
     lastLoginAt?: SortOrderInput | SortOrder
     deletedAt?: SortOrderInput | SortOrder
+    leftReason?: SortOrderInput | SortOrder
     universityId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -43923,6 +51594,8 @@ export namespace Prisma {
     auditLogs?: AuditLogOrderByRelationAggregateInput
     notifications?: NotificationOrderByRelationAggregateInput
     reportJobs?: ReportJobOrderByRelationAggregateInput
+    importJobs?: ImportJobOrderByRelationAggregateInput
+    worklogDecisions?: WorklogSubmissionOrderByRelationAggregateInput
     activityLogsCreated?: ActivityLogOrderByRelationAggregateInput
     deliverablesCreated?: DeliverableOrderByRelationAggregateInput
   }
@@ -43939,8 +51612,10 @@ export namespace Prisma {
     role?: EnumRoleFilter<"User"> | $Enums.Role
     isActive?: BoolFilter<"User"> | boolean
     phone?: StringNullableFilter<"User"> | string | null
+    avatarUrl?: StringNullableFilter<"User"> | string | null
     lastLoginAt?: DateTimeNullableFilter<"User"> | Date | string | null
     deletedAt?: DateTimeNullableFilter<"User"> | Date | string | null
+    leftReason?: StringNullableFilter<"User"> | string | null
     universityId?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -43951,6 +51626,8 @@ export namespace Prisma {
     auditLogs?: AuditLogListRelationFilter
     notifications?: NotificationListRelationFilter
     reportJobs?: ReportJobListRelationFilter
+    importJobs?: ImportJobListRelationFilter
+    worklogDecisions?: WorklogSubmissionListRelationFilter
     activityLogsCreated?: ActivityLogListRelationFilter
     deliverablesCreated?: DeliverableListRelationFilter
   }, "id" | "email" | "id_universityId">
@@ -43963,8 +51640,10 @@ export namespace Prisma {
     role?: SortOrder
     isActive?: SortOrder
     phone?: SortOrderInput | SortOrder
+    avatarUrl?: SortOrderInput | SortOrder
     lastLoginAt?: SortOrderInput | SortOrder
     deletedAt?: SortOrderInput | SortOrder
+    leftReason?: SortOrderInput | SortOrder
     universityId?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -43984,8 +51663,10 @@ export namespace Prisma {
     role?: EnumRoleWithAggregatesFilter<"User"> | $Enums.Role
     isActive?: BoolWithAggregatesFilter<"User"> | boolean
     phone?: StringNullableWithAggregatesFilter<"User"> | string | null
+    avatarUrl?: StringNullableWithAggregatesFilter<"User"> | string | null
     lastLoginAt?: DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
     deletedAt?: DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+    leftReason?: StringNullableWithAggregatesFilter<"User"> | string | null
     universityId?: StringNullableWithAggregatesFilter<"User"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
@@ -44024,6 +51705,7 @@ export namespace Prisma {
     deliverables?: DeliverableListRelationFilter
     aiInsights?: AiInsightListRelationFilter
     auditLogs?: AuditLogListRelationFilter
+    worklogSubmissions?: WorklogSubmissionListRelationFilter
     notifications?: NotificationListRelationFilter
     universitySettings?: XOR<UniversitySettingsNullableScalarRelationFilter, UniversitySettingsWhereInput> | null
     departments?: DepartmentListRelationFilter
@@ -44073,6 +51755,7 @@ export namespace Prisma {
     deliverables?: DeliverableOrderByRelationAggregateInput
     aiInsights?: AiInsightOrderByRelationAggregateInput
     auditLogs?: AuditLogOrderByRelationAggregateInput
+    worklogSubmissions?: WorklogSubmissionOrderByRelationAggregateInput
     notifications?: NotificationOrderByRelationAggregateInput
     universitySettings?: UniversitySettingsOrderByWithRelationInput
     departments?: DepartmentOrderByRelationAggregateInput
@@ -44125,6 +51808,7 @@ export namespace Prisma {
     deliverables?: DeliverableListRelationFilter
     aiInsights?: AiInsightListRelationFilter
     auditLogs?: AuditLogListRelationFilter
+    worklogSubmissions?: WorklogSubmissionListRelationFilter
     notifications?: NotificationListRelationFilter
     universitySettings?: XOR<UniversitySettingsNullableScalarRelationFilter, UniversitySettingsWhereInput> | null
     departments?: DepartmentListRelationFilter
@@ -44322,6 +52006,7 @@ export namespace Prisma {
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
     primaryOf?: XOR<UniversityNullableScalarRelationFilter, UniversityWhereInput> | null
     aiInsights?: AiInsightListRelationFilter
+    instructors?: InstructorListRelationFilter
   }
 
   export type ManagerOrderByWithRelationInput = {
@@ -44335,6 +52020,7 @@ export namespace Prisma {
     university?: UniversityOrderByWithRelationInput
     primaryOf?: UniversityOrderByWithRelationInput
     aiInsights?: AiInsightOrderByRelationAggregateInput
+    instructors?: InstructorOrderByRelationAggregateInput
   }
 
   export type ManagerWhereUniqueInput = Prisma.AtLeast<{
@@ -44342,6 +52028,7 @@ export namespace Prisma {
     userId?: string
     userId_universityId?: ManagerUserIdUniversityIdCompoundUniqueInput
     universityId_employeeCode?: ManagerUniversityIdEmployeeCodeCompoundUniqueInput
+    id_universityId?: ManagerIdUniversityIdCompoundUniqueInput
     AND?: ManagerWhereInput | ManagerWhereInput[]
     OR?: ManagerWhereInput[]
     NOT?: ManagerWhereInput | ManagerWhereInput[]
@@ -44353,7 +52040,8 @@ export namespace Prisma {
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
     primaryOf?: XOR<UniversityNullableScalarRelationFilter, UniversityWhereInput> | null
     aiInsights?: AiInsightListRelationFilter
-  }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
+    instructors?: InstructorListRelationFilter
+  }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode" | "id_universityId">
 
   export type ManagerOrderByWithAggregationInput = {
     id?: SortOrder
@@ -44379,6 +52067,142 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"Manager"> | Date | string
   }
 
+  export type WorklogDayNoteWhereInput = {
+    AND?: WorklogDayNoteWhereInput | WorklogDayNoteWhereInput[]
+    OR?: WorklogDayNoteWhereInput[]
+    NOT?: WorklogDayNoteWhereInput | WorklogDayNoteWhereInput[]
+    id?: StringFilter<"WorklogDayNote"> | string
+    instructorId?: StringFilter<"WorklogDayNote"> | string
+    universityId?: StringFilter<"WorklogDayNote"> | string
+    workDate?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    note?: StringFilter<"WorklogDayNote"> | string
+    createdAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }
+
+  export type WorklogDayNoteOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    note?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+  }
+
+  export type WorklogDayNoteWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    instructorId_workDate?: WorklogDayNoteInstructorIdWorkDateCompoundUniqueInput
+    AND?: WorklogDayNoteWhereInput | WorklogDayNoteWhereInput[]
+    OR?: WorklogDayNoteWhereInput[]
+    NOT?: WorklogDayNoteWhereInput | WorklogDayNoteWhereInput[]
+    instructorId?: StringFilter<"WorklogDayNote"> | string
+    universityId?: StringFilter<"WorklogDayNote"> | string
+    workDate?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    note?: StringFilter<"WorklogDayNote"> | string
+    createdAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }, "id" | "instructorId_workDate">
+
+  export type WorklogDayNoteOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    note?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WorklogDayNoteCountOrderByAggregateInput
+    _max?: WorklogDayNoteMaxOrderByAggregateInput
+    _min?: WorklogDayNoteMinOrderByAggregateInput
+  }
+
+  export type WorklogDayNoteScalarWhereWithAggregatesInput = {
+    AND?: WorklogDayNoteScalarWhereWithAggregatesInput | WorklogDayNoteScalarWhereWithAggregatesInput[]
+    OR?: WorklogDayNoteScalarWhereWithAggregatesInput[]
+    NOT?: WorklogDayNoteScalarWhereWithAggregatesInput | WorklogDayNoteScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WorklogDayNote"> | string
+    instructorId?: StringWithAggregatesFilter<"WorklogDayNote"> | string
+    universityId?: StringWithAggregatesFilter<"WorklogDayNote"> | string
+    workDate?: DateTimeWithAggregatesFilter<"WorklogDayNote"> | Date | string
+    note?: StringWithAggregatesFilter<"WorklogDayNote"> | string
+    createdAt?: DateTimeWithAggregatesFilter<"WorklogDayNote"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WorklogDayNote"> | Date | string
+  }
+
+  export type InstructorCategoryWhereInput = {
+    AND?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
+    OR?: InstructorCategoryWhereInput[]
+    NOT?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
+    id?: StringFilter<"InstructorCategory"> | string
+    code?: StringFilter<"InstructorCategory"> | string
+    label?: StringFilter<"InstructorCategory"> | string
+    sortOrder?: IntFilter<"InstructorCategory"> | number
+    isActive?: BoolFilter<"InstructorCategory"> | boolean
+    createdAt?: DateTimeFilter<"InstructorCategory"> | Date | string
+    updatedAt?: DateTimeFilter<"InstructorCategory"> | Date | string
+    instructors?: InstructorListRelationFilter
+    activityLogs?: ActivityLogListRelationFilter
+  }
+
+  export type InstructorCategoryOrderByWithRelationInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructors?: InstructorOrderByRelationAggregateInput
+    activityLogs?: ActivityLogOrderByRelationAggregateInput
+  }
+
+  export type InstructorCategoryWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    code?: string
+    AND?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
+    OR?: InstructorCategoryWhereInput[]
+    NOT?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
+    label?: StringFilter<"InstructorCategory"> | string
+    sortOrder?: IntFilter<"InstructorCategory"> | number
+    isActive?: BoolFilter<"InstructorCategory"> | boolean
+    createdAt?: DateTimeFilter<"InstructorCategory"> | Date | string
+    updatedAt?: DateTimeFilter<"InstructorCategory"> | Date | string
+    instructors?: InstructorListRelationFilter
+    activityLogs?: ActivityLogListRelationFilter
+  }, "id" | "code">
+
+  export type InstructorCategoryOrderByWithAggregationInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: InstructorCategoryCountOrderByAggregateInput
+    _avg?: InstructorCategoryAvgOrderByAggregateInput
+    _max?: InstructorCategoryMaxOrderByAggregateInput
+    _min?: InstructorCategoryMinOrderByAggregateInput
+    _sum?: InstructorCategorySumOrderByAggregateInput
+  }
+
+  export type InstructorCategoryScalarWhereWithAggregatesInput = {
+    AND?: InstructorCategoryScalarWhereWithAggregatesInput | InstructorCategoryScalarWhereWithAggregatesInput[]
+    OR?: InstructorCategoryScalarWhereWithAggregatesInput[]
+    NOT?: InstructorCategoryScalarWhereWithAggregatesInput | InstructorCategoryScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"InstructorCategory"> | string
+    code?: StringWithAggregatesFilter<"InstructorCategory"> | string
+    label?: StringWithAggregatesFilter<"InstructorCategory"> | string
+    sortOrder?: IntWithAggregatesFilter<"InstructorCategory"> | number
+    isActive?: BoolWithAggregatesFilter<"InstructorCategory"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"InstructorCategory"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"InstructorCategory"> | Date | string
+  }
+
   export type InstructorWhereInput = {
     AND?: InstructorWhereInput | InstructorWhereInput[]
     OR?: InstructorWhereInput[]
@@ -44386,11 +52210,15 @@ export namespace Prisma {
     id?: StringFilter<"Instructor"> | string
     userId?: StringFilter<"Instructor"> | string
     universityId?: StringFilter<"Instructor"> | string
+    categoryId?: StringNullableFilter<"Instructor"> | string | null
+    managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeFilter<"Instructor"> | Date | string
+    category?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+    manager?: XOR<ManagerNullableScalarRelationFilter, ManagerWhereInput> | null
     activityLogs?: ActivityLogListRelationFilter
     deliverables?: DeliverableListRelationFilter
     leaveRequests?: LeaveRequestListRelationFilter
@@ -44402,17 +52230,23 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
+    worklogDayNotes?: WorklogDayNoteListRelationFilter
+    worklogSubmissions?: WorklogSubmissionListRelationFilter
   }
 
   export type InstructorOrderByWithRelationInput = {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
+    categoryId?: SortOrderInput | SortOrder
+    managerId?: SortOrderInput | SortOrder
     employeeCode?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    category?: InstructorCategoryOrderByWithRelationInput
     user?: UserOrderByWithRelationInput
     university?: UniversityOrderByWithRelationInput
+    manager?: ManagerOrderByWithRelationInput
     activityLogs?: ActivityLogOrderByRelationAggregateInput
     deliverables?: DeliverableOrderByRelationAggregateInput
     leaveRequests?: LeaveRequestOrderByRelationAggregateInput
@@ -44424,6 +52258,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogOrderByRelationAggregateInput
     instructorDailyMetrics?: InstructorDailyMetricOrderByRelationAggregateInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricOrderByRelationAggregateInput
+    worklogDayNotes?: WorklogDayNoteOrderByRelationAggregateInput
+    worklogSubmissions?: WorklogSubmissionOrderByRelationAggregateInput
   }
 
   export type InstructorWhereUniqueInput = Prisma.AtLeast<{
@@ -44435,11 +52271,15 @@ export namespace Prisma {
     OR?: InstructorWhereInput[]
     NOT?: InstructorWhereInput | InstructorWhereInput[]
     universityId?: StringFilter<"Instructor"> | string
+    categoryId?: StringNullableFilter<"Instructor"> | string | null
+    managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeFilter<"Instructor"> | Date | string
+    category?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+    manager?: XOR<ManagerNullableScalarRelationFilter, ManagerWhereInput> | null
     activityLogs?: ActivityLogListRelationFilter
     deliverables?: DeliverableListRelationFilter
     leaveRequests?: LeaveRequestListRelationFilter
@@ -44451,12 +52291,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
+    worklogDayNotes?: WorklogDayNoteListRelationFilter
+    worklogSubmissions?: WorklogSubmissionListRelationFilter
   }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
 
   export type InstructorOrderByWithAggregationInput = {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
+    categoryId?: SortOrderInput | SortOrder
+    managerId?: SortOrderInput | SortOrder
     employeeCode?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -44472,6 +52316,8 @@ export namespace Prisma {
     id?: StringWithAggregatesFilter<"Instructor"> | string
     userId?: StringWithAggregatesFilter<"Instructor"> | string
     universityId?: StringWithAggregatesFilter<"Instructor"> | string
+    categoryId?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
+    managerId?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
     employeeCode?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Instructor"> | Date | string
@@ -44497,6 +52343,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
     workloadTargets?: WorkloadTargetListRelationFilter
+    deliverableTypes?: DeliverableTypeListRelationFilter
   }
 
   export type ActivityTypeOrderByWithRelationInput = {
@@ -44516,6 +52363,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogOrderByRelationAggregateInput
     scheduleSlots?: ScheduleSlotOrderByRelationAggregateInput
     workloadTargets?: WorkloadTargetOrderByRelationAggregateInput
+    deliverableTypes?: DeliverableTypeOrderByRelationAggregateInput
   }
 
   export type ActivityTypeWhereUniqueInput = Prisma.AtLeast<{
@@ -44538,6 +52386,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
     workloadTargets?: WorkloadTargetListRelationFilter
+    deliverableTypes?: DeliverableTypeListRelationFilter
   }, "id" | "code">
 
   export type ActivityTypeOrderByWithAggregationInput = {
@@ -44746,6 +52595,11 @@ export namespace Prisma {
     deliverableId?: StringNullableFilter<"ActivityLog"> | string | null
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
+    rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    submissionId?: StringNullableFilter<"ActivityLog"> | string | null
+    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
+    deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
+    quantity?: IntFilter<"ActivityLog"> | number
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -44754,6 +52608,9 @@ export namespace Prisma {
     scheduleSlot?: XOR<ScheduleSlotNullableScalarRelationFilter, ScheduleSlotWhereInput> | null
     deliverable?: XOR<DeliverableNullableScalarRelationFilter, DeliverableWhereInput> | null
     createdBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    submission?: XOR<WorklogSubmissionNullableScalarRelationFilter, WorklogSubmissionWhereInput> | null
+    broadCategory?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
+    deliverableType?: XOR<DeliverableTypeNullableScalarRelationFilter, DeliverableTypeWhereInput> | null
   }
 
   export type ActivityLogOrderByWithRelationInput = {
@@ -44771,6 +52628,11 @@ export namespace Prisma {
     deliverableId?: SortOrderInput | SortOrder
     createdById?: SortOrderInput | SortOrder
     isOncePerDay?: SortOrder
+    rawText?: SortOrderInput | SortOrder
+    submissionId?: SortOrderInput | SortOrder
+    broadCategoryId?: SortOrderInput | SortOrder
+    deliverableTypeId?: SortOrderInput | SortOrder
+    quantity?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     instructor?: InstructorOrderByWithRelationInput
@@ -44779,6 +52641,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotOrderByWithRelationInput
     deliverable?: DeliverableOrderByWithRelationInput
     createdBy?: UserOrderByWithRelationInput
+    submission?: WorklogSubmissionOrderByWithRelationInput
+    broadCategory?: InstructorCategoryOrderByWithRelationInput
+    deliverableType?: DeliverableTypeOrderByWithRelationInput
   }
 
   export type ActivityLogWhereUniqueInput = Prisma.AtLeast<{
@@ -44799,6 +52664,11 @@ export namespace Prisma {
     deliverableId?: StringNullableFilter<"ActivityLog"> | string | null
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
+    rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    submissionId?: StringNullableFilter<"ActivityLog"> | string | null
+    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
+    deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
+    quantity?: IntFilter<"ActivityLog"> | number
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -44807,6 +52677,9 @@ export namespace Prisma {
     scheduleSlot?: XOR<ScheduleSlotNullableScalarRelationFilter, ScheduleSlotWhereInput> | null
     deliverable?: XOR<DeliverableNullableScalarRelationFilter, DeliverableWhereInput> | null
     createdBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    submission?: XOR<WorklogSubmissionNullableScalarRelationFilter, WorklogSubmissionWhereInput> | null
+    broadCategory?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
+    deliverableType?: XOR<DeliverableTypeNullableScalarRelationFilter, DeliverableTypeWhereInput> | null
   }, "id">
 
   export type ActivityLogOrderByWithAggregationInput = {
@@ -44824,11 +52697,18 @@ export namespace Prisma {
     deliverableId?: SortOrderInput | SortOrder
     createdById?: SortOrderInput | SortOrder
     isOncePerDay?: SortOrder
+    rawText?: SortOrderInput | SortOrder
+    submissionId?: SortOrderInput | SortOrder
+    broadCategoryId?: SortOrderInput | SortOrder
+    deliverableTypeId?: SortOrderInput | SortOrder
+    quantity?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: ActivityLogCountOrderByAggregateInput
+    _avg?: ActivityLogAvgOrderByAggregateInput
     _max?: ActivityLogMaxOrderByAggregateInput
     _min?: ActivityLogMinOrderByAggregateInput
+    _sum?: ActivityLogSumOrderByAggregateInput
   }
 
   export type ActivityLogScalarWhereWithAggregatesInput = {
@@ -44849,6 +52729,11 @@ export namespace Prisma {
     deliverableId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     createdById?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolWithAggregatesFilter<"ActivityLog"> | boolean
+    rawText?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    submissionId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    broadCategoryId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    deliverableTypeId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    quantity?: IntWithAggregatesFilter<"ActivityLog"> | number
     createdAt?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
   }
@@ -46790,6 +54675,362 @@ export namespace Prisma {
     durationMs?: IntNullableWithAggregatesFilter<"MetricsJobRun"> | number | null
   }
 
+  export type ImportJobWhereInput = {
+    AND?: ImportJobWhereInput | ImportJobWhereInput[]
+    OR?: ImportJobWhereInput[]
+    NOT?: ImportJobWhereInput | ImportJobWhereInput[]
+    id?: StringFilter<"ImportJob"> | string
+    createdById?: StringFilter<"ImportJob"> | string
+    sourceType?: EnumImportSourceTypeFilter<"ImportJob"> | $Enums.ImportSourceType
+    fileName?: StringFilter<"ImportJob"> | string
+    fileSize?: IntFilter<"ImportJob"> | number
+    checksum?: StringFilter<"ImportJob"> | string
+    status?: EnumImportStatusFilter<"ImportJob"> | $Enums.ImportStatus
+    mapping?: JsonFilter<"ImportJob">
+    rows?: JsonFilter<"ImportJob">
+    rowCount?: IntFilter<"ImportJob"> | number
+    processedRows?: IntFilter<"ImportJob"> | number
+    errors?: JsonFilter<"ImportJob">
+    warnings?: JsonFilter<"ImportJob">
+    summary?: JsonFilter<"ImportJob">
+    extractionConfidence?: StringNullableFilter<"ImportJob"> | string | null
+    errorMessage?: StringNullableFilter<"ImportJob"> | string | null
+    startedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    completedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    createdAt?: DateTimeFilter<"ImportJob"> | Date | string
+    updatedAt?: DateTimeFilter<"ImportJob"> | Date | string
+    createdBy?: XOR<UserScalarRelationFilter, UserWhereInput>
+  }
+
+  export type ImportJobOrderByWithRelationInput = {
+    id?: SortOrder
+    createdById?: SortOrder
+    sourceType?: SortOrder
+    fileName?: SortOrder
+    fileSize?: SortOrder
+    checksum?: SortOrder
+    status?: SortOrder
+    mapping?: SortOrder
+    rows?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+    errors?: SortOrder
+    warnings?: SortOrder
+    summary?: SortOrder
+    extractionConfidence?: SortOrderInput | SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    startedAt?: SortOrderInput | SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    createdBy?: UserOrderByWithRelationInput
+  }
+
+  export type ImportJobWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: ImportJobWhereInput | ImportJobWhereInput[]
+    OR?: ImportJobWhereInput[]
+    NOT?: ImportJobWhereInput | ImportJobWhereInput[]
+    createdById?: StringFilter<"ImportJob"> | string
+    sourceType?: EnumImportSourceTypeFilter<"ImportJob"> | $Enums.ImportSourceType
+    fileName?: StringFilter<"ImportJob"> | string
+    fileSize?: IntFilter<"ImportJob"> | number
+    checksum?: StringFilter<"ImportJob"> | string
+    status?: EnumImportStatusFilter<"ImportJob"> | $Enums.ImportStatus
+    mapping?: JsonFilter<"ImportJob">
+    rows?: JsonFilter<"ImportJob">
+    rowCount?: IntFilter<"ImportJob"> | number
+    processedRows?: IntFilter<"ImportJob"> | number
+    errors?: JsonFilter<"ImportJob">
+    warnings?: JsonFilter<"ImportJob">
+    summary?: JsonFilter<"ImportJob">
+    extractionConfidence?: StringNullableFilter<"ImportJob"> | string | null
+    errorMessage?: StringNullableFilter<"ImportJob"> | string | null
+    startedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    completedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    createdAt?: DateTimeFilter<"ImportJob"> | Date | string
+    updatedAt?: DateTimeFilter<"ImportJob"> | Date | string
+    createdBy?: XOR<UserScalarRelationFilter, UserWhereInput>
+  }, "id">
+
+  export type ImportJobOrderByWithAggregationInput = {
+    id?: SortOrder
+    createdById?: SortOrder
+    sourceType?: SortOrder
+    fileName?: SortOrder
+    fileSize?: SortOrder
+    checksum?: SortOrder
+    status?: SortOrder
+    mapping?: SortOrder
+    rows?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+    errors?: SortOrder
+    warnings?: SortOrder
+    summary?: SortOrder
+    extractionConfidence?: SortOrderInput | SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    startedAt?: SortOrderInput | SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ImportJobCountOrderByAggregateInput
+    _avg?: ImportJobAvgOrderByAggregateInput
+    _max?: ImportJobMaxOrderByAggregateInput
+    _min?: ImportJobMinOrderByAggregateInput
+    _sum?: ImportJobSumOrderByAggregateInput
+  }
+
+  export type ImportJobScalarWhereWithAggregatesInput = {
+    AND?: ImportJobScalarWhereWithAggregatesInput | ImportJobScalarWhereWithAggregatesInput[]
+    OR?: ImportJobScalarWhereWithAggregatesInput[]
+    NOT?: ImportJobScalarWhereWithAggregatesInput | ImportJobScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ImportJob"> | string
+    createdById?: StringWithAggregatesFilter<"ImportJob"> | string
+    sourceType?: EnumImportSourceTypeWithAggregatesFilter<"ImportJob"> | $Enums.ImportSourceType
+    fileName?: StringWithAggregatesFilter<"ImportJob"> | string
+    fileSize?: IntWithAggregatesFilter<"ImportJob"> | number
+    checksum?: StringWithAggregatesFilter<"ImportJob"> | string
+    status?: EnumImportStatusWithAggregatesFilter<"ImportJob"> | $Enums.ImportStatus
+    mapping?: JsonWithAggregatesFilter<"ImportJob">
+    rows?: JsonWithAggregatesFilter<"ImportJob">
+    rowCount?: IntWithAggregatesFilter<"ImportJob"> | number
+    processedRows?: IntWithAggregatesFilter<"ImportJob"> | number
+    errors?: JsonWithAggregatesFilter<"ImportJob">
+    warnings?: JsonWithAggregatesFilter<"ImportJob">
+    summary?: JsonWithAggregatesFilter<"ImportJob">
+    extractionConfidence?: StringNullableWithAggregatesFilter<"ImportJob"> | string | null
+    errorMessage?: StringNullableWithAggregatesFilter<"ImportJob"> | string | null
+    startedAt?: DateTimeNullableWithAggregatesFilter<"ImportJob"> | Date | string | null
+    completedAt?: DateTimeNullableWithAggregatesFilter<"ImportJob"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"ImportJob"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ImportJob"> | Date | string
+  }
+
+  export type DeliverableTypeWhereInput = {
+    AND?: DeliverableTypeWhereInput | DeliverableTypeWhereInput[]
+    OR?: DeliverableTypeWhereInput[]
+    NOT?: DeliverableTypeWhereInput | DeliverableTypeWhereInput[]
+    id?: StringFilter<"DeliverableType"> | string
+    code?: StringFilter<"DeliverableType"> | string
+    label?: StringFilter<"DeliverableType"> | string
+    activityTypeId?: StringFilter<"DeliverableType"> | string
+    sortOrder?: IntFilter<"DeliverableType"> | number
+    isActive?: BoolFilter<"DeliverableType"> | boolean
+    isCountable?: BoolFilter<"DeliverableType"> | boolean
+    createdAt?: DateTimeFilter<"DeliverableType"> | Date | string
+    updatedAt?: DateTimeFilter<"DeliverableType"> | Date | string
+    activityType?: XOR<ActivityTypeScalarRelationFilter, ActivityTypeWhereInput>
+    activityLogs?: ActivityLogListRelationFilter
+  }
+
+  export type DeliverableTypeOrderByWithRelationInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    activityTypeId?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    isCountable?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    activityType?: ActivityTypeOrderByWithRelationInput
+    activityLogs?: ActivityLogOrderByRelationAggregateInput
+  }
+
+  export type DeliverableTypeWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    code?: string
+    AND?: DeliverableTypeWhereInput | DeliverableTypeWhereInput[]
+    OR?: DeliverableTypeWhereInput[]
+    NOT?: DeliverableTypeWhereInput | DeliverableTypeWhereInput[]
+    label?: StringFilter<"DeliverableType"> | string
+    activityTypeId?: StringFilter<"DeliverableType"> | string
+    sortOrder?: IntFilter<"DeliverableType"> | number
+    isActive?: BoolFilter<"DeliverableType"> | boolean
+    isCountable?: BoolFilter<"DeliverableType"> | boolean
+    createdAt?: DateTimeFilter<"DeliverableType"> | Date | string
+    updatedAt?: DateTimeFilter<"DeliverableType"> | Date | string
+    activityType?: XOR<ActivityTypeScalarRelationFilter, ActivityTypeWhereInput>
+    activityLogs?: ActivityLogListRelationFilter
+  }, "id" | "code">
+
+  export type DeliverableTypeOrderByWithAggregationInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    activityTypeId?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    isCountable?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: DeliverableTypeCountOrderByAggregateInput
+    _avg?: DeliverableTypeAvgOrderByAggregateInput
+    _max?: DeliverableTypeMaxOrderByAggregateInput
+    _min?: DeliverableTypeMinOrderByAggregateInput
+    _sum?: DeliverableTypeSumOrderByAggregateInput
+  }
+
+  export type DeliverableTypeScalarWhereWithAggregatesInput = {
+    AND?: DeliverableTypeScalarWhereWithAggregatesInput | DeliverableTypeScalarWhereWithAggregatesInput[]
+    OR?: DeliverableTypeScalarWhereWithAggregatesInput[]
+    NOT?: DeliverableTypeScalarWhereWithAggregatesInput | DeliverableTypeScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"DeliverableType"> | string
+    code?: StringWithAggregatesFilter<"DeliverableType"> | string
+    label?: StringWithAggregatesFilter<"DeliverableType"> | string
+    activityTypeId?: StringWithAggregatesFilter<"DeliverableType"> | string
+    sortOrder?: IntWithAggregatesFilter<"DeliverableType"> | number
+    isActive?: BoolWithAggregatesFilter<"DeliverableType"> | boolean
+    isCountable?: BoolWithAggregatesFilter<"DeliverableType"> | boolean
+    createdAt?: DateTimeWithAggregatesFilter<"DeliverableType"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"DeliverableType"> | Date | string
+  }
+
+  export type WorklogSubmissionWhereInput = {
+    AND?: WorklogSubmissionWhereInput | WorklogSubmissionWhereInput[]
+    OR?: WorklogSubmissionWhereInput[]
+    NOT?: WorklogSubmissionWhereInput | WorklogSubmissionWhereInput[]
+    id?: StringFilter<"WorklogSubmission"> | string
+    instructorId?: StringFilter<"WorklogSubmission"> | string
+    universityId?: StringFilter<"WorklogSubmission"> | string
+    workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    rawBullets?: JsonFilter<"WorklogSubmission">
+    status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
+    parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
+    rejections?: JsonNullableFilter<"WorklogSubmission">
+    submittedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    parsedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    supersededAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
+    exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
+    decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
+    decidedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    decisionNote?: StringNullableFilter<"WorklogSubmission"> | string | null
+    createdAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+    decidedBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    activities?: ActivityLogListRelationFilter
+  }
+
+  export type WorklogSubmissionOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    rawBullets?: SortOrder
+    status?: SortOrder
+    parseError?: SortOrderInput | SortOrder
+    rejections?: SortOrderInput | SortOrder
+    submittedAt?: SortOrder
+    parsedAt?: SortOrderInput | SortOrder
+    supersededAt?: SortOrderInput | SortOrder
+    reviewedAt?: SortOrderInput | SortOrder
+    escalatedAt?: SortOrderInput | SortOrder
+    needsReview?: SortOrder
+    approval?: SortOrder
+    exceptionReason?: SortOrderInput | SortOrder
+    decidedById?: SortOrderInput | SortOrder
+    decidedAt?: SortOrderInput | SortOrder
+    decisionNote?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+    university?: UniversityOrderByWithRelationInput
+    decidedBy?: UserOrderByWithRelationInput
+    activities?: ActivityLogOrderByRelationAggregateInput
+  }
+
+  export type WorklogSubmissionWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: WorklogSubmissionWhereInput | WorklogSubmissionWhereInput[]
+    OR?: WorklogSubmissionWhereInput[]
+    NOT?: WorklogSubmissionWhereInput | WorklogSubmissionWhereInput[]
+    instructorId?: StringFilter<"WorklogSubmission"> | string
+    universityId?: StringFilter<"WorklogSubmission"> | string
+    workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    rawBullets?: JsonFilter<"WorklogSubmission">
+    status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
+    parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
+    rejections?: JsonNullableFilter<"WorklogSubmission">
+    submittedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    parsedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    supersededAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
+    exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
+    decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
+    decidedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    decisionNote?: StringNullableFilter<"WorklogSubmission"> | string | null
+    createdAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+    decidedBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    activities?: ActivityLogListRelationFilter
+  }, "id">
+
+  export type WorklogSubmissionOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    rawBullets?: SortOrder
+    status?: SortOrder
+    parseError?: SortOrderInput | SortOrder
+    rejections?: SortOrderInput | SortOrder
+    submittedAt?: SortOrder
+    parsedAt?: SortOrderInput | SortOrder
+    supersededAt?: SortOrderInput | SortOrder
+    reviewedAt?: SortOrderInput | SortOrder
+    escalatedAt?: SortOrderInput | SortOrder
+    needsReview?: SortOrder
+    approval?: SortOrder
+    exceptionReason?: SortOrderInput | SortOrder
+    decidedById?: SortOrderInput | SortOrder
+    decidedAt?: SortOrderInput | SortOrder
+    decisionNote?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WorklogSubmissionCountOrderByAggregateInput
+    _max?: WorklogSubmissionMaxOrderByAggregateInput
+    _min?: WorklogSubmissionMinOrderByAggregateInput
+  }
+
+  export type WorklogSubmissionScalarWhereWithAggregatesInput = {
+    AND?: WorklogSubmissionScalarWhereWithAggregatesInput | WorklogSubmissionScalarWhereWithAggregatesInput[]
+    OR?: WorklogSubmissionScalarWhereWithAggregatesInput[]
+    NOT?: WorklogSubmissionScalarWhereWithAggregatesInput | WorklogSubmissionScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WorklogSubmission"> | string
+    instructorId?: StringWithAggregatesFilter<"WorklogSubmission"> | string
+    universityId?: StringWithAggregatesFilter<"WorklogSubmission"> | string
+    workDate?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
+    rawBullets?: JsonWithAggregatesFilter<"WorklogSubmission">
+    status?: EnumWorklogParseStatusWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
+    parseError?: StringNullableWithAggregatesFilter<"WorklogSubmission"> | string | null
+    rejections?: JsonNullableWithAggregatesFilter<"WorklogSubmission">
+    submittedAt?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
+    parsedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
+    supersededAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
+    reviewedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
+    escalatedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
+    needsReview?: BoolWithAggregatesFilter<"WorklogSubmission"> | boolean
+    approval?: EnumWorklogApprovalWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogApproval
+    exceptionReason?: EnumWorklogExceptionReasonNullableWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
+    decidedById?: StringNullableWithAggregatesFilter<"WorklogSubmission"> | string | null
+    decidedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
+    decisionNote?: StringNullableWithAggregatesFilter<"WorklogSubmission"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
+  }
+
   export type UserCreateInput = {
     id?: string
     email: string
@@ -46798,8 +55039,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -46809,6 +55052,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -46821,8 +55066,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -46832,6 +55079,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -46844,8 +55093,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -46855,6 +55106,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -46867,8 +55120,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -46878,6 +55133,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -46890,8 +55147,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -46905,8 +55164,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -46919,8 +55180,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -46955,6 +55218,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -47003,6 +55267,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -47051,6 +55316,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -47099,6 +55365,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -47299,6 +55566,7 @@ export namespace Prisma {
     university: UniversityCreateNestedOneWithoutManagersInput
     primaryOf?: UniversityCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightCreateNestedManyWithoutManagerInput
+    instructors?: InstructorCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUncheckedCreateInput = {
@@ -47310,6 +55578,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     primaryOf?: UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutManagerInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUpdateInput = {
@@ -47321,6 +55590,7 @@ export namespace Prisma {
     university?: UniversityUpdateOneRequiredWithoutManagersNestedInput
     primaryOf?: UniversityUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateInput = {
@@ -47332,6 +55602,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     primaryOf?: UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerCreateManyInput = {
@@ -47359,13 +55630,162 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogDayNoteCreateInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogDayNotesInput
+  }
+
+  export type WorklogDayNoteUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDayNoteUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogDayNotesNestedInput
+  }
+
+  export type WorklogDayNoteUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDayNoteCreateManyInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDayNoteUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDayNoteUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type InstructorCategoryCreateInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructors?: InstructorCreateNestedManyWithoutCategoryInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutBroadCategoryInput
+  }
+
+  export type InstructorCategoryUncheckedCreateInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructors?: InstructorUncheckedCreateNestedManyWithoutCategoryInput
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput
+  }
+
+  export type InstructorCategoryUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructors?: InstructorUpdateManyWithoutCategoryNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutBroadCategoryNestedInput
+  }
+
+  export type InstructorCategoryUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructors?: InstructorUncheckedUpdateManyWithoutCategoryNestedInput
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput
+  }
+
+  export type InstructorCategoryCreateManyInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type InstructorCategoryUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type InstructorCategoryUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type InstructorCreateInput = {
     id?: string
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -47377,12 +55797,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -47397,6 +55821,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUpdateInput = {
@@ -47404,8 +55830,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -47417,12 +55845,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -47437,12 +55869,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateManyInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -47459,6 +55895,8 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -47481,6 +55919,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUncheckedCreateInput = {
@@ -47500,6 +55939,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUpdateInput = {
@@ -47519,6 +55959,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeUncheckedUpdateInput = {
@@ -47538,6 +55979,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeCreateManyInput = {
@@ -47755,6 +56197,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -47763,6 +56207,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateInput = {
@@ -47780,6 +56227,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -47793,6 +56245,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -47801,6 +56255,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateInput = {
@@ -47818,6 +56275,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -47837,6 +56299,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -47850,6 +56317,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -47869,6 +56338,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -49951,6 +58425,422 @@ export namespace Prisma {
     durationMs?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
+  export type ImportJobCreateInput = {
+    id?: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    createdBy: UserCreateNestedOneWithoutImportJobsInput
+  }
+
+  export type ImportJobUncheckedCreateInput = {
+    id?: string
+    createdById: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ImportJobUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    createdBy?: UserUpdateOneRequiredWithoutImportJobsNestedInput
+  }
+
+  export type ImportJobUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    createdById?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ImportJobCreateManyInput = {
+    id?: string
+    createdById: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ImportJobUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ImportJobUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    createdById?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DeliverableTypeCreateInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityType: ActivityTypeCreateNestedOneWithoutDeliverableTypesInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutDeliverableTypeInput
+  }
+
+  export type DeliverableTypeUncheckedCreateInput = {
+    id?: string
+    code: string
+    label: string
+    activityTypeId: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutDeliverableTypeInput
+  }
+
+  export type DeliverableTypeUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityType?: ActivityTypeUpdateOneRequiredWithoutDeliverableTypesNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutDeliverableTypeNestedInput
+  }
+
+  export type DeliverableTypeUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutDeliverableTypeNestedInput
+  }
+
+  export type DeliverableTypeCreateManyInput = {
+    id?: string
+    code: string
+    label: string
+    activityTypeId: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DeliverableTypeUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DeliverableTypeUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogSubmissionCreateInput = {
+    id?: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogSubmissionsInput
+    university: UniversityCreateNestedOneWithoutWorklogSubmissionsInput
+    decidedBy?: UserCreateNestedOneWithoutWorklogDecisionsInput
+    activities?: ActivityLogCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activities?: ActivityLogUncheckedCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    decidedBy?: UserUpdateOneWithoutWorklogDecisionsNestedInput
+    activities?: ActivityLogUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: ActivityLogUncheckedUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionCreateManyInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogSubmissionUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -50054,6 +58944,18 @@ export namespace Prisma {
     none?: ReportJobWhereInput
   }
 
+  export type ImportJobListRelationFilter = {
+    every?: ImportJobWhereInput
+    some?: ImportJobWhereInput
+    none?: ImportJobWhereInput
+  }
+
+  export type WorklogSubmissionListRelationFilter = {
+    every?: WorklogSubmissionWhereInput
+    some?: WorklogSubmissionWhereInput
+    none?: WorklogSubmissionWhereInput
+  }
+
   export type ActivityLogListRelationFilter = {
     every?: ActivityLogWhereInput
     some?: ActivityLogWhereInput
@@ -50087,6 +58989,14 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type ImportJobOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type WorklogSubmissionOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
   export type ActivityLogOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
@@ -50108,8 +59018,10 @@ export namespace Prisma {
     role?: SortOrder
     isActive?: SortOrder
     phone?: SortOrder
+    avatarUrl?: SortOrder
     lastLoginAt?: SortOrder
     deletedAt?: SortOrder
+    leftReason?: SortOrder
     universityId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -50123,8 +59035,10 @@ export namespace Prisma {
     role?: SortOrder
     isActive?: SortOrder
     phone?: SortOrder
+    avatarUrl?: SortOrder
     lastLoginAt?: SortOrder
     deletedAt?: SortOrder
+    leftReason?: SortOrder
     universityId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -50138,8 +59052,10 @@ export namespace Prisma {
     role?: SortOrder
     isActive?: SortOrder
     phone?: SortOrder
+    avatarUrl?: SortOrder
     lastLoginAt?: SortOrder
     deletedAt?: SortOrder
+    leftReason?: SortOrder
     universityId?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -50651,6 +59567,11 @@ export namespace Prisma {
     employeeCode: string
   }
 
+  export type ManagerIdUniversityIdCompoundUniqueInput = {
+    id: string
+    universityId: string
+  }
+
   export type ManagerCountOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
@@ -50678,6 +59599,99 @@ export namespace Prisma {
     updatedAt?: SortOrder
   }
 
+  export type InstructorScalarRelationFilter = {
+    is?: InstructorWhereInput
+    isNot?: InstructorWhereInput
+  }
+
+  export type WorklogDayNoteInstructorIdWorkDateCompoundUniqueInput = {
+    instructorId: string
+    workDate: Date | string
+  }
+
+  export type WorklogDayNoteCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    note?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogDayNoteMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    note?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogDayNoteMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    note?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type InstructorCategoryCountOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type InstructorCategoryAvgOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type InstructorCategoryMaxOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type InstructorCategoryMinOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type InstructorCategorySumOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type InstructorCategoryNullableScalarRelationFilter = {
+    is?: InstructorCategoryWhereInput | null
+    isNot?: InstructorCategoryWhereInput | null
+  }
+
+  export type WorklogDayNoteListRelationFilter = {
+    every?: WorklogDayNoteWhereInput
+    some?: WorklogDayNoteWhereInput
+    none?: WorklogDayNoteWhereInput
+  }
+
+  export type WorklogDayNoteOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
   export type InstructorUserIdUniversityIdCompoundUniqueInput = {
     userId: string
     universityId: string
@@ -50692,6 +59706,8 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
+    categoryId?: SortOrder
+    managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -50701,6 +59717,8 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
+    categoryId?: SortOrder
+    managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -50710,9 +59728,21 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
+    categoryId?: SortOrder
+    managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type DeliverableTypeListRelationFilter = {
+    every?: DeliverableTypeWhereInput
+    some?: DeliverableTypeWhereInput
+    none?: DeliverableTypeWhereInput
+  }
+
+  export type DeliverableTypeOrderByRelationAggregateInput = {
+    _count?: SortOrder
   }
 
   export type ActivityTypeCountOrderByAggregateInput = {
@@ -50776,11 +59806,6 @@ export namespace Prisma {
     in?: $Enums.LeaveStatus[] | ListEnumLeaveStatusFieldRefInput<$PrismaModel>
     notIn?: $Enums.LeaveStatus[] | ListEnumLeaveStatusFieldRefInput<$PrismaModel>
     not?: NestedEnumLeaveStatusFilter<$PrismaModel> | $Enums.LeaveStatus
-  }
-
-  export type InstructorScalarRelationFilter = {
-    is?: InstructorWhereInput
-    isNot?: InstructorWhereInput
   }
 
   export type LeaveRequestCountOrderByAggregateInput = {
@@ -50896,6 +59921,16 @@ export namespace Prisma {
     isNot?: UserWhereInput | null
   }
 
+  export type WorklogSubmissionNullableScalarRelationFilter = {
+    is?: WorklogSubmissionWhereInput | null
+    isNot?: WorklogSubmissionWhereInput | null
+  }
+
+  export type DeliverableTypeNullableScalarRelationFilter = {
+    is?: DeliverableTypeWhereInput | null
+    isNot?: DeliverableTypeWhereInput | null
+  }
+
   export type ActivityLogCountOrderByAggregateInput = {
     id?: SortOrder
     instructorId?: SortOrder
@@ -50911,8 +59946,17 @@ export namespace Prisma {
     deliverableId?: SortOrder
     createdById?: SortOrder
     isOncePerDay?: SortOrder
+    rawText?: SortOrder
+    submissionId?: SortOrder
+    broadCategoryId?: SortOrder
+    deliverableTypeId?: SortOrder
+    quantity?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type ActivityLogAvgOrderByAggregateInput = {
+    quantity?: SortOrder
   }
 
   export type ActivityLogMaxOrderByAggregateInput = {
@@ -50930,6 +59974,11 @@ export namespace Prisma {
     deliverableId?: SortOrder
     createdById?: SortOrder
     isOncePerDay?: SortOrder
+    rawText?: SortOrder
+    submissionId?: SortOrder
+    broadCategoryId?: SortOrder
+    deliverableTypeId?: SortOrder
+    quantity?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -50949,8 +59998,17 @@ export namespace Prisma {
     deliverableId?: SortOrder
     createdById?: SortOrder
     isOncePerDay?: SortOrder
+    rawText?: SortOrder
+    submissionId?: SortOrder
+    broadCategoryId?: SortOrder
+    deliverableTypeId?: SortOrder
+    quantity?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type ActivityLogSumOrderByAggregateInput = {
+    quantity?: SortOrder
   }
 
   export type EnumActivityStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -52443,6 +61501,274 @@ export namespace Prisma {
     _max?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
   }
 
+  export type EnumImportSourceTypeFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportSourceType | EnumImportSourceTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportSourceTypeFilter<$PrismaModel> | $Enums.ImportSourceType
+  }
+
+  export type EnumImportStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportStatus | EnumImportStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportStatusFilter<$PrismaModel> | $Enums.ImportStatus
+  }
+
+  export type ImportJobCountOrderByAggregateInput = {
+    id?: SortOrder
+    createdById?: SortOrder
+    sourceType?: SortOrder
+    fileName?: SortOrder
+    fileSize?: SortOrder
+    checksum?: SortOrder
+    status?: SortOrder
+    mapping?: SortOrder
+    rows?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+    errors?: SortOrder
+    warnings?: SortOrder
+    summary?: SortOrder
+    extractionConfidence?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ImportJobAvgOrderByAggregateInput = {
+    fileSize?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+  }
+
+  export type ImportJobMaxOrderByAggregateInput = {
+    id?: SortOrder
+    createdById?: SortOrder
+    sourceType?: SortOrder
+    fileName?: SortOrder
+    fileSize?: SortOrder
+    checksum?: SortOrder
+    status?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+    extractionConfidence?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ImportJobMinOrderByAggregateInput = {
+    id?: SortOrder
+    createdById?: SortOrder
+    sourceType?: SortOrder
+    fileName?: SortOrder
+    fileSize?: SortOrder
+    checksum?: SortOrder
+    status?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+    extractionConfidence?: SortOrder
+    errorMessage?: SortOrder
+    startedAt?: SortOrder
+    completedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ImportJobSumOrderByAggregateInput = {
+    fileSize?: SortOrder
+    rowCount?: SortOrder
+    processedRows?: SortOrder
+  }
+
+  export type EnumImportSourceTypeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportSourceType | EnumImportSourceTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportSourceTypeWithAggregatesFilter<$PrismaModel> | $Enums.ImportSourceType
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumImportSourceTypeFilter<$PrismaModel>
+    _max?: NestedEnumImportSourceTypeFilter<$PrismaModel>
+  }
+
+  export type EnumImportStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportStatus | EnumImportStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportStatusWithAggregatesFilter<$PrismaModel> | $Enums.ImportStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumImportStatusFilter<$PrismaModel>
+    _max?: NestedEnumImportStatusFilter<$PrismaModel>
+  }
+
+  export type DeliverableTypeCountOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    activityTypeId?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    isCountable?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DeliverableTypeAvgOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type DeliverableTypeMaxOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    activityTypeId?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    isCountable?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DeliverableTypeMinOrderByAggregateInput = {
+    id?: SortOrder
+    code?: SortOrder
+    label?: SortOrder
+    activityTypeId?: SortOrder
+    sortOrder?: SortOrder
+    isActive?: SortOrder
+    isCountable?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DeliverableTypeSumOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type EnumWorklogParseStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogParseStatusFilter<$PrismaModel> | $Enums.WorklogParseStatus
+  }
+
+  export type EnumWorklogApprovalFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogApproval | EnumWorklogApprovalFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogApprovalFilter<$PrismaModel> | $Enums.WorklogApproval
+  }
+
+  export type EnumWorklogExceptionReasonNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogExceptionReason | EnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel> | $Enums.WorklogExceptionReason | null
+  }
+
+  export type WorklogSubmissionCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    rawBullets?: SortOrder
+    status?: SortOrder
+    parseError?: SortOrder
+    rejections?: SortOrder
+    submittedAt?: SortOrder
+    parsedAt?: SortOrder
+    supersededAt?: SortOrder
+    reviewedAt?: SortOrder
+    escalatedAt?: SortOrder
+    needsReview?: SortOrder
+    approval?: SortOrder
+    exceptionReason?: SortOrder
+    decidedById?: SortOrder
+    decidedAt?: SortOrder
+    decisionNote?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogSubmissionMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    status?: SortOrder
+    parseError?: SortOrder
+    submittedAt?: SortOrder
+    parsedAt?: SortOrder
+    supersededAt?: SortOrder
+    reviewedAt?: SortOrder
+    escalatedAt?: SortOrder
+    needsReview?: SortOrder
+    approval?: SortOrder
+    exceptionReason?: SortOrder
+    decidedById?: SortOrder
+    decidedAt?: SortOrder
+    decisionNote?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogSubmissionMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    status?: SortOrder
+    parseError?: SortOrder
+    submittedAt?: SortOrder
+    parsedAt?: SortOrder
+    supersededAt?: SortOrder
+    reviewedAt?: SortOrder
+    escalatedAt?: SortOrder
+    needsReview?: SortOrder
+    approval?: SortOrder
+    exceptionReason?: SortOrder
+    decidedById?: SortOrder
+    decidedAt?: SortOrder
+    decisionNote?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type EnumWorklogParseStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogParseStatusWithAggregatesFilter<$PrismaModel> | $Enums.WorklogParseStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogParseStatusFilter<$PrismaModel>
+    _max?: NestedEnumWorklogParseStatusFilter<$PrismaModel>
+  }
+
+  export type EnumWorklogApprovalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogApproval | EnumWorklogApprovalFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogApprovalWithAggregatesFilter<$PrismaModel> | $Enums.WorklogApproval
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogApprovalFilter<$PrismaModel>
+    _max?: NestedEnumWorklogApprovalFilter<$PrismaModel>
+  }
+
+  export type EnumWorklogExceptionReasonNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogExceptionReason | EnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumWorklogExceptionReasonNullableWithAggregatesFilter<$PrismaModel> | $Enums.WorklogExceptionReason | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
+    _max?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
+  }
+
   export type UniversityCreateNestedOneWithoutUsersInput = {
     create?: XOR<UniversityCreateWithoutUsersInput, UniversityUncheckedCreateWithoutUsersInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutUsersInput
@@ -52487,6 +61813,20 @@ export namespace Prisma {
     connectOrCreate?: ReportJobCreateOrConnectWithoutRequestedByInput | ReportJobCreateOrConnectWithoutRequestedByInput[]
     createMany?: ReportJobCreateManyRequestedByInputEnvelope
     connect?: ReportJobWhereUniqueInput | ReportJobWhereUniqueInput[]
+  }
+
+  export type ImportJobCreateNestedManyWithoutCreatedByInput = {
+    create?: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput> | ImportJobCreateWithoutCreatedByInput[] | ImportJobUncheckedCreateWithoutCreatedByInput[]
+    connectOrCreate?: ImportJobCreateOrConnectWithoutCreatedByInput | ImportJobCreateOrConnectWithoutCreatedByInput[]
+    createMany?: ImportJobCreateManyCreatedByInputEnvelope
+    connect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionCreateNestedManyWithoutDecidedByInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput> | WorklogSubmissionCreateWithoutDecidedByInput[] | WorklogSubmissionUncheckedCreateWithoutDecidedByInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutDecidedByInput | WorklogSubmissionCreateOrConnectWithoutDecidedByInput[]
+    createMany?: WorklogSubmissionCreateManyDecidedByInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
   }
 
   export type ActivityLogCreateNestedManyWithoutCreatedByInput = {
@@ -52541,6 +61881,20 @@ export namespace Prisma {
     connectOrCreate?: ReportJobCreateOrConnectWithoutRequestedByInput | ReportJobCreateOrConnectWithoutRequestedByInput[]
     createMany?: ReportJobCreateManyRequestedByInputEnvelope
     connect?: ReportJobWhereUniqueInput | ReportJobWhereUniqueInput[]
+  }
+
+  export type ImportJobUncheckedCreateNestedManyWithoutCreatedByInput = {
+    create?: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput> | ImportJobCreateWithoutCreatedByInput[] | ImportJobUncheckedCreateWithoutCreatedByInput[]
+    connectOrCreate?: ImportJobCreateOrConnectWithoutCreatedByInput | ImportJobCreateOrConnectWithoutCreatedByInput[]
+    createMany?: ImportJobCreateManyCreatedByInputEnvelope
+    connect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput> | WorklogSubmissionCreateWithoutDecidedByInput[] | WorklogSubmissionUncheckedCreateWithoutDecidedByInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutDecidedByInput | WorklogSubmissionCreateOrConnectWithoutDecidedByInput[]
+    createMany?: WorklogSubmissionCreateManyDecidedByInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
   }
 
   export type ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput = {
@@ -52667,6 +62021,34 @@ export namespace Prisma {
     deleteMany?: ReportJobScalarWhereInput | ReportJobScalarWhereInput[]
   }
 
+  export type ImportJobUpdateManyWithoutCreatedByNestedInput = {
+    create?: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput> | ImportJobCreateWithoutCreatedByInput[] | ImportJobUncheckedCreateWithoutCreatedByInput[]
+    connectOrCreate?: ImportJobCreateOrConnectWithoutCreatedByInput | ImportJobCreateOrConnectWithoutCreatedByInput[]
+    upsert?: ImportJobUpsertWithWhereUniqueWithoutCreatedByInput | ImportJobUpsertWithWhereUniqueWithoutCreatedByInput[]
+    createMany?: ImportJobCreateManyCreatedByInputEnvelope
+    set?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    disconnect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    delete?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    connect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    update?: ImportJobUpdateWithWhereUniqueWithoutCreatedByInput | ImportJobUpdateWithWhereUniqueWithoutCreatedByInput[]
+    updateMany?: ImportJobUpdateManyWithWhereWithoutCreatedByInput | ImportJobUpdateManyWithWhereWithoutCreatedByInput[]
+    deleteMany?: ImportJobScalarWhereInput | ImportJobScalarWhereInput[]
+  }
+
+  export type WorklogSubmissionUpdateManyWithoutDecidedByNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput> | WorklogSubmissionCreateWithoutDecidedByInput[] | WorklogSubmissionUncheckedCreateWithoutDecidedByInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutDecidedByInput | WorklogSubmissionCreateOrConnectWithoutDecidedByInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutDecidedByInput | WorklogSubmissionUpsertWithWhereUniqueWithoutDecidedByInput[]
+    createMany?: WorklogSubmissionCreateManyDecidedByInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutDecidedByInput | WorklogSubmissionUpdateWithWhereUniqueWithoutDecidedByInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutDecidedByInput | WorklogSubmissionUpdateManyWithWhereWithoutDecidedByInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
   export type ActivityLogUpdateManyWithoutCreatedByNestedInput = {
     create?: XOR<ActivityLogCreateWithoutCreatedByInput, ActivityLogUncheckedCreateWithoutCreatedByInput> | ActivityLogCreateWithoutCreatedByInput[] | ActivityLogUncheckedCreateWithoutCreatedByInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutCreatedByInput | ActivityLogCreateOrConnectWithoutCreatedByInput[]
@@ -52771,6 +62153,34 @@ export namespace Prisma {
     deleteMany?: ReportJobScalarWhereInput | ReportJobScalarWhereInput[]
   }
 
+  export type ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput = {
+    create?: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput> | ImportJobCreateWithoutCreatedByInput[] | ImportJobUncheckedCreateWithoutCreatedByInput[]
+    connectOrCreate?: ImportJobCreateOrConnectWithoutCreatedByInput | ImportJobCreateOrConnectWithoutCreatedByInput[]
+    upsert?: ImportJobUpsertWithWhereUniqueWithoutCreatedByInput | ImportJobUpsertWithWhereUniqueWithoutCreatedByInput[]
+    createMany?: ImportJobCreateManyCreatedByInputEnvelope
+    set?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    disconnect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    delete?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    connect?: ImportJobWhereUniqueInput | ImportJobWhereUniqueInput[]
+    update?: ImportJobUpdateWithWhereUniqueWithoutCreatedByInput | ImportJobUpdateWithWhereUniqueWithoutCreatedByInput[]
+    updateMany?: ImportJobUpdateManyWithWhereWithoutCreatedByInput | ImportJobUpdateManyWithWhereWithoutCreatedByInput[]
+    deleteMany?: ImportJobScalarWhereInput | ImportJobScalarWhereInput[]
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput> | WorklogSubmissionCreateWithoutDecidedByInput[] | WorklogSubmissionUncheckedCreateWithoutDecidedByInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutDecidedByInput | WorklogSubmissionCreateOrConnectWithoutDecidedByInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutDecidedByInput | WorklogSubmissionUpsertWithWhereUniqueWithoutDecidedByInput[]
+    createMany?: WorklogSubmissionCreateManyDecidedByInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutDecidedByInput | WorklogSubmissionUpdateWithWhereUniqueWithoutDecidedByInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutDecidedByInput | WorklogSubmissionUpdateManyWithWhereWithoutDecidedByInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput = {
     create?: XOR<ActivityLogCreateWithoutCreatedByInput, ActivityLogUncheckedCreateWithoutCreatedByInput> | ActivityLogCreateWithoutCreatedByInput[] | ActivityLogUncheckedCreateWithoutCreatedByInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutCreatedByInput | ActivityLogCreateOrConnectWithoutCreatedByInput[]
@@ -52873,6 +62283,13 @@ export namespace Prisma {
     connectOrCreate?: AuditLogCreateOrConnectWithoutUniversityInput | AuditLogCreateOrConnectWithoutUniversityInput[]
     createMany?: AuditLogCreateManyUniversityInputEnvelope
     connect?: AuditLogWhereUniqueInput | AuditLogWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput> | WorklogSubmissionCreateWithoutUniversityInput[] | WorklogSubmissionUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutUniversityInput | WorklogSubmissionCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogSubmissionCreateManyUniversityInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
   }
 
   export type NotificationCreateNestedManyWithoutUniversityInput = {
@@ -53061,6 +62478,13 @@ export namespace Prisma {
     connectOrCreate?: AuditLogCreateOrConnectWithoutUniversityInput | AuditLogCreateOrConnectWithoutUniversityInput[]
     createMany?: AuditLogCreateManyUniversityInputEnvelope
     connect?: AuditLogWhereUniqueInput | AuditLogWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput> | WorklogSubmissionCreateWithoutUniversityInput[] | WorklogSubmissionUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutUniversityInput | WorklogSubmissionCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogSubmissionCreateManyUniversityInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
   }
 
   export type NotificationUncheckedCreateNestedManyWithoutUniversityInput = {
@@ -53341,6 +62765,20 @@ export namespace Prisma {
     update?: AuditLogUpdateWithWhereUniqueWithoutUniversityInput | AuditLogUpdateWithWhereUniqueWithoutUniversityInput[]
     updateMany?: AuditLogUpdateManyWithWhereWithoutUniversityInput | AuditLogUpdateManyWithWhereWithoutUniversityInput[]
     deleteMany?: AuditLogScalarWhereInput | AuditLogScalarWhereInput[]
+  }
+
+  export type WorklogSubmissionUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput> | WorklogSubmissionCreateWithoutUniversityInput[] | WorklogSubmissionUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutUniversityInput | WorklogSubmissionCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutUniversityInput | WorklogSubmissionUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogSubmissionCreateManyUniversityInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutUniversityInput | WorklogSubmissionUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutUniversityInput | WorklogSubmissionUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
   }
 
   export type NotificationUpdateManyWithoutUniversityNestedInput = {
@@ -53717,6 +63155,20 @@ export namespace Prisma {
     deleteMany?: AuditLogScalarWhereInput | AuditLogScalarWhereInput[]
   }
 
+  export type WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput> | WorklogSubmissionCreateWithoutUniversityInput[] | WorklogSubmissionUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutUniversityInput | WorklogSubmissionCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutUniversityInput | WorklogSubmissionUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogSubmissionCreateManyUniversityInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutUniversityInput | WorklogSubmissionUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutUniversityInput | WorklogSubmissionUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
   export type NotificationUncheckedUpdateManyWithoutUniversityNestedInput = {
     create?: XOR<NotificationCreateWithoutUniversityInput, NotificationUncheckedCreateWithoutUniversityInput> | NotificationCreateWithoutUniversityInput[] | NotificationUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: NotificationCreateOrConnectWithoutUniversityInput | NotificationCreateOrConnectWithoutUniversityInput[]
@@ -54004,6 +63456,13 @@ export namespace Prisma {
     connect?: AiInsightWhereUniqueInput | AiInsightWhereUniqueInput[]
   }
 
+  export type InstructorCreateNestedManyWithoutManagerInput = {
+    create?: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput> | InstructorCreateWithoutManagerInput[] | InstructorUncheckedCreateWithoutManagerInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutManagerInput | InstructorCreateOrConnectWithoutManagerInput[]
+    createMany?: InstructorCreateManyManagerInputEnvelope
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+  }
+
   export type UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput = {
     create?: XOR<UniversityCreateWithoutPrimaryManagerInput, UniversityUncheckedCreateWithoutPrimaryManagerInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutPrimaryManagerInput
@@ -54015,6 +63474,13 @@ export namespace Prisma {
     connectOrCreate?: AiInsightCreateOrConnectWithoutManagerInput | AiInsightCreateOrConnectWithoutManagerInput[]
     createMany?: AiInsightCreateManyManagerInputEnvelope
     connect?: AiInsightWhereUniqueInput | AiInsightWhereUniqueInput[]
+  }
+
+  export type InstructorUncheckedCreateNestedManyWithoutManagerInput = {
+    create?: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput> | InstructorCreateWithoutManagerInput[] | InstructorUncheckedCreateWithoutManagerInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutManagerInput | InstructorCreateOrConnectWithoutManagerInput[]
+    createMany?: InstructorCreateManyManagerInputEnvelope
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
   }
 
   export type UserUpdateOneRequiredWithoutManagerProfileNestedInput = {
@@ -54057,6 +63523,20 @@ export namespace Prisma {
     deleteMany?: AiInsightScalarWhereInput | AiInsightScalarWhereInput[]
   }
 
+  export type InstructorUpdateManyWithoutManagerNestedInput = {
+    create?: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput> | InstructorCreateWithoutManagerInput[] | InstructorUncheckedCreateWithoutManagerInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutManagerInput | InstructorCreateOrConnectWithoutManagerInput[]
+    upsert?: InstructorUpsertWithWhereUniqueWithoutManagerInput | InstructorUpsertWithWhereUniqueWithoutManagerInput[]
+    createMany?: InstructorCreateManyManagerInputEnvelope
+    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    update?: InstructorUpdateWithWhereUniqueWithoutManagerInput | InstructorUpdateWithWhereUniqueWithoutManagerInput[]
+    updateMany?: InstructorUpdateManyWithWhereWithoutManagerInput | InstructorUpdateManyWithWhereWithoutManagerInput[]
+    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
+  }
+
   export type UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput = {
     create?: XOR<UniversityCreateWithoutPrimaryManagerInput, UniversityUncheckedCreateWithoutPrimaryManagerInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutPrimaryManagerInput
@@ -54081,6 +63561,124 @@ export namespace Prisma {
     deleteMany?: AiInsightScalarWhereInput | AiInsightScalarWhereInput[]
   }
 
+  export type InstructorUncheckedUpdateManyWithoutManagerNestedInput = {
+    create?: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput> | InstructorCreateWithoutManagerInput[] | InstructorUncheckedCreateWithoutManagerInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutManagerInput | InstructorCreateOrConnectWithoutManagerInput[]
+    upsert?: InstructorUpsertWithWhereUniqueWithoutManagerInput | InstructorUpsertWithWhereUniqueWithoutManagerInput[]
+    createMany?: InstructorCreateManyManagerInputEnvelope
+    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    update?: InstructorUpdateWithWhereUniqueWithoutManagerInput | InstructorUpdateWithWhereUniqueWithoutManagerInput[]
+    updateMany?: InstructorUpdateManyWithWhereWithoutManagerInput | InstructorUpdateManyWithWhereWithoutManagerInput[]
+    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
+  }
+
+  export type InstructorCreateNestedOneWithoutWorklogDayNotesInput = {
+    create?: XOR<InstructorCreateWithoutWorklogDayNotesInput, InstructorUncheckedCreateWithoutWorklogDayNotesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogDayNotesInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type InstructorUpdateOneRequiredWithoutWorklogDayNotesNestedInput = {
+    create?: XOR<InstructorCreateWithoutWorklogDayNotesInput, InstructorUncheckedCreateWithoutWorklogDayNotesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogDayNotesInput
+    upsert?: InstructorUpsertWithoutWorklogDayNotesInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorklogDayNotesInput, InstructorUpdateWithoutWorklogDayNotesInput>, InstructorUncheckedUpdateWithoutWorklogDayNotesInput>
+  }
+
+  export type InstructorCreateNestedManyWithoutCategoryInput = {
+    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
+    createMany?: InstructorCreateManyCategoryInputEnvelope
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+  }
+
+  export type ActivityLogCreateNestedManyWithoutBroadCategoryInput = {
+    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
+    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type InstructorUncheckedCreateNestedManyWithoutCategoryInput = {
+    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
+    createMany?: InstructorCreateManyCategoryInputEnvelope
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+  }
+
+  export type ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput = {
+    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
+    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type InstructorUpdateManyWithoutCategoryNestedInput = {
+    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
+    upsert?: InstructorUpsertWithWhereUniqueWithoutCategoryInput | InstructorUpsertWithWhereUniqueWithoutCategoryInput[]
+    createMany?: InstructorCreateManyCategoryInputEnvelope
+    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    update?: InstructorUpdateWithWhereUniqueWithoutCategoryInput | InstructorUpdateWithWhereUniqueWithoutCategoryInput[]
+    updateMany?: InstructorUpdateManyWithWhereWithoutCategoryInput | InstructorUpdateManyWithWhereWithoutCategoryInput[]
+    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
+  }
+
+  export type ActivityLogUpdateManyWithoutBroadCategoryNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput[]
+    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput | ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
+  export type InstructorUncheckedUpdateManyWithoutCategoryNestedInput = {
+    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
+    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
+    upsert?: InstructorUpsertWithWhereUniqueWithoutCategoryInput | InstructorUpsertWithWhereUniqueWithoutCategoryInput[]
+    createMany?: InstructorCreateManyCategoryInputEnvelope
+    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
+    update?: InstructorUpdateWithWhereUniqueWithoutCategoryInput | InstructorUpdateWithWhereUniqueWithoutCategoryInput[]
+    updateMany?: InstructorUpdateManyWithWhereWithoutCategoryInput | InstructorUpdateManyWithWhereWithoutCategoryInput[]
+    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput[]
+    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput | ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
+  export type InstructorCategoryCreateNestedOneWithoutInstructorsInput = {
+    create?: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
+    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutInstructorsInput
+    connect?: InstructorCategoryWhereUniqueInput
+  }
+
   export type UserCreateNestedOneWithoutInstructorProfileInput = {
     create?: XOR<UserCreateWithoutInstructorProfileInput, UserUncheckedCreateWithoutInstructorProfileInput>
     connectOrCreate?: UserCreateOrConnectWithoutInstructorProfileInput
@@ -54091,6 +63689,12 @@ export namespace Prisma {
     create?: XOR<UniversityCreateWithoutInstructorsInput, UniversityUncheckedCreateWithoutInstructorsInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutInstructorsInput
     connect?: UniversityWhereUniqueInput
+  }
+
+  export type ManagerCreateNestedOneWithoutInstructorsInput = {
+    create?: XOR<ManagerCreateWithoutInstructorsInput, ManagerUncheckedCreateWithoutInstructorsInput>
+    connectOrCreate?: ManagerCreateOrConnectWithoutInstructorsInput
+    connect?: ManagerWhereUniqueInput
   }
 
   export type ActivityLogCreateNestedManyWithoutInstructorInput = {
@@ -54170,6 +63774,20 @@ export namespace Prisma {
     connect?: InstructorWeeklyMetricWhereUniqueInput | InstructorWeeklyMetricWhereUniqueInput[]
   }
 
+  export type WorklogDayNoteCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput> | WorklogDayNoteCreateWithoutInstructorInput[] | WorklogDayNoteUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDayNoteCreateOrConnectWithoutInstructorInput | WorklogDayNoteCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogDayNoteCreateManyInstructorInputEnvelope
+    connect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput> | WorklogSubmissionCreateWithoutInstructorInput[] | WorklogSubmissionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutInstructorInput | WorklogSubmissionCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogSubmissionCreateManyInstructorInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutInstructorInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -54247,6 +63865,30 @@ export namespace Prisma {
     connect?: InstructorWeeklyMetricWhereUniqueInput | InstructorWeeklyMetricWhereUniqueInput[]
   }
 
+  export type WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput> | WorklogDayNoteCreateWithoutInstructorInput[] | WorklogDayNoteUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDayNoteCreateOrConnectWithoutInstructorInput | WorklogDayNoteCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogDayNoteCreateManyInstructorInputEnvelope
+    connect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+  }
+
+  export type WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput> | WorklogSubmissionCreateWithoutInstructorInput[] | WorklogSubmissionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutInstructorInput | WorklogSubmissionCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogSubmissionCreateManyInstructorInputEnvelope
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+  }
+
+  export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
+    create?: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
+    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutInstructorsInput
+    upsert?: InstructorCategoryUpsertWithoutInstructorsInput
+    disconnect?: InstructorCategoryWhereInput | boolean
+    delete?: InstructorCategoryWhereInput | boolean
+    connect?: InstructorCategoryWhereUniqueInput
+    update?: XOR<XOR<InstructorCategoryUpdateToOneWithWhereWithoutInstructorsInput, InstructorCategoryUpdateWithoutInstructorsInput>, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
+  }
+
   export type UserUpdateOneRequiredWithoutInstructorProfileNestedInput = {
     create?: XOR<UserCreateWithoutInstructorProfileInput, UserUncheckedCreateWithoutInstructorProfileInput>
     connectOrCreate?: UserCreateOrConnectWithoutInstructorProfileInput
@@ -54261,6 +63903,16 @@ export namespace Prisma {
     upsert?: UniversityUpsertWithoutInstructorsInput
     connect?: UniversityWhereUniqueInput
     update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutInstructorsInput, UniversityUpdateWithoutInstructorsInput>, UniversityUncheckedUpdateWithoutInstructorsInput>
+  }
+
+  export type ManagerUpdateOneWithoutInstructorsNestedInput = {
+    create?: XOR<ManagerCreateWithoutInstructorsInput, ManagerUncheckedCreateWithoutInstructorsInput>
+    connectOrCreate?: ManagerCreateOrConnectWithoutInstructorsInput
+    upsert?: ManagerUpsertWithoutInstructorsInput
+    disconnect?: ManagerWhereInput | boolean
+    delete?: ManagerWhereInput | boolean
+    connect?: ManagerWhereUniqueInput
+    update?: XOR<XOR<ManagerUpdateToOneWithWhereWithoutInstructorsInput, ManagerUpdateWithoutInstructorsInput>, ManagerUncheckedUpdateWithoutInstructorsInput>
   }
 
   export type ActivityLogUpdateManyWithoutInstructorNestedInput = {
@@ -54417,6 +64069,34 @@ export namespace Prisma {
     deleteMany?: InstructorWeeklyMetricScalarWhereInput | InstructorWeeklyMetricScalarWhereInput[]
   }
 
+  export type WorklogDayNoteUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput> | WorklogDayNoteCreateWithoutInstructorInput[] | WorklogDayNoteUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDayNoteCreateOrConnectWithoutInstructorInput | WorklogDayNoteCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogDayNoteUpsertWithWhereUniqueWithoutInstructorInput | WorklogDayNoteUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogDayNoteCreateManyInstructorInputEnvelope
+    set?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    disconnect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    delete?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    connect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    update?: WorklogDayNoteUpdateWithWhereUniqueWithoutInstructorInput | WorklogDayNoteUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogDayNoteUpdateManyWithWhereWithoutInstructorInput | WorklogDayNoteUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogDayNoteScalarWhereInput | WorklogDayNoteScalarWhereInput[]
+  }
+
+  export type WorklogSubmissionUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput> | WorklogSubmissionCreateWithoutInstructorInput[] | WorklogSubmissionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutInstructorInput | WorklogSubmissionCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutInstructorInput | WorklogSubmissionUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogSubmissionCreateManyInstructorInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput | WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput | WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -54571,6 +64251,34 @@ export namespace Prisma {
     deleteMany?: InstructorWeeklyMetricScalarWhereInput | InstructorWeeklyMetricScalarWhereInput[]
   }
 
+  export type WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput> | WorklogDayNoteCreateWithoutInstructorInput[] | WorklogDayNoteUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDayNoteCreateOrConnectWithoutInstructorInput | WorklogDayNoteCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogDayNoteUpsertWithWhereUniqueWithoutInstructorInput | WorklogDayNoteUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogDayNoteCreateManyInstructorInputEnvelope
+    set?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    disconnect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    delete?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    connect?: WorklogDayNoteWhereUniqueInput | WorklogDayNoteWhereUniqueInput[]
+    update?: WorklogDayNoteUpdateWithWhereUniqueWithoutInstructorInput | WorklogDayNoteUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogDayNoteUpdateManyWithWhereWithoutInstructorInput | WorklogDayNoteUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogDayNoteScalarWhereInput | WorklogDayNoteScalarWhereInput[]
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput> | WorklogSubmissionCreateWithoutInstructorInput[] | WorklogSubmissionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutInstructorInput | WorklogSubmissionCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogSubmissionUpsertWithWhereUniqueWithoutInstructorInput | WorklogSubmissionUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogSubmissionCreateManyInstructorInputEnvelope
+    set?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    disconnect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    delete?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+    update?: WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput | WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput | WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
   export type ActivityLogCreateNestedManyWithoutActivityTypeInput = {
     create?: XOR<ActivityLogCreateWithoutActivityTypeInput, ActivityLogUncheckedCreateWithoutActivityTypeInput> | ActivityLogCreateWithoutActivityTypeInput[] | ActivityLogUncheckedCreateWithoutActivityTypeInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutActivityTypeInput | ActivityLogCreateOrConnectWithoutActivityTypeInput[]
@@ -54592,6 +64300,13 @@ export namespace Prisma {
     connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
   }
 
+  export type DeliverableTypeCreateNestedManyWithoutActivityTypeInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput> | DeliverableTypeCreateWithoutActivityTypeInput[] | DeliverableTypeUncheckedCreateWithoutActivityTypeInput[]
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityTypeInput | DeliverableTypeCreateOrConnectWithoutActivityTypeInput[]
+    createMany?: DeliverableTypeCreateManyActivityTypeInputEnvelope
+    connect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput = {
     create?: XOR<ActivityLogCreateWithoutActivityTypeInput, ActivityLogUncheckedCreateWithoutActivityTypeInput> | ActivityLogCreateWithoutActivityTypeInput[] | ActivityLogUncheckedCreateWithoutActivityTypeInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutActivityTypeInput | ActivityLogCreateOrConnectWithoutActivityTypeInput[]
@@ -54611,6 +64326,13 @@ export namespace Prisma {
     connectOrCreate?: WorkloadTargetCreateOrConnectWithoutActivityTypeInput | WorkloadTargetCreateOrConnectWithoutActivityTypeInput[]
     createMany?: WorkloadTargetCreateManyActivityTypeInputEnvelope
     connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
+  }
+
+  export type DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput> | DeliverableTypeCreateWithoutActivityTypeInput[] | DeliverableTypeUncheckedCreateWithoutActivityTypeInput[]
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityTypeInput | DeliverableTypeCreateOrConnectWithoutActivityTypeInput[]
+    createMany?: DeliverableTypeCreateManyActivityTypeInputEnvelope
+    connect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
   }
 
   export type ActivityLogUpdateManyWithoutActivityTypeNestedInput = {
@@ -54655,6 +64377,20 @@ export namespace Prisma {
     deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
+  export type DeliverableTypeUpdateManyWithoutActivityTypeNestedInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput> | DeliverableTypeCreateWithoutActivityTypeInput[] | DeliverableTypeUncheckedCreateWithoutActivityTypeInput[]
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityTypeInput | DeliverableTypeCreateOrConnectWithoutActivityTypeInput[]
+    upsert?: DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput | DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput[]
+    createMany?: DeliverableTypeCreateManyActivityTypeInputEnvelope
+    set?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    disconnect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    delete?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    connect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    update?: DeliverableTypeUpdateWithWhereUniqueWithoutActivityTypeInput | DeliverableTypeUpdateWithWhereUniqueWithoutActivityTypeInput[]
+    updateMany?: DeliverableTypeUpdateManyWithWhereWithoutActivityTypeInput | DeliverableTypeUpdateManyWithWhereWithoutActivityTypeInput[]
+    deleteMany?: DeliverableTypeScalarWhereInput | DeliverableTypeScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput = {
     create?: XOR<ActivityLogCreateWithoutActivityTypeInput, ActivityLogUncheckedCreateWithoutActivityTypeInput> | ActivityLogCreateWithoutActivityTypeInput[] | ActivityLogUncheckedCreateWithoutActivityTypeInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutActivityTypeInput | ActivityLogCreateOrConnectWithoutActivityTypeInput[]
@@ -54695,6 +64431,20 @@ export namespace Prisma {
     update?: WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput | WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput[]
     updateMany?: WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput | WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput[]
     deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
+  }
+
+  export type DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput> | DeliverableTypeCreateWithoutActivityTypeInput[] | DeliverableTypeUncheckedCreateWithoutActivityTypeInput[]
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityTypeInput | DeliverableTypeCreateOrConnectWithoutActivityTypeInput[]
+    upsert?: DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput | DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput[]
+    createMany?: DeliverableTypeCreateManyActivityTypeInputEnvelope
+    set?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    disconnect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    delete?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    connect?: DeliverableTypeWhereUniqueInput | DeliverableTypeWhereUniqueInput[]
+    update?: DeliverableTypeUpdateWithWhereUniqueWithoutActivityTypeInput | DeliverableTypeUpdateWithWhereUniqueWithoutActivityTypeInput[]
+    updateMany?: DeliverableTypeUpdateManyWithWhereWithoutActivityTypeInput | DeliverableTypeUpdateManyWithWhereWithoutActivityTypeInput[]
+    deleteMany?: DeliverableTypeScalarWhereInput | DeliverableTypeScalarWhereInput[]
   }
 
   export type InstructorCreateNestedOneWithoutLeaveRequestsInput = {
@@ -54779,6 +64529,24 @@ export namespace Prisma {
     connect?: UserWhereUniqueInput
   }
 
+  export type WorklogSubmissionCreateNestedOneWithoutActivitiesInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutActivitiesInput, WorklogSubmissionUncheckedCreateWithoutActivitiesInput>
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutActivitiesInput
+    connect?: WorklogSubmissionWhereUniqueInput
+  }
+
+  export type InstructorCategoryCreateNestedOneWithoutActivityLogsInput = {
+    create?: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
+    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutActivityLogsInput
+    connect?: InstructorCategoryWhereUniqueInput
+  }
+
+  export type DeliverableTypeCreateNestedOneWithoutActivityLogsInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityLogsInput
+    connect?: DeliverableTypeWhereUniqueInput
+  }
+
   export type EnumActivityStatusFieldUpdateOperationsInput = {
     set?: $Enums.ActivityStatus
   }
@@ -54839,6 +64607,36 @@ export namespace Prisma {
     delete?: UserWhereInput | boolean
     connect?: UserWhereUniqueInput
     update?: XOR<XOR<UserUpdateToOneWithWhereWithoutActivityLogsCreatedInput, UserUpdateWithoutActivityLogsCreatedInput>, UserUncheckedUpdateWithoutActivityLogsCreatedInput>
+  }
+
+  export type WorklogSubmissionUpdateOneWithoutActivitiesNestedInput = {
+    create?: XOR<WorklogSubmissionCreateWithoutActivitiesInput, WorklogSubmissionUncheckedCreateWithoutActivitiesInput>
+    connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutActivitiesInput
+    upsert?: WorklogSubmissionUpsertWithoutActivitiesInput
+    disconnect?: WorklogSubmissionWhereInput | boolean
+    delete?: WorklogSubmissionWhereInput | boolean
+    connect?: WorklogSubmissionWhereUniqueInput
+    update?: XOR<XOR<WorklogSubmissionUpdateToOneWithWhereWithoutActivitiesInput, WorklogSubmissionUpdateWithoutActivitiesInput>, WorklogSubmissionUncheckedUpdateWithoutActivitiesInput>
+  }
+
+  export type InstructorCategoryUpdateOneWithoutActivityLogsNestedInput = {
+    create?: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
+    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutActivityLogsInput
+    upsert?: InstructorCategoryUpsertWithoutActivityLogsInput
+    disconnect?: InstructorCategoryWhereInput | boolean
+    delete?: InstructorCategoryWhereInput | boolean
+    connect?: InstructorCategoryWhereUniqueInput
+    update?: XOR<XOR<InstructorCategoryUpdateToOneWithWhereWithoutActivityLogsInput, InstructorCategoryUpdateWithoutActivityLogsInput>, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
+  }
+
+  export type DeliverableTypeUpdateOneWithoutActivityLogsNestedInput = {
+    create?: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
+    connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityLogsInput
+    upsert?: DeliverableTypeUpsertWithoutActivityLogsInput
+    disconnect?: DeliverableTypeWhereInput | boolean
+    delete?: DeliverableTypeWhereInput | boolean
+    connect?: DeliverableTypeWhereUniqueInput
+    update?: XOR<XOR<DeliverableTypeUpdateToOneWithWhereWithoutActivityLogsInput, DeliverableTypeUpdateWithoutActivityLogsInput>, DeliverableTypeUncheckedUpdateWithoutActivityLogsInput>
   }
 
   export type InstructorCreateNestedOneWithoutDeliverablesInput = {
@@ -56035,6 +65833,182 @@ export namespace Prisma {
     set?: $Enums.MetricsJobStatus
   }
 
+  export type UserCreateNestedOneWithoutImportJobsInput = {
+    create?: XOR<UserCreateWithoutImportJobsInput, UserUncheckedCreateWithoutImportJobsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutImportJobsInput
+    connect?: UserWhereUniqueInput
+  }
+
+  export type EnumImportSourceTypeFieldUpdateOperationsInput = {
+    set?: $Enums.ImportSourceType
+  }
+
+  export type EnumImportStatusFieldUpdateOperationsInput = {
+    set?: $Enums.ImportStatus
+  }
+
+  export type UserUpdateOneRequiredWithoutImportJobsNestedInput = {
+    create?: XOR<UserCreateWithoutImportJobsInput, UserUncheckedCreateWithoutImportJobsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutImportJobsInput
+    upsert?: UserUpsertWithoutImportJobsInput
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutImportJobsInput, UserUpdateWithoutImportJobsInput>, UserUncheckedUpdateWithoutImportJobsInput>
+  }
+
+  export type ActivityTypeCreateNestedOneWithoutDeliverableTypesInput = {
+    create?: XOR<ActivityTypeCreateWithoutDeliverableTypesInput, ActivityTypeUncheckedCreateWithoutDeliverableTypesInput>
+    connectOrCreate?: ActivityTypeCreateOrConnectWithoutDeliverableTypesInput
+    connect?: ActivityTypeWhereUniqueInput
+  }
+
+  export type ActivityLogCreateNestedManyWithoutDeliverableTypeInput = {
+    create?: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput> | ActivityLogCreateWithoutDeliverableTypeInput[] | ActivityLogUncheckedCreateWithoutDeliverableTypeInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutDeliverableTypeInput | ActivityLogCreateOrConnectWithoutDeliverableTypeInput[]
+    createMany?: ActivityLogCreateManyDeliverableTypeInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type ActivityLogUncheckedCreateNestedManyWithoutDeliverableTypeInput = {
+    create?: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput> | ActivityLogCreateWithoutDeliverableTypeInput[] | ActivityLogUncheckedCreateWithoutDeliverableTypeInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutDeliverableTypeInput | ActivityLogCreateOrConnectWithoutDeliverableTypeInput[]
+    createMany?: ActivityLogCreateManyDeliverableTypeInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type ActivityTypeUpdateOneRequiredWithoutDeliverableTypesNestedInput = {
+    create?: XOR<ActivityTypeCreateWithoutDeliverableTypesInput, ActivityTypeUncheckedCreateWithoutDeliverableTypesInput>
+    connectOrCreate?: ActivityTypeCreateOrConnectWithoutDeliverableTypesInput
+    upsert?: ActivityTypeUpsertWithoutDeliverableTypesInput
+    connect?: ActivityTypeWhereUniqueInput
+    update?: XOR<XOR<ActivityTypeUpdateToOneWithWhereWithoutDeliverableTypesInput, ActivityTypeUpdateWithoutDeliverableTypesInput>, ActivityTypeUncheckedUpdateWithoutDeliverableTypesInput>
+  }
+
+  export type ActivityLogUpdateManyWithoutDeliverableTypeNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput> | ActivityLogCreateWithoutDeliverableTypeInput[] | ActivityLogUncheckedCreateWithoutDeliverableTypeInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutDeliverableTypeInput | ActivityLogCreateOrConnectWithoutDeliverableTypeInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput | ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput[]
+    createMany?: ActivityLogCreateManyDeliverableTypeInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutDeliverableTypeInput | ActivityLogUpdateWithWhereUniqueWithoutDeliverableTypeInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutDeliverableTypeInput | ActivityLogUpdateManyWithWhereWithoutDeliverableTypeInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutDeliverableTypeNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput> | ActivityLogCreateWithoutDeliverableTypeInput[] | ActivityLogUncheckedCreateWithoutDeliverableTypeInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutDeliverableTypeInput | ActivityLogCreateOrConnectWithoutDeliverableTypeInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput | ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput[]
+    createMany?: ActivityLogCreateManyDeliverableTypeInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutDeliverableTypeInput | ActivityLogUpdateWithWhereUniqueWithoutDeliverableTypeInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutDeliverableTypeInput | ActivityLogUpdateManyWithWhereWithoutDeliverableTypeInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
+  export type InstructorCreateNestedOneWithoutWorklogSubmissionsInput = {
+    create?: XOR<InstructorCreateWithoutWorklogSubmissionsInput, InstructorUncheckedCreateWithoutWorklogSubmissionsInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogSubmissionsInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type UniversityCreateNestedOneWithoutWorklogSubmissionsInput = {
+    create?: XOR<UniversityCreateWithoutWorklogSubmissionsInput, UniversityUncheckedCreateWithoutWorklogSubmissionsInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogSubmissionsInput
+    connect?: UniversityWhereUniqueInput
+  }
+
+  export type UserCreateNestedOneWithoutWorklogDecisionsInput = {
+    create?: XOR<UserCreateWithoutWorklogDecisionsInput, UserUncheckedCreateWithoutWorklogDecisionsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutWorklogDecisionsInput
+    connect?: UserWhereUniqueInput
+  }
+
+  export type ActivityLogCreateNestedManyWithoutSubmissionInput = {
+    create?: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput> | ActivityLogCreateWithoutSubmissionInput[] | ActivityLogUncheckedCreateWithoutSubmissionInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutSubmissionInput | ActivityLogCreateOrConnectWithoutSubmissionInput[]
+    createMany?: ActivityLogCreateManySubmissionInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type ActivityLogUncheckedCreateNestedManyWithoutSubmissionInput = {
+    create?: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput> | ActivityLogCreateWithoutSubmissionInput[] | ActivityLogUncheckedCreateWithoutSubmissionInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutSubmissionInput | ActivityLogCreateOrConnectWithoutSubmissionInput[]
+    createMany?: ActivityLogCreateManySubmissionInputEnvelope
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+  }
+
+  export type EnumWorklogParseStatusFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogParseStatus
+  }
+
+  export type EnumWorklogApprovalFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogApproval
+  }
+
+  export type NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogExceptionReason | null
+  }
+
+  export type InstructorUpdateOneRequiredWithoutWorklogSubmissionsNestedInput = {
+    create?: XOR<InstructorCreateWithoutWorklogSubmissionsInput, InstructorUncheckedCreateWithoutWorklogSubmissionsInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogSubmissionsInput
+    upsert?: InstructorUpsertWithoutWorklogSubmissionsInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorklogSubmissionsInput, InstructorUpdateWithoutWorklogSubmissionsInput>, InstructorUncheckedUpdateWithoutWorklogSubmissionsInput>
+  }
+
+  export type UniversityUpdateOneRequiredWithoutWorklogSubmissionsNestedInput = {
+    create?: XOR<UniversityCreateWithoutWorklogSubmissionsInput, UniversityUncheckedCreateWithoutWorklogSubmissionsInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogSubmissionsInput
+    upsert?: UniversityUpsertWithoutWorklogSubmissionsInput
+    connect?: UniversityWhereUniqueInput
+    update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorklogSubmissionsInput, UniversityUpdateWithoutWorklogSubmissionsInput>, UniversityUncheckedUpdateWithoutWorklogSubmissionsInput>
+  }
+
+  export type UserUpdateOneWithoutWorklogDecisionsNestedInput = {
+    create?: XOR<UserCreateWithoutWorklogDecisionsInput, UserUncheckedCreateWithoutWorklogDecisionsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutWorklogDecisionsInput
+    upsert?: UserUpsertWithoutWorklogDecisionsInput
+    disconnect?: UserWhereInput | boolean
+    delete?: UserWhereInput | boolean
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutWorklogDecisionsInput, UserUpdateWithoutWorklogDecisionsInput>, UserUncheckedUpdateWithoutWorklogDecisionsInput>
+  }
+
+  export type ActivityLogUpdateManyWithoutSubmissionNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput> | ActivityLogCreateWithoutSubmissionInput[] | ActivityLogUncheckedCreateWithoutSubmissionInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutSubmissionInput | ActivityLogCreateOrConnectWithoutSubmissionInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutSubmissionInput | ActivityLogUpsertWithWhereUniqueWithoutSubmissionInput[]
+    createMany?: ActivityLogCreateManySubmissionInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutSubmissionInput | ActivityLogUpdateWithWhereUniqueWithoutSubmissionInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutSubmissionInput | ActivityLogUpdateManyWithWhereWithoutSubmissionInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutSubmissionNestedInput = {
+    create?: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput> | ActivityLogCreateWithoutSubmissionInput[] | ActivityLogUncheckedCreateWithoutSubmissionInput[]
+    connectOrCreate?: ActivityLogCreateOrConnectWithoutSubmissionInput | ActivityLogCreateOrConnectWithoutSubmissionInput[]
+    upsert?: ActivityLogUpsertWithWhereUniqueWithoutSubmissionInput | ActivityLogUpsertWithWhereUniqueWithoutSubmissionInput[]
+    createMany?: ActivityLogCreateManySubmissionInputEnvelope
+    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
+    update?: ActivityLogUpdateWithWhereUniqueWithoutSubmissionInput | ActivityLogUpdateWithWhereUniqueWithoutSubmissionInput[]
+    updateMany?: ActivityLogUpdateManyWithWhereWithoutSubmissionInput | ActivityLogUpdateManyWithWhereWithoutSubmissionInput[]
+    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -56586,6 +66560,91 @@ export namespace Prisma {
     _max?: NestedEnumMetricsJobStatusFilter<$PrismaModel>
   }
 
+  export type NestedEnumImportSourceTypeFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportSourceType | EnumImportSourceTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportSourceTypeFilter<$PrismaModel> | $Enums.ImportSourceType
+  }
+
+  export type NestedEnumImportStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportStatus | EnumImportStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportStatusFilter<$PrismaModel> | $Enums.ImportStatus
+  }
+
+  export type NestedEnumImportSourceTypeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportSourceType | EnumImportSourceTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportSourceType[] | ListEnumImportSourceTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportSourceTypeWithAggregatesFilter<$PrismaModel> | $Enums.ImportSourceType
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumImportSourceTypeFilter<$PrismaModel>
+    _max?: NestedEnumImportSourceTypeFilter<$PrismaModel>
+  }
+
+  export type NestedEnumImportStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ImportStatus | EnumImportStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ImportStatus[] | ListEnumImportStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumImportStatusWithAggregatesFilter<$PrismaModel> | $Enums.ImportStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumImportStatusFilter<$PrismaModel>
+    _max?: NestedEnumImportStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWorklogParseStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogParseStatusFilter<$PrismaModel> | $Enums.WorklogParseStatus
+  }
+
+  export type NestedEnumWorklogApprovalFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogApproval | EnumWorklogApprovalFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogApprovalFilter<$PrismaModel> | $Enums.WorklogApproval
+  }
+
+  export type NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogExceptionReason | EnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel> | $Enums.WorklogExceptionReason | null
+  }
+
+  export type NestedEnumWorklogParseStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogParseStatusWithAggregatesFilter<$PrismaModel> | $Enums.WorklogParseStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogParseStatusFilter<$PrismaModel>
+    _max?: NestedEnumWorklogParseStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWorklogApprovalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogApproval | EnumWorklogApprovalFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogApproval[] | ListEnumWorklogApprovalFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogApprovalWithAggregatesFilter<$PrismaModel> | $Enums.WorklogApproval
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogApprovalFilter<$PrismaModel>
+    _max?: NestedEnumWorklogApprovalFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWorklogExceptionReasonNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogExceptionReason | EnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    in?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumWorklogExceptionReasonNullableWithAggregatesFilter<$PrismaModel> | $Enums.WorklogExceptionReason | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
+    _max?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
+  }
+
   export type UniversityCreateWithoutUsersInput = {
     id?: string
     name: string
@@ -56614,6 +66673,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -56661,6 +66721,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -56693,6 +66754,7 @@ export namespace Prisma {
     university: UniversityCreateNestedOneWithoutManagersInput
     primaryOf?: UniversityCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightCreateNestedManyWithoutManagerInput
+    instructors?: InstructorCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUncheckedCreateWithoutUserInput = {
@@ -56702,6 +66764,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     primaryOf?: UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutManagerInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerCreateOrConnectWithoutUserInput = {
@@ -56714,7 +66777,9 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -56726,10 +66791,14 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUserInput = {
     id?: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -56744,6 +66813,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUserInput = {
@@ -56887,6 +66958,118 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type ImportJobCreateWithoutCreatedByInput = {
+    id?: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ImportJobUncheckedCreateWithoutCreatedByInput = {
+    id?: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ImportJobCreateOrConnectWithoutCreatedByInput = {
+    where: ImportJobWhereUniqueInput
+    create: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput>
+  }
+
+  export type ImportJobCreateManyCreatedByInputEnvelope = {
+    data: ImportJobCreateManyCreatedByInput | ImportJobCreateManyCreatedByInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type WorklogSubmissionCreateWithoutDecidedByInput = {
+    id?: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogSubmissionsInput
+    university: UniversityCreateNestedOneWithoutWorklogSubmissionsInput
+    activities?: ActivityLogCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionUncheckedCreateWithoutDecidedByInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activities?: ActivityLogUncheckedCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionCreateOrConnectWithoutDecidedByInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    create: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput>
+  }
+
+  export type WorklogSubmissionCreateManyDecidedByInputEnvelope = {
+    data: WorklogSubmissionCreateManyDecidedByInput | WorklogSubmissionCreateManyDecidedByInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ActivityLogCreateWithoutCreatedByInput = {
     id?: string
     workDate: Date | string
@@ -56896,6 +67079,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -56903,6 +67088,9 @@ export namespace Prisma {
     activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutCreatedByInput = {
@@ -56919,6 +67107,11 @@ export namespace Prisma {
     scheduleSlotId?: string | null
     deliverableId?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -57018,6 +67211,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -57065,6 +67259,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -57103,6 +67298,7 @@ export namespace Prisma {
     university?: UniversityUpdateOneRequiredWithoutManagersNestedInput
     primaryOf?: UniversityUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateWithoutUserInput = {
@@ -57112,6 +67308,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     primaryOf?: UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type InstructorUpsertWithoutUserInput = {
@@ -57130,7 +67327,9 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -57142,10 +67341,14 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
     id?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -57160,6 +67363,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -57290,6 +67495,91 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"ReportJob"> | Date | string
   }
 
+  export type ImportJobUpsertWithWhereUniqueWithoutCreatedByInput = {
+    where: ImportJobWhereUniqueInput
+    update: XOR<ImportJobUpdateWithoutCreatedByInput, ImportJobUncheckedUpdateWithoutCreatedByInput>
+    create: XOR<ImportJobCreateWithoutCreatedByInput, ImportJobUncheckedCreateWithoutCreatedByInput>
+  }
+
+  export type ImportJobUpdateWithWhereUniqueWithoutCreatedByInput = {
+    where: ImportJobWhereUniqueInput
+    data: XOR<ImportJobUpdateWithoutCreatedByInput, ImportJobUncheckedUpdateWithoutCreatedByInput>
+  }
+
+  export type ImportJobUpdateManyWithWhereWithoutCreatedByInput = {
+    where: ImportJobScalarWhereInput
+    data: XOR<ImportJobUpdateManyMutationInput, ImportJobUncheckedUpdateManyWithoutCreatedByInput>
+  }
+
+  export type ImportJobScalarWhereInput = {
+    AND?: ImportJobScalarWhereInput | ImportJobScalarWhereInput[]
+    OR?: ImportJobScalarWhereInput[]
+    NOT?: ImportJobScalarWhereInput | ImportJobScalarWhereInput[]
+    id?: StringFilter<"ImportJob"> | string
+    createdById?: StringFilter<"ImportJob"> | string
+    sourceType?: EnumImportSourceTypeFilter<"ImportJob"> | $Enums.ImportSourceType
+    fileName?: StringFilter<"ImportJob"> | string
+    fileSize?: IntFilter<"ImportJob"> | number
+    checksum?: StringFilter<"ImportJob"> | string
+    status?: EnumImportStatusFilter<"ImportJob"> | $Enums.ImportStatus
+    mapping?: JsonFilter<"ImportJob">
+    rows?: JsonFilter<"ImportJob">
+    rowCount?: IntFilter<"ImportJob"> | number
+    processedRows?: IntFilter<"ImportJob"> | number
+    errors?: JsonFilter<"ImportJob">
+    warnings?: JsonFilter<"ImportJob">
+    summary?: JsonFilter<"ImportJob">
+    extractionConfidence?: StringNullableFilter<"ImportJob"> | string | null
+    errorMessage?: StringNullableFilter<"ImportJob"> | string | null
+    startedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    completedAt?: DateTimeNullableFilter<"ImportJob"> | Date | string | null
+    createdAt?: DateTimeFilter<"ImportJob"> | Date | string
+    updatedAt?: DateTimeFilter<"ImportJob"> | Date | string
+  }
+
+  export type WorklogSubmissionUpsertWithWhereUniqueWithoutDecidedByInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    update: XOR<WorklogSubmissionUpdateWithoutDecidedByInput, WorklogSubmissionUncheckedUpdateWithoutDecidedByInput>
+    create: XOR<WorklogSubmissionCreateWithoutDecidedByInput, WorklogSubmissionUncheckedCreateWithoutDecidedByInput>
+  }
+
+  export type WorklogSubmissionUpdateWithWhereUniqueWithoutDecidedByInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    data: XOR<WorklogSubmissionUpdateWithoutDecidedByInput, WorklogSubmissionUncheckedUpdateWithoutDecidedByInput>
+  }
+
+  export type WorklogSubmissionUpdateManyWithWhereWithoutDecidedByInput = {
+    where: WorklogSubmissionScalarWhereInput
+    data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyWithoutDecidedByInput>
+  }
+
+  export type WorklogSubmissionScalarWhereInput = {
+    AND?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+    OR?: WorklogSubmissionScalarWhereInput[]
+    NOT?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+    id?: StringFilter<"WorklogSubmission"> | string
+    instructorId?: StringFilter<"WorklogSubmission"> | string
+    universityId?: StringFilter<"WorklogSubmission"> | string
+    workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    rawBullets?: JsonFilter<"WorklogSubmission">
+    status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
+    parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
+    rejections?: JsonNullableFilter<"WorklogSubmission">
+    submittedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    parsedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    supersededAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
+    exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
+    decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
+    decidedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
+    decisionNote?: StringNullableFilter<"WorklogSubmission"> | string | null
+    createdAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogSubmission"> | Date | string
+  }
+
   export type ActivityLogUpsertWithWhereUniqueWithoutCreatedByInput = {
     where: ActivityLogWhereUniqueInput
     update: XOR<ActivityLogUpdateWithoutCreatedByInput, ActivityLogUncheckedUpdateWithoutCreatedByInput>
@@ -57324,6 +67614,11 @@ export namespace Prisma {
     deliverableId?: StringNullableFilter<"ActivityLog"> | string | null
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
+    rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    submissionId?: StringNullableFilter<"ActivityLog"> | string | null
+    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
+    deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
+    quantity?: IntFilter<"ActivityLog"> | number
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
   }
@@ -57372,6 +67667,7 @@ export namespace Prisma {
     user: UserCreateNestedOneWithoutManagerProfileInput
     university: UniversityCreateNestedOneWithoutManagersInput
     aiInsights?: AiInsightCreateNestedManyWithoutManagerInput
+    instructors?: InstructorCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUncheckedCreateWithoutPrimaryOfInput = {
@@ -57382,6 +67678,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutManagerInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerCreateOrConnectWithoutPrimaryOfInput = {
@@ -57397,8 +67694,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     managerProfile?: ManagerCreateNestedOneWithoutUserInput
@@ -57407,6 +67706,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -57419,8 +67720,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     managerProfile?: ManagerUncheckedCreateNestedOneWithoutUserInput
@@ -57429,6 +67732,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -57451,6 +67756,7 @@ export namespace Prisma {
     user: UserCreateNestedOneWithoutManagerProfileInput
     primaryOf?: UniversityCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightCreateNestedManyWithoutManagerInput
+    instructors?: InstructorCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUncheckedCreateWithoutUniversityInput = {
@@ -57461,6 +67767,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     primaryOf?: UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutManagerInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerCreateOrConnectWithoutUniversityInput = {
@@ -57478,7 +67785,9 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -57490,11 +67799,15 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUniversityInput = {
     id?: string
     userId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -57509,6 +67822,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUniversityInput = {
@@ -57610,6 +67925,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -57617,6 +67934,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutUniversityInput = {
@@ -57633,6 +67953,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -57772,6 +68097,64 @@ export namespace Prisma {
 
   export type AuditLogCreateManyUniversityInputEnvelope = {
     data: AuditLogCreateManyUniversityInput | AuditLogCreateManyUniversityInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type WorklogSubmissionCreateWithoutUniversityInput = {
+    id?: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogSubmissionsInput
+    decidedBy?: UserCreateNestedOneWithoutWorklogDecisionsInput
+    activities?: ActivityLogCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionUncheckedCreateWithoutUniversityInput = {
+    id?: string
+    instructorId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activities?: ActivityLogUncheckedCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionCreateOrConnectWithoutUniversityInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    create: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogSubmissionCreateManyUniversityInputEnvelope = {
+    data: WorklogSubmissionCreateManyUniversityInput | WorklogSubmissionCreateManyUniversityInput[]
     skipDuplicates?: boolean
   }
 
@@ -58407,6 +68790,7 @@ export namespace Prisma {
     user?: UserUpdateOneRequiredWithoutManagerProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutManagersNestedInput
     aiInsights?: AiInsightUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateWithoutPrimaryOfInput = {
@@ -58417,6 +68801,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     aiInsights?: AiInsightUncheckedUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type UserUpsertWithWhereUniqueWithoutUniversityInput = {
@@ -58446,8 +68831,10 @@ export namespace Prisma {
     role?: EnumRoleFilter<"User"> | $Enums.Role
     isActive?: BoolFilter<"User"> | boolean
     phone?: StringNullableFilter<"User"> | string | null
+    avatarUrl?: StringNullableFilter<"User"> | string | null
     lastLoginAt?: DateTimeNullableFilter<"User"> | Date | string | null
     deletedAt?: DateTimeNullableFilter<"User"> | Date | string | null
+    leftReason?: StringNullableFilter<"User"> | string | null
     universityId?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -58504,6 +68891,8 @@ export namespace Prisma {
     id?: StringFilter<"Instructor"> | string
     userId?: StringFilter<"Instructor"> | string
     universityId?: StringFilter<"Instructor"> | string
+    categoryId?: StringNullableFilter<"Instructor"> | string | null
+    managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeFilter<"Instructor"> | Date | string
@@ -58681,6 +69070,22 @@ export namespace Prisma {
   export type AuditLogUpdateManyWithWhereWithoutUniversityInput = {
     where: AuditLogScalarWhereInput
     data: XOR<AuditLogUpdateManyMutationInput, AuditLogUncheckedUpdateManyWithoutUniversityInput>
+  }
+
+  export type WorklogSubmissionUpsertWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    update: XOR<WorklogSubmissionUpdateWithoutUniversityInput, WorklogSubmissionUncheckedUpdateWithoutUniversityInput>
+    create: XOR<WorklogSubmissionCreateWithoutUniversityInput, WorklogSubmissionUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogSubmissionUpdateWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    data: XOR<WorklogSubmissionUpdateWithoutUniversityInput, WorklogSubmissionUncheckedUpdateWithoutUniversityInput>
+  }
+
+  export type WorklogSubmissionUpdateManyWithWhereWithoutUniversityInput = {
+    where: WorklogSubmissionScalarWhereInput
+    data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyWithoutUniversityInput>
   }
 
   export type NotificationUpsertWithWhereUniqueWithoutUniversityInput = {
@@ -59231,6 +69636,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -59278,6 +69684,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -59341,6 +69748,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -59388,6 +69796,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -59435,6 +69844,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -59482,6 +69892,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -59545,6 +69956,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -59592,6 +70004,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -59619,8 +70032,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -59629,6 +70044,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -59641,8 +70058,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -59651,6 +70070,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -59688,6 +70109,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -59735,6 +70157,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -59787,6 +70210,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -59834,6 +70258,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -59910,6 +70335,61 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type InstructorCreateWithoutManagerInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutManagerInput = {
+    id?: string
+    userId: string
+    categoryId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutManagerInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput>
+  }
+
+  export type InstructorCreateManyManagerInputEnvelope = {
+    data: InstructorCreateManyManagerInput | InstructorCreateManyManagerInput[]
+    skipDuplicates?: boolean
+  }
+
   export type UserUpsertWithoutManagerProfileInput = {
     update: XOR<UserUpdateWithoutManagerProfileInput, UserUncheckedUpdateWithoutManagerProfileInput>
     create: XOR<UserCreateWithoutManagerProfileInput, UserUncheckedCreateWithoutManagerProfileInput>
@@ -59929,8 +70409,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -59939,6 +70421,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -59951,8 +70435,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59961,6 +70447,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -60004,6 +70492,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -60051,6 +70540,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -60109,6 +70599,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -60156,6 +70647,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -60191,6 +70683,301 @@ export namespace Prisma {
     data: XOR<AiInsightUpdateManyMutationInput, AiInsightUncheckedUpdateManyWithoutManagerInput>
   }
 
+  export type InstructorUpsertWithWhereUniqueWithoutManagerInput = {
+    where: InstructorWhereUniqueInput
+    update: XOR<InstructorUpdateWithoutManagerInput, InstructorUncheckedUpdateWithoutManagerInput>
+    create: XOR<InstructorCreateWithoutManagerInput, InstructorUncheckedCreateWithoutManagerInput>
+  }
+
+  export type InstructorUpdateWithWhereUniqueWithoutManagerInput = {
+    where: InstructorWhereUniqueInput
+    data: XOR<InstructorUpdateWithoutManagerInput, InstructorUncheckedUpdateWithoutManagerInput>
+  }
+
+  export type InstructorUpdateManyWithWhereWithoutManagerInput = {
+    where: InstructorScalarWhereInput
+    data: XOR<InstructorUpdateManyMutationInput, InstructorUncheckedUpdateManyWithoutManagerInput>
+  }
+
+  export type InstructorCreateWithoutWorklogDayNotesInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutWorklogDayNotesInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutWorklogDayNotesInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutWorklogDayNotesInput, InstructorUncheckedCreateWithoutWorklogDayNotesInput>
+  }
+
+  export type InstructorUpsertWithoutWorklogDayNotesInput = {
+    update: XOR<InstructorUpdateWithoutWorklogDayNotesInput, InstructorUncheckedUpdateWithoutWorklogDayNotesInput>
+    create: XOR<InstructorCreateWithoutWorklogDayNotesInput, InstructorUncheckedCreateWithoutWorklogDayNotesInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutWorklogDayNotesInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutWorklogDayNotesInput, InstructorUncheckedUpdateWithoutWorklogDayNotesInput>
+  }
+
+  export type InstructorUpdateWithoutWorklogDayNotesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutWorklogDayNotesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorCreateWithoutCategoryInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutCategoryInput = {
+    id?: string
+    userId: string
+    universityId: string
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutCategoryInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput>
+  }
+
+  export type InstructorCreateManyCategoryInputEnvelope = {
+    data: InstructorCreateManyCategoryInput | InstructorCreateManyCategoryInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ActivityLogCreateWithoutBroadCategoryInput = {
+    id?: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutActivityLogsInput
+    university: UniversityCreateNestedOneWithoutActivityLogsInput
+    activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
+    scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
+    deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
+    createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
+  }
+
+  export type ActivityLogUncheckedCreateWithoutBroadCategoryInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogCreateOrConnectWithoutBroadCategoryInput = {
+    where: ActivityLogWhereUniqueInput
+    create: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput>
+  }
+
+  export type ActivityLogCreateManyBroadCategoryInputEnvelope = {
+    data: ActivityLogCreateManyBroadCategoryInput | ActivityLogCreateManyBroadCategoryInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type InstructorUpsertWithWhereUniqueWithoutCategoryInput = {
+    where: InstructorWhereUniqueInput
+    update: XOR<InstructorUpdateWithoutCategoryInput, InstructorUncheckedUpdateWithoutCategoryInput>
+    create: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput>
+  }
+
+  export type InstructorUpdateWithWhereUniqueWithoutCategoryInput = {
+    where: InstructorWhereUniqueInput
+    data: XOR<InstructorUpdateWithoutCategoryInput, InstructorUncheckedUpdateWithoutCategoryInput>
+  }
+
+  export type InstructorUpdateManyWithWhereWithoutCategoryInput = {
+    where: InstructorScalarWhereInput
+    data: XOR<InstructorUpdateManyMutationInput, InstructorUncheckedUpdateManyWithoutCategoryInput>
+  }
+
+  export type ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput = {
+    where: ActivityLogWhereUniqueInput
+    update: XOR<ActivityLogUpdateWithoutBroadCategoryInput, ActivityLogUncheckedUpdateWithoutBroadCategoryInput>
+    create: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput>
+  }
+
+  export type ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput = {
+    where: ActivityLogWhereUniqueInput
+    data: XOR<ActivityLogUpdateWithoutBroadCategoryInput, ActivityLogUncheckedUpdateWithoutBroadCategoryInput>
+  }
+
+  export type ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput = {
+    where: ActivityLogScalarWhereInput
+    data: XOR<ActivityLogUpdateManyMutationInput, ActivityLogUncheckedUpdateManyWithoutBroadCategoryInput>
+  }
+
+  export type InstructorCategoryCreateWithoutInstructorsInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogCreateNestedManyWithoutBroadCategoryInput
+  }
+
+  export type InstructorCategoryUncheckedCreateWithoutInstructorsInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput
+  }
+
+  export type InstructorCategoryCreateOrConnectWithoutInstructorsInput = {
+    where: InstructorCategoryWhereUniqueInput
+    create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
+  }
+
   export type UserCreateWithoutInstructorProfileInput = {
     id?: string
     email: string
@@ -60199,8 +70986,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -60209,6 +70998,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -60221,8 +71012,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -60231,6 +71024,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -60268,6 +71063,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -60315,6 +71111,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -60339,6 +71136,33 @@ export namespace Prisma {
     create: XOR<UniversityCreateWithoutInstructorsInput, UniversityUncheckedCreateWithoutInstructorsInput>
   }
 
+  export type ManagerCreateWithoutInstructorsInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    user: UserCreateNestedOneWithoutManagerProfileInput
+    university: UniversityCreateNestedOneWithoutManagersInput
+    primaryOf?: UniversityCreateNestedOneWithoutPrimaryManagerInput
+    aiInsights?: AiInsightCreateNestedManyWithoutManagerInput
+  }
+
+  export type ManagerUncheckedCreateWithoutInstructorsInput = {
+    id?: string
+    userId: string
+    universityId: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    primaryOf?: UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutManagerInput
+  }
+
+  export type ManagerCreateOrConnectWithoutInstructorsInput = {
+    where: ManagerWhereUniqueInput
+    create: XOR<ManagerCreateWithoutInstructorsInput, ManagerUncheckedCreateWithoutInstructorsInput>
+  }
+
   export type ActivityLogCreateWithoutInstructorInput = {
     id?: string
     workDate: Date | string
@@ -60348,6 +71172,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutActivityLogsInput
@@ -60355,6 +71181,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutInstructorInput = {
@@ -60371,6 +71200,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -60789,6 +71623,125 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WorklogDayNoteCreateWithoutInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDayNoteUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDayNoteCreateOrConnectWithoutInstructorInput = {
+    where: WorklogDayNoteWhereUniqueInput
+    create: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogDayNoteCreateManyInstructorInputEnvelope = {
+    data: WorklogDayNoteCreateManyInstructorInput | WorklogDayNoteCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type WorklogSubmissionCreateWithoutInstructorInput = {
+    id?: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    university: UniversityCreateNestedOneWithoutWorklogSubmissionsInput
+    decidedBy?: UserCreateNestedOneWithoutWorklogDecisionsInput
+    activities?: ActivityLogCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activities?: ActivityLogUncheckedCreateNestedManyWithoutSubmissionInput
+  }
+
+  export type WorklogSubmissionCreateOrConnectWithoutInstructorInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    create: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogSubmissionCreateManyInstructorInputEnvelope = {
+    data: WorklogSubmissionCreateManyInstructorInput | WorklogSubmissionCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type InstructorCategoryUpsertWithoutInstructorsInput = {
+    update: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
+    create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
+    where?: InstructorCategoryWhereInput
+  }
+
+  export type InstructorCategoryUpdateToOneWithWhereWithoutInstructorsInput = {
+    where?: InstructorCategoryWhereInput
+    data: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
+  }
+
+  export type InstructorCategoryUpdateWithoutInstructorsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUpdateManyWithoutBroadCategoryNestedInput
+  }
+
+  export type InstructorCategoryUncheckedUpdateWithoutInstructorsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput
+  }
+
   export type UserUpsertWithoutInstructorProfileInput = {
     update: XOR<UserUpdateWithoutInstructorProfileInput, UserUncheckedUpdateWithoutInstructorProfileInput>
     create: XOR<UserCreateWithoutInstructorProfileInput, UserUncheckedCreateWithoutInstructorProfileInput>
@@ -60808,8 +71761,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -60818,6 +71773,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -60830,8 +71787,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -60840,6 +71799,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -60883,6 +71844,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -60930,6 +71892,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -60947,6 +71910,39 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type ManagerUpsertWithoutInstructorsInput = {
+    update: XOR<ManagerUpdateWithoutInstructorsInput, ManagerUncheckedUpdateWithoutInstructorsInput>
+    create: XOR<ManagerCreateWithoutInstructorsInput, ManagerUncheckedCreateWithoutInstructorsInput>
+    where?: ManagerWhereInput
+  }
+
+  export type ManagerUpdateToOneWithWhereWithoutInstructorsInput = {
+    where?: ManagerWhereInput
+    data: XOR<ManagerUpdateWithoutInstructorsInput, ManagerUncheckedUpdateWithoutInstructorsInput>
+  }
+
+  export type ManagerUpdateWithoutInstructorsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    user?: UserUpdateOneRequiredWithoutManagerProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutManagersNestedInput
+    primaryOf?: UniversityUpdateOneWithoutPrimaryManagerNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutManagerNestedInput
+  }
+
+  export type ManagerUncheckedUpdateWithoutInstructorsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    primaryOf?: UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type ActivityLogUpsertWithWhereUniqueWithoutInstructorInput = {
@@ -61125,6 +72121,51 @@ export namespace Prisma {
     data: XOR<InstructorWeeklyMetricUpdateManyMutationInput, InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorInput>
   }
 
+  export type WorklogDayNoteUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogDayNoteWhereUniqueInput
+    update: XOR<WorklogDayNoteUpdateWithoutInstructorInput, WorklogDayNoteUncheckedUpdateWithoutInstructorInput>
+    create: XOR<WorklogDayNoteCreateWithoutInstructorInput, WorklogDayNoteUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogDayNoteUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogDayNoteWhereUniqueInput
+    data: XOR<WorklogDayNoteUpdateWithoutInstructorInput, WorklogDayNoteUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type WorklogDayNoteUpdateManyWithWhereWithoutInstructorInput = {
+    where: WorklogDayNoteScalarWhereInput
+    data: XOR<WorklogDayNoteUpdateManyMutationInput, WorklogDayNoteUncheckedUpdateManyWithoutInstructorInput>
+  }
+
+  export type WorklogDayNoteScalarWhereInput = {
+    AND?: WorklogDayNoteScalarWhereInput | WorklogDayNoteScalarWhereInput[]
+    OR?: WorklogDayNoteScalarWhereInput[]
+    NOT?: WorklogDayNoteScalarWhereInput | WorklogDayNoteScalarWhereInput[]
+    id?: StringFilter<"WorklogDayNote"> | string
+    instructorId?: StringFilter<"WorklogDayNote"> | string
+    universityId?: StringFilter<"WorklogDayNote"> | string
+    workDate?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    note?: StringFilter<"WorklogDayNote"> | string
+    createdAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDayNote"> | Date | string
+  }
+
+  export type WorklogSubmissionUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    update: XOR<WorklogSubmissionUpdateWithoutInstructorInput, WorklogSubmissionUncheckedUpdateWithoutInstructorInput>
+    create: XOR<WorklogSubmissionCreateWithoutInstructorInput, WorklogSubmissionUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    data: XOR<WorklogSubmissionUpdateWithoutInstructorInput, WorklogSubmissionUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput = {
+    where: WorklogSubmissionScalarWhereInput
+    data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyWithoutInstructorInput>
+  }
+
   export type ActivityLogCreateWithoutActivityTypeInput = {
     id?: string
     workDate: Date | string
@@ -61134,6 +72175,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -61141,6 +72184,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutActivityTypeInput = {
@@ -61157,6 +72203,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -61247,6 +72298,40 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type DeliverableTypeCreateWithoutActivityTypeInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogCreateNestedManyWithoutDeliverableTypeInput
+  }
+
+  export type DeliverableTypeUncheckedCreateWithoutActivityTypeInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutDeliverableTypeInput
+  }
+
+  export type DeliverableTypeCreateOrConnectWithoutActivityTypeInput = {
+    where: DeliverableTypeWhereUniqueInput
+    create: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput>
+  }
+
+  export type DeliverableTypeCreateManyActivityTypeInputEnvelope = {
+    data: DeliverableTypeCreateManyActivityTypeInput | DeliverableTypeCreateManyActivityTypeInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ActivityLogUpsertWithWhereUniqueWithoutActivityTypeInput = {
     where: ActivityLogWhereUniqueInput
     update: XOR<ActivityLogUpdateWithoutActivityTypeInput, ActivityLogUncheckedUpdateWithoutActivityTypeInput>
@@ -61295,13 +72380,46 @@ export namespace Prisma {
     data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyWithoutActivityTypeInput>
   }
 
+  export type DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput = {
+    where: DeliverableTypeWhereUniqueInput
+    update: XOR<DeliverableTypeUpdateWithoutActivityTypeInput, DeliverableTypeUncheckedUpdateWithoutActivityTypeInput>
+    create: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput>
+  }
+
+  export type DeliverableTypeUpdateWithWhereUniqueWithoutActivityTypeInput = {
+    where: DeliverableTypeWhereUniqueInput
+    data: XOR<DeliverableTypeUpdateWithoutActivityTypeInput, DeliverableTypeUncheckedUpdateWithoutActivityTypeInput>
+  }
+
+  export type DeliverableTypeUpdateManyWithWhereWithoutActivityTypeInput = {
+    where: DeliverableTypeScalarWhereInput
+    data: XOR<DeliverableTypeUpdateManyMutationInput, DeliverableTypeUncheckedUpdateManyWithoutActivityTypeInput>
+  }
+
+  export type DeliverableTypeScalarWhereInput = {
+    AND?: DeliverableTypeScalarWhereInput | DeliverableTypeScalarWhereInput[]
+    OR?: DeliverableTypeScalarWhereInput[]
+    NOT?: DeliverableTypeScalarWhereInput | DeliverableTypeScalarWhereInput[]
+    id?: StringFilter<"DeliverableType"> | string
+    code?: StringFilter<"DeliverableType"> | string
+    label?: StringFilter<"DeliverableType"> | string
+    activityTypeId?: StringFilter<"DeliverableType"> | string
+    sortOrder?: IntFilter<"DeliverableType"> | number
+    isActive?: BoolFilter<"DeliverableType"> | boolean
+    isCountable?: BoolFilter<"DeliverableType"> | boolean
+    createdAt?: DateTimeFilter<"DeliverableType"> | Date | string
+    updatedAt?: DateTimeFilter<"DeliverableType"> | Date | string
+  }
+
   export type InstructorCreateWithoutLeaveRequestsInput = {
     id?: string
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
@@ -61312,12 +72430,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutLeaveRequestsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -61331,6 +72453,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutLeaveRequestsInput = {
@@ -61366,6 +72490,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -61413,6 +72538,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -61453,8 +72579,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
@@ -61465,12 +72593,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutLeaveRequestsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61484,6 +72616,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutLeaveRequestsInput = {
@@ -61525,6 +72659,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -61572,6 +72707,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -61599,8 +72735,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -61609,6 +72747,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -61621,8 +72761,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -61631,6 +72773,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -61659,8 +72803,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -61669,6 +72815,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -61681,8 +72829,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61691,6 +72841,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -61700,8 +72852,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
@@ -61712,12 +72866,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutActivityLogsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -61731,6 +72889,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutActivityLogsInput = {
@@ -61766,6 +72926,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -61813,6 +72974,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -61853,6 +73015,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUncheckedCreateWithoutActivityLogsInput = {
@@ -61871,6 +73034,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeCreateOrConnectWithoutActivityLogsInput = {
@@ -61964,8 +73128,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -61975,6 +73141,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
 
@@ -61986,8 +73154,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -61997,12 +73167,123 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
 
   export type UserCreateOrConnectWithoutActivityLogsCreatedInput = {
     where: UserWhereUniqueInput
     create: XOR<UserCreateWithoutActivityLogsCreatedInput, UserUncheckedCreateWithoutActivityLogsCreatedInput>
+  }
+
+  export type WorklogSubmissionCreateWithoutActivitiesInput = {
+    id?: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogSubmissionsInput
+    university: UniversityCreateNestedOneWithoutWorklogSubmissionsInput
+    decidedBy?: UserCreateNestedOneWithoutWorklogDecisionsInput
+  }
+
+  export type WorklogSubmissionUncheckedCreateWithoutActivitiesInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogSubmissionCreateOrConnectWithoutActivitiesInput = {
+    where: WorklogSubmissionWhereUniqueInput
+    create: XOR<WorklogSubmissionCreateWithoutActivitiesInput, WorklogSubmissionUncheckedCreateWithoutActivitiesInput>
+  }
+
+  export type InstructorCategoryCreateWithoutActivityLogsInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructors?: InstructorCreateNestedManyWithoutCategoryInput
+  }
+
+  export type InstructorCategoryUncheckedCreateWithoutActivityLogsInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructors?: InstructorUncheckedCreateNestedManyWithoutCategoryInput
+  }
+
+  export type InstructorCategoryCreateOrConnectWithoutActivityLogsInput = {
+    where: InstructorCategoryWhereUniqueInput
+    create: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
+  }
+
+  export type DeliverableTypeCreateWithoutActivityLogsInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityType: ActivityTypeCreateNestedOneWithoutDeliverableTypesInput
+  }
+
+  export type DeliverableTypeUncheckedCreateWithoutActivityLogsInput = {
+    id?: string
+    code: string
+    label: string
+    activityTypeId: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DeliverableTypeCreateOrConnectWithoutActivityLogsInput = {
+    where: DeliverableTypeWhereUniqueInput
+    create: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
   }
 
   export type InstructorUpsertWithoutActivityLogsInput = {
@@ -62021,8 +73302,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
@@ -62033,12 +73316,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutActivityLogsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62052,6 +73339,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutActivityLogsInput = {
@@ -62093,6 +73382,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -62140,6 +73430,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -62186,6 +73477,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeUncheckedUpdateWithoutActivityLogsInput = {
@@ -62204,6 +73496,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ScheduleSlotUpsertWithoutActivityLogsInput = {
@@ -62315,8 +73608,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -62326,6 +73621,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
 
@@ -62337,8 +73634,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62348,7 +73647,136 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type WorklogSubmissionUpsertWithoutActivitiesInput = {
+    update: XOR<WorklogSubmissionUpdateWithoutActivitiesInput, WorklogSubmissionUncheckedUpdateWithoutActivitiesInput>
+    create: XOR<WorklogSubmissionCreateWithoutActivitiesInput, WorklogSubmissionUncheckedCreateWithoutActivitiesInput>
+    where?: WorklogSubmissionWhereInput
+  }
+
+  export type WorklogSubmissionUpdateToOneWithWhereWithoutActivitiesInput = {
+    where?: WorklogSubmissionWhereInput
+    data: XOR<WorklogSubmissionUpdateWithoutActivitiesInput, WorklogSubmissionUncheckedUpdateWithoutActivitiesInput>
+  }
+
+  export type WorklogSubmissionUpdateWithoutActivitiesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    decidedBy?: UserUpdateOneWithoutWorklogDecisionsNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateWithoutActivitiesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type InstructorCategoryUpsertWithoutActivityLogsInput = {
+    update: XOR<InstructorCategoryUpdateWithoutActivityLogsInput, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
+    create: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
+    where?: InstructorCategoryWhereInput
+  }
+
+  export type InstructorCategoryUpdateToOneWithWhereWithoutActivityLogsInput = {
+    where?: InstructorCategoryWhereInput
+    data: XOR<InstructorCategoryUpdateWithoutActivityLogsInput, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
+  }
+
+  export type InstructorCategoryUpdateWithoutActivityLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructors?: InstructorUpdateManyWithoutCategoryNestedInput
+  }
+
+  export type InstructorCategoryUncheckedUpdateWithoutActivityLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructors?: InstructorUncheckedUpdateManyWithoutCategoryNestedInput
+  }
+
+  export type DeliverableTypeUpsertWithoutActivityLogsInput = {
+    update: XOR<DeliverableTypeUpdateWithoutActivityLogsInput, DeliverableTypeUncheckedUpdateWithoutActivityLogsInput>
+    create: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
+    where?: DeliverableTypeWhereInput
+  }
+
+  export type DeliverableTypeUpdateToOneWithWhereWithoutActivityLogsInput = {
+    where?: DeliverableTypeWhereInput
+    data: XOR<DeliverableTypeUpdateWithoutActivityLogsInput, DeliverableTypeUncheckedUpdateWithoutActivityLogsInput>
+  }
+
+  export type DeliverableTypeUpdateWithoutActivityLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityType?: ActivityTypeUpdateOneRequiredWithoutDeliverableTypesNestedInput
+  }
+
+  export type DeliverableTypeUncheckedUpdateWithoutActivityLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type InstructorCreateWithoutDeliverablesInput = {
@@ -62356,8 +73784,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
@@ -62368,12 +73798,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverablesInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -62387,6 +73821,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverablesInput = {
@@ -62422,6 +73858,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -62469,6 +73906,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -62501,8 +73939,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -62512,6 +73952,8 @@ export namespace Prisma {
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
   }
 
@@ -62523,8 +73965,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -62534,6 +73978,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
   }
 
@@ -62585,6 +74031,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -62592,6 +74040,9 @@ export namespace Prisma {
     activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutDeliverableInput = {
@@ -62608,6 +74059,11 @@ export namespace Prisma {
     scheduleSlotId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -62638,8 +74094,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
@@ -62650,12 +74108,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverablesInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62669,6 +74131,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutDeliverablesInput = {
@@ -62710,6 +74174,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -62757,6 +74222,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -62795,8 +74261,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -62806,6 +74274,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
   }
 
@@ -62817,8 +74287,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62828,6 +74300,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
   }
 
@@ -62933,6 +74407,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -62980,6 +74455,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -63008,8 +74484,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -63020,12 +74498,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverableLogsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -63039,6 +74521,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverableLogsInput = {
@@ -63133,6 +74617,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -63180,6 +74665,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -63214,8 +74700,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -63226,12 +74714,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverableLogsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63245,6 +74737,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutAiInsightsInput = {
@@ -63275,6 +74769,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -63322,6 +74817,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -63351,8 +74847,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -63363,12 +74861,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutAiInsightsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -63382,6 +74884,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutAiInsightsInput = {
@@ -63397,6 +74901,7 @@ export namespace Prisma {
     user: UserCreateNestedOneWithoutManagerProfileInput
     university: UniversityCreateNestedOneWithoutManagersInput
     primaryOf?: UniversityCreateNestedOneWithoutPrimaryManagerInput
+    instructors?: InstructorCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerUncheckedCreateWithoutAiInsightsInput = {
@@ -63407,6 +74912,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     primaryOf?: UniversityUncheckedCreateNestedOneWithoutPrimaryManagerInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutManagerInput
   }
 
   export type ManagerCreateOrConnectWithoutAiInsightsInput = {
@@ -63453,6 +74959,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -63500,6 +75007,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -63535,8 +75043,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -63547,12 +75057,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutAiInsightsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63566,6 +75080,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ManagerUpsertWithoutAiInsightsInput = {
@@ -63587,6 +75103,7 @@ export namespace Prisma {
     user?: UserUpdateOneRequiredWithoutManagerProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutManagersNestedInput
     primaryOf?: UniversityUpdateOneWithoutPrimaryManagerNestedInput
+    instructors?: InstructorUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateWithoutAiInsightsInput = {
@@ -63597,6 +75114,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     primaryOf?: UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type UniversityCreateWithoutAuditLogsInput = {
@@ -63627,6 +75145,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -63674,6 +75193,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -63706,8 +75226,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -63716,6 +75238,8 @@ export namespace Prisma {
     sessions?: SessionCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -63728,8 +75252,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -63738,6 +75264,8 @@ export namespace Prisma {
     sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -63786,6 +75314,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -63833,6 +75362,7 @@ export namespace Prisma {
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -63871,8 +75401,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -63881,6 +75413,8 @@ export namespace Prisma {
     sessions?: SessionUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -63893,8 +75427,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63903,6 +75439,8 @@ export namespace Prisma {
     sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -63915,8 +75453,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -63925,6 +75465,8 @@ export namespace Prisma {
     sessions?: SessionCreateNestedManyWithoutUserInput
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -63937,8 +75479,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -63947,6 +75491,8 @@ export namespace Prisma {
     sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -63985,6 +75531,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
     programs?: ProgramCreateNestedManyWithoutUniversityInput
@@ -64032,6 +75579,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
     programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
@@ -64074,8 +75622,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -64084,6 +75634,8 @@ export namespace Prisma {
     sessions?: SessionUpdateManyWithoutUserNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -64096,8 +75648,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -64106,6 +75660,8 @@ export namespace Prisma {
     sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -64150,6 +75706,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
     programs?: ProgramUpdateManyWithoutUniversityNestedInput
@@ -64197,6 +75754,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
     programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
@@ -64244,6 +75802,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
     programs?: ProgramCreateNestedManyWithoutUniversityInput
@@ -64291,6 +75850,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
     programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
@@ -64354,6 +75914,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
     programs?: ProgramUpdateManyWithoutUniversityNestedInput
@@ -64401,6 +75962,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
     programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
@@ -64448,6 +76010,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     programs?: ProgramCreateNestedManyWithoutUniversityInput
@@ -64495,6 +76058,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
@@ -64628,6 +76192,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     programs?: ProgramUpdateManyWithoutUniversityNestedInput
@@ -64675,6 +76240,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
@@ -64754,6 +76320,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -64801,6 +76368,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -64929,6 +76497,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -64976,6 +76545,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -65072,6 +76642,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -65119,6 +76690,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -65252,6 +76824,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -65299,6 +76872,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -65378,6 +76952,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -65425,6 +77000,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -65620,6 +77196,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -65667,6 +77244,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -65812,6 +77390,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -65859,6 +77438,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -65920,8 +77500,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -65932,12 +77514,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCourseAssignmentsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -65951,6 +77537,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -66027,6 +77615,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -66074,6 +77663,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -66147,8 +77737,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -66159,12 +77751,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCourseAssignmentsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -66178,6 +77774,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutAssignmentsInput = {
@@ -66244,6 +77842,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -66291,6 +77890,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -66319,8 +77919,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -66331,12 +77933,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutSchedulesInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -66350,6 +77956,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutSchedulesInput = {
@@ -66468,6 +78076,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -66515,6 +78124,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -66549,8 +78159,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -66561,12 +78173,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutSchedulesInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -66580,6 +78196,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutSchedulesInput = {
@@ -66662,6 +78280,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -66709,6 +78328,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -66766,8 +78386,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -66778,12 +78400,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutScheduleSlotsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -66797,6 +78423,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutScheduleSlotsInput = {
@@ -66853,6 +78481,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUncheckedCreateWithoutScheduleSlotsInput = {
@@ -66871,6 +78500,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeCreateOrConnectWithoutScheduleSlotsInput = {
@@ -66887,6 +78517,8 @@ export namespace Prisma {
     remarks?: string | null
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -66894,6 +78526,9 @@ export namespace Prisma {
     activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutScheduleSlotInput = {
@@ -66910,6 +78545,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -66964,6 +78604,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -67011,6 +78652,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -67080,8 +78722,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -67092,12 +78736,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutScheduleSlotsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -67111,6 +78759,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type CourseUpsertWithoutScheduleSlotsInput = {
@@ -67179,6 +78829,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -67197,6 +78848,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityLogUpsertWithWhereUniqueWithoutScheduleSlotInput = {
@@ -67244,6 +78896,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -67291,6 +78944,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -67354,6 +79008,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -67401,6 +79056,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -67448,6 +79104,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -67495,6 +79152,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -67523,8 +79181,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -67535,12 +79195,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -67554,6 +79218,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -67577,6 +79243,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -67595,6 +79262,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
+    deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -67642,6 +79310,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -67689,6 +79358,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -67723,8 +79393,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -67735,12 +79407,16 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -67754,6 +79430,8 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
@@ -67783,6 +79461,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -67801,6 +79480,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
+    deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type UniversityCreateWithoutReportingPeriodsInput = {
@@ -67832,6 +79512,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -67879,6 +79560,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -67942,6 +79624,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -67989,6 +79672,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -68036,6 +79720,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -68083,6 +79768,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -68111,8 +79797,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -68123,12 +79811,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorDailyMetricsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -68142,6 +79834,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -68189,6 +79883,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -68236,6 +79931,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -68270,8 +79966,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -68282,12 +79980,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorDailyMetricsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -68301,6 +80003,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutInstructorWeeklyMetricsInput = {
@@ -68332,6 +80036,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -68379,6 +80084,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -68407,8 +80113,10 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
     deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
     leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
@@ -68419,12 +80127,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
     id?: string
     userId: string
     universityId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -68438,6 +80150,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -68485,6 +80199,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -68532,6 +80247,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -68566,8 +80282,10 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -68578,12 +80296,16 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -68597,6 +80319,8 @@ export namespace Prisma {
     workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutUniversityDailyMetricsInput = {
@@ -68628,6 +80352,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -68675,6 +80400,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -68738,6 +80464,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -68785,6 +80512,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -68832,6 +80560,7 @@ export namespace Prisma {
     deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
     notifications?: NotificationCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
     departments?: DepartmentCreateNestedManyWithoutUniversityInput
@@ -68879,6 +80608,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
     universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
     departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
@@ -68910,8 +80640,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university?: UniversityCreateNestedOneWithoutUsersInput
@@ -68920,6 +80652,8 @@ export namespace Prisma {
     sessions?: SessionCreateNestedManyWithoutUserInput
     auditLogs?: AuditLogCreateNestedManyWithoutUserInput
     notifications?: NotificationCreateNestedManyWithoutUserInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
   }
@@ -68932,8 +80666,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     universityId?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -68942,6 +80678,8 @@ export namespace Prisma {
     sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
     auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
     notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
     activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
     deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
   }
@@ -68991,6 +80729,7 @@ export namespace Prisma {
     deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUpdateManyWithoutUniversityNestedInput
@@ -69038,6 +80777,7 @@ export namespace Prisma {
     deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
     universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
     departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
@@ -69075,8 +80815,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneWithoutUsersNestedInput
@@ -69085,6 +80827,8 @@ export namespace Prisma {
     sessions?: SessionUpdateManyWithoutUserNestedInput
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -69097,8 +80841,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     universityId?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -69107,8 +80853,802 @@ export namespace Prisma {
     sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type UserCreateWithoutImportJobsInput = {
+    id?: string
+    email: string
+    passwordHash: string
+    name: string
+    role: $Enums.Role
+    isActive?: boolean
+    phone?: string | null
+    avatarUrl?: string | null
+    lastLoginAt?: Date | string | null
+    deletedAt?: Date | string | null
+    leftReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    university?: UniversityCreateNestedOneWithoutUsersInput
+    managerProfile?: ManagerCreateNestedOneWithoutUserInput
+    instructorProfile?: InstructorCreateNestedOneWithoutUserInput
+    sessions?: SessionCreateNestedManyWithoutUserInput
+    auditLogs?: AuditLogCreateNestedManyWithoutUserInput
+    notifications?: NotificationCreateNestedManyWithoutUserInput
+    reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    worklogDecisions?: WorklogSubmissionCreateNestedManyWithoutDecidedByInput
+    activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
+    deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
+  }
+
+  export type UserUncheckedCreateWithoutImportJobsInput = {
+    id?: string
+    email: string
+    passwordHash: string
+    name: string
+    role: $Enums.Role
+    isActive?: boolean
+    phone?: string | null
+    avatarUrl?: string | null
+    lastLoginAt?: Date | string | null
+    deletedAt?: Date | string | null
+    leftReason?: string | null
+    universityId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    managerProfile?: ManagerUncheckedCreateNestedOneWithoutUserInput
+    instructorProfile?: InstructorUncheckedCreateNestedOneWithoutUserInput
+    sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
+    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
+    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    worklogDecisions?: WorklogSubmissionUncheckedCreateNestedManyWithoutDecidedByInput
+    activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
+    deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
+  }
+
+  export type UserCreateOrConnectWithoutImportJobsInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutImportJobsInput, UserUncheckedCreateWithoutImportJobsInput>
+  }
+
+  export type UserUpsertWithoutImportJobsInput = {
+    update: XOR<UserUpdateWithoutImportJobsInput, UserUncheckedUpdateWithoutImportJobsInput>
+    create: XOR<UserCreateWithoutImportJobsInput, UserUncheckedCreateWithoutImportJobsInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutImportJobsInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutImportJobsInput, UserUncheckedUpdateWithoutImportJobsInput>
+  }
+
+  export type UserUpdateWithoutImportJobsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    passwordHash?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    university?: UniversityUpdateOneWithoutUsersNestedInput
+    managerProfile?: ManagerUpdateOneWithoutUserNestedInput
+    instructorProfile?: InstructorUpdateOneWithoutUserNestedInput
+    sessions?: SessionUpdateManyWithoutUserNestedInput
+    auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
+    notifications?: NotificationUpdateManyWithoutUserNestedInput
+    reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
+    activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
+    deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutImportJobsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    passwordHash?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
+    universityId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    managerProfile?: ManagerUncheckedUpdateOneWithoutUserNestedInput
+    instructorProfile?: InstructorUncheckedUpdateOneWithoutUserNestedInput
+    sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
+    auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
+    reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
+    activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
+    deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type ActivityTypeCreateWithoutDeliverableTypesInput = {
+    id?: string
+    code: string
+    label: string
+    description?: string | null
+    sortOrder?: number
+    isActive?: boolean
+    isSystem?: boolean
+    isOncePerDay?: boolean
+    isDerivedFromWorkingHours?: boolean
+    countsAsProductive?: boolean
+    isUnutilized?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
+  }
+
+  export type ActivityTypeUncheckedCreateWithoutDeliverableTypesInput = {
+    id?: string
+    code: string
+    label: string
+    description?: string | null
+    sortOrder?: number
+    isActive?: boolean
+    isSystem?: boolean
+    isOncePerDay?: boolean
+    isDerivedFromWorkingHours?: boolean
+    countsAsProductive?: boolean
+    isUnutilized?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
+  }
+
+  export type ActivityTypeCreateOrConnectWithoutDeliverableTypesInput = {
+    where: ActivityTypeWhereUniqueInput
+    create: XOR<ActivityTypeCreateWithoutDeliverableTypesInput, ActivityTypeUncheckedCreateWithoutDeliverableTypesInput>
+  }
+
+  export type ActivityLogCreateWithoutDeliverableTypeInput = {
+    id?: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutActivityLogsInput
+    university: UniversityCreateNestedOneWithoutActivityLogsInput
+    activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
+    scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
+    deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
+    createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+  }
+
+  export type ActivityLogUncheckedCreateWithoutDeliverableTypeInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogCreateOrConnectWithoutDeliverableTypeInput = {
+    where: ActivityLogWhereUniqueInput
+    create: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput>
+  }
+
+  export type ActivityLogCreateManyDeliverableTypeInputEnvelope = {
+    data: ActivityLogCreateManyDeliverableTypeInput | ActivityLogCreateManyDeliverableTypeInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ActivityTypeUpsertWithoutDeliverableTypesInput = {
+    update: XOR<ActivityTypeUpdateWithoutDeliverableTypesInput, ActivityTypeUncheckedUpdateWithoutDeliverableTypesInput>
+    create: XOR<ActivityTypeCreateWithoutDeliverableTypesInput, ActivityTypeUncheckedCreateWithoutDeliverableTypesInput>
+    where?: ActivityTypeWhereInput
+  }
+
+  export type ActivityTypeUpdateToOneWithWhereWithoutDeliverableTypesInput = {
+    where?: ActivityTypeWhereInput
+    data: XOR<ActivityTypeUpdateWithoutDeliverableTypesInput, ActivityTypeUncheckedUpdateWithoutDeliverableTypesInput>
+  }
+
+  export type ActivityTypeUpdateWithoutDeliverableTypesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isSystem?: BoolFieldUpdateOperationsInput | boolean
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    isDerivedFromWorkingHours?: BoolFieldUpdateOperationsInput | boolean
+    countsAsProductive?: BoolFieldUpdateOperationsInput | boolean
+    isUnutilized?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
+  }
+
+  export type ActivityTypeUncheckedUpdateWithoutDeliverableTypesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isSystem?: BoolFieldUpdateOperationsInput | boolean
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    isDerivedFromWorkingHours?: BoolFieldUpdateOperationsInput | boolean
+    countsAsProductive?: BoolFieldUpdateOperationsInput | boolean
+    isUnutilized?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
+  }
+
+  export type ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput = {
+    where: ActivityLogWhereUniqueInput
+    update: XOR<ActivityLogUpdateWithoutDeliverableTypeInput, ActivityLogUncheckedUpdateWithoutDeliverableTypeInput>
+    create: XOR<ActivityLogCreateWithoutDeliverableTypeInput, ActivityLogUncheckedCreateWithoutDeliverableTypeInput>
+  }
+
+  export type ActivityLogUpdateWithWhereUniqueWithoutDeliverableTypeInput = {
+    where: ActivityLogWhereUniqueInput
+    data: XOR<ActivityLogUpdateWithoutDeliverableTypeInput, ActivityLogUncheckedUpdateWithoutDeliverableTypeInput>
+  }
+
+  export type ActivityLogUpdateManyWithWhereWithoutDeliverableTypeInput = {
+    where: ActivityLogScalarWhereInput
+    data: XOR<ActivityLogUpdateManyMutationInput, ActivityLogUncheckedUpdateManyWithoutDeliverableTypeInput>
+  }
+
+  export type InstructorCreateWithoutWorklogSubmissionsInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutWorklogSubmissionsInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutWorklogSubmissionsInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutWorklogSubmissionsInput, InstructorUncheckedCreateWithoutWorklogSubmissionsInput>
+  }
+
+  export type UniversityCreateWithoutWorklogSubmissionsInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    primaryManager?: ManagerCreateNestedOneWithoutPrimaryOfInput
+    users?: UserCreateNestedManyWithoutUniversityInput
+    managers?: ManagerCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentCreateNestedManyWithoutUniversityInput
+    programs?: ProgramCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermCreateNestedManyWithoutUniversityInput
+    courses?: CourseCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityUncheckedCreateWithoutWorklogSubmissionsInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    primaryManagerId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    users?: UserUncheckedCreateNestedManyWithoutUniversityInput
+    managers?: ManagerUncheckedCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursUncheckedCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayUncheckedCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
+    programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermUncheckedCreateNestedManyWithoutUniversityInput
+    courses?: CourseUncheckedCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityCreateOrConnectWithoutWorklogSubmissionsInput = {
+    where: UniversityWhereUniqueInput
+    create: XOR<UniversityCreateWithoutWorklogSubmissionsInput, UniversityUncheckedCreateWithoutWorklogSubmissionsInput>
+  }
+
+  export type UserCreateWithoutWorklogDecisionsInput = {
+    id?: string
+    email: string
+    passwordHash: string
+    name: string
+    role: $Enums.Role
+    isActive?: boolean
+    phone?: string | null
+    avatarUrl?: string | null
+    lastLoginAt?: Date | string | null
+    deletedAt?: Date | string | null
+    leftReason?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    university?: UniversityCreateNestedOneWithoutUsersInput
+    managerProfile?: ManagerCreateNestedOneWithoutUserInput
+    instructorProfile?: InstructorCreateNestedOneWithoutUserInput
+    sessions?: SessionCreateNestedManyWithoutUserInput
+    auditLogs?: AuditLogCreateNestedManyWithoutUserInput
+    notifications?: NotificationCreateNestedManyWithoutUserInput
+    reportJobs?: ReportJobCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobCreateNestedManyWithoutCreatedByInput
+    activityLogsCreated?: ActivityLogCreateNestedManyWithoutCreatedByInput
+    deliverablesCreated?: DeliverableCreateNestedManyWithoutCreatedByInput
+  }
+
+  export type UserUncheckedCreateWithoutWorklogDecisionsInput = {
+    id?: string
+    email: string
+    passwordHash: string
+    name: string
+    role: $Enums.Role
+    isActive?: boolean
+    phone?: string | null
+    avatarUrl?: string | null
+    lastLoginAt?: Date | string | null
+    deletedAt?: Date | string | null
+    leftReason?: string | null
+    universityId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    managerProfile?: ManagerUncheckedCreateNestedOneWithoutUserInput
+    instructorProfile?: InstructorUncheckedCreateNestedOneWithoutUserInput
+    sessions?: SessionUncheckedCreateNestedManyWithoutUserInput
+    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUserInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutUserInput
+    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutRequestedByInput
+    importJobs?: ImportJobUncheckedCreateNestedManyWithoutCreatedByInput
+    activityLogsCreated?: ActivityLogUncheckedCreateNestedManyWithoutCreatedByInput
+    deliverablesCreated?: DeliverableUncheckedCreateNestedManyWithoutCreatedByInput
+  }
+
+  export type UserCreateOrConnectWithoutWorklogDecisionsInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutWorklogDecisionsInput, UserUncheckedCreateWithoutWorklogDecisionsInput>
+  }
+
+  export type ActivityLogCreateWithoutSubmissionInput = {
+    id?: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    isOncePerDay?: boolean
+    rawText?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutActivityLogsInput
+    university: UniversityCreateNestedOneWithoutActivityLogsInput
+    activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
+    scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
+    deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
+    createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
+    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
+    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
+  }
+
+  export type ActivityLogUncheckedCreateWithoutSubmissionInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogCreateOrConnectWithoutSubmissionInput = {
+    where: ActivityLogWhereUniqueInput
+    create: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput>
+  }
+
+  export type ActivityLogCreateManySubmissionInputEnvelope = {
+    data: ActivityLogCreateManySubmissionInput | ActivityLogCreateManySubmissionInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type InstructorUpsertWithoutWorklogSubmissionsInput = {
+    update: XOR<InstructorUpdateWithoutWorklogSubmissionsInput, InstructorUncheckedUpdateWithoutWorklogSubmissionsInput>
+    create: XOR<InstructorCreateWithoutWorklogSubmissionsInput, InstructorUncheckedCreateWithoutWorklogSubmissionsInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutWorklogSubmissionsInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutWorklogSubmissionsInput, InstructorUncheckedUpdateWithoutWorklogSubmissionsInput>
+  }
+
+  export type InstructorUpdateWithoutWorklogSubmissionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutWorklogSubmissionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type UniversityUpsertWithoutWorklogSubmissionsInput = {
+    update: XOR<UniversityUpdateWithoutWorklogSubmissionsInput, UniversityUncheckedUpdateWithoutWorklogSubmissionsInput>
+    create: XOR<UniversityCreateWithoutWorklogSubmissionsInput, UniversityUncheckedCreateWithoutWorklogSubmissionsInput>
+    where?: UniversityWhereInput
+  }
+
+  export type UniversityUpdateToOneWithWhereWithoutWorklogSubmissionsInput = {
+    where?: UniversityWhereInput
+    data: XOR<UniversityUpdateWithoutWorklogSubmissionsInput, UniversityUncheckedUpdateWithoutWorklogSubmissionsInput>
+  }
+
+  export type UniversityUpdateWithoutWorklogSubmissionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    primaryManager?: ManagerUpdateOneWithoutPrimaryOfNestedInput
+    users?: UserUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type UniversityUncheckedUpdateWithoutWorklogSubmissionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    primaryManagerId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    users?: UserUncheckedUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUncheckedUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUncheckedUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUncheckedUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUncheckedUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUncheckedUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type UserUpsertWithoutWorklogDecisionsInput = {
+    update: XOR<UserUpdateWithoutWorklogDecisionsInput, UserUncheckedUpdateWithoutWorklogDecisionsInput>
+    create: XOR<UserCreateWithoutWorklogDecisionsInput, UserUncheckedCreateWithoutWorklogDecisionsInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutWorklogDecisionsInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutWorklogDecisionsInput, UserUncheckedUpdateWithoutWorklogDecisionsInput>
+  }
+
+  export type UserUpdateWithoutWorklogDecisionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    passwordHash?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    university?: UniversityUpdateOneWithoutUsersNestedInput
+    managerProfile?: ManagerUpdateOneWithoutUserNestedInput
+    instructorProfile?: InstructorUpdateOneWithoutUserNestedInput
+    sessions?: SessionUpdateManyWithoutUserNestedInput
+    auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
+    notifications?: NotificationUpdateManyWithoutUserNestedInput
+    reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
+    deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutWorklogDecisionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    passwordHash?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
+    universityId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    managerProfile?: ManagerUncheckedUpdateOneWithoutUserNestedInput
+    instructorProfile?: InstructorUncheckedUpdateOneWithoutUserNestedInput
+    sessions?: SessionUncheckedUpdateManyWithoutUserNestedInput
+    auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
+    reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
+    deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
+  }
+
+  export type ActivityLogUpsertWithWhereUniqueWithoutSubmissionInput = {
+    where: ActivityLogWhereUniqueInput
+    update: XOR<ActivityLogUpdateWithoutSubmissionInput, ActivityLogUncheckedUpdateWithoutSubmissionInput>
+    create: XOR<ActivityLogCreateWithoutSubmissionInput, ActivityLogUncheckedCreateWithoutSubmissionInput>
+  }
+
+  export type ActivityLogUpdateWithWhereUniqueWithoutSubmissionInput = {
+    where: ActivityLogWhereUniqueInput
+    data: XOR<ActivityLogUpdateWithoutSubmissionInput, ActivityLogUncheckedUpdateWithoutSubmissionInput>
+  }
+
+  export type ActivityLogUpdateManyWithWhereWithoutSubmissionInput = {
+    where: ActivityLogScalarWhereInput
+    data: XOR<ActivityLogUpdateManyMutationInput, ActivityLogUncheckedUpdateManyWithoutSubmissionInput>
   }
 
   export type SessionCreateManyUserInput = {
@@ -69159,6 +81699,51 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type ImportJobCreateManyCreatedByInput = {
+    id?: string
+    sourceType: $Enums.ImportSourceType
+    fileName: string
+    fileSize: number
+    checksum: string
+    status?: $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: number
+    processedRows?: number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: string | null
+    errorMessage?: string | null
+    startedAt?: Date | string | null
+    completedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogSubmissionCreateManyDecidedByInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type ActivityLogCreateManyCreatedByInput = {
     id?: string
     instructorId: string
@@ -69173,6 +81758,11 @@ export namespace Prisma {
     scheduleSlotId?: string | null
     deliverableId?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -69337,6 +81927,143 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type ImportJobUpdateWithoutCreatedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ImportJobUncheckedUpdateWithoutCreatedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ImportJobUncheckedUpdateManyWithoutCreatedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sourceType?: EnumImportSourceTypeFieldUpdateOperationsInput | $Enums.ImportSourceType
+    fileName?: StringFieldUpdateOperationsInput | string
+    fileSize?: IntFieldUpdateOperationsInput | number
+    checksum?: StringFieldUpdateOperationsInput | string
+    status?: EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+    mapping?: JsonNullValueInput | InputJsonValue
+    rows?: JsonNullValueInput | InputJsonValue
+    rowCount?: IntFieldUpdateOperationsInput | number
+    processedRows?: IntFieldUpdateOperationsInput | number
+    errors?: JsonNullValueInput | InputJsonValue
+    warnings?: JsonNullValueInput | InputJsonValue
+    summary?: JsonNullValueInput | InputJsonValue
+    extractionConfidence?: NullableStringFieldUpdateOperationsInput | string | null
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogSubmissionUpdateWithoutDecidedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    activities?: ActivityLogUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateWithoutDecidedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: ActivityLogUncheckedUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyWithoutDecidedByInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ActivityLogUpdateWithoutCreatedByInput = {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -69346,6 +82073,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -69353,6 +82082,9 @@ export namespace Prisma {
     activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutCreatedByInput = {
@@ -69369,6 +82101,11 @@ export namespace Prisma {
     scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -69387,6 +82124,11 @@ export namespace Prisma {
     scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -69451,8 +82193,10 @@ export namespace Prisma {
     role: $Enums.Role
     isActive?: boolean
     phone?: string | null
+    avatarUrl?: string | null
     lastLoginAt?: Date | string | null
     deletedAt?: Date | string | null
+    leftReason?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -69468,6 +82212,8 @@ export namespace Prisma {
   export type InstructorCreateManyUniversityInput = {
     id?: string
     userId: string
+    categoryId?: string | null
+    managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -69512,6 +82258,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -69561,6 +82312,29 @@ export namespace Prisma {
     entityId?: string | null
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+  }
+
+  export type WorklogSubmissionCreateManyUniversityInput = {
+    id?: string
+    instructorId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type NotificationCreateManyUniversityInput = {
@@ -69776,8 +82550,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     managerProfile?: ManagerUpdateOneWithoutUserNestedInput
@@ -69786,6 +82562,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUpdateManyWithoutUserNestedInput
     notifications?: NotificationUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUpdateManyWithoutCreatedByNestedInput
   }
@@ -69798,8 +82576,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     managerProfile?: ManagerUncheckedUpdateOneWithoutUserNestedInput
@@ -69808,6 +82588,8 @@ export namespace Prisma {
     auditLogs?: AuditLogUncheckedUpdateManyWithoutUserNestedInput
     notifications?: NotificationUncheckedUpdateManyWithoutUserNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutRequestedByNestedInput
+    importJobs?: ImportJobUncheckedUpdateManyWithoutCreatedByNestedInput
+    worklogDecisions?: WorklogSubmissionUncheckedUpdateManyWithoutDecidedByNestedInput
     activityLogsCreated?: ActivityLogUncheckedUpdateManyWithoutCreatedByNestedInput
     deliverablesCreated?: DeliverableUncheckedUpdateManyWithoutCreatedByNestedInput
   }
@@ -69820,8 +82602,10 @@ export namespace Prisma {
     role?: EnumRoleFieldUpdateOperationsInput | $Enums.Role
     isActive?: BoolFieldUpdateOperationsInput | boolean
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    avatarUrl?: NullableStringFieldUpdateOperationsInput | string | null
     lastLoginAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    leftReason?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -69834,6 +82618,7 @@ export namespace Prisma {
     user?: UserUpdateOneRequiredWithoutManagerProfileNestedInput
     primaryOf?: UniversityUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateWithoutUniversityInput = {
@@ -69844,6 +82629,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     primaryOf?: UniversityUncheckedUpdateOneWithoutPrimaryManagerNestedInput
     aiInsights?: AiInsightUncheckedUpdateManyWithoutManagerNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutManagerNestedInput
   }
 
   export type ManagerUncheckedUpdateManyWithoutUniversityInput = {
@@ -69859,7 +82645,9 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
     deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
     leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
@@ -69871,11 +82659,15 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -69890,11 +82682,15 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -69984,6 +82780,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -69991,6 +82789,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutUniversityInput = {
@@ -70007,6 +82808,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -70025,6 +82831,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -70172,6 +82983,77 @@ export namespace Prisma {
     entityId?: NullableStringFieldUpdateOperationsInput | string | null
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogSubmissionUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    decidedBy?: UserUpdateOneWithoutWorklogDecisionsNestedInput
+    activities?: ActivityLogUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: ActivityLogUncheckedUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type NotificationUpdateWithoutUniversityInput = {
@@ -70828,6 +83710,15 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type InstructorCreateManyManagerInput = {
+    id?: string
+    userId: string
+    categoryId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type AiInsightUpdateWithoutManagerInput = {
     id?: StringFieldUpdateOperationsInput | string
     scope?: EnumInsightScopeFieldUpdateOperationsInput | $Enums.InsightScope
@@ -70891,6 +83782,218 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type InstructorUpdateWithoutManagerInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutManagerInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateManyWithoutManagerInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type InstructorCreateManyCategoryInput = {
+    id?: string
+    userId: string
+    universityId: string
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogCreateManyBroadCategoryInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type InstructorUpdateWithoutCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogUpdateWithoutBroadCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
+    activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
+    scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
+    deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
+    createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
+  }
+
+  export type ActivityLogUncheckedUpdateWithoutBroadCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutBroadCategoryInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ActivityLogCreateManyInstructorInput = {
     id?: string
     universityId: string
@@ -70905,6 +84008,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -71057,6 +84165,38 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type WorklogDayNoteCreateManyInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    note: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogSubmissionCreateManyInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    rawBullets: JsonNullValueInput | InputJsonValue
+    status?: $Enums.WorklogParseStatus
+    parseError?: string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: Date | string
+    parsedAt?: Date | string | null
+    supersededAt?: Date | string | null
+    reviewedAt?: Date | string | null
+    escalatedAt?: Date | string | null
+    needsReview?: boolean
+    approval?: $Enums.WorklogApproval
+    exceptionReason?: $Enums.WorklogExceptionReason | null
+    decidedById?: string | null
+    decidedAt?: Date | string | null
+    decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type ActivityLogUpdateWithoutInstructorInput = {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -71066,6 +84206,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -71073,6 +84215,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutInstructorInput = {
@@ -71089,6 +84234,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -71107,6 +84257,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -71563,6 +84718,104 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogDayNoteUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDayNoteUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDayNoteUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    note?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogSubmissionUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    university?: UniversityUpdateOneRequiredWithoutWorklogSubmissionsNestedInput
+    decidedBy?: UserUpdateOneWithoutWorklogDecisionsNestedInput
+    activities?: ActivityLogUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: ActivityLogUncheckedUpdateManyWithoutSubmissionNestedInput
+  }
+
+  export type WorklogSubmissionUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    rawBullets?: JsonNullValueInput | InputJsonValue
+    status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
+    parseError?: NullableStringFieldUpdateOperationsInput | string | null
+    rejections?: NullableJsonNullValueInput | InputJsonValue
+    submittedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    parsedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    supersededAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    needsReview?: BoolFieldUpdateOperationsInput | boolean
+    approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
+    exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
+    decidedById?: NullableStringFieldUpdateOperationsInput | string | null
+    decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ActivityLogCreateManyActivityTypeInput = {
     id?: string
     instructorId: string
@@ -71577,6 +84830,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -71608,6 +84866,17 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type DeliverableTypeCreateManyActivityTypeInput = {
+    id?: string
+    code: string
+    label: string
+    sortOrder?: number
+    isActive?: boolean
+    isCountable?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type ActivityLogUpdateWithoutActivityTypeInput = {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -71617,6 +84886,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -71624,6 +84895,9 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutActivityTypeInput = {
@@ -71640,6 +84914,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -71658,6 +84937,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -71745,6 +85029,41 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type DeliverableTypeUpdateWithoutActivityTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUpdateManyWithoutDeliverableTypeNestedInput
+  }
+
+  export type DeliverableTypeUncheckedUpdateWithoutActivityTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutDeliverableTypeNestedInput
+  }
+
+  export type DeliverableTypeUncheckedUpdateManyWithoutActivityTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    label?: StringFieldUpdateOperationsInput | string
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    isCountable?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type DeliverableLogCreateManyDeliverableInput = {
     id?: string
     universityId: string
@@ -71771,6 +85090,11 @@ export namespace Prisma {
     scheduleSlotId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -71820,6 +85144,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -71827,6 +85153,9 @@ export namespace Prisma {
     activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutDeliverableInput = {
@@ -71843,6 +85172,11 @@ export namespace Prisma {
     scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -71861,6 +85195,11 @@ export namespace Prisma {
     scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -72299,6 +85638,11 @@ export namespace Prisma {
     deliverableId?: string | null
     createdById?: string | null
     isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -72312,6 +85656,8 @@ export namespace Prisma {
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -72319,6 +85665,9 @@ export namespace Prisma {
     activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutScheduleSlotInput = {
@@ -72335,6 +85684,11 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -72353,6 +85707,195 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogCreateManyDeliverableTypeInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    submissionId?: string | null
+    broadCategoryId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogUpdateWithoutDeliverableTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
+    activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
+    scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
+    deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
+    createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+  }
+
+  export type ActivityLogUncheckedUpdateWithoutDeliverableTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutDeliverableTypeInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogCreateManySubmissionInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    activityTypeId: string
+    workDate: Date | string
+    startTime: Date | string
+    endTime: Date | string
+    status?: $Enums.ActivityStatus
+    remarks?: string | null
+    source?: $Enums.ActivitySource
+    scheduleSlotId?: string | null
+    deliverableId?: string | null
+    createdById?: string | null
+    isOncePerDay?: boolean
+    rawText?: string | null
+    broadCategoryId?: string | null
+    deliverableTypeId?: string | null
+    quantity?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ActivityLogUpdateWithoutSubmissionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
+    university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
+    activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
+    scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
+    deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
+    createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
+    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
+    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
+  }
+
+  export type ActivityLogUncheckedUpdateWithoutSubmissionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ActivityLogUncheckedUpdateManyWithoutSubmissionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    activityTypeId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
+    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdById?: NullableStringFieldUpdateOperationsInput | string | null
+    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
+    rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

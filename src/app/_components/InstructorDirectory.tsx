@@ -9,6 +9,42 @@
  * rather than a second endpoint: every column below already exists in that
  * payload, so a separate query would only create a way for the directory and
  * the grid to disagree about the same week.
+ *
+ * ── Why the hours column says "Recorded hours" ─────────────────────────────
+ * Because that is the question this payload answers: the tracker sums every
+ * recorded minute, student-facing or not. Working Hours means time spent WITH
+ * STUDENTS (see `_lib/student-facing.ts`), this response does not carry that
+ * figure, and putting the label on this number would publish a total that
+ * disagrees with every screen that measures it properly. The honest name and
+ * the same number is the trade this column makes.
+ *
+ * ── Why there is no utilisation column ─────────────────────────────────────
+ * It was recorded minutes over the configured working day, which has nothing
+ * to do with students: a week of back-to-back internal meetings scored exactly
+ * like a week of teaching, and the meter routinely ran past 100%. Ranking
+ * people down a list by that is worse than not ranking them at all. Nothing
+ * takes its place — the tracker has no student-facing capacity to divide by,
+ * and a substitute invented here would be one more figure to reconcile.
+ *
+ * ── Why "Broad category" is the filed stream, not the derived one ─────────
+ * Two different categories travel on this row. `broadCategory` is what the
+ * instructor TEACHES — set by an admin, stable across months, and the column
+ * the client's sheet prints. `category` is the dominant ACTIVITY they spent
+ * the period on, derived from their hours. This column prints the first: the
+ * derived one turned a quiet week of meetings into "Meeting", and left this
+ * directory disagreeing with the grid and the CSV export one screen away,
+ * both of which already print the filed stream. Blank reads "Not set" —
+ * nobody has filed them — because a derived value here claimed a decision
+ * that had not been made.
+ *
+ * ── Why "Deliverables" is a count with no hours beside it ──────────────────
+ * "Deliverable hours" meant two different quantities. On this screen it was
+ * hours on entries carrying any named deliverable, countable or not; on the
+ * roster and manager screens it was hours whose category happened to be
+ * "Deliverable Work" — the same person, the same week, 32h 55m against 1h 30m.
+ * The quantity is reporting detail about what was booked, which is all this
+ * column was ever asked for; the hours behind it live in the grid, per week,
+ * where a reader can see which entries they came from.
  */
 
 import Link from "next/link";
@@ -19,7 +55,6 @@ import {
   CardList,
   CardListItem,
   EmptyState,
-  Meter,
   StatusPill,
   Table,
   TableWrap,
@@ -27,15 +62,13 @@ import {
   TD,
   THead,
   TR,
-  utilizationTone,
 } from "@/app/_components/ui";
 import type { Tracker, TrackerRow } from "@/app/_components/TrackerGrid";
-import { formatHours, humanizeCode } from "@/app/_lib/format";
+import { formatHours } from "@/app/_lib/format";
 
-/** Deliverable progress for the period, as quantity plus the hours behind it. */
+/** Deliverable progress for the period, as the quantity that was booked. */
 function progressLabel(row: TrackerRow): string {
-  if (row.totals.quantity === 0 && row.totals.deliverableHours === 0) return "—";
-  return `${row.totals.quantity} · ${formatHours(row.totals.deliverableHours)}`;
+  return row.totals.quantity > 0 ? String(row.totals.quantity) : "—";
 }
 
 export function InstructorDirectory({
@@ -74,8 +107,7 @@ export function InstructorDirectory({
                 { label: "Employee ID" },
                 { label: "Status" },
                 { label: "Broad category" },
-                { label: "Week hours", align: "right" },
-                { label: "Utilization" },
+                { label: "Recorded hours", align: "right" },
                 { label: "Deliverables", align: "right" },
               ]}
             />
@@ -92,19 +124,13 @@ export function InstructorDirectory({
                     <StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />
                   </TD>
                   <TD>
-                    {row.category ? (
-                      <Badge tone="neutral">{humanizeCode(row.category)}</Badge>
+                    {row.broadCategory ? (
+                      <Badge tone="neutral">{row.broadCategory.label}</Badge>
                     ) : (
-                      <span className="text-subtle">—</span>
+                      <span className="text-subtle">Not set</span>
                     )}
                   </TD>
                   <TD align="right">{formatHours(row.totals.totalWorkingHours)}</TD>
-                  <TD>
-                    <Meter
-                      value={row.totals.utilizationPct}
-                      tone={utilizationTone(row.totals.utilizationPct)}
-                    />
-                  </TD>
                   <TD align="right">{progressLabel(row)}</TD>
                 </TR>
               ))}
@@ -113,8 +139,9 @@ export function InstructorDirectory({
         </TableWrap>
       </div>
 
-      {/* Mobile: a seven-column table is unreadable on a phone, so the same
-          rows become cards carrying the two figures that matter most. */}
+      {/* Mobile: a six-column table is unreadable on a phone, so the same rows
+          become cards carrying what the week amounted to — the time recorded
+          and the quantity booked against named work. */}
       <div className="md:hidden">
         <CardList>
           {tracker.rows.map((row) => (
@@ -125,13 +152,15 @@ export function InstructorDirectory({
               subtitle={
                 <span className="tabular">
                   {row.employeeCode ?? "—"}
-                  {row.category ? ` · ${humanizeCode(row.category)}` : ""}
+                  {row.broadCategory ? ` · ${row.broadCategory.label}` : ""}
                 </span>
               }
               meta={
                 <span className="tabular text-sm text-muted">
-                  {formatHours(row.totals.totalWorkingHours)} total ·{" "}
-                  {formatHours(row.totals.deliverableHours)} deliverable
+                  {formatHours(row.totals.totalWorkingHours)} recorded
+                  {row.totals.quantity > 0
+                    ? ` · ${row.totals.quantity} deliverable${row.totals.quantity === 1 ? "" : "s"}`
+                    : ""}
                 </span>
               }
               trailing={<StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />}

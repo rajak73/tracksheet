@@ -90,6 +90,8 @@ export const GET = withAuth(
     // 100 universities) and no index can fix a full-platform aggregate. Raw
     // activity remains the source of truth and is used for drill-down (§60).
     const perUniversityById = new Map<string, ReturnType<typeof buildRow>>();
+    /** Deliverable quantity per university over that university's period. */
+    const deliverablesByUniversity = new Map<string, number>();
 
     function buildRow(args: {
       u: (typeof universities)[number];
@@ -132,6 +134,7 @@ export const GET = withAuth(
         from: period.from,
         to: period.to,
         instructors: agg?._max.activeInstructors ?? 0,
+        deliverables: deliverablesByUniversity.get(u.id) ?? 0,
         capacityHours,
         productiveHours,
         unutilizedHours: toHours(agg?._sum.unutilizedMinutes),
@@ -154,7 +157,7 @@ export const GET = withAuth(
         metricDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
       };
 
-      const [aggRows, coveredRows, typeRows] = await Promise.all([
+      const [aggRows, coveredRows, typeRows, deliverableRows] = await Promise.all([
         prisma.universityDailyMetric.groupBy({
           by: ["universityId"],
           where: dateWhere,
@@ -191,7 +194,22 @@ export const GET = withAuth(
           where: dateWhere,
           select: { universityId: true, minutesByActivityType: true },
         }),
+        // Deliverable quantity for the same window. Not derivable from the
+        // daily metric rows — those summarise TIME — so it is read from the
+        // logs themselves, grouped in one query rather than per university.
+        prisma.deliverableLog.groupBy({
+          by: ["universityId"],
+          where: {
+            universityId: { in: universityIds },
+            workDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
+          },
+          _sum: { quantityCompleted: true },
+        }),
       ]);
+
+      for (const row of deliverableRows) {
+        deliverablesByUniversity.set(row.universityId, row._sum.quantityCompleted ?? 0);
+      }
 
       const aggByUniversity = new Map(aggRows.map((r) => [r.universityId, r]));
 
@@ -252,6 +270,7 @@ export const GET = withAuth(
         totalUniversities: universities.length,
         totalManagers,
         totalInstructors,
+        totalDeliverables: perUniversity.reduce((n, u) => n + u.deliverables, 0),
         openInsights,
         capacityHours,
         productiveHours,

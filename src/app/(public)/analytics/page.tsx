@@ -12,7 +12,7 @@ import {
 import { WorkloadVisualization } from "@/app/_components/public/sections";
 
 export const metadata: Metadata = {
-  title: "Analytics | NEXTWAVE",
+  title: "Analytics | NIAT",
   description:
     "Utilization, workload distribution, compliance and capacity trends calculated by one engine, so dashboards and reports never disagree.",
   alternates: { canonical: "/analytics" },
@@ -31,14 +31,14 @@ export default function AnalyticsPage() {
               lede="Utilization, workload distribution, compliance and capacity — calculated once, by one engine, so a dashboard and the report behind it can never disagree."
             />
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/contact">Request a Demo</ButtonLink>
+              <ButtonLink href="/contact">Request access</ButtonLink>
               <ButtonLink href="/platform" variant="secondary">
                 Explore Platform →
               </ButtonLink>
             </div>
           </div>
           <div className="lg:col-span-7">
-            <BrowserFrame label="NEXTWAVE — Network utilization">
+            <BrowserFrame label="NIAT — Network utilization">
               <AdminPreview />
             </BrowserFrame>
             <IllustrativeNote />
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
             />
             <p className="mt-6 text-sm leading-relaxed text-muted">
               A day nobody logged is not evidence that nobody worked. Treating those as the same
-              number is the fastest way to make a utilization figure unusable — so NEXTWAVE keeps
+              number is the fastest way to make a utilization figure unusable — so NIAT keeps
               them apart everywhere they appear, including in exports.
             </p>
           </div>
@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
       <Band tone="canvas">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-7">
-            <BrowserFrame label="NEXTWAVE — Workload overview">
+            <BrowserFrame label="NIAT — Workload overview">
               <ManagerPreview />
             </BrowserFrame>
             <IllustrativeNote />
@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
         title="See the analytics against your operation."
         lede="We'll show how the figures are calculated and where each one can be drilled into."
       >
-        <ButtonLink href="/contact">Request a Demo</ButtonLink>
+        <ButtonLink href="/contact">Request access</ButtonLink>
         <ButtonLink
           href="/ai-intelligence"
           variant="secondary"

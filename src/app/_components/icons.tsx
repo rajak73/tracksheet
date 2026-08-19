@@ -115,6 +115,13 @@ export const IconSettings = (p: IconProps) => (
   </Icon>
 );
 
+export const IconLock = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+  </Icon>
+);
+
 export const IconCalendar = (p: IconProps) => (
   <Icon {...p}>
     <rect x="3.5" y="5" width="17" height="16" rx="2" />
@@ -214,6 +221,13 @@ export const IconDownload = (p: IconProps) => (
     <path d="M12 4v11" />
     <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
     <path d="M4.5 19.5h15" />
+  </Icon>
+);
+
+/** A funnel — "narrow this list", distinct from the magnifier's "find one". */
+export const IconFilter = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 5h16l-6.5 7.5V19l-3-2v-4.5L4 5Z" />
   </Icon>
 );
 

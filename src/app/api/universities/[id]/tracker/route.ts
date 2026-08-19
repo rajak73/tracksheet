@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
-import { assertCanAccessUniversity, assertCanReadInstructor } from "@/server/auth/scope";
+import {
+  assertCanAccessUniversity,
+  assertCanReadInstructor,
+  narrowManager,
+} from "@/server/auth/scope";
 import { ApiError } from "@/server/http/errors";
 import { buildTracker, formatTrackerAsCsv, mondayOf, monthBounds } from "@/server/analytics/tracker";
 import { loadUniversityConfig } from "@/server/universities/config";
@@ -86,7 +90,31 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
     instructorId = instructor.id;
   }
 
-  const tracker = await buildTracker({ config, from, to, today, instructorId });
+  // Manager-scoped reporting. `narrowManager` is the authority: an admin may
+  // name any roster (or `unassigned`), a manager only their own, and an
+  // instructor none at all. A manager who names nobody still gets their own
+  // roster rather than the university's — the whole point of the relation.
+  const managerFilter = narrowManager(scope, sp.get("managerId"));
+  if (managerFilter.managerId) {
+    // The roster must live in the university named in the path, or an admin
+    // could read one tenant's manager through another tenant's URL.
+    const manager = await prisma.manager.findUnique({
+      where: { id: managerFilter.managerId },
+      select: { id: true, universityId: true },
+    });
+    if (!manager || manager.universityId !== params.id) {
+      throw new ApiError(404, "NOT_FOUND", "Manager not found");
+    }
+  }
+
+  const tracker = await buildTracker({
+    config,
+    from,
+    to,
+    today,
+    instructorId,
+    ...("managerId" in managerFilter ? { managerId: managerFilter.managerId } : {}),
+  });
 
   if (req.nextUrl.searchParams.get("export") !== "csv") {
     return NextResponse.json({ tracker });

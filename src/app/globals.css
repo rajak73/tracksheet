@@ -1,7 +1,33 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   NEXTWAVE design tokens.
+   Stacking layers.
+
+   `main` sets no z-index and no transform, so it opens NO stacking context of
+   its own — which means a sticky table cell deep inside the page competes with
+   the app header directly, in the root context, and the one later in the
+   document wins any tie. That is not a hypothetical: the instructor sheet's
+   sticky "Date" corner and the top bar were both z-30, so opening the
+   notification bell drew the panel and then painted "Date" straight over it.
+   The manager sheet was worse — its sticky identity columns were z-40 against
+   a z-20 header, so both menus opened underneath the table.
+
+   So the ranks are fixed here rather than chosen per component:
+
+     10–40   page CONTENT. Sticky header rows, sticky columns, the corner where
+             the two meet, and popovers anchored inside the page (the period
+             picker). Nothing in content may exceed 40.
+     50      CHROME. The top bar and the sidebar, and therefore every menu that
+             opens from them, since those live inside and ride the same rank.
+     60      ABOVE CHROME. Only what must cover it: the mobile nav drawer, the
+             toast strip, the workload drawer.
+
+   Native <dialog> with showModal() is exempt — the top layer is outside the
+   z-index system entirely, so modals need no rank and must not be given one.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   NIAT design tokens.
 
    Every colour is a SEMANTIC role (surface, border, muted text, danger…),
    never a raw palette step. Components then say `bg-surface` rather than
@@ -116,25 +142,60 @@
 
   /* Workload categories.
 
-     A CONTROLLED palette drawn ONLY from the navy → blue → slate ramp plus
-     the semantic trio. No purple, pink, cyan or magenta: a distribution
-     chart has to look like it belongs to this product, and a rainbow
-     categorical palette is the fastest way to make an enterprise dashboard
-     look like a chart-library demo.
+     ── This used to be a blue-only ramp, and it had to stop ──────────────
+     The previous note here said "no purple, pink, cyan or magenta", on the
+     grounds that a rainbow makes an enterprise dashboard look like a chart
+     demo. That was a fair call when there were seven categories. There are
+     now thirteen — the BRD's eleven entry categories plus Learning and
+     Deliverable Work — and a navy→blue→slate ramp cannot separate thirteen
+     things. It did not degrade gracefully either: Teaching, Learning,
+     Research and Daily Closing had all converged on near-identical blues,
+     and the five categories added with the free-text worklog (Practical /
+     Lab, Mentoring, Assessment, Content Development, Training / Workshop)
+     had no entry at all, so every one of them fell through to the grey
+     "other" swatch. A legend where five rows are the same grey is not a
+     restrained palette; it is a broken one.
+
+     ── How these were chosen ───────────────────────────────────────────
+     Not by eye. Each step was checked with a colour-vision validator —
+     lightness band, chroma floor, protan/deutan/tritan separation, and
+     contrast against this surface — and the order below is the order it was
+     validated in, so neighbours are the pairs it proved separable. Worst
+     adjacent pair: ΔE 9.1 protan, 19.6 normal vision.
+
+     ── The limit, stated rather than hidden ────────────────────────────
+     Thirteen categorical hues cannot ALL be told apart from each other; no
+     twelve-colour set clears every pair, and that is a property of human
+     colour vision rather than of this list. So colour is never the only
+     thing carrying identity here: every legend row, every timeline block
+     and every table cell names its category in words beside the swatch, and
+     the doughnut folds its long tail into "Other" rather than putting
+     thirteen hues on screen at once. Three of these steps sit below 3:1
+     against white, which is the same requirement seen from the other side —
+     they are legal because the label is always there.
 
      Assignment is fixed by activity-type code in `categoryColor()`
      (charts.tsx), never by array index — otherwise "Teaching" changes colour
      the day a category is added. */
-  --cat-teaching: #2563eb;
-  --cat-learning: #3b82f6;
-  --cat-meeting: #64748b;
-  --cat-admin: #f59e0b;
-  --cat-support: #16a34a;
-  --cat-deliverable: #0b2342;
-  --cat-research: #1d4ed8;
+  --cat-teaching: #2a78d6;
+  --cat-practical-lab: #eb6834;
+  --cat-mentoring: #1baf7a;
+  --cat-assessment: #eda100;
+  --cat-support: #e87ba4;
+  --cat-research: #008300;
+  --cat-content: #4a3aa7;
+  --cat-meeting: #e34948;
+  --cat-training: #00849e;
+  --cat-admin: #b45309;
+  --cat-learning: #8b5cf6;
+  --cat-deliverable: #0e9f6e;
+  /* Deliberately neutral: "Other" is the absence of an identity, so it does
+     not get a hue that competes with the categories that have one. */
   --cat-other: #94a3b8;
-  --cat-opening: #3b82f6;
-  --cat-closing: #1d4ed8;
+  /* Structural markers rather than work — they bracket a day, they are not a
+     slice of it, so they stay out of the categorical hues entirely. */
+  --cat-opening: #334155;
+  --cat-closing: #64748b;
   /* Not a category — the absence of one. Rendered as a hatched track. */
   --cat-unutilized: #cbd5e1;
 }
@@ -203,6 +264,11 @@
   --shadow-raised: var(--app-shadow);
 
   --color-cat-teaching: var(--cat-teaching);
+  --color-cat-practical-lab: var(--cat-practical-lab);
+  --color-cat-mentoring: var(--cat-mentoring);
+  --color-cat-assessment: var(--cat-assessment);
+  --color-cat-content: var(--cat-content);
+  --color-cat-training: var(--cat-training);
   --color-cat-learning: var(--cat-learning);
   --color-cat-meeting: var(--cat-meeting);
   --color-cat-admin: var(--cat-admin);

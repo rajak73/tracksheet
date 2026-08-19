@@ -1,6 +1,6 @@
 # Design system
 
-The product-facing brand is **NEXTWAVE** — University Workforce Intelligence.
+The product-facing brand is **NIAT** — University Workforce Intelligence.
 The repository, npm package name, session cookie, and database/container
 names are unchanged: those are infrastructure identifiers, not UI, and this
 has been a presentation-layer pass throughout.
@@ -119,7 +119,7 @@ confusion this product exists to prevent.
 **Two typefaces, on purpose.** Geist (`--font-sans`) is everything: body copy,
 controls, table cells, labels, and every number — its tabular figures are why
 numbers stay on it even under a serif heading. Source Serif 4
-(`--font-display`, `layout.tsx`) is used in exactly two places: the NEXTWAVE
+(`--font-display`, `layout.tsx`) is used in exactly two places: the NIAT
 wordmark and page titles (`PageHeader`'s `<h1>`, via the `font-display`
 utility). That is the entire scope of the departure — never body copy, never a
 card title, never a number, never a button. A single restrained typographic
@@ -346,7 +346,7 @@ icon set.
 ## Type scale
 
 Marketing headlines use **Geist** (the configured sans), not the serif
-`font-display`. The serif is reserved for the NEXTWAVE wordmark alone, exactly
+`font-display`. The serif is reserved for the NIAT wordmark alone, exactly
 as in the product — so the brand mark is identical across the boundary while
 the body voice stays a professional sans.
 
@@ -383,7 +383,7 @@ sites stay as they are.
 - **No fabricated proof.** No customer counts, logos, testimonials, case
   studies, revenue or adoption figures anywhere. The capability strip sells
   capability, not social proof that does not exist.
-- **No invented certifications.** `/security` states plainly that NEXTWAVE
+- **No invented certifications.** `/security` states plainly that NIAT
   holds no SOC 2, ISO 27001, HIPAA, GDPR or FERPA certification, and the file
   carries a comment telling the next editor not to add badges. A compliance
   claim a procurement team can disprove in one email is worse than no badge.

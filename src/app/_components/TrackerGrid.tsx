@@ -9,13 +9,19 @@
  * density — a raw Excel dump is unreadable on a screen, so each week block is a
  * small labelled stack rather than four bare columns.
  *
- * ── Two hour figures ───────────────────────────────────────────────────────
- * `Deliverable Hours` and `Total Working Hours` are shown as separate, labelled
- * lines and are never summed. The distinction is load-bearing: total hours is
- * the number every dashboard and the utilisation metric already use, while
- * deliverable hours is reporting detail about what was booked against a named
- * piece of work. Presenting them as one number would quietly invent a third
- * figure that no part of the system agrees with.
+ * ── One hours figure ──────────────────────────────────────────────────────
+ * Every hours number on this screen is Working Hours: time spent WITH
+ * STUDENTS — lectures, labs, mentoring, doubt sessions, conducting exams. The
+ * week column, the row caption and the footer total all read it through the
+ * same helper, so a total can never disagree with the cells it totals.
+ *
+ * The grid used to print a second "Deliverable Hours" line beside it, meaning
+ * hours booked against a named piece of work. That is a different question,
+ * and close enough in shape to the first to be mistaken for it — a report
+ * review that opens by asking which of the two numbers is the real one is a
+ * review that has already failed. Preparation, meetings, reporting and admin
+ * still appear with their hours in the Deliverable column, because they
+ * happened; they are simply not what the hours figure counts.
  *
  * ── Why sticky columns and not a wrapping table ────────────────────────────
  * Losing the employee's name after scrolling two weeks right makes the grid
@@ -24,16 +30,23 @@
  * row always says whose row it is.
  */
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Badge, Button, Card, EmptyState, StatusPill } from "@/app/_components/ui";
 import { Dialog } from "@/app/_components/interactive";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
 
-export type TrackerDeliverable = { title: string; quantity: number; hours: number };
+export type TrackerDeliverable = {
+  title: string;
+  quantity: number;
+  hours: number;
+  /** Whether a count of this means anything — prep and meetings have no unit. */
+  countable: boolean;
+};
 
 export type TrackerCell = {
   deliverables: TrackerDeliverable[];
   quantity: number;
+  /** Carried by the API and never rendered — see the header note. */
   deliverableHours: number;
   totalWorkingHours: number;
   hoursByCategory: Record<string, number>;
@@ -45,9 +58,17 @@ export type TrackerRow = {
   instructorName: string;
   employeeCode: string | null;
   isActive: boolean;
+  /** What they TEACH — the column the client's sheet prints. Set by an admin. */
+  broadCategory: { code: string; label: string } | null;
+  /** The dominant ACTIVITY category for the period. Derived, and not the above. */
   category: string | null;
   categories: string[];
   cells: Record<number, TrackerCell>;
+  /* `deliverableHours`, `capacityHours` and `utilizationPct` are carried by
+     the API and never rendered. Deliverable hours answers a different question
+     from Working Hours, and utilisation divides recorded minutes by a
+     configured working day — a week of back-to-back internal meetings scores
+     the same as a week of lectures, which is not a fact about a teacher. */
   totals: {
     quantity: number;
     deliverableHours: number;
@@ -74,6 +95,8 @@ export type Tracker = {
   to: string;
   weeks: TrackerWeek[];
   rows: TrackerRow[];
+  /* Same as the row totals: the API's deliverable, capacity and utilisation
+     figures ride along and stay off the screen. */
   totals: {
     instructors: number;
     formerInstructors: number;
@@ -89,6 +112,30 @@ function weekLabel(week: TrackerWeek): string {
   const from = week.labelFrom ?? week.from;
   const to = week.labelTo ?? week.to;
   return `${formatDateShort(from)} – ${formatDateShort(to)}`;
+}
+
+/* ── The one hours figure ───────────────────────────────────────────────── */
+
+/**
+ * Working Hours for one week: the time spent WITH STUDENTS.
+ *
+ * The cell also carries the engine's recorded minutes, which count preparation,
+ * meetings, reporting and admin alongside teaching. Those hours are real work
+ * and they stay legible in the Deliverable column, but they are not what this
+ * report is asked about, so nothing here adds them up.
+ *
+ * Every hours figure on the screen — the week column, the row caption, the
+ * footer — comes through this one function, because the version of this grid
+ * where a footer totalled one measure under a column showing another is
+ * exactly how a signed-off sheet stops being trusted.
+ */
+function workingHours(cell: TrackerCell | undefined): number {
+  return (cell?.deliverables ?? []).reduce((n, d) => n + (d.countable ? d.hours : 0), 0);
+}
+
+/** The same figure for one instructor, over exactly the weeks on screen. */
+function rowWorkingHours(row: TrackerRow, weeks: TrackerWeek[]): number {
+  return weeks.reduce((n, w) => n + workingHours(row.cells[w.index]), 0);
 }
 
 /* ── Remarks ────────────────────────────────────────────────────────────── */
@@ -172,64 +219,169 @@ function CategoryBreakdown({ hours }: { hours: Record<string, number> }) {
   );
 }
 
-function WeekCell({
+/**
+ * Fixed pixel widths, because `position: sticky` offsets must be arithmetic:
+ * the second column starts where the first ends. Tailwind's width scale and
+ * these offsets have to agree, so both live here rather than being written out
+ * at each of the six call sites.
+ */
+const IDENTITY = {
+  name: "w-[224px] min-w-[224px]",
+  code: "w-[128px] min-w-[128px]",
+  category: "w-[160px] min-w-[160px]",
+} as const;
+
+/** The four fields the client's sheet repeats under every week. */
+/* Named exactly as the client's own sheet names them — this grid IS that sheet,
+ * and a column called "Qty" here against "Deliverable Quantity" there is how a
+ * report review turns into an argument about whether they are the same number.
+ *
+ * Quantity is left-aligned now that it reads "12 Lectures, 6 Assignment
+ * Evaluations" rather than a bare figure; right-aligning prose puts its ragged
+ * edge against the numbers beside it. */
+const WEEK_FIELDS = [
+  { key: "deliverable", label: "Deliverable", align: "text-left" },
+  { key: "quantity", label: "Deliverable Quantity", align: "text-left" },
+  { key: "hours", label: "# Working Hours", align: "text-right" },
+  { key: "remarks", label: "Remarks", align: "text-left" },
+] as const;
+
+/**
+ * "12 Lectures" from "Lecture", without pretending to know English grammar.
+ *
+ * A plain trailing "s" is deliberate: the labels come from a fixed taxonomy of
+ * noun phrases, and a clever pluraliser would eventually turn one of them into
+ * something the client does not recognise in their own report. Anything already
+ * ending in "s" is left alone.
+ */
+function plural(label: string, quantity: number): string {
+  if (quantity === 1 || label.endsWith("s")) return label;
+  return `${label}s`;
+}
+
+/**
+ * One week for one instructor, as FOUR real table cells.
+ *
+ * Four `<td>`s rather than one stacked block: the grouped header above names
+ * each field once, so the body can stay quiet and the eye can run down a single
+ * column comparing quantities. There is ONE hours cell and it holds Working
+ * Hours. It used to have a "Deliverable Hours" companion — hours booked
+ * against a named piece of work — and two hours numbers a column apart are
+ * read as a pair whether or not they answer the same question. What was
+ * booked against what is still spelled out in the Deliverable cell to the
+ * left, and the long form lives in the remarks dialog.
+ */
+function WeekColumns({
   cell,
   who,
   week,
-  showBreakdown = false,
+  current,
+  showBreakdown,
 }: {
-  cell?: TrackerCell;
+  cell: TrackerCell | undefined;
   who: string;
   week: string;
-  showBreakdown?: boolean;
+  current: boolean;
+  /** Single-instructor report only: there is room for the category split. */
+  showBreakdown: boolean;
 }) {
-  if (!cell || (cell.deliverables.length === 0 && cell.totalWorkingHours === 0)) {
-    return (
-      <td className="w-72 min-w-72 border-l border-line px-4 py-3 align-top">
-        <span className="text-sm text-subtle">No records</span>
-      </td>
-    );
-  }
+  const [open, setOpen] = useState(false);
+  const bg = current ? "bg-primary-subtle/40" : "";
+  const remarks = cell?.remarks ?? [];
+
+  /* Heaviest first. The cell is read left to right and the biggest commitment
+   * is the one that should not need a second glance. */
+  const deliverables = [...(cell?.deliverables ?? [])].sort((a, b) => b.hours - a.hours);
+
+  /* Working Hours is the time spent WITH STUDENTS — classes, labs, mentoring,
+   * doubt sessions, evaluations, workshops. Preparation, meetings, reporting
+   * and admin keep their hours in the column to the left, because they
+   * happened, but they are not what this figure measures. */
+  const studentHours = workingHours(cell);
 
   return (
-    <td className="w-72 min-w-72 border-l border-line px-4 py-3 align-top">
-      {cell.deliverables.length > 0 ? (
-        <ul className="mb-2 space-y-1">
-          {cell.deliverables.map((d) => (
-            <li key={d.title} className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="truncate text-content" title={d.title}>
-                {d.title}
+    <>
+      {/* ── "Live Classes – 24h; Lesson Prep – 8h; …" ─────────────────────
+       * Every deliverable with its hours, in one cell, the way the client's
+       * sheet is written. It used to show the first title and "+3", which meant
+       * the column named one thing and hid the rest — and the hidden ones are
+       * often the point ("where did the other twelve hours go?"). It wraps
+       * rather than truncating, because this cell IS the report.
+       */}
+      <td className={`border-b border-l-2 border-line px-3 py-3 align-top ${bg}`}>
+        {deliverables.length === 0 ? (
+          <span className="text-xs text-subtle">—</span>
+        ) : (
+          <span className="block text-sm text-content">
+            {deliverables.map((d, i) => (
+              <span key={`${d.title}:${d.countable}`} className={d.countable ? undefined : "text-muted"}>
+                {i > 0 ? "; " : ""}
+                <span title={d.countable ? undefined : "Not counted in Working Hours"}>
+                  {d.title} – {formatHours(d.hours)}
+                </span>
               </span>
-              <span className="tabular shrink-0 text-muted">
-                {d.quantity} · {formatHours(d.hours)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mb-2 text-sm text-subtle">No deliverable logged</p>
-      )}
-
-      {showBreakdown ? <CategoryBreakdown hours={cell.hoursByCategory} /> : null}
-
-      {/* The two hour figures, labelled and never merged. */}
-      <dl className="mb-2 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-line-subtle pt-2 text-xs">
-        <dt className="text-subtle">Qty</dt>
-        <dd className="tabular text-right font-medium text-content">{cell.quantity}</dd>
-        <dt className="text-subtle">Deliverable hrs</dt>
-        <dd className="tabular text-right font-medium text-content">
-          {formatHours(cell.deliverableHours)}
-        </dd>
-        <dt className="text-subtle">Total working hrs</dt>
-        <dd className="tabular text-right font-semibold text-content">
-          {formatHours(cell.totalWorkingHours)}
-        </dd>
-      </dl>
-
-      <div className="text-xs">
-        <Remarks remarks={cell.remarks} who={who} week={week} />
-      </div>
-    </td>
+            ))}
+          </span>
+        )}
+        {showBreakdown && cell ? <CategoryBreakdown hours={cell.hoursByCategory} /> : null}
+      </td>
+      {/* ── "12 Lectures, 6 Assignment Evaluations" ───────────────────────
+       * A bare "18" cannot be checked against anything. Naming what was counted
+       * is what makes the figure auditable, and it is what the client's own
+       * sheet does.
+       */}
+      <td className={`border-b border-l border-line px-3 py-3 align-top ${bg}`}>
+        {deliverables.length === 0 ? (
+          <span className="text-xs text-subtle">—</span>
+        ) : (
+          <span className="block text-sm text-content">
+            {/* Only what a count means something for. Preparation, meetings,
+                reporting and admin keep their HOURS in the column to the left —
+                they are real work — but "6 lesson preps" is not a number, and
+                the client's own sheet leaves them out of this column. */}
+            {deliverables
+              .filter((d) => d.countable && d.quantity > 0)
+              .map((d) => `${d.quantity} ${plural(d.title, d.quantity)}`)
+              .join(", ")}
+          </span>
+        )}
+      </td>
+      <td className={`tabular border-b border-l border-line px-3 py-3 text-right align-top ${bg}`}>
+        {studentHours > 0 ? (
+          <span className="font-medium text-content">{formatHours(studentHours)}</span>
+        ) : (
+          <span className="text-xs text-subtle">—</span>
+        )}
+      </td>
+      <td className={`border-b border-l border-line px-3 py-3 align-top ${bg}`}>
+        {remarks.length === 0 ? (
+          <span className="text-xs text-subtle">—</span>
+        ) : (
+          <>
+            {/* Joined with commas and shown in full. The dialog stays for the
+                case where one cell has collected a paragraph's worth. */}
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="block text-left text-sm text-content underline-offset-2 hover:underline"
+              title="View all remarks"
+            >
+              {remarks.join(", ")}
+            </button>
+            <Dialog open={open} onClose={() => setOpen(false)} title={`Remarks — ${who}`}>
+              <p className="mb-3 text-xs text-muted">{week}</p>
+              <ul className="space-y-2">
+                {remarks.map((r, i) => (
+                  <li key={i} className="rounded-md bg-sunken px-3 py-2 text-sm text-content">
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </Dialog>
+          </>
+        )}
+      </td>
+    </>
   );
 }
 
@@ -258,7 +410,7 @@ export function TrackerGrid({
     <>
       {/* Mobile: a sticky-column grid needs horizontal room the phone does not
           have, so each instructor becomes a card and their weeks stack inside
-          it. Same data, same two hour figures — a layout change, not a
+          it. Same data, same one hours figure — a layout change, not a
           different report. */}
       <div className="space-y-4 md:hidden">
         {tracker.rows.map((row) => (
@@ -291,18 +443,42 @@ export function TrackerGrid({
                       <p className="text-sm text-subtle">No records</p>
                     ) : (
                       <>
-                        {cell.deliverables.map((d) => (
-                          <p key={d.title} className="flex justify-between gap-2 text-sm">
-                            <span className="truncate text-content">{d.title}</span>
-                            <span className="tabular shrink-0 text-muted">
-                              {d.quantity} · {formatHours(d.hours)}
-                            </span>
-                          </p>
-                        ))}
+                        {/* Heaviest first, and counted only where a count
+                            means something — the same two rules the desktop
+                            cell follows. Preparation and meetings carry no
+                            quantity, so the card used to print a bare "0"
+                            beside their hours: a figure that reads as "none
+                            done" when what it means is "not a thing you
+                            count". They stay muted here exactly as they are
+                            greyed there. */}
+                        {[...cell.deliverables]
+                          .sort((a, b) => b.hours - a.hours)
+                          .map((d) => (
+                            <p
+                              key={`${d.title}:${d.countable}`}
+                              className="flex justify-between gap-2 text-sm"
+                              title={d.countable ? undefined : "Not counted in Working Hours"}
+                            >
+                              <span
+                                className={`truncate ${d.countable ? "text-content" : "text-muted"}`}
+                              >
+                                {d.title}
+                              </span>
+                              <span className="tabular shrink-0 text-muted">
+                                {d.countable && d.quantity > 0 ? `${d.quantity} · ` : ""}
+                                {formatHours(d.hours)}
+                              </span>
+                            </p>
+                          ))}
+                        {/* The same two fields the desktop grid prints for a
+                            week. A deliverable-hours figure used to sit between
+                            them, and a phone-sized card is the worst place in
+                            the product to explain that the number in the middle
+                            counts something other than the one beside it. */}
                         <p className="tabular mt-1.5 text-xs text-muted">
-                          Qty {cell.quantity} · Deliverable {formatHours(cell.deliverableHours)} ·{" "}
+                          Qty {cell.quantity} ·{" "}
                           <strong className="text-content">
-                            Total {formatHours(cell.totalWorkingHours)}
+                            Working Hours {formatHours(workingHours(cell))}
                           </strong>
                         </p>
                         <div className="mt-1 text-xs">
@@ -324,29 +500,53 @@ export function TrackerGrid({
 
       <Card className="hidden md:block">
       {/* The grid scrolls inside its own container so the page body never
-          scrolls sideways — the identity column stays pinned within it. */}
+          scrolls sideways — the three identity columns stay pinned within it.
+
+          The header is TWO rows: each week spans its four fields with
+          colSpan, and the fields are named underneath. That is the sheet the
+          client actually works from, and a single stacked cell per week — the
+          shape this replaced — cannot express "which column am I reading". */}
       <div className="overflow-x-auto">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only-text">
-            Weekly workload by instructor for {tracker.universityName}
+            Weekly workload by instructor for {tracker.universityName}. The first
+            three columns identify the employee and stay in place while the
+            weekly columns scroll horizontally.
           </caption>
           <thead>
+            {/* Row 1 — identity headers span both rows; each week spans four. */}
             <tr>
               <th
                 scope="col"
-                className="sticky left-0 z-20 w-64 min-w-64 border-b border-line bg-surface px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted"
+                rowSpan={2}
+                className={`${IDENTITY.name} sticky left-0 z-30 border-b border-line bg-surface px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
               >
-                Instructor
+                Employee Name
+              </th>
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
+              >
+                Employee ID
+              </th>
+              <th
+                scope="col"
+                rowSpan={2}
+                className={`${IDENTITY.category} sticky left-[352px] z-30 border-b border-r border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
+              >
+                Broad Category
               </th>
               {tracker.weeks.map((week) => (
                 <th
                   key={week.index}
-                  scope="col"
-                  className={`w-72 min-w-72 border-b border-l border-line px-4 py-3 text-left ${
-                    week.isCurrent ? "bg-primary-subtle" : "bg-surface"
+                  scope="colgroup"
+                  colSpan={4}
+                  className={`border-b border-l-2 border-line px-4 py-2 text-center ${
+                    week.isCurrent ? "bg-primary-subtle" : "bg-sunken"
                   }`}
                 >
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-content">
+                  <span className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-content">
                     Week {week.index}
                     {week.isCurrent ? (
                       <Badge tone="info">
@@ -360,50 +560,79 @@ export function TrackerGrid({
                 </th>
               ))}
             </tr>
+            {/* Row 2 — the four fields, repeated under every week. */}
+            <tr>
+              {tracker.weeks.map((week) =>
+                WEEK_FIELDS.map((field, i) => (
+                  <th
+                    key={`${week.index}-${field.key}`}
+                    scope="col"
+                    className={`whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-subtle ${
+                      i === 0 ? "border-l-2" : "border-l"
+                    } ${field.align} ${week.isCurrent ? "bg-primary-subtle" : "bg-sunken"}`}
+                  >
+                    {field.label}
+                  </th>
+                )),
+              )}
+            </tr>
           </thead>
 
           <tbody>
             {tracker.rows.map((row) => (
               <tr key={row.instructorId} className="group">
-                {/* Identity — pinned. Employee name, ID and broad category, as
-                    the sheet has them, plus the row's own totals so a reader
-                    never has to scroll right to learn the headline. */}
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 w-64 min-w-64 border-b border-line bg-surface px-4 py-3 text-left align-top font-normal group-hover:bg-hovered"
+                  className={`${IDENTITY.name} sticky left-0 z-20 border-b border-line bg-surface px-4 py-3 text-left align-top font-normal group-hover:bg-hovered`}
                 >
                   <span className="block truncate font-medium text-content">
                     {row.instructorName}
                   </span>
+                  {/* The row's own total of the Working Hours column beside
+                      it, so the name and the weeks answer the same question.
+                      It used to read "N total · M deliverable": every recorded
+                      minute, then the slice booked against a named piece of
+                      work — two numbers, neither of them the one the report is
+                      about. */}
                   <span className="tabular mt-0.5 block text-xs text-muted">
-                    {row.employeeCode ?? "—"}
-                  </span>
-                  <span className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {row.category ? (
-                      <Badge tone="neutral">{humanizeCode(row.category)}</Badge>
-                    ) : null}
-                    {row.categories.length > 1 ? (
-                      <span
-                        className="text-xs text-subtle"
-                        title={row.categories.map(humanizeCode).join(", ")}
-                      >
-                        +{row.categories.length - 1}
-                      </span>
-                    ) : null}
-                    {!row.isActive ? <StatusPill status="FORMER" /> : null}
-                  </span>
-                  <span className="tabular mt-2 block border-t border-line-subtle pt-1.5 text-xs text-muted">
-                    {formatHours(row.totals.totalWorkingHours)} total ·{" "}
-                    {formatHours(row.totals.deliverableHours)} deliverable
+                    {formatHours(rowWorkingHours(row, tracker.weeks))} Working Hours
                   </span>
                 </th>
+                <td
+                  className={`${IDENTITY.code} tabular sticky left-[224px] z-20 border-b border-line bg-surface px-3 py-3 align-top text-content group-hover:bg-hovered`}
+                >
+                  {row.employeeCode ?? "—"}
+                </td>
+                <td
+                  className={`${IDENTITY.category} sticky left-[352px] z-20 border-b border-r border-line bg-surface px-3 py-3 align-top group-hover:bg-hovered`}
+                >
+                  {/* ── What they TEACH, not what they happened to do ────────
+                   * This column used to hold the dominant activity category,
+                   * derived from the period's hours. That made the client's
+                   * signed-off sheet reshuffle its own rows between two
+                   * readings of the same month: an instructor who spent April
+                   * in meetings came out as "Meeting". It now shows the stream
+                   * an admin filed them under, which is stable, and blank when
+                   * nobody has filed them — a blank says "not decided" where a
+                   * derived value claimed somebody had decided.
+                   */}
+                  <span className="flex flex-wrap items-center gap-1">
+                    {row.broadCategory ? (
+                      <Badge tone="neutral">Instructor – {row.broadCategory.label}</Badge>
+                    ) : (
+                      <span className="text-xs text-subtle">Not set</span>
+                    )}
+                    {!row.isActive ? <StatusPill status="FORMER" /> : null}
+                  </span>
+                </td>
 
                 {tracker.weeks.map((week) => (
-                  <WeekCell
+                  <WeekColumns
                     key={week.index}
                     cell={row.cells[week.index]}
                     who={row.instructorName}
                     week={`Week ${week.index} · ${weekLabel(week)}`}
+                    current={week.isCurrent}
                     showBreakdown={showBreakdown}
                   />
                 ))}
@@ -415,7 +644,8 @@ export function TrackerGrid({
             <tr>
               <th
                 scope="row"
-                className="sticky left-0 z-10 border-t border-line bg-sunken px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted"
+                colSpan={3}
+                className="sticky left-0 z-20 border-r border-t border-line bg-sunken px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted"
               >
                 Total · {tracker.totals.instructors} instructor
                 {tracker.totals.instructors === 1 ? "" : "s"}
@@ -425,36 +655,29 @@ export function TrackerGrid({
                   (sum, r) => sum + (r.cells[week.index]?.quantity ?? 0),
                   0,
                 );
-                const delivHours = tracker.rows.reduce(
-                  (sum, r) => sum + (r.cells[week.index]?.deliverableHours ?? 0),
-                  0,
-                );
-                const totalHours = tracker.rows.reduce(
-                  (sum, r) => sum + (r.cells[week.index]?.totalWorkingHours ?? 0),
+                /* The column above sums to this and to nothing else: the
+                   week's student-facing hours across every instructor. It used
+                   to add up the engine's recorded minutes instead, so the
+                   footer quietly contradicted the column it sits under. */
+                const hours = tracker.rows.reduce(
+                  (sum, r) => sum + workingHours(r.cells[week.index]),
                   0,
                 );
                 return (
-                  <td
-                    key={week.index}
-                    className="tabular border-l border-t border-line bg-sunken px-4 py-3 align-top text-xs"
-                  >
-                    <div className="flex justify-between">
-                      <span className="text-subtle">Qty</span>
-                      <span className="font-medium text-content">{quantity}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-subtle">Deliverable</span>
-                      <span className="font-medium text-content">
-                        {formatHours(Number(delivHours.toFixed(2)))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-subtle">Total</span>
-                      <span className="font-semibold text-content">
-                        {formatHours(Number(totalHours.toFixed(2)))}
-                      </span>
-                    </div>
-                  </td>
+                  <Fragment key={week.index}>
+                    <td className="border-l-2 border-t border-line bg-sunken px-3 py-3 text-xs text-subtle">
+                      —
+                    </td>
+                    <td className="tabular border-l border-t border-line bg-sunken px-3 py-3 text-right text-xs font-semibold text-content">
+                      {quantity}
+                    </td>
+                    <td className="tabular border-l border-t border-line bg-sunken px-3 py-3 text-right text-xs font-semibold text-content">
+                      {formatHours(hours)}
+                    </td>
+                    <td className="border-l border-t border-line bg-sunken px-3 py-3 text-xs text-subtle">
+                      —
+                    </td>
+                  </Fragment>
                 );
               })}
             </tr>

@@ -53,7 +53,7 @@ export function PageHeader({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           {/* Sans, not the display serif. The serif is reserved for the
-              NEXTWAVE wordmark alone — a serif page title inside a data
+              NIAT wordmark alone — a serif page title inside a data
               dashboard reads editorial rather than operational, and left the
               login screen mixing a sans headline with a serif one. */}
           <h1 className="text-2xl font-semibold tracking-tight text-content sm:text-3xl">
@@ -765,29 +765,21 @@ export function StatusPill({ status }: { status: string }) {
 /* ── Tone bands ────────────────────────────────────────────────────────── */
 
 /**
- * Utilisation and compliance are the numbers this product exists to surface,
- * so they carry a tone rather than being read as bare percentages. The bands
- * live here, in one place, rather than being re-derived on each screen.
+ * Compliance carries a tone rather than being read as a bare percentage, and
+ * the bands live here rather than being re-derived on each screen. Each band
+ * has a WORD as well as a colour, because colour alone is not a status
+ * indicator for anyone who cannot distinguish the hues (§21, §36).
  *
- * Each band has a WORD as well as a colour, because colour alone is not a
- * status indicator for anyone who cannot distinguish the hues (§21, §36).
+ * `utilizationTone` and `utilizationLabel` used to sit here too, and are gone
+ * with the figure they coloured. Utilisation was recorded minutes over the
+ * configured day: it never asked whether an hour was spent with students, so a
+ * day of internal meetings scored exactly like a day of lectures, and it
+ * routinely passed 100% — which is why one of its own bands read "Over
+ * capacity". The product measures Working Hours instead, and an hours figure
+ * is not a score, so it takes no tone. The bands themselves survive in
+ * `server/analytics/bands.ts`, where the API and the AI context still use them
+ * against `recordedHours`, honestly named.
  */
-export function utilizationTone(pct: number | null): Tone {
-  if (pct === null) return "neutral";
-  if (pct > 100) return "danger";
-  if (pct >= 75) return "success";
-  if (pct >= 60) return "warning";
-  return "danger";
-}
-
-export function utilizationLabel(pct: number | null): string {
-  if (pct === null) return "Not measurable";
-  if (pct > 100) return "Over capacity";
-  if (pct >= 75) return "On track";
-  if (pct >= 60) return "Below target";
-  return "Low utilization";
-}
-
 export function complianceTone(pct: number | null): Tone {
   if (pct === null) return "neutral";
   if (pct >= 90) return "success";

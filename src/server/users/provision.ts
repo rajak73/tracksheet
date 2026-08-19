@@ -29,6 +29,8 @@ export type ProvisionInput = {
   password: string;
   universityId: string;
   employeeCode?: string;
+  /** Instructors only. Absent means unassigned. */
+  managerId?: string | null;
 };
 
 function normaliseEmail(email: string): string {
@@ -64,8 +66,12 @@ export async function provisionInstructor(input: ProvisionInput) {
         userId: user.id,
         universityId: input.universityId,
         employeeCode: input.employeeCode,
+        // Optional at creation. When absent the instructor is unassigned,
+        // which an admin resolves later; when present the composite FK
+        // guarantees the manager is in this same university.
+        managerId: input.managerId ?? null,
       },
-      select: { id: true, employeeCode: true },
+      select: { id: true, employeeCode: true, managerId: true },
     });
 
     return { user, instructor };

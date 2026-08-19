@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
  * The one deliberate typographic departure from Geist-everywhere (see
  * DESIGN.md). Used ONLY for the wordmark and page titles via the `font-display`
  * utility — never for body copy, table text, or figures, which stay on Geist's
- * tabular numerals. A serif restricted to that one role is what keeps NEXTWAVE
+ * tabular numerals. A serif restricted to that one role is what keeps NIAT
  * from reading as another Geist-and-indigo Tailwind dashboard without
  * introducing a second voice into the data itself.
  */
@@ -27,7 +27,7 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "NEXTWAVE — University Workforce Intelligence",
+  title: "NIAT — University Workforce Intelligence",
   description:
     "Instructor workload, utilisation and deliverable tracking across universities.",
 };

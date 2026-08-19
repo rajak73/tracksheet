@@ -74,7 +74,9 @@ export const GET = withAuth(
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
-        orderBy: [{ isActive: "desc" }, { name: "asc" }],
+        /* Active first, then the most recent leavers — "who left" is read
+         * newest-first, while "who works here" is read alphabetically. */
+        orderBy: [{ isActive: "desc" }, { deletedAt: "desc" }, { name: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
         select: {
@@ -84,9 +86,30 @@ export const GET = withAuth(
           role: true,
           isActive: true,
           createdAt: true,
+          deletedAt: true,
+          leftReason: true,
           university: { select: { id: true, name: true } },
-          instructorProfile: { select: { id: true, employeeCode: true } },
-          managerProfile: { select: { id: true, employeeCode: true } },
+          // The broad category comes with the row so the directory can offer it
+          // as an editable field rather than needing a second request per person.
+          instructorProfile: {
+            select: {
+              id: true,
+              employeeCode: true,
+              category: { select: { code: true, label: true } },
+            },
+          },
+          managerProfile: {
+            select: {
+              id: true,
+              employeeCode: true,
+              // How many people would be orphaned if this manager left, and
+              // whether the university itself points at them. The exit dialog
+              // needs both to know whether to ask for a successor, and asking
+              // here costs one join rather than a request per row.
+              _count: { select: { instructors: true } },
+              university: { select: { primaryManagerId: true } },
+            },
+          },
         },
       }),
       prisma.user.count({ where }),
@@ -99,12 +122,24 @@ export const GET = withAuth(
       role: u.role,
       isActive: u.isActive,
       createdAt: u.createdAt,
+      /* Null on an active person, and null on someone deactivated before this
+       * was recorded — an unknown departure date stays unknown rather than being
+       * back-filled with a plausible one. */
+      leftOn: u.deletedAt,
+      leftReason: u.leftReason,
       universityId: u.university?.id ?? null,
       universityName: u.university?.name ?? null,
       employeeCode: u.instructorProfile?.employeeCode ?? u.managerProfile?.employeeCode ?? null,
       // Present only for instructors — the tracker is instructor-scoped, so a
       // manager row has nothing to link to.
       instructorId: u.instructorProfile?.id ?? null,
+      category: u.instructorProfile?.category ?? null,
+      managerId: u.managerProfile?.id ?? null,
+      /** Null for an instructor. Zero is a real answer for a manager. */
+      rosterSize: u.managerProfile?._count.instructors ?? null,
+      isPrimaryManager:
+        u.managerProfile != null &&
+        u.managerProfile.university?.primaryManagerId === u.managerProfile.id,
     }));
 
     return NextResponse.json({

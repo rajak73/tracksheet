@@ -4,7 +4,13 @@ loadEnv({ path: process.env.TEST_ENV ? ".env.test" : ".env", quiet: true });
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/server/auth/password";
-import { ACTIVITY_TYPE_COUNT, provisionActivityTypes } from "./reference-data";
+import {
+  ACTIVITY_TYPE_COUNT,
+  DELIVERABLE_TYPE_COUNT,
+  provisionActivityTypes,
+  provisionDeliverableTypes,
+  provisionInstructorCategories,
+} from "./reference-data";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -64,6 +70,11 @@ async function main() {
   await prisma.notification.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.aiInsight.deleteMany();
+  // ImportJob.createdById is onDelete: Restrict — deliberately, so a record of
+  // what entered the database outlives the admin who ran it. That makes it one
+  // of the tables that must be cleared BEFORE users, or a second seed run fails
+  // on a populated database.
+  await prisma.importJob.deleteMany();
   await prisma.deliverableLog.deleteMany();
   await prisma.deliverable.deleteMany();
   await prisma.activityLog.deleteMany();
@@ -84,6 +95,11 @@ async function main() {
   // and production provision an identical taxonomy from one definition.
   await provisionActivityTypes(prisma);
   console.log(`  activity types: ${ACTIVITY_TYPE_COUNT}`);
+  // Deliverables come second: each points at a category, and the foreign key
+  // refuses one whose category is not there yet.
+  await provisionDeliverableTypes(prisma);
+  await provisionInstructorCategories(prisma);
+  console.log(`  deliverable types: ${DELIVERABLE_TYPE_COUNT}`);
 
   const passwordHash = await hashPassword(DEV_PASSWORD);
 
@@ -158,6 +174,11 @@ async function main() {
           userId: instUser.id,
           universityId: university.id,
           employeeCode: inst.employeeCode,
+          // Instructors report to this university's manager. The seed builds a
+          // coherent world, and under the ownership model an instructor with no
+          // manager is on nobody's roster — which would leave every seeded
+          // manager staring at an empty tracker.
+          managerId: manager.id,
         },
       });
     }

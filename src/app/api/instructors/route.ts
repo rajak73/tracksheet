@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { instructorWhere } from "@/server/auth/scope";
+import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -29,6 +29,11 @@ export const GET = withAuth(async ({ scope, req }) => {
   // scope predicate of its own, and throws 403 via that helper if the caller
   // asks for a university outside its scope.
   const where: Prisma.InstructorWhereInput = instructorWhere(scope, searchParams.get("universityId"));
+
+  // Roster filter. `narrowManager` decides what the caller is allowed to ask
+  // for — an admin any roster or `unassigned`, a manager only their own — so
+  // this route still builds no authorisation predicate of its own.
+  Object.assign(where, narrowManager(scope, searchParams.get("managerId")));
   if (search) {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
@@ -57,6 +62,11 @@ export const GET = withAuth(async ({ scope, req }) => {
         id: true,
         universityId: true,
         employeeCode: true,
+        managerId: true,
+        // What they teach. Returned with the roster so the directory can offer
+        // it as an editable field without a request per row.
+        category: { select: { code: true, label: true } },
+        manager: { select: { id: true, employeeCode: true, user: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, isActive: true } },
         university: { select: { id: true, name: true, slug: true, timezone: true } },
       },
@@ -65,7 +75,15 @@ export const GET = withAuth(async ({ scope, req }) => {
   ]);
 
   return NextResponse.json({
-    instructors,
+    // `manager` is flattened to the three fields a roster UI needs, and stays
+    // explicitly null when nobody leads this instructor yet — "unassigned" is a
+    // state to render, not an absence to hide.
+    instructors: instructors.map(({ manager, ...rest }) => ({
+      ...rest,
+      manager: manager
+        ? { id: manager.id, employeeCode: manager.employeeCode, name: manager.user.name }
+        : null,
+    })),
     scope: scope.kind,
     page,
     limit,
@@ -82,6 +100,8 @@ const CreateInstructor = z.object({
   employeeCode: z.string().max(64).optional(),
   /** Required for an admin, ignored for a manager — see below. */
   universityId: z.string().optional(),
+  /** Optional roster placement. Omit to create the instructor unassigned. */
+  managerId: z.string().min(1).nullable().optional(),
 });
 
 /**
@@ -109,9 +129,39 @@ export const POST = withAuth(
       if (input.universityId && input.universityId !== universityId) {
         throw new ApiError(403, "CROSS_TENANT_DENIED", "University is outside your scope");
       }
+      // A manager provisioning someone is placing them on their OWN team —
+      // that is what the action means, and leaving them unassigned would hide
+      // the person from the very manager who just created them. This is not
+      // inferred ownership: the manager is acting, now, deliberately. An
+      // explicit managerId in the body is refused rather than honoured, since
+      // a manager may not staff a colleague's roster.
+      // `university` is the only non-global scope that reaches here — the route
+      // is ADMIN/MANAGER only — but narrowing keeps that a checked fact.
+      const own = scope.kind === "university" ? scope.managerId : null;
+      if (input.managerId && input.managerId !== own) {
+        throw new ApiError(403, "CROSS_MANAGER_DENIED", "You can only add to your own roster");
+      }
+      input.managerId = own;
     }
 
     await prisma.university.findUniqueOrThrow({ where: { id: universityId }, select: { id: true } });
+
+    // A named manager must lead in this same university. The composite FK would
+    // reject a mismatch regardless; this turns it into a readable 422.
+    if (input.managerId) {
+      const manager = await prisma.manager.findUnique({
+        where: { id: input.managerId },
+        select: { universityId: true },
+      });
+      if (!manager) throw new ApiError(404, "MANAGER_NOT_FOUND", "Manager not found");
+      if (manager.universityId !== universityId) {
+        throw new ApiError(
+          422,
+          "CROSS_TENANT_ASSIGNMENT",
+          "A manager can only lead instructors in their own university",
+        );
+      }
+    }
 
     const result = await provisionInstructor({ ...input, universityId });
 

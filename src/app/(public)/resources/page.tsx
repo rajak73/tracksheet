@@ -9,9 +9,9 @@ import {
 } from "@/app/_components/public/marketing";
 
 export const metadata: Metadata = {
-  title: "Resources | NEXTWAVE",
+  title: "Resources | NIAT",
   description:
-    "Understand how NEXTWAVE models the university workday, calculates utilization, and turns recorded activity into operational insight.",
+    "Understand how NIAT models the university workday, calculates utilization, and turns recorded activity into operational insight.",
   alternates: { canonical: "/resources" },
 };
 
@@ -65,7 +65,7 @@ export default function ResourcesPage() {
         <SectionHeading
           as="h1"
           eyebrow="Resources"
-          title="Understand how NEXTWAVE works."
+          title="Understand how NIAT works."
           lede="How the platform models the university workday, calculates workload and utilization, and turns recorded activity into something worth acting on."
         />
       </Band>
@@ -104,7 +104,7 @@ export default function ResourcesPage() {
         title="Still have questions?"
         lede="Tell us what you're trying to understand about your workforce and we'll show you the relevant part of the platform."
       >
-        <ButtonLink href="/contact">Request a Demo</ButtonLink>
+        <ButtonLink href="/contact">Request access</ButtonLink>
         <ButtonLink
           href="/platform"
           variant="secondary"

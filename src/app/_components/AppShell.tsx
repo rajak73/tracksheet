@@ -17,19 +17,23 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  NAV_BY_ROLE,
-  ROLE_LABEL,
-  type NavItem,
-  type Role,
-} from "@/app/_components/nav";
+import { NAV_BY_ROLE, ROLE_LABEL, type NavItem, type Role } from "@/app/_components/nav";
 import { IconButton } from "@/app/_components/ui";
-import { ToastProvider } from "@/app/_components/interactive";
+import { ConfirmDialog, ToastProvider } from "@/app/_components/interactive";
+import { NotificationBell } from "@/app/_components/NotificationBell";
+import { useHoverMenu } from "@/app/_components/use-hover-menu";
 import {
-  IconBell,
+  AccountDialog,
+  Avatar,
+  useMyProfile,
+  type MyProfile,
+} from "@/app/_components/AccountDialogs";
+import {
   IconChevronDown,
   IconClose,
+  IconLock,
   IconMenu,
+  IconSettings,
   IconSignOut,
 } from "@/app/_components/icons";
 
@@ -45,6 +49,19 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // The account dialogs are mounted ONCE here and opened from either profile
+  // control, so the sidebar and the mobile header cannot drift into two
+  // different account experiences.
+  const { profile, setProfile } = useMyProfile();
+  const [accountTab, setAccountTab] = useState<"profile" | "password" | null>(null);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const account = {
+    profile,
+    openProfile: () => setAccountTab("profile"),
+    openPassword: () => setAccountTab("password"),
+    requestSignOut: () => setConfirmSignOut(true),
+  };
   const pathname = usePathname();
   const nav = NAV_BY_ROLE[role];
 
@@ -62,7 +79,7 @@ export function AppShell({
             not walked through nine nav items to reach the content (§36). */}
         <a
           href="#main"
-          className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-white"
         >
           Skip to content
         </a>
@@ -71,13 +88,19 @@ export function AppShell({
             visual anchors of the product (the other is the wordmark inside
             it). It does not follow the workspace's light/dark switching; see
             the token comment in globals.css. */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 bg-sidebar-bg lg:flex lg:flex-col">
-          <SidebarContent role={role} nav={nav} pathname={pathname} userName={userName} />
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 bg-sidebar-bg lg:flex lg:flex-col">
+          <SidebarContent
+            role={role}
+            nav={nav}
+            pathname={pathname}
+            userName={userName}
+            account={account}
+          />
         </aside>
 
         {/* Mobile drawer. */}
         {drawerOpen ? (
-          <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="fixed inset-0 z-[60] lg:hidden">
             <button
               aria-label="Close navigation"
               onClick={() => setDrawerOpen(false)}
@@ -89,6 +112,7 @@ export function AppShell({
                 nav={nav}
                 pathname={pathname}
                 userName={userName}
+                account={account}
                 onClose={() => setDrawerOpen(false)}
               />
             </aside>
@@ -96,7 +120,22 @@ export function AppShell({
         ) : null}
 
         <div className="lg:pl-60">
-          <header className="sticky top-0 z-20 border-b border-line bg-surface">
+          {/* ── Mobile only, deliberately ──────────────────────────────────
+           * On a phone this bar earns its height: it carries the button that
+           * opens the nav drawer, the wordmark, and the profile menu, none of
+           * which have anywhere else to live without a persistent sidebar.
+           *
+           * On desktop every one of those was already `lg:hidden`, so the bar
+           * was fifty-six pixels of white with a single bell floating at the
+           * right of it — a band above every page that said nothing. The bell
+           * moved into the sidebar footer beside the profile, where the other
+           * "about me" control already lives, and the bar stops existing at
+           * `lg`. Every page gains that height back.
+           *
+           * z-50: chrome, above anything the page content can stick. It was
+           * z-20 — under the manager sheet's own sticky header — so the bell
+           * and profile panels opened UNDERNEATH the table. */}
+          <header className="sticky top-0 z-50 border-b border-line bg-surface lg:hidden">
             <div className="flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
               <IconButton
                 label="Open navigation"
@@ -107,17 +146,15 @@ export function AppShell({
               </IconButton>
 
               <span className="font-display text-sm font-semibold tracking-tight text-content lg:hidden">
-                NEXTWAVE
+                NIAT
               </span>
 
               <div className="ml-auto flex items-center gap-1">
                 <NotificationBell />
                 {/* The profile menu lives in the sidebar footer on desktop
-                    (§7). On mobile there is no persistent sidebar, so it
-                    stays in the header — same component, one definition. */}
-                <div className="lg:hidden">
-                  <UserMenu userName={userName} role={role} />
-                </div>
+                    (§7). This whole bar is mobile-only now, so no `lg:hidden`
+                    is needed here any more. */}
+                <UserMenu userName={userName} role={role} account={account} />
               </div>
             </div>
           </header>
@@ -130,7 +167,49 @@ export function AppShell({
           </main>
         </div>
       </div>
+
+      {/* Mounted once, for every role and every page. */}
+      <AccountDialog
+        key={`account-${accountTab ?? "closed"}`}
+        open={accountTab !== null}
+        initialTab={accountTab ?? "profile"}
+        profile={profile}
+        onClose={() => setAccountTab(null)}
+        onSaved={setProfile}
+      />
+      <SignOutConfirm open={confirmSignOut} onClose={() => setConfirmSignOut(false)} />
     </ToastProvider>
+  );
+}
+
+/** What both profile controls need in order to behave identically. */
+type AccountControls = {
+  profile: MyProfile | null;
+  openProfile: () => void;
+  openPassword: () => void;
+  requestSignOut: () => void;
+};
+
+/**
+ * Signing out asks first.
+ *
+ * A misplaced click on a menu should not discard an unsaved form. It shares
+ * `useSignOut()` with nothing else — the confirmation IS the only path now, so
+ * neither menu can sign somebody out on a single click.
+ */
+function SignOutConfirm({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { signOut, busy } = useSignOut();
+  return (
+    <ConfirmDialog
+      open={open}
+      onClose={onClose}
+      onConfirm={signOut}
+      pending={busy}
+      title="Sign out?"
+      description="You will be returned to the sign-in page. Anything you have not saved will be lost."
+      confirmLabel="Sign out"
+      destructive
+    />
   );
 }
 
@@ -139,12 +218,14 @@ function SidebarContent({
   nav,
   pathname,
   userName,
+  account,
   onClose,
 }: {
   role: Role;
   nav: NavItem[];
   pathname: string;
   userName: string;
+  account: AccountControls;
   onClose?: () => void;
 }) {
   return (
@@ -152,7 +233,7 @@ function SidebarContent({
       <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4">
         <div className="min-w-0">
           <p className="font-display truncate text-sm font-semibold tracking-tight text-sidebar-text">
-            NEXTWAVE
+            NIAT
           </p>
           <p className="truncate text-xs text-sidebar-text-muted">{ROLE_LABEL[role]}</p>
         </div>
@@ -210,10 +291,20 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Sidebar footer profile (§7). Desktop only — on mobile the drawer is
-          transient, so the profile menu stays in the header instead. */}
-      <div className="hidden shrink-0 border-t border-sidebar-border p-3 lg:block">
-        <SidebarProfile userName={userName} role={role} />
+      {/* Sidebar footer (§7). Desktop only — on mobile the drawer is transient,
+          so these stay in the header instead.
+
+          The bell sits beside the profile rather than in a bar of its own: both
+          are about the person signed in, not about the page, and one row of
+          chrome is enough for them. */}
+      <div className="hidden shrink-0 items-center gap-1 border-t border-sidebar-border p-3 lg:flex">
+        <div className="min-w-0 flex-1">
+          <SidebarProfile userName={userName} role={role} account={account} />
+        </div>
+        <NotificationBell
+          placement="sidebar-footer"
+          className="shrink-0 text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+        />
       </div>
     </>
   );
@@ -226,178 +317,146 @@ function SidebarContent({
  * white header and lives in the mobile header, this one is styled for the
  * navy sidebar. They share the same sign-out behaviour via `useSignOut()` so
  * the actual logic has one definition — only the presentation differs.
+ *
+ * Opens on hover, on the same timing as the instructor's chip, via
+ * `useHoverMenu()`. It used to open only on click while the instructor's
+ * opened on hover, which made the same control behave differently depending on
+ * who was signed in. The panel also carries the same header — photo, name,
+ * role, employee id — because "am I looking at my own account?" is the question
+ * the chip exists to answer, and an id is what settles it.
  */
-function SidebarProfile({ userName, role }: { userName: string; role: Role }) {
-  const [open, setOpen] = useState(false);
-  const { signOut, busy } = useSignOut();
-  const initials = initialsOf(userName);
+function SidebarProfile({
+  userName,
+  role,
+  account,
+}: {
+  userName: string;
+  role: Role;
+  account: AccountControls;
+}) {
+  const menu = useHoverMenu();
+  const name = account.profile?.name ?? userName;
+  const code = account.profile?.employeeCode ?? null;
 
   return (
-    <div className="relative">
-      {open ? (
-        <>
-          <button
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-10 cursor-default"
-          />
+    <div className="relative" {...menu.hoverProps}>
+      {menu.open ? (
+        /* The 4px of daylight above the trigger is PADDING on the positioned
+           box, not a margin below it, so the pointer never crosses a gap that
+           belongs to neither the trigger nor the panel on its way up. Same
+           look, unbroken hover path. */
+        <div className="absolute bottom-full left-0 z-20 w-full pb-1">
           <div
             role="menu"
-            className="absolute bottom-full left-0 z-20 mb-1 w-full overflow-hidden rounded-card border border-line bg-surface shadow-raised"
+            className="overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
-            <button
-              role="menuitem"
-              onClick={signOut}
-              disabled={busy}
-              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-muted transition-colors hover:bg-hovered hover:text-content disabled:opacity-50"
-            >
-              <IconSignOut size={16} />
-              {busy ? "Signing out…" : "Sign out"}
-            </button>
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+              <Avatar
+                name={name}
+                avatarUrl={account.profile?.avatarUrl ?? null}
+                size={40}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-content">{name}</p>
+                <p className="text-xs text-muted">{ROLE_LABEL[role]}</p>
+                {code ? (
+                  <p className="tabular mt-1 inline-block rounded-chip bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">
+                    ID: {code}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <AccountMenuItems account={account} onPicked={menu.closeNow} />
           </div>
-        </>
+        </div>
       ) : null}
 
       <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+        onClick={menu.toggle}
+        aria-expanded={menu.open}
         aria-haspopup="menu"
         className="flex w-full items-center gap-2.5 rounded-control px-2 py-2 text-left transition-colors hover:bg-sidebar-hover-bg"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-sidebar-text">
-          {initials || "?"}
-        </span>
+        <Avatar
+          name={name}
+          avatarUrl={account.profile?.avatarUrl ?? null}
+          size={32}
+          className="bg-white/10 text-sidebar-text"
+        />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-sidebar-text">
-            {userName}
+            {name}
           </span>
           <span className="block truncate text-xs text-sidebar-text-muted">
             {ROLE_LABEL[role]}
           </span>
         </span>
-        <IconChevronDown size={16} className="shrink-0 text-sidebar-text-muted" />
+        <IconChevronDown
+          size={16}
+          className={`shrink-0 text-sidebar-text-muted transition-transform ${
+            menu.open ? "rotate-180" : ""
+          }`}
+        />
       </button>
     </div>
   );
 }
 
-/* ── Header controls ───────────────────────────────────────────────────── */
-
-type Notification = { id: string; title: string; message: string; createdAt: string };
-
-function NotificationBell() {
-  const [items, setItems] = useState<Notification[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/notifications");
-        if (!res.ok) return;
-        const body = await res.json();
-        if (!cancelled) setItems(body.notifications ?? []);
-      } catch {
-        // A failed notification poll must never take the page down with it.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function markAllRead() {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "MARK_ALL_READ" }),
-      });
-      if (res.ok) {
-        setItems([]);
-        setOpen(false);
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
+/**
+ * The three account actions, shared verbatim by both profile controls.
+ *
+ * One definition, so the sidebar and the mobile header can never offer
+ * different things — which is what happened when each owned its own sign-out
+ * button and only one of them ever gained a confirmation.
+ */
+function AccountMenuItems({
+  account,
+  onPicked,
+}: {
+  account: AccountControls;
+  onPicked: () => void;
+}) {
+  const item =
+    "flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-hovered";
   return (
-    <div className="relative">
-      <IconButton
-        label={items.length > 0 ? `Notifications (${items.length} unread)` : "Notifications"}
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+    <>
+      <button
+        role="menuitem"
+        onClick={() => {
+          onPicked();
+          account.openProfile();
+        }}
+        className={`${item} text-muted hover:text-content`}
       >
-        <span className="relative">
-          <IconBell size={20} />
-          {items.length > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-danger ring-2 ring-surface" />
-          ) : null}
-        </span>
-      </IconButton>
-
-      {open ? (
-        <>
-          <button
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-10 cursor-default"
-          />
-          <div className="absolute right-0 z-20 mt-1 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-surface shadow-raised">
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <p className="text-sm font-semibold text-content">Notifications</p>
-              {items.length > 0 ? (
-                <button
-                  onClick={markAllRead}
-                  disabled={busy}
-                  className="rounded-chip text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                >
-                  Mark all read
-                </button>
-              ) : null}
-            </div>
-
-            {items.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted">
-                You are all caught up.
-              </p>
-            ) : (
-              <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-                {items.map((n) => (
-                  <li key={n.id} className="px-4 py-3">
-                    <p className="text-sm font-medium text-content">{n.title}</p>
-                    <p className="mt-0.5 text-sm text-muted">{n.message}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      ) : null}
-    </div>
+        <IconSettings size={16} />
+        Profile settings
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          onPicked();
+          account.openPassword();
+        }}
+        className={`${item} text-muted hover:text-content`}
+      >
+        <IconLock size={16} />
+        Change password
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          onPicked();
+          account.requestSignOut();
+        }}
+        className={`${item} border-t border-line text-danger-text`}
+      >
+        <IconSignOut size={16} />
+        Logout
+      </button>
+    </>
   );
 }
 
-/** Up to two initials, for the avatar in both profile controls. */
-function initialsOf(userName: string): string {
-  return userName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-/**
- * Sign-out, shared by the header `UserMenu` and the sidebar
- * `SidebarProfile`. The two look different because they sit on different
- * surfaces; the behaviour behind them must not be two implementations.
- */
 function useSignOut() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -419,10 +478,16 @@ function useSignOut() {
   return { signOut, busy };
 }
 
-function UserMenu({ userName, role }: { userName: string; role: Role }) {
+function UserMenu({
+  userName,
+  role,
+  account,
+}: {
+  userName: string;
+  role: Role;
+  account: AccountControls;
+}) {
   const [open, setOpen] = useState(false);
-  const { signOut, busy } = useSignOut();
-  const initials = initialsOf(userName);
 
   return (
     <div className="relative">
@@ -432,9 +497,11 @@ function UserMenu({ userName, role }: { userName: string; role: Role }) {
         aria-haspopup="menu"
         className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors hover:bg-hovered"
       >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary-text">
-          {initials || "?"}
-        </span>
+        <Avatar
+          name={userName}
+          avatarUrl={account.profile?.avatarUrl ?? null}
+          size={28}
+        />
         <span className="hidden max-w-32 truncate text-sm text-content sm:inline">
           {userName}
         </span>
@@ -450,21 +517,20 @@ function UserMenu({ userName, role }: { userName: string; role: Role }) {
           />
           <div
             role="menu"
-            className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
+            className="absolute right-0 z-20 mt-1 w-60 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
-            <div className="border-b border-line px-4 py-3">
-              <p className="truncate text-sm font-medium text-content">{userName}</p>
-              <p className="text-xs text-muted">{ROLE_LABEL[role]}</p>
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+              <Avatar
+                name={userName}
+                avatarUrl={account.profile?.avatarUrl ?? null}
+                size={40}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-content">{userName}</p>
+                <p className="text-xs text-muted">{ROLE_LABEL[role]}</p>
+              </div>
             </div>
-            <button
-              role="menuitem"
-              onClick={signOut}
-              disabled={busy}
-              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-muted transition-colors hover:bg-hovered hover:text-content disabled:opacity-50"
-            >
-              <IconSignOut size={16} />
-              {busy ? "Signing out…" : "Sign out"}
-            </button>
+            <AccountMenuItems account={account} onPicked={() => setOpen(false)} />
           </div>
         </>
       ) : null}

@@ -13,10 +13,16 @@ export class ApiClient {
   constructor(readonly label: string) {}
 
   async request(path: string, init: RequestInit = {}) {
+    // A multipart body must NOT carry a content-type header: fetch generates one
+    // containing the boundary it chose, and setting the header by hand — even to
+    // the right value — produces a body the server cannot parse. So the JSON
+    // default is omitted rather than overridden when the body is form data.
+    const isForm = init.body instanceof FormData;
+
     const res = await fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
-        "content-type": "application/json",
+        ...(isForm ? {} : { "content-type": "application/json" }),
         ...(this.cookie ? { cookie: this.cookie } : {}),
         ...(init.headers ?? {}),
       },
@@ -45,6 +51,32 @@ export class ApiClient {
 
   get(path: string) {
     return this.request(path, { method: "GET" });
+  }
+
+  /**
+   * Uploads a file the way a browser does — real multipart, real boundary.
+   *
+   * `filename` and `contentType` are separate arguments on purpose: the server
+   * is supposed to decide what a file IS from its bytes, and the only way to
+   * prove that is to lie in the name and the declared type.
+   */
+  upload(path: string, bytes: Uint8Array | string, filename: string, contentType: string) {
+    const form = new FormData();
+    const data = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes;
+    form.append("file", new Blob([data as unknown as BlobPart], { type: contentType }), filename);
+    return this.request(path, {
+      method: "POST",
+      body: form,
+      // `connection: close` so the socket is never returned to the keep-alive
+      // pool. Several of these uploads are REFUSED — a manager gets 403 and a
+      // JSON body gets 415 — and the refusal happens before the handler reads
+      // the multipart body, leaving a request undrained on that socket. Reusing
+      // it afterwards wedges the pool, and every later request in this worker
+      // queues behind it: whichever test file ran next then timed out with no
+      // CPU, memory or database symptom to point at. A fresh connection per
+      // upload costs nothing here and keeps the failure impossible.
+      headers: { connection: "close" },
+    });
   }
 
   post(path: string, json?: unknown) {

@@ -4,6 +4,7 @@ import { ApiError } from "@/server/http/errors";
 import { assertCanAccessUniversity } from "@/server/auth/scope";
 import { prisma } from "@/server/db";
 import { z } from "zod";
+import { BRIEF_TYPE } from "@/server/ai/brief-type";
 
 const updateInsightSchema = z.object({
   status: z.enum(["NEW", "READ", "DISMISSED"]),
@@ -23,10 +24,18 @@ export const PATCH = withAuth<{ id: string }>(
 
     const insight = await prisma.aiInsight.findUnique({
       where: { id: insightId },
-      select: { universityId: true }
+      select: { universityId: true, type: true }
     });
 
     if (!insight) {
+      throw new ApiError(404, "NOT_FOUND", "Insight not found");
+    }
+
+    // An assistant brief is not a management artifact to be triaged: it belongs
+    // to whoever it was written for, and this route answers with the whole row,
+    // so reaching one by id would disclose its subject's figures to any manager
+    // in the same university. Absent as far as this endpoint is concerned.
+    if (insight.type === BRIEF_TYPE) {
       throw new ApiError(404, "NOT_FOUND", "Insight not found");
     }
 

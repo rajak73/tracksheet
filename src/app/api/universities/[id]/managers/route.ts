@@ -5,19 +5,34 @@ import { assertCanAccessUniversity } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { logAudit } from "@/server/audit/logger";
 import { provisionManager } from "@/server/users/provision";
+import { computeAnalytics } from "@/server/analytics/engine";
+import { loadUniversityConfig } from "@/server/universities/config";
+import { mondayOf } from "@/server/analytics/tracker";
+import { workDateFor } from "@/server/time/workday";
 
 /**
  * Managers of a university — the level the admin drill-down was missing
  * (university -> MANAGER -> instructor -> date -> activity).
  *
- * Each manager carries the instructor count they are responsible for, so the
- * drill-down step has something to show rather than just a name.
+ * Every manager carries their OWN roster size and their OWN current-week
+ * figures. This used to hand the same university-wide count to each of them,
+ * which was wrong the moment a university had two managers: the drill-down
+ * promised distinct teams and the numbers said otherwise.
+ *
+ * The current-week figures come from `computeAnalytics` — the same engine the
+ * dashboards and the tracker use — so a manager's hours here and their hours in
+ * the tracker cannot disagree. One call per manager, each covering one week,
+ * plus one grouped count; managers per university are single digits.
  */
 export const GET = withAuth<{ id: string }>(
   async ({ params, scope }) => {
     assertCanAccessUniversity(scope, params.id);
 
-    const [managers, university, instructorCount] = await Promise.all([
+    const config = await loadUniversityConfig(params.id);
+    const today = workDateFor(new Date(), config.timezone);
+    const weekFrom = mondayOf(today);
+
+    const [managers, university, rosterCounts, unassignedCount] = await Promise.all([
       prisma.manager.findMany({
         where: { universityId: params.id },
         orderBy: { createdAt: "asc" },
@@ -29,19 +44,51 @@ export const GET = withAuth<{ id: string }>(
       }),
       prisma.university.findUnique({
         where: { id: params.id },
-        select: { primaryManagerId: true, name: true },
+        select: { primaryManagerId: true, name: true, code: true },
       }),
-      prisma.instructor.count({ where: { universityId: params.id, user: { isActive: true } } }),
+      // One grouped query for every roster size, rather than one count each.
+      prisma.instructor.groupBy({
+        by: ["managerId"],
+        where: { universityId: params.id, user: { isActive: true } },
+        _count: { _all: true },
+      }),
+      prisma.instructor.count({
+        where: { universityId: params.id, managerId: null, user: { isActive: true } },
+      }),
     ]);
+
+    const sizeOf = new Map(rosterCounts.map((r) => [r.managerId, r._count._all]));
+
+    const weekly = await Promise.all(
+      managers.map((m) =>
+        computeAnalytics({
+          universityId: params.id,
+          from: weekFrom,
+          to: weekFrom,
+          managerId: m.id,
+        }),
+      ),
+    );
 
     return NextResponse.json({
       universityName: university?.name ?? null,
-      managers: managers.map((m) => ({
-        ...m,
-        isPrimary: m.id === university?.primaryManagerId,
-        // v1 assigns every instructor in the university to its one manager.
-        instructorCount,
-      })),
+      universityCode: university?.code ?? null,
+      currentWeek: { from: weekFrom, to: weekFrom },
+      // Instructors nobody leads yet. Surfaced rather than hidden: they are
+      // real people doing real work, and an admin needs to see who still needs
+      // placing instead of discovering them missing from every roster.
+      unassignedInstructors: unassignedCount,
+      managers: managers.map((m, i) => {
+        const a = weekly[i]!;
+        return {
+          ...m,
+          isPrimary: m.id === university?.primaryManagerId,
+          instructorCount: sizeOf.get(m.id) ?? 0,
+          currentWeekWorkingHours: a.totals.productiveHours,
+          currentWeekDeliverables: a.totals.deliverables.completedQuantity,
+          currentWeekUtilization: a.totals.utilizationPct,
+        };
+      }),
     });
   },
   { roles: ["ADMIN", "MANAGER"] },

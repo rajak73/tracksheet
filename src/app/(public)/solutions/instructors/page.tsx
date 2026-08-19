@@ -3,7 +3,7 @@ import { InstructorPreview } from "@/app/_components/public/DashboardPreview";
 import { SolutionPage, type SolutionContent } from "@/app/_components/public/SolutionPage";
 
 export const metadata: Metadata = {
-  title: "For Instructors | NEXTWAVE",
+  title: "For Instructors | NIAT",
   description:
     "Track your schedule, teaching, learning, activities and daily responsibilities from one place.",
   alternates: { canonical: "/solutions/instructors" },
@@ -14,7 +14,7 @@ const CONTENT: SolutionContent = {
   title: "Your day. Your workload. One clear view.",
   lede: "Track your schedule, teaching, learning, activities and daily responsibilities from one place — and see where the working day currently stands.",
   preview: InstructorPreview,
-  previewLabel: "NEXTWAVE — Instructor Today",
+  previewLabel: "NIAT — Instructor Today",
   capabilities: [
     "Today's schedule and timeline",
     "Daily opening and closing for the university workday",

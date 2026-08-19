@@ -8,7 +8,7 @@ import {
 } from "@/app/_components/public/marketing";
 
 export const metadata: Metadata = {
-  title: "Security | NEXTWAVE",
+  title: "Security | NIAT",
   description:
     "Role-based access, per-university tenant isolation, secure server-side sessions and an audit trail of meaningful changes.",
   alternates: { canonical: "/security" },
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * codebase — role gating in the route wrapper, server-derived tenant scope,
  * scrypt-hashed credentials with server-side sessions, and the audit log.
  *
- * Do NOT add SOC 2, ISO 27001, HIPAA, GDPR or FERPA badges here. NEXTWAVE
+ * Do NOT add SOC 2, ISO 27001, HIPAA, GDPR or FERPA badges here. NIAT
  * holds no such certifications, and a compliance claim a buyer's procurement
  * team can disprove in one email is worse than having no badge at all.
  */
@@ -73,7 +73,7 @@ export default function SecurityPage() {
           <SectionHeading
             eyebrow="Certifications"
             title="What we don't claim."
-            lede="NEXTWAVE does not currently hold SOC 2, ISO 27001, HIPAA, GDPR or FERPA certification, and this page will not display badges for them."
+            lede="NIAT does not currently hold SOC 2, ISO 27001, HIPAA, GDPR or FERPA certification, and this page will not display badges for them."
           />
           <p className="mt-6 text-base leading-relaxed text-muted">
             If your procurement process requires a specific certification or a completed security
@@ -92,7 +92,7 @@ export default function SecurityPage() {
         title="Questions about how your data is handled?"
         lede="We're happy to walk through the access model and answer security questionnaires directly."
       >
-        <ButtonLink href="/contact">Contact NEXTWAVE</ButtonLink>
+        <ButtonLink href="/contact">Contact NIAT</ButtonLink>
         <ButtonLink
           href="/platform"
           variant="secondary"

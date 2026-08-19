@@ -15,6 +15,7 @@ import {
   Alert,
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -199,6 +200,23 @@ export default function AdminSettingsPage() {
           </Field>
         }
       />
+
+      {/* Secondary route to bulk onboarding. The dashboard action is the primary
+          one; this is here because "where do I load our data?" is a question
+          people take to Settings. */}
+      <Section title="Data" description="Onboard an existing organisation from a file.">
+        <Card>
+          <CardBody className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">
+              Import universities, managers and instructors from a CSV or PDF. Nothing is written
+              until you review a preview and confirm.
+            </p>
+            <ButtonLink href="/admin/import" variant="secondary">
+              Import data
+            </ButtonLink>
+          </CardBody>
+        </Card>
+      </Section>
 
       {config.loading || !draft ? (
         <Card padded>

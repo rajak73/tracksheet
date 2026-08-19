@@ -29,6 +29,7 @@
  * without deactivated staff cluttering a current-week view they had no part in.
  */
 
+import { countsAsWorkingHours } from "@/app/_lib/student-facing";
 import { prisma } from "@/server/db";
 import { computeAnalytics, type InstructorBreakdown } from "@/server/analytics/engine";
 import { csvCell } from "@/server/reports/generator";
@@ -55,6 +56,8 @@ export type TrackerDeliverable = {
   title: string;
   quantity: number;
   hours: number;
+  /** Whether a count of this means anything — see `DeliverableType`. */
+  countable: boolean;
 };
 
 export type TrackerCell = {
@@ -82,6 +85,17 @@ export type TrackerRow = {
    * category per employee row; this derives it rather than inventing a field.
    * Null when nothing was recorded.
    */
+  /* ── Two different "categories", deliberately kept apart ─────────────────
+   * `broadCategory` is what this instructor TEACHES — Technical, Mathematics,
+   * English — set by an admin and stable across months. It is the column the
+   * client's sheet prints, and it must not move when somebody has a quiet week.
+   *
+   * `category` below is the dominant ACTIVITY category they actually spent the
+   * period on, derived from their hours. It answers a different question and
+   * legitimately changes month to month, which is exactly why it cannot be the
+   * one in the report.
+   */
+  broadCategory: { code: string; label: string } | null;
   category: string | null;
   /** Every category they touched, so the dominant label never hides the rest. */
   categories: string[];
@@ -116,7 +130,7 @@ export type TrackerResult = {
 
 /* ── Week construction ──────────────────────────────────────────────────── */
 
-function addDays(iso: string, days: number): string {
+export function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
@@ -212,14 +226,15 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
 
   for (const week of tracker.weeks) {
     const span = `${week.labelFrom ?? week.from} to ${week.labelTo ?? week.to}`;
-    head1.push(`Week ${week.index} [${span}]`, "", "", "", "");
-    head2.push(
-      "Deliverable",
-      "Deliverable Quantity",
-      "Deliverable Hours",
-      "Total Working Hours",
-      "Remarks",
-    );
+    /* Four columns a week, exactly the ones the client's own sheet has and the
+     * ones the grid renders. "Deliverable Hours" used to sit between quantity
+     * and working hours; it was time against a NAMED piece of work, counted or
+     * not, which is a fifth different hours figure nobody asked the sheet for —
+     * and having it beside Working Hours invited exactly the subtraction the
+     * two are not related by. The export and the screen now have the same
+     * columns, so a screenshot and a spreadsheet cannot disagree. */
+    head1.push(`Week ${week.index} [${span}]`, "", "", "");
+    head2.push("Deliverable", "Deliverable Quantity", "Working Hours", "Remarks");
   }
 
   const lines = [head1.map(csvCell).join(","), head2.map(csvCell).join(",")];
@@ -228,17 +243,25 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
     const cells: Array<string | number | null> = [
       row.instructorName,
       row.employeeCode,
-      row.category,
+      // What they TEACH, matching the column on screen. The derived activity
+      // category used to go here, so the exported sheet and the rendered one
+      // disagreed about what "Broad Category" meant.
+      row.broadCategory ? `Instructor – ${row.broadCategory.label}` : "",
       row.isActive ? "Active" : "Former",
     ];
     for (const week of tracker.weeks) {
       const cell = row.cells[week.index];
+      const deliverables = [...(cell?.deliverables ?? [])].sort((a, b) => b.hours - a.hours);
       cells.push(
-        cell?.deliverables.map((d) => d.title).join("; ") ?? "",
-        cell?.quantity ?? 0,
-        cell?.deliverableHours ?? 0,
-        cell?.totalWorkingHours ?? 0,
-        cell?.remarks.join(" | ") ?? "",
+        // Same strings the grid shows, so a screenshot and the CSV agree.
+        deliverables.map((d) => `${d.title} – ${d.hours}h`).join("; "),
+        deliverables
+          .filter((d) => d.countable && d.quantity > 0)
+          .map((d) => `${d.quantity} ${d.quantity === 1 || d.title.endsWith("s") ? d.title : `${d.title}s`}`)
+          .join(", "),
+        // Working Hours as the report means it: the time spent with students.
+        round(deliverables.reduce((n, d) => n + (d.countable ? d.hours : 0), 0)),
+        cell?.remarks.join(", ") ?? "",
       );
     }
     lines.push(cells.map(csvCell).join(","));
@@ -254,6 +277,13 @@ export async function buildTracker(args: {
   today: string;
   /** Present for a self-scoped caller; restricts the grid to one person. */
   instructorId?: string;
+  /**
+   * Restrict the grid to one manager's roster. `undefined` = the whole
+   * university; `null` = instructors with no manager yet. Passed straight
+   * through to the engine, which owns the instructor selection — the tracker
+   * does not re-implement it.
+   */
+  managerId?: string | null;
 }): Promise<TrackerResult> {
   const { config, from, to, today, instructorId } = args;
   const weeks = labelWeeks(weeksBetween(from, to, today), config);
@@ -272,6 +302,7 @@ export async function buildTracker(args: {
         to: week.to,
         instructorId,
         includeInactive: true,
+        ...("managerId" in args ? { managerId: args.managerId } : {}),
       }),
     ),
   );
@@ -282,6 +313,12 @@ export async function buildTracker(args: {
     where: {
       universityId: config.id,
       ...(instructorId ? { instructorId } : {}),
+      // Narrowed to the same roster the engine returned. Not a safety boundary
+      // — a log whose instructor the engine did not return is skipped below
+      // either way — but fetching a whole university's logs to then discard
+      // most of them is waste the (universityId, instructorId, workDate) index
+      // cannot save us from.
+      ...("managerId" in args ? { instructor: { managerId: args.managerId } } : {}),
       workDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
     },
     orderBy: { workDate: "asc" },
@@ -292,6 +329,55 @@ export async function buildTracker(args: {
       hoursSpent: true,
       remarks: true,
       deliverable: { select: { title: true } },
+    },
+  });
+
+  /* ── Where a "deliverable" comes from ─────────────────────────────────────
+   * Two things in this product are called a deliverable, and the report has to
+   * read BOTH or it under-reports:
+   *
+   *   DeliverableLog    progress logged against a planned deliverable. The
+   *                     older mechanism, still reachable through its own route.
+   *   ActivityLog       the deliverable type an entry was classified under,
+   *                     with its quantity and its clock duration. This is what
+   *                     the daily worklog writes, and therefore where the
+   *                     evidence actually is.
+   *
+   * Reading only the first left every cell of the client's monthly sheet empty,
+   * because nothing in the current product writes to it. They are merged by
+   * title, so a deliverable recorded both ways counts once.
+   */
+  const activityDeliverables = await prisma.activityLog.findMany({
+    where: {
+      universityId: config.id,
+      ...("instructorId" in args ? { instructorId: args.instructorId } : {}),
+      ...("managerId" in args ? { instructor: { managerId: args.managerId } } : {}),
+      workDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
+      /* No `deliverableTypeId: { not: null }` here, deliberately.
+       *
+       * It used to be, and it silently emptied the report of real teaching.
+       * Countability falls back to the CATEGORY when an entry carries no
+       * deliverable — a lecture is time with students whether or not the
+       * parser managed to name one — but the fallback cannot fire for a row
+       * this query never returns. On the dev data that was three lectures and
+       * twelve and three quarter hours missing from the client's own sheet,
+       * with nothing on screen to suggest anything was absent.
+       *
+       * Everything comes back now, and `countsAsWorkingHours` below decides.
+       * `deliverableHours` still only counts entries that HAVE a deliverable —
+       * that figure means "time attached to a named piece of work", and it
+       * would stop meaning that if unnamed hours were added to it. */
+    },
+    orderBy: { workDate: "asc" },
+    select: {
+      instructorId: true,
+      workDate: true,
+      quantity: true,
+      startTime: true,
+      endTime: true,
+      remarks: true,
+      activityType: { select: { code: true, label: true } },
+      deliverableType: { select: { label: true, isCountable: true } },
     },
   });
 
@@ -306,6 +392,7 @@ export async function buildTracker(args: {
         instructorName: b.instructorName,
         employeeCode: b.employeeCode,
         isActive: b.isActive,
+        broadCategory: null,
         category: null,
         categories: [],
         cells: {},
@@ -368,7 +455,7 @@ export async function buildTracker(args: {
 
     let entry = cell.deliverables.find((d) => d.title === log.deliverable.title);
     if (!entry) {
-      entry = { title: log.deliverable.title, quantity: 0, hours: 0 };
+      entry = { title: log.deliverable.title, quantity: 0, hours: 0, countable: true };
       cell.deliverables.push(entry);
     }
     entry.quantity += log.quantityCompleted;
@@ -380,6 +467,102 @@ export async function buildTracker(args: {
 
     row.totals.quantity += log.quantityCompleted;
     row.totals.deliverableHours = round(row.totals.deliverableHours + log.hoursSpent);
+  }
+
+  for (const log of activityDeliverables) {
+    const workDate = log.workDate.toISOString().slice(0, 10);
+    const week = weeks.find((w) => workDate >= w.from && workDate <= w.to);
+    const row = rows.get(log.instructorId);
+    // No `!log.deliverableType` gate either: that was the same exclusion a
+    // second time, and it would have kept the query fix from doing anything.
+    if (!week || !row) continue;
+
+    const cell = (row.cells[week.index] ??= {
+      deliverables: [],
+      quantity: 0,
+      deliverableHours: 0,
+      totalWorkingHours: 0,
+      hoursByCategory: {},
+      remarks: [],
+    });
+
+    // Hours from the clock range, never a stored duration: the same rule the
+    // rest of the product follows, so a report can never disagree with the row.
+    const hours = round((log.endTime.getTime() - log.startTime.getTime()) / 3_600_000);
+
+    /* ── Grouped by CATEGORY, not by the deliverable underneath it ──────────
+     * The client's sheet reads "Live Classes – 24h; Lesson Prep – 8h; Doubt
+     * Sessions – 6h; Meetings/Reports – 4h": about five lines a week, at the
+     * level of Lecture, Content Development, Student Support, Meeting. Grouping
+     * by the forty-four specific deliverables produced fifteen lines of finer
+     * detail than the report is written in — "Meetings/Reports" is a category,
+     * not a deliverable.
+     *
+     * Countability still comes from the DELIVERABLE, because that is where the
+     * distinction lives: an Exam category line counts its evaluations and not
+     * its question-paper preparation — which is why countability is part of
+     * what makes a line here, not a flag set on one afterwards. A category
+     * holding both kinds becomes two entries, the counted one and the muted
+     * one.
+     *
+     * As a flag it was wrong: every activity in the category piled its hours
+     * onto a single entry, and one countable deliverable anywhere in it turned
+     * the whole entry — preparation included — into Working Hours. The error
+     * grew with the size of the group, so the same entries totalled differently
+     * by day, by week and by month. Splitting the entry keeps each hour with
+     * its own deliverable's answer.
+     */
+    const title = log.activityType.label;
+    const countable = countsAsWorkingHours(
+      log.activityType.code,
+      log.deliverableType ? log.deliverableType.isCountable : null,
+    );
+
+    let entry = cell.deliverables.find((d) => d.title === title && d.countable === countable);
+    if (!entry) {
+      entry = { title, quantity: 0, hours: 0, countable };
+      cell.deliverables.push(entry);
+    }
+    entry.hours = round(entry.hours + hours);
+
+    /* Quantity counts ONLY what a count means something for, at every level.
+     * The per-entry figure already did; the cell and row totals did not, so the
+     * "Qty" beside a cell could disagree with the named quantities inside it. */
+    if (countable) {
+      entry.quantity += log.quantity;
+      cell.quantity += log.quantity;
+    }
+
+    /* Deliverable hours is time against a NAMED piece of work, so an entry with
+     * no deliverable contributes none of it — while still counting toward
+     * Working Hours above, via its category. The two figures answer different
+     * questions and the report says so. */
+    if (log.deliverableType) {
+      cell.deliverableHours = round(cell.deliverableHours + hours);
+    }
+    // De-duplicated: four lectures on the same topic would otherwise print the
+    // same remark four times in one cell.
+    const remark = log.remarks?.trim();
+    if (remark && !cell.remarks.includes(remark)) cell.remarks.push(remark);
+
+    if (countable) row.totals.quantity += log.quantity;
+    if (log.deliverableType) {
+      row.totals.deliverableHours = round(row.totals.deliverableHours + hours);
+    }
+  }
+
+  /* ── What each instructor teaches ─────────────────────────────────────────
+   * Read once for the whole grid rather than joined onto every row: it is a
+   * property of the person, so it does not vary by week and does not belong in
+   * the per-week engine pass.
+   */
+  const categories = await prisma.instructor.findMany({
+    where: { id: { in: [...rows.keys()] } },
+    select: { id: true, category: { select: { code: true, label: true } } },
+  });
+  for (const instructor of categories) {
+    const row = rows.get(instructor.id);
+    if (row) row.broadCategory = instructor.category ?? null;
   }
 
   // Former staff appear only where they actually have something to report.

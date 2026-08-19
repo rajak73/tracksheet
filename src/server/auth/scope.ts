@@ -11,7 +11,13 @@ import { ApiError } from "@/server/http/errors";
  */
 export type TenantScope =
   | { kind: "global" }
-  | { kind: "university"; universityId: string }
+  /**
+   * A manager. `managerId` is their OWN profile id — carried here so a
+   * manager-scoped request can be checked against the identity the session
+   * proves, rather than one the request claims. Null only if the profile row is
+   * missing, which fails closed everywhere it matters.
+   */
+  | { kind: "university"; universityId: string; managerId: string | null }
   | { kind: "self"; universityId: string; instructorId: string };
 
 export function scopeFor(principal: Principal): TenantScope {
@@ -25,7 +31,11 @@ export function scopeFor(principal: Principal): TenantScope {
         // closed rather than trusting that invariant at runtime.
         throw new ApiError(403, "FORBIDDEN", "Manager has no university binding");
       }
-      return { kind: "university", universityId: principal.universityId };
+      return {
+        kind: "university",
+        universityId: principal.universityId,
+        managerId: principal.managerId,
+      };
 
     case "INSTRUCTOR":
       if (!principal.universityId || !principal.instructorId) {
@@ -90,6 +100,76 @@ export function narrowUniversity(
 
   return { universityId: requested };
 }
+
+/**
+ * Validates a client-supplied `managerId` filter for manager-scoped reporting.
+ *
+ * The asymmetry with {@link narrowUniversity} is deliberate. A university id is
+ * a container a manager already belongs to, so narrowing within it is harmless.
+ * A manager id is an IDENTITY: letting one manager pass another's id would hand
+ * them a colleague's roster, which is exactly what this relation was added to
+ * separate. So a manager may name only themselves, and an instructor may not
+ * use this dimension at all.
+ *
+ * Returns a `where` fragment, so callers cannot forget to apply it:
+ *   - `{}`                    — admin asking for everyone
+ *   - `{ managerId: "…" }`    — a specific roster
+ *   - `{ managerId: null }`   — the unassigned, which admins must still see
+ */
+export function narrowManager(
+  scope: TenantScope,
+  requested: string | null | undefined,
+): { managerId?: string | null } {
+  // Instructors have no manager-scoped view; their own report is self-scoped.
+  if (scope.kind === "self") {
+    if (requested) {
+      throw new ApiError(403, "FORBIDDEN", "Your role cannot filter by manager");
+    }
+    return {};
+  }
+
+  if (scope.kind === "university") {
+    // A manager's report is always their own roster, whether or not they asked.
+    if (!scope.managerId) {
+      throw new ApiError(403, "FORBIDDEN", "Manager profile is incomplete");
+    }
+    if (requested && requested !== scope.managerId) {
+      throw new ApiError(403, "CROSS_MANAGER_DENIED", "That roster is not yours");
+    }
+    return { managerId: scope.managerId };
+  }
+
+  // Admin: honour the filter when given, otherwise the whole university.
+  if (requested === UNASSIGNED) return { managerId: null };
+  return requested ? { managerId: requested } : {};
+}
+
+/**
+ * The same rule as {@link narrowManager}, expressed against the Manager table.
+ *
+ * `narrowManager` returns `{ managerId }`, which is a column on Instructor — it
+ * cannot be reused on a query over managers themselves. Without this, a list of
+ * managers narrowed only by university returns a caller's PEERS, and any
+ * endpoint that expands those rows into their rosters hands one manager another
+ * manager's people. The identity rule has to hold on both tables, so it lives
+ * here beside the original rather than being re-derived by a route.
+ *
+ * Returns a `where` fragment:
+ *   - `{}`            — admin asking for everyone
+ *   - `{ id: "…" }`   — one manager, and for a manager caller only themselves
+ */
+export function narrowManagerRow(
+  scope: TenantScope,
+  requested: string | null | undefined,
+): { id?: string } {
+  const { managerId } = narrowManager(scope, requested);
+  // `null` means "the unassigned", which is a set of instructors and not a
+  // manager. There is no manager row it can name.
+  return typeof managerId === "string" ? { id: managerId } : {};
+}
+
+/** Sentinel a client uses to ask for instructors with no manager. */
+export const UNASSIGNED = "unassigned";
 
 /**
  * Where-fragment for records that hang off an instructor inside a university

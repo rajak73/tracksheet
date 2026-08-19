@@ -1,11 +1,11 @@
-# NEXTWAVE — University Workforce Intelligence Platform
+# NIAT — University Workforce Intelligence Platform
 
 One web application, one login page. After authenticating, the session's role
 decides which dashboard renders. API routes are shared across roles; the
 response differs only because the backend scopes it.
 
-**Current state: Phase 12 complete — NEXTWAVE visual identity and design
-system.** The product-facing brand is NEXTWAVE; the repository, package name,
+**Current state: Phase 12 complete — NIAT visual identity and design
+system.** The product-facing brand is NIAT; the repository, package name,
 session cookie, and database/container names are unchanged (infrastructure
 identifiers, not UI). See [DESIGN.md](DESIGN.md) for the full design system —
 colour tokens, typography, the role-based information-density model, and the

@@ -4,9 +4,25 @@
  * University-wide analytics for a manager.
  *
  * The dashboard already leads with "who needs attention" (§17); this page is
- * the deeper cut for "how is the trend moving and where is capacity going" —
- * a comparison against the previous period, plus the same allocation chart
- * scoped to the whole university rather than one instructor.
+ * the deeper cut for "where did the time go" — the daily shape of recorded
+ * time, and the same allocation chart scoped to the whole university rather
+ * than one instructor.
+ *
+ * What it no longer does is reduce the period to a utilization score.
+ * Recorded minutes over the configured working day rated an afternoon of
+ * internal meetings exactly like an afternoon of lectures, and read past 100%
+ * on ordinary weeks, so nothing here is expressed as a percentage of capacity
+ * or as a band. The daily chart still draws the day's capacity behind the bar
+ * — "nine hours of room, four hours in it" is a shape a manager can read at a
+ * glance — but it stays hours, never a score.
+ *
+ * The hours question itself belongs to Working Hours, time spent WITH
+ * STUDENTS, which is decided per entry by that entry's deliverable
+ * (src/app/_lib/student-facing.ts). This university-wide payload carries
+ * category totals only, never the entries, so Working Hours cannot be rebuilt
+ * here and is not approximated from categories. The tile therefore states the
+ * figure this page genuinely holds — every recorded minute — under its own
+ * name, "Recorded hours". It is never labelled "Working Hours".
  */
 
 import { useCallback, useState } from "react";
@@ -21,13 +37,11 @@ import {
   StatTile,
   complianceLabel,
   complianceTone,
-  utilizationLabel,
-  utilizationTone,
 } from "@/app/_components/ui";
 import { AllocationBar, BarCompare, ChartCard } from "@/app/_components/charts";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatDelta, formatHours, formatWeekday } from "@/app/_lib/format";
+import { formatDate, formatHours, formatWeekday } from "@/app/_lib/format";
 
 type Totals = {
   instructors: number;
@@ -35,7 +49,6 @@ type Totals = {
   productiveHours: number;
   unutilizedHours: number;
   missingDataHours: number;
-  utilizationPct: number | null;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
   hoursByActivityType: Record<string, number>;
@@ -52,6 +65,11 @@ export default function ManagerAnalyticsPage() {
     const universityId = me.user.universityId;
     const query = periodQuery(period);
 
+    // One request, one period. Nothing on this screen reads against a prior
+    // window: a delta is only worth showing under a figure worth trusting, and
+    // the trustworthy hours figure — Working Hours — cannot be rebuilt from
+    // category totals, so the page does not pay for a second period to put a
+    // comparison under.
     const current = await apiGet<{
       analytics: {
         from: string;
@@ -60,20 +78,6 @@ export default function ManagerAnalyticsPage() {
         instructors: Array<{ days: Day[] }>;
       };
     }>(`/api/universities/${universityId}/analytics${query}`, "Could not load analytics.");
-
-    // The comparison window — the SAME weekday-aligned prior period the report
-    // and rollup already use, requested explicitly here for a delta figure.
-    const from = new Date(current.analytics.from);
-    const to = new Date(current.analytics.to);
-    const spanDays = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
-    const prevTo = new Date(from.getTime() - 86_400_000);
-    const prevFrom = new Date(prevTo.getTime() - (spanDays - 1) * 86_400_000);
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-
-    const previous = await apiGet<{ analytics: { totals: Totals } }>(
-      `/api/universities/${universityId}/analytics?from=${iso(prevFrom)}&to=${iso(prevTo)}`,
-      "Could not load the comparison period.",
-    ).catch(() => null);
 
     // Aggregate per-weekday capacity/recorded across all instructors, purely
     // for the chart — the totals above are the server's, not recomputed here.
@@ -95,7 +99,6 @@ export default function ManagerAnalyticsPage() {
       from: current.analytics.from,
       to: current.analytics.to,
       totals: current.analytics.totals,
-      previousTotals: previous?.analytics.totals ?? null,
       days,
     };
   }, [period]);
@@ -111,7 +114,7 @@ export default function ManagerAnalyticsPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Analytics" actions={selector} />
-        <StatGridSkeleton />
+        <StatGridSkeleton tiles={3} />
       </div>
     );
   }
@@ -125,32 +128,26 @@ export default function ManagerAnalyticsPage() {
   }
 
   const t = data.totals;
-  const p = data.previousTotals;
-  const delta =
-    p && p.utilizationPct !== null && t.utilizationPct !== null
-      ? t.utilizationPct - p.utilizationPct
-      : null;
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Analytics"
-        description={`${formatDate(data.from)} to ${formatDate(data.to)}, compared with the equivalent prior period.`}
+        description={`${formatDate(data.from)} to ${formatDate(data.to)}.`}
         actions={selector}
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          label="Utilization"
-          value={t.utilizationPct}
-          suffix="%"
-          tone={utilizationTone(t.utilizationPct)}
-          status={utilizationLabel(t.utilizationPct)}
-          emphasis
-          delta={delta !== null ? `${formatDelta(delta, "pt")} vs prior period` : undefined}
-          deltaTone={delta === null ? undefined : delta >= 0 ? "success" : "danger"}
-        />
-        <StatTile label="Recorded" value={t.productiveHours} suffix="hrs" />
+      {/*
+        Three tiles, and no headline percentage above them. Scoring a period
+        against configured capacity — recorded minutes over the working day —
+        runs past 100% on ordinary weeks and moves for reasons that have
+        nothing to do with students, so it is not a number a manager is given.
+        These are what this payload can state without qualification: every
+        minute that was recorded, in hours and minutes rather than a decimal,
+        and whether days were opened and closed.
+      */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatTile label="Recorded hours" value={formatHours(t.productiveHours)} />
         <StatTile
           label="Opening compliance"
           value={t.openingCompliancePct}

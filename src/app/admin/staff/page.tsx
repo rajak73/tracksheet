@@ -43,6 +43,7 @@ import {
 } from "@/app/_components/ui";
 import { ConfirmDialog, Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { CategoryPicker, type InstructorCategory } from "@/app/_components/CategoryPicker";
 import { formatDate } from "@/app/_lib/format";
 
 type Staff = {
@@ -56,7 +57,17 @@ type Staff = {
   universityName: string | null;
   employeeCode: string | null;
   instructorId: string | null;
+  /** What an instructor teaches. Null for managers, and for anyone unfiled. */
+  category: { code: string; label: string } | null;
+  managerId: string | null;
+  /** Null for an instructor. Zero is a real answer for a manager. */
+  rosterSize: number | null;
+  isPrimaryManager: boolean;
+  /** When they left, and why. Null while they still work here. */
+  leftOn: string | null;
+  leftReason: string | null;
 };
+
 
 type StaffResponse = {
   staff: Staff[];
@@ -106,14 +117,36 @@ export default function AdminStaffPage() {
     `admin-staff:${page}:${status}:${query}:${role}:${universityId}`,
   );
 
-  async function setActive(person: Staff, isActive: boolean) {
+  /* The vocabulary, fetched once. It is reference data rather than a tenant's,
+   * so it does not reload when the filters change. */
+  const categoriesLoad = useCallback(
+    () =>
+      apiGet<{ categories: InstructorCategory[] }>(
+        "/api/instructor-categories",
+        "Could not load the category list.",
+      ),
+    [],
+  );
+  const categories = useLoad(categoriesLoad, "instructor-categories");
+
+  async function setActive(
+    person: Staff,
+    isActive: boolean,
+    extra?: { reason?: string; successorManagerId?: string },
+  ) {
     try {
-      await apiSend(`/api/staff/${person.userId}`, "PATCH", { isActive }, "Could not update.");
+      await apiSend(
+        `/api/staff/${person.userId}`,
+        "PATCH",
+        { isActive, ...extra },
+        "Could not update.",
+      );
       toast("success", `${person.name} is now ${isActive ? "active" : "a former employee"}.`);
       setPending(null);
       reload();
     } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not update this employee.");
+      throw e;
     }
   }
 
@@ -206,6 +239,7 @@ export default function AdminStaffPage() {
                       columns={[
                         { label: "Employee" },
                         { label: "Employee ID" },
+                        { label: "Broad Category" },
                         { label: "Role" },
                         { label: "University" },
                         { label: "Status" },
@@ -231,6 +265,22 @@ export default function AdminStaffPage() {
                           </TD>
                           <TD>{s.employeeCode ?? "—"}</TD>
                           <TD>
+                            {/* Editable in place: it is one value per person and
+                                a dialog for one dropdown is a click nobody
+                                needs. Only instructors have one — a manager
+                                does not teach a stream. */}
+                            {s.instructorId ? (
+                              <CategoryPicker
+                                instructorId={s.instructorId}
+                                current={s.category?.code ?? ""}
+                                options={categories.data?.categories ?? []}
+                                onSaved={reload}
+                              />
+                            ) : (
+                              <span className="text-subtle">—</span>
+                            )}
+                          </TD>
+                          <TD>
                             <Badge tone={s.role === "MANAGER" ? "primary" : "neutral"}>
                               {s.role === "MANAGER" ? "Manager" : "Instructor"}
                             </Badge>
@@ -238,6 +288,19 @@ export default function AdminStaffPage() {
                           <TD>{s.universityName ?? "—"}</TD>
                           <TD>
                             <StatusPill status={s.isActive ? "ACTIVE" : "FORMER"} />
+                            {/* When and why, on the row itself. A leavers list
+                                that only says "Former" answers half the
+                                question anybody opens it to ask. */}
+                            {!s.isActive && s.leftOn ? (
+                              <span className="mt-1 block text-xs text-muted">
+                                Left {formatDate(s.leftOn)}
+                              </span>
+                            ) : null}
+                            {!s.isActive && s.leftReason ? (
+                              <span className="mt-0.5 block max-w-[14rem] text-xs text-subtle">
+                                {s.leftReason}
+                              </span>
+                            ) : null}
                           </TD>
                           <TD>{formatDate(s.createdAt)}</TD>
                           <TD align="right">
@@ -277,7 +340,16 @@ export default function AdminStaffPage() {
                           {s.isActive ? "Deactivate" : "Reactivate"}
                         </Button>
                       }
-                      trailing={<StatusPill status={s.isActive ? "ACTIVE" : "FORMER"} />}
+                      trailing={
+                        <div className="text-right">
+                          <StatusPill status={s.isActive ? "ACTIVE" : "FORMER"} />
+                          {!s.isActive && s.leftOn ? (
+                            <span className="mt-1 block text-xs text-muted">
+                              Left {formatDate(s.leftOn)}
+                            </span>
+                          ) : null}
+                        </div>
+                      }
                     />
                   ))}
                 </CardList>
@@ -294,21 +366,27 @@ export default function AdminStaffPage() {
         </Card>
       )}
 
-      {/* Deactivate / reactivate — the consequence is spelled out, because the
-          fear this dialog has to answer is "will I lose their data". */}
-      <ConfirmDialog
-        open={pending !== null}
-        onClose={() => setPending(null)}
-        onConfirm={() => pending && setActive(pending, !pending.isActive)}
-        title={pending?.isActive ? `Deactivate ${pending?.name}?` : `Reactivate ${pending?.name}?`}
-        confirmLabel={pending?.isActive ? "Deactivate" : "Reactivate"}
-        destructive={pending?.isActive ?? false}
-        description={
-          pending?.isActive
-            ? "They will no longer be able to sign in. Their recorded activity, deliverables, reports and tracker history are preserved in full and stay visible in historical reports, marked Former."
-            : "They will be able to sign in again and will reappear in current operational lists. Their historical records are unchanged."
-        }
-      />
+      {/* Reactivating is a one-line consequence, so it stays a confirm. Leaving
+          is not: it needs a reason, and for a manager it needs somewhere for
+          the roster to go. See `DepartureDialog`. */}
+      {pending && !pending.isActive ? (
+        <ConfirmDialog
+          open
+          onClose={() => setPending(null)}
+          onConfirm={() => setActive(pending, true)}
+          title={`Reactivate ${pending.name}?`}
+          confirmLabel="Reactivate"
+          description="They will be able to sign in again and will reappear in current operational lists. Their historical records are unchanged."
+        />
+      ) : null}
+
+      {pending?.isActive ? (
+        <DepartureDialog
+          person={pending}
+          onClose={() => setPending(null)}
+          onConfirm={(extra) => setActive(pending, false, extra)}
+        />
+      ) : null}
 
       <CreateStaffDialog
         open={creating}
@@ -474,6 +552,137 @@ function CreateStaffDialog({
             {formError}
           </p>
         ) : null}
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Processing someone's departure.
+ *
+ * ── Why this is not a confirm dialog ──────────────────────────────────────
+ * Reactivating is one sentence of consequence and a yes. Leaving is not. It has
+ * to capture WHY — a leavers list without reasons is a list of names — and, for
+ * a manager, it has to decide where their roster goes before the roster is left
+ * pointing at somebody who can no longer sign in.
+ *
+ * ── The successor question is asked, not discovered ───────────────────────
+ * The server refuses a manager's departure with 422 SUCCESSOR_REQUIRED when a
+ * roster is still attached, and that refusal is the real guard. But finding out
+ * only after pressing the button is a bad way to learn that six people are
+ * about to be orphaned, so the row already carries `rosterSize` and
+ * `isPrimaryManager` and the field appears before the mistake can be made.
+ */
+function DepartureDialog({
+  person,
+  onClose,
+  onConfirm,
+}: {
+  person: Staff;
+  onClose: () => void;
+  onConfirm: (extra: { reason?: string; successorManagerId?: string }) => Promise<void>;
+}) {
+  const [reason, setReason] = useState("");
+  const [successor, setSuccessor] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const needsSuccessor =
+    person.managerId !== null && ((person.rosterSize ?? 0) > 0 || person.isPrimaryManager);
+
+  const load = useCallback(() => {
+    if (!needsSuccessor || !person.universityId) {
+      return Promise.resolve({ managers: [] as Array<{ id: string; user: { name: string } }> });
+    }
+    return apiGet<{ managers: Array<{ id: string; user: { name: string } }> }>(
+      `/api/universities/${person.universityId}/managers`,
+      "Could not load the other managers.",
+    );
+  }, [needsSuccessor, person.universityId]);
+  const managers = useLoad(load, `handover:${person.userId}`);
+
+  // Never offer the person who is leaving as their own successor.
+  const candidates = (managers.data?.managers ?? []).filter((m) => m.id !== person.managerId);
+
+  async function submit() {
+    setSaving(true);
+    try {
+      await onConfirm({
+        reason: reason.trim() || undefined,
+        successorManagerId: needsSuccessor ? successor : undefined,
+      });
+    } catch {
+      // The toast is raised by the caller; the dialog stays open so the
+      // operator can correct whatever was refused rather than start again.
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Record ${person.name}'s departure`}
+      description="They will no longer be able to sign in, and every session they have open ends immediately. Nothing is deleted — their recorded activity, deliverables, reports and tracker history are kept in full and stay visible in historical reports, marked Former."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={submit}
+            disabled={saving || (needsSuccessor && !successor)}
+          >
+            {saving ? "Recording…" : "Record departure"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {needsSuccessor ? (
+          <Field
+            label="Who takes over their roster?"
+            required
+            hint={
+              person.isPrimaryManager && (person.rosterSize ?? 0) === 0
+                ? "They are this university's primary manager, so unassigned instructors answer to them."
+                : `${person.rosterSize} instructor${person.rosterSize === 1 ? "" : "s"} report to them today. Without a successor those records would belong to nobody.`
+            }
+          >
+            {managers.loading ? (
+              <p className="text-sm text-muted">Loading managers…</p>
+            ) : candidates.length === 0 ? (
+              <p className="text-sm text-danger-text">
+                There is no other manager in this university. Create one before recording this
+                departure.
+              </p>
+            ) : (
+              <Select value={successor} onChange={(e) => setSuccessor(e.target.value)}>
+                <option value="">Choose a manager…</option>
+                {candidates.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.user.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        ) : null}
+
+        <Field
+          label="Reason"
+          hint="Kept on their record and on the audit entry. Written by you — the system never guesses one."
+        >
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="Resigned, contract ended, transferred…"
+            className={inputClass}
+          />
+        </Field>
       </div>
     </Dialog>
   );

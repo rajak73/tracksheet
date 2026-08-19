@@ -9,6 +9,10 @@ import {
   ACTIVITY_TYPE_CODES,
   ACTIVITY_TYPE_COUNT,
   provisionActivityTypes,
+  DELIVERABLE_TYPES,
+  DELIVERABLE_TYPE_CODES,
+  DELIVERABLE_TYPE_COUNT,
+  ENTRY_CATEGORY_CODES,
 } from "../prisma/reference-data";
 
 /**
@@ -223,9 +227,66 @@ describe("one source of truth", () => {
     expect(seed).not.toContain('code: "DAILY_OPENING"');
   });
 
-  test("the canonical set is the 11 types the audit found", () => {
-    expect(ACTIVITY_TYPE_COUNT).toBe(11);
-    expect(ACTIVITY_TYPES).toHaveLength(11);
+  test("the canonical set is the eleven entry categories plus five system types", () => {
+    // A bare count is a weak guard — two changes that cancel out slip past it.
+    // Naming the set is what actually stops the taxonomy drifting, and it makes
+    // the two halves visible, which is the thing that matters here.
+    expect(ACTIVITY_TYPE_COUNT).toBe(16);
+    expect(ACTIVITY_TYPES).toHaveLength(16);
+
+    // The eleven an instructor's free text may be classified into (BRD §12).
+    expect([...ENTRY_CATEGORY_CODES].sort()).toEqual(
+      [
+        "ADMINISTRATIVE",
+        "ASSESSMENT",
+        "CONTENT_DEVELOPMENT",
+        "MEETING",
+        "MENTORING",
+        "OTHER",
+        "PRACTICAL_LAB",
+        "RESEARCH",
+        "STUDENT_SUPPORT",
+        "TEACHING",
+        "TRAINING_WORKSHOP",
+      ].sort(),
+    );
+
+    // The five that are NOT entry categories and must survive the BRD's list:
+    // opening and closing are derived from the university's working hours and
+    // carry opening/closing compliance, UNUTILIZED is computed idle time, and
+    // LEARNING and DELIVERABLE carry the deliverable-hours split every
+    // analytics surface reads. Dropping any of them would break a figure the
+    // free-text change never claimed to touch.
+    const system = ACTIVITY_TYPE_CODES.filter(
+      (c) => !(ENTRY_CATEGORY_CODES as readonly string[]).includes(c),
+    ).sort();
+    expect(system).toEqual(
+      ["DAILY_CLOSING", "DAILY_OPENING", "DELIVERABLE", "LEARNING", "UNUTILIZED"].sort(),
+    );
+  });
+
+  test("every deliverable belongs to an entry category, and none is orphaned", () => {
+    // The parser is only ever offered deliverables under the eleven, so one
+    // filed under a system type would be unreachable — and one pointing at a
+    // category that does not exist would fail at the foreign key, at import
+    // time, on a customer's database.
+    for (const deliverable of DELIVERABLE_TYPES) {
+      expect(
+        (ENTRY_CATEGORY_CODES as readonly string[]).includes(deliverable.activityTypeCode),
+        `${deliverable.code} -> ${deliverable.activityTypeCode}`,
+      ).toBe(true);
+    }
+    expect(DELIVERABLE_TYPE_COUNT).toBe(DELIVERABLE_TYPES.length);
+    // Codes are what the parser emits and the unique index enforces.
+    expect(new Set(DELIVERABLE_TYPE_CODES).size).toBe(DELIVERABLE_TYPE_COUNT);
+    // Every one of the eleven can be reached with at least one deliverable,
+    // or a category would be classifiable but unrecordable.
+    for (const category of ENTRY_CATEGORY_CODES) {
+      expect(
+        DELIVERABLE_TYPES.some((d) => d.activityTypeCode === category),
+        `${category} has no deliverable`,
+      ).toBe(true);
+    }
   });
 });
 

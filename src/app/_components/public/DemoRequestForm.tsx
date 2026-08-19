@@ -123,7 +123,7 @@ export function DemoRequestForm() {
       <div className="rounded-card border border-line bg-surface p-8">
         <h2 className="text-xl font-semibold text-content">Thanks — we&rsquo;ve got it.</h2>
         <p className="mt-3 text-base leading-relaxed text-muted">
-          Someone from the NEXTWAVE team will be in touch shortly to arrange your demo.
+          Someone from the NIAT team will be in touch shortly to set up your access.
         </p>
         <Button
           variant="secondary"
@@ -222,7 +222,7 @@ export function DemoRequestForm() {
         <div className="mt-6">
           <Alert tone="info" title="This form isn't connected yet">
             Your details passed validation, but demo requests aren&rsquo;t wired to a backend on
-            this deployment, so nothing was sent. Please reach out through your usual NEXTWAVE
+            this deployment, so nothing was sent. Please reach out through your usual NIAT
             contact in the meantime.
           </Alert>
         </div>
@@ -230,7 +230,7 @@ export function DemoRequestForm() {
 
       <div className="mt-7 flex flex-wrap items-center gap-4">
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Sending…" : "Request a Demo"}
+          {submitting ? "Sending…" : "Request access"}
         </Button>
         <p className="text-xs text-subtle">Required fields are marked with an asterisk.</p>
       </div>

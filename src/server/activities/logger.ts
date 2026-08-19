@@ -29,12 +29,29 @@ export type LogActivityInput = {
   /** Wall-clock in the university's zone: `date` YYYY-MM-DD, times HH:MM. */
   local?: { date: string; start: string; end: string };
   status?: ActivityStatus;
-  remarks?: string;
+  /** `null` clears one; absent leaves it as it stands. */
+  remarks?: string | null;
+  /** Which subject the entry was about. `null` is a real answer — no subject. */
+  broadCategoryId?: string | null;
   /**
    * Set when re-validating an EDIT. The overlap check skips this id so an
    * activity is never reported as conflicting with itself.
    */
   excludeActivityId?: string;
+
+  /* ── Free-text worklog provenance (Phase 12) ────────────────────────────
+   * Present only when this row came from a parsed bullet. Every rule above
+   * applies unchanged: a parsed activity is validated exactly as a typed one,
+   * because the source of a claim does not make it truer.
+   */
+  /** The bullet this was parsed from, exactly as written. Never rewritten. */
+  rawText?: string;
+  /** The submission the bullet belonged to. */
+  submissionId?: string;
+  /** The deliverable within the category, from the closed taxonomy. */
+  deliverableTypeId?: string | null;
+  /** How many of that deliverable this row accounts for. */
+  quantity?: number;
 };
 
 /** A single activity may not span more than one working day's worth of time. */
@@ -48,7 +65,17 @@ function minutesOf(hhmm: string): number {
   return h * 60 + m;
 }
 
-export async function logActivity(input: LogActivityInput) {
+/**
+ * Records an activity. Every rule below — timezone resolution, interval
+ * validity, once-per-day, overlap, the advisory lock — applies identically
+ * whether the row is being created or corrected, which is exactly why editing
+ * goes through this function rather than a second, quietly-diverging copy.
+ *
+ * `targetId` selects which: `null` inserts, an id updates that row in place.
+ * Updating in place keeps the record's identity, so its audit history and
+ * anything referencing it stay attached to the same activity.
+ */
+async function writeActivity(input: LogActivityInput, targetId: string | null) {
   if (!input.local && (!input.startTime || !input.endTime)) {
     throw new ApiError(
       400,
@@ -149,6 +176,9 @@ export async function logActivity(input: LogActivityInput) {
           instructorId: input.instructorId,
           workDate,
           activityTypeId: activityType.id,
+          // A row being corrected must not be reported as a duplicate of
+          // itself, the same reason the overlap check excludes it.
+          ...(targetId ? { id: { not: targetId } } : {}),
         },
         select: { id: true },
       });
@@ -198,18 +228,45 @@ export async function logActivity(input: LogActivityInput) {
       );
     }
 
-    return tx.activityLog.create({
-      data: {
-        instructorId: input.instructorId,
-        universityId: input.universityId,
-        activityTypeId: activityType.id,
-        workDate,
-        startTime,
-        endTime,
-        status: input.status ?? "COMPLETED",
-        remarks: input.remarks,
-        isOncePerDay: activityType.isOncePerDay,
-      },
-    });
+    const data = {
+      instructorId: input.instructorId,
+      universityId: input.universityId,
+      activityTypeId: activityType.id,
+      workDate,
+      startTime,
+      endTime,
+      status: input.status ?? "COMPLETED",
+      remarks: input.remarks,
+      isOncePerDay: activityType.isOncePerDay,
+      ...(input.rawText !== undefined ? { rawText: input.rawText } : {}),
+      ...(input.submissionId !== undefined ? { submissionId: input.submissionId } : {}),
+      ...(input.deliverableTypeId !== undefined
+        ? { deliverableTypeId: input.deliverableTypeId }
+        : {}),
+      ...(input.broadCategoryId !== undefined ? { broadCategoryId: input.broadCategoryId } : {}),
+      ...(input.quantity !== undefined ? { quantity: input.quantity } : {}),
+    };
+
+    return targetId
+      ? tx.activityLog.update({ where: { id: targetId }, data })
+      : tx.activityLog.create({ data });
   });
+}
+
+/** Records a new activity. */
+export async function logActivity(input: LogActivityInput) {
+  return writeActivity(input, null);
+}
+
+/**
+ * Corrects an existing activity in place.
+ *
+ * The id is excluded from the overlap and once-per-day checks automatically, so
+ * a caller cannot forget to and have an activity reported as conflicting with
+ * itself. Every other rule is unchanged: the same interval limits, the same
+ * timezone resolution, and the same advisory lock, so a correction cannot race
+ * a concurrent insert into an overlap either.
+ */
+export async function updateActivity(activityId: string, input: LogActivityInput) {
+  return writeActivity({ ...input, excludeActivityId: activityId }, activityId);
 }

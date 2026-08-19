@@ -38,10 +38,10 @@ const SOLUTIONS: MenuLink[] = [
 ];
 
 const RESOURCES: MenuLink[] = [
-  { href: "/resources", label: "Overview", description: "How NEXTWAVE is used day to day." },
+  { href: "/resources", label: "Overview", description: "How NIAT is used day to day." },
   { href: "/analytics", label: "Analytics", description: "Utilization, capacity and trends." },
   { href: "/security", label: "Security", description: "Access control and data isolation." },
-  { href: "/contact", label: "Contact", description: "Talk to the NEXTWAVE team." },
+  { href: "/contact", label: "Contact", description: "Talk to the NIAT team." },
 ];
 
 const DIRECT_LINKS: MenuLink[] = [
@@ -147,7 +147,7 @@ export function PublicNavbar() {
           >
             Login
           </Link>
-          <ButtonLink href="/contact">Request a Demo</ButtonLink>
+          <ButtonLink href="/contact">Request access</ButtonLink>
         </div>
 
         {/* Mobile trigger. */}
@@ -186,7 +186,7 @@ export function PublicNavbar() {
 
             <div className="flex flex-col gap-3 border-t border-line pt-6">
               <ButtonLink href="/contact" className="w-full justify-center">
-                Request a Demo
+                Request access
               </ButtonLink>
               <ButtonLink href="/login" variant="secondary" className="w-full justify-center">
                 Login

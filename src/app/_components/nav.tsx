@@ -15,15 +15,8 @@ import type { IconProps } from "@/app/_components/icons";
 import {
   IconActivity,
   IconAnalytics,
-  IconAudit,
-  IconCalendar,
-  IconDeliverable,
-  IconInsight,
-  IconLearning,
   IconOverview,
-  IconReport,
   IconSettings,
-  IconUniversity,
   IconUser,
   IconUsers,
 } from "@/app/_components/icons";
@@ -39,40 +32,72 @@ export type NavItem = {
 export type Role = "ADMIN" | "MANAGER" | "INSTRUCTOR";
 
 const ADMIN_NAV: NavItem[] = [
-  { href: "/admin/dashboard", label: "Overview", icon: IconOverview, group: "main" },
-  { href: "/admin/universities", label: "Universities", icon: IconUniversity, group: "main" },
-  { href: "/admin/staff", label: "Staff", icon: IconUsers, group: "main" },
+  // Four items. The admin's work is: see whether the institute is recording its
+  // day (Dashboard), operate on the people who own rosters (Managers) and the
+  // people on them (Instructors), and configure the tenant (Settings).
+  // Universities, Staff, Reports and Insights all still exist and are still
+  // reachable — from manager and university context, where they carry meaning —
+  // but none of them is a destination an admin starts from, and a sidebar that
+  // lists everything makes the ones that matter harder to find.
+  //
+  // Activity Tracker, Audit Logs and Analytics were removed outright rather
+  // than demoted: the raw entry list and the analytics page both restated what
+  // Dashboard and the university pages already show, in a vocabulary the rest
+  // of the product had moved off — Analytics was still leading with a
+  // utilization percentage over every recorded minute. The audit trail itself
+  // is untouched: thirty-two server paths still write it, and
+  // `GET /api/universities/[id]/audit` still serves it.
+  { href: "/admin/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
   { href: "/admin/managers", label: "Managers", icon: IconUsers, group: "main" },
+  // The instructor directory was reachable only by following a link from a
+  // manager's page, which meant the one screen where an instructor's Broad
+  // Category is set could not be found from the sidebar at all.
   { href: "/admin/instructors", label: "Instructors", icon: IconUser, group: "main" },
-  { href: "/admin/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
-  { href: "/admin/insights", label: "AI Insights", icon: IconInsight, group: "intelligence" },
-  { href: "/admin/reports", label: "Reports", icon: IconReport, group: "intelligence" },
-  { href: "/admin/audit", label: "Audit Logs", icon: IconAudit, group: "admin" },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, group: "admin" },
 ];
 
 const MANAGER_NAV: NavItem[] = [
-  { href: "/manager/dashboard", label: "Overview", icon: IconOverview, group: "main" },
-  { href: "/manager/instructors", label: "Instructors", icon: IconUsers, group: "main" },
-  { href: "/manager/schedule", label: "Schedule", icon: IconCalendar, group: "main" },
-  { href: "/manager/activities", label: "Workload", icon: IconActivity, group: "main" },
-  { href: "/manager/deliverables", label: "Deliverables", icon: IconDeliverable, group: "main" },
-  { href: "/manager/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
-  { href: "/manager/insights", label: "AI Insights", icon: IconInsight, group: "intelligence" },
-  { href: "/manager/tracker", label: "Weekly Tracker", icon: IconReport, group: "intelligence" },
-  { href: "/manager/reports", label: "Reports", icon: IconReport, group: "intelligence" },
-  { href: "/manager/settings", label: "Settings", icon: IconSettings, group: "admin" },
+  // Two items. A manager's job is one team, not a tenant: how is my roster
+  // doing, and what did they record.
+  //
+  // Worklog replaces Activity Tracker as the third item. They are not the same
+  // screen: the tracker SEARCHES the log, which is what you do when you already
+  // know what you are looking for. Worklog answers the question a manager
+  // actually opens the product with — "who has not submitted?" — so it is the
+  // one that belongs in the sidebar. The tracker still exists and is linked
+  // from Worklog itself.
+  //
+  // Settings, Audit Logs and Instructors were dropped from the sidebar. A
+  // manager configures nothing (the tenant's hours, holidays and thresholds are
+  // the admin's), the audit trail is a compliance surface rather than a daily
+  // one, and the roster is already on both remaining screens — the dashboard
+  // lists every instructor's day and the worklog lists their recorded work, so
+  // a third page whose answer is "here are their names" was a detour.
+  //
+  // Every PAGE and every authorisation rule is untouched: they remain reachable
+  // by URL for anyone who needs them. This removes permanent distractions, not
+  // capabilities. The account controls a manager does use (profile, change
+  // password, sign out) live in the identity menu at the foot of the sidebar,
+  // which is where the reference design puts them too.
+  { href: "/manager/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
+  { href: "/manager/worklog", label: "Worklog", icon: IconActivity, group: "main" },
 ];
 
 const INSTRUCTOR_NAV: NavItem[] = [
-  { href: "/instructor/dashboard", label: "Today", icon: IconOverview, group: "main" },
-  { href: "/instructor/schedule", label: "Schedule", icon: IconCalendar, group: "main" },
-  { href: "/instructor/activities", label: "Activities", icon: IconActivity, group: "main" },
-  { href: "/instructor/learning", label: "Learning", icon: IconLearning, group: "main" },
-  { href: "/instructor/deliverables", label: "Deliverables", icon: IconDeliverable, group: "main" },
-  { href: "/instructor/report", label: "My Report", icon: IconReport, group: "intelligence" },
-  { href: "/instructor/analytics", label: "Analytics", icon: IconAnalytics, group: "intelligence" },
-  { href: "/instructor/profile", label: "Profile", icon: IconUser, group: "admin" },
+  // Four items. An instructor's day is: where do I stand, log what I did, how
+  // am I doing, and my own details. Schedule, Learning, Deliverables, Report
+  // and Analytics all still exist and still work — they are reached from the
+  // dashboard and the tracker, in context — but a person logging an hour of
+  // work should not have to choose between eight destinations first.
+  { href: "/instructor/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
+  {
+    href: "/instructor/activity-tracker",
+    label: "Activity Tracker",
+    icon: IconActivity,
+    group: "main",
+  },
+  { href: "/instructor/performance", label: "My Performance", icon: IconAnalytics, group: "main" },
+  { href: "/instructor/settings", label: "Settings", icon: IconSettings, group: "admin" },
 ];
 
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {

@@ -30,16 +30,22 @@ import { Card, CardHeader, EmptyState } from "@/app/_components/ui";
  * rather than getting a generated colour, which keeps the palette closed.
  */
 const CATEGORY_VAR: Record<string, string> = {
+  // Listed in the order the palette was validated in — see globals.css.
   TEACHING: "--cat-teaching",
-  LEARNING: "--cat-learning",
-  MEETING: "--cat-meeting",
-  ADMINISTRATIVE: "--cat-admin",
+  PRACTICAL_LAB: "--cat-practical-lab",
+  MENTORING: "--cat-mentoring",
+  ASSESSMENT: "--cat-assessment",
   STUDENT_SUPPORT: "--cat-support",
-  DELIVERABLE: "--cat-deliverable",
   RESEARCH: "--cat-research",
+  CONTENT_DEVELOPMENT: "--cat-content",
+  MEETING: "--cat-meeting",
+  TRAINING_WORKSHOP: "--cat-training",
+  ADMINISTRATIVE: "--cat-admin",
+  LEARNING: "--cat-learning",
+  DELIVERABLE: "--cat-deliverable",
+  OTHER: "--cat-other",
   DAILY_OPENING: "--cat-opening",
   DAILY_CLOSING: "--cat-closing",
-  OTHER: "--cat-other",
   UNUTILIZED: "--cat-unutilized",
 };
 

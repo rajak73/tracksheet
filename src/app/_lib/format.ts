@@ -13,6 +13,35 @@
  * 09:00 to everyone who cares about it.
  */
 
+/**
+ * A date-only string, in whatever shape the caller asks for.
+ *
+ * ── Why the locale is pinned, and why that is not a detail ────────────────
+ * `toLocaleDateString(undefined, …)` resolves to the SERVER's locale while the
+ * HTML is rendered and to the READER's once React takes over. When those differ
+ * — "Tuesday, 18 August 2026" against "Tuesday, August 18, 2026" — React throws
+ * the whole subtree away and rebuilds it, and reports it as a hydration error.
+ * It is a real bug rather than a cosmetic one, and it is invisible to anyone
+ * whose machine happens to share the server's locale, which is why it kept
+ * being reintroduced one page at a time.
+ *
+ * So there is one date formatter, and it is this one. `en-GB` matches every
+ * other format in this file; UTC is correct because a `YYYY-MM-DD` here is
+ * already the university's own calendar day, not an instant to be re-projected.
+ */
+export function formatDayAs(iso: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...opts }).format(
+    new Date(`${iso}T00:00:00.000Z`),
+  );
+}
+
+/** `2026-08-18` → `Tuesday, 18 August 2026`. */
+export const formatDayLong = (iso: string) =>
+  formatDayAs(iso, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+/** `2026-08-18` → `18 Aug`. */
+export const formatDayShort = (iso: string) => formatDayAs(iso, { day: "numeric", month: "short" });
+
 /** `2026-10-05` → `5 Oct 2026`. Accepts a date-only string or a full ISO instant. */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
@@ -86,9 +115,25 @@ export function formatMinuteOfDay(minutes: number): string {
  * measurement, and it renders as an em dash so it can never be misread as a
  * quantity.
  */
+/**
+ * Hours, written the way people say them: `1h 30m`, never `1.5h`.
+ *
+ * ── One shape, because there were two ─────────────────────────────────────
+ * This produced a decimal while `formatDuration` produced hours and minutes,
+ * so the same quantity read `1.5h` on one screen and `01h 30m` on the next —
+ * and a reader comparing them has to do the conversion in their head to know
+ * they are the same number. Decimal hours are also quietly hostile: `0.42h` is
+ * a real duration nobody can picture, and rounding it to one place turns 25
+ * minutes into `0.4h`, which is 24.
+ *
+ * Minutes are rounded once, from the total, so a column of these adds up.
+ */
 export function formatHours(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}h`;
+  const total = Math.round(value * 60);
+  const sign = total < 0 ? "-" : "";
+  const abs = Math.abs(total);
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}h ${String(abs % 60).padStart(2, "0")}m`;
 }
 
 export function formatPct(value: number | null | undefined): string {

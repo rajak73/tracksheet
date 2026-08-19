@@ -42,3 +42,13 @@ next-env.d.ts
 
 # keep the example committed
 !.env.example
+
+# Service-account keys and anything else credential-shaped.
+#
+# `.env*` above already covers the env file, but a Google service-account key is
+# a JSON file with a private key inside it — a different shape, and one that a
+# `git add .` would happily stage. Ignored by directory AND by name, so moving
+# the file does not quietly un-protect it.
+secrets/
+*service-account*.json
+*credentials*.json

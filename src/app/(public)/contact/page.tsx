@@ -4,9 +4,9 @@ import { Band, SectionHeading } from "@/app/_components/public/marketing";
 import { DemoRequestForm } from "@/app/_components/public/DemoRequestForm";
 
 export const metadata: Metadata = {
-  title: "Request a Demo | NEXTWAVE",
+  title: "Request access | NIAT",
   description:
-    "Walk through NEXTWAVE with our team and see how it maps to how your universities actually operate.",
+    "Request access to the NIAT academic workforce platform, or ask the team how a figure on it is worked out.",
   alternates: { canonical: "/contact" },
 };
 
@@ -17,20 +17,20 @@ export default function ContactPage() {
         <div className="lg:col-span-5">
           <SectionHeading
             as="h1"
-            eyebrow="Request a demo"
-            title="See NEXTWAVE with your own questions."
-            lede="Tell us how your institutions operate and what you're trying to understand about your workforce. We'll walk through the parts of the platform that answer it."
+            eyebrow="Request access"
+            title="Get access to the platform."
+            lede="Tell us which university you teach or manage at and what you need to see. The NIAT team will set up your access — or answer the question directly, if that is faster."
           />
 
           <dl className="mt-10 space-y-6">
             {[
               [
-                "A working session, not a slide deck",
-                "We'll use the real product and the operational questions you bring.",
+                "Access is scoped to your role",
+                "An instructor records their own day; a manager reads their roster. Say which you are.",
               ],
               [
-                "Whoever needs to be there",
-                "Academic leadership, operations, and IT are all welcome on the same call.",
+                "One university at a time",
+                "Access is granted against a specific university, so name the campus you work at.",
               ],
               [
                 "Straight answers on security",

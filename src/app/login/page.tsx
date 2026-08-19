@@ -76,7 +76,7 @@ export default function LoginPage() {
             <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
           </svg>
           <span className="font-display text-base font-semibold tracking-tight text-white">
-            NEXTWAVE
+            NIAT
           </span>
         </div>
 
@@ -104,7 +104,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-xs text-sidebar-text-muted">
-          © {new Date().getFullYear()} NEXTWAVE
+          © {new Date().getFullYear()} NIAT
         </p>
       </aside>
 
@@ -120,7 +120,7 @@ export default function LoginPage() {
               <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
             </svg>
             <span className="font-display text-base font-semibold tracking-tight text-content">
-              NEXTWAVE
+              NIAT
             </span>
           </div>
 

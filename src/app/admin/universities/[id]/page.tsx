@@ -6,7 +6,6 @@
 
 import { use, useCallback } from "react";
 import {
-  Badge,
   Breadcrumb,
   ButtonLink,
   Card,
@@ -14,7 +13,6 @@ import {
   CardListItem,
   EmptyState,
   ErrorState,
-  Meter,
   PageHeader,
   Section,
   Skeleton,
@@ -27,18 +25,20 @@ import {
   TR,
   complianceLabel,
   complianceTone,
-  utilizationLabel,
-  utilizationTone,
 } from "@/app/_components/ui";
 import { StaffForm } from "@/app/_components/StaffForm";
+import { ManagerTable } from "@/app/_components/ManagerTable";
 import { apiGet, useLoad } from "@/app/_lib/api";
-import { formatDate } from "@/app/_lib/format";
+import { formatDate, formatHours } from "@/app/_lib/format";
 
 type Manager = {
   id: string;
   employeeCode: string | null;
   isPrimary: boolean;
+  /** This manager's OWN roster size, not the university total. */
   instructorCount: number;
+  currentWeekWorkingHours: number;
+  currentWeekDeliverables: number;
   user: { name: string; email: string; isActive: boolean };
 };
 type InstructorRow = {
@@ -49,12 +49,10 @@ type InstructorRow = {
   productiveHours: number;
   unutilizedHours: number;
   missingDataHours: number;
-  utilizationPct: number | null;
 };
 type Totals = {
   capacityHours: number;
   productiveHours: number;
-  utilizationPct: number | null;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
 };
@@ -64,7 +62,12 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
 
   const load = useCallback(async () => {
     const [managers, analytics] = await Promise.all([
-      apiGet<{ managers: Manager[]; universityName: string }>(
+      apiGet<{
+        managers: Manager[];
+        universityName: string;
+        universityCode: string | null;
+        unassignedInstructors: number;
+      }>(
         `/api/universities/${id}/managers`,
         "Could not load managers.",
       ),
@@ -73,7 +76,13 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
         "Could not load workload for this university.",
       ).catch(() => null),
     ]);
-    return { managers: managers.managers, name: managers.universityName ?? "", analytics: analytics?.analytics ?? null };
+    return {
+      managers: managers.managers,
+      name: managers.universityName ?? "",
+      code: managers.universityCode ?? null,
+      unassignedInstructors: managers.unassignedInstructors ?? 0,
+      analytics: analytics?.analytics ?? null,
+    };
   }, [id]);
 
   const { data, error, loading, reload } = useLoad(load, id);
@@ -99,9 +108,17 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
   return (
     <div className="space-y-8">
       <PageHeader
-        title={data.name}
+        title={data.code ? `${data.name} (${data.code})` : data.name}
         description={analytics ? `${formatDate(analytics.from)} to ${formatDate(analytics.to)}` : undefined}
-        breadcrumb={<Breadcrumb items={[{ label: "Universities", href: "/admin/universities" }, { label: data.name }]} />}
+        breadcrumb={
+          <Breadcrumb
+            items={[
+              { label: "Universities", href: "/admin/universities" },
+              { label: data.name },
+              { label: "Managers" },
+            ]}
+          />
+        }
         actions={
           <ButtonLink href={`/admin/universities/${id}/tracker`} variant="secondary">
             Weekly tracker
@@ -109,17 +126,18 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
         }
       />
 
-      {/* Health summary. */}
+      {/* Health summary: headcount and whether the day was opened and closed.
+          The tile that used to lead this row was Utilization — minutes
+          recorded against the configured working day — and it answered a
+          question nobody here is asking. A week of internal meetings scored
+          exactly like a week of teaching, and the figure ran past 100% often
+          enough that reading it as health was a mistake. The one hours figure
+          this product stands behind is Working Hours, time spent with
+          students, and the analytics endpoint behind this page does not
+          separate it out. So the page shows what it can state honestly and
+          leaves the hours to the weekly tracker, which does. */}
       {analytics ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            label="Utilization"
-            value={analytics.totals.utilizationPct}
-            suffix="%"
-            tone={utilizationTone(analytics.totals.utilizationPct)}
-            status={utilizationLabel(analytics.totals.utilizationPct)}
-            emphasis
-          />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatTile label="Instructors" value={analytics.instructors.length} />
           <StatTile
             label="Opening compliance"
@@ -138,10 +156,13 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
         </div>
       ) : null}
 
-      {/* Manager. */}
-      <Section title="Manager">
-        <Card>
-          {data.managers.length === 0 ? (
+      {/* Managers — the drill-down step. Each row leads to that manager's own
+          roster and weekly report, which is the level the hierarchy was
+          missing: a university's people belong to a specific manager, not to
+          the university at large. */}
+      <Section title={`Managers (${data.managers.length})`}>
+        {data.managers.length === 0 ? (
+          <Card>
             <div className="p-5">
               <p className="mb-4 text-sm text-muted">
                 No manager assigned. The first manager created becomes the primary manager.
@@ -152,28 +173,14 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
                 onCreated={reload}
               />
             </div>
-          ) : (
-            <CardList>
-              {data.managers.map((m) => (
-                <CardListItem
-                  key={m.id}
-                  title={
-                    <>
-                      {m.user.name}
-                      {m.isPrimary ? (
-                        <span className="ml-2">
-                          <Badge tone="primary">Primary</Badge>
-                        </span>
-                      ) : null}
-                    </>
-                  }
-                  subtitle={m.user.email}
-                  trailing={<span className="text-sm text-muted">{m.instructorCount} instructor(s)</span>}
-                />
-              ))}
-            </CardList>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <ManagerTable
+            managers={data.managers}
+            unassignedInstructors={data.unassignedInstructors}
+            universityId={id}
+          />
+        )}
       </Section>
 
       {/* Instructor overview. */}
@@ -186,6 +193,15 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
             />
           ) : (
             <>
+              {/* What the period expected, what was actually written down, and
+                  where nothing was written at all. That is a coverage view,
+                  and it is all these three columns ever were: the utilization
+                  meter that used to close each row divided the second figure
+                  by the first and presented the result as performance, which
+                  it never was — a full calendar of meetings and a full
+                  calendar of classes came out the same. Hours read as
+                  `08h 30m` rather than `8.5`, because a column of decimal
+                  hours is one nobody can add up while looking at it. */}
               <div className="hidden md:block">
                 <TableWrap>
                   <Table caption="Instructors at this university">
@@ -195,7 +211,6 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
                         { label: "Capacity", align: "right" },
                         { label: "Recorded", align: "right" },
                         { label: "No records", align: "right" },
-                        { label: "Utilization" },
                       ]}
                     />
                     <TBody>
@@ -209,17 +224,16 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
                               {i.instructorName}
                             </a>
                           </TD>
-                          <TD align="right">{i.capacityHours}</TD>
-                          <TD align="right">{i.productiveHours}</TD>
                           <TD align="right">
-                            {i.missingDataHours > 0 ? (
-                              <span className="text-warning">{i.missingDataHours}</span>
-                            ) : (
-                              0
-                            )}
+                            <span className="tabular">{formatHours(i.capacityHours)}</span>
                           </TD>
-                          <TD>
-                            <Meter value={i.utilizationPct} tone={utilizationTone(i.utilizationPct)} />
+                          <TD align="right">
+                            <span className="tabular">{formatHours(i.productiveHours)}</span>
+                          </TD>
+                          <TD align="right">
+                            <span className={i.missingDataHours > 0 ? "tabular text-warning" : "tabular"}>
+                              {formatHours(i.missingDataHours)}
+                            </span>
                           </TD>
                         </TR>
                       ))}
@@ -227,6 +241,8 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
                   </Table>
                 </TableWrap>
               </div>
+              {/* Mobile carries the same three figures rather than a summary of
+                  them, so the two layouts cannot tell different stories. */}
               <div className="md:hidden">
                 <CardList>
                   {analytics.instructors.map((i) => (
@@ -234,7 +250,16 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
                       key={i.instructorId}
                       href={`/admin/instructors/${i.instructorId}`}
                       title={i.instructorName}
-                      meta={<Meter value={i.utilizationPct} tone={utilizationTone(i.utilizationPct)} />}
+                      subtitle={`${formatHours(i.productiveHours)} recorded of ${formatHours(
+                        i.capacityHours,
+                      )} capacity`}
+                      trailing={
+                        i.missingDataHours > 0 ? (
+                          <span className="tabular text-sm text-warning">
+                            {formatHours(i.missingDataHours)} no records
+                          </span>
+                        ) : null
+                      }
                     />
                   ))}
                 </CardList>

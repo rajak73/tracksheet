@@ -128,8 +128,10 @@ exports.Prisma.UserScalarFieldEnum = {
   role: 'role',
   isActive: 'isActive',
   phone: 'phone',
+  avatarUrl: 'avatarUrl',
   lastLoginAt: 'lastLoginAt',
   deletedAt: 'deletedAt',
+  leftReason: 'leftReason',
   universityId: 'universityId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -181,10 +183,32 @@ exports.Prisma.ManagerScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.WorklogDayNoteScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  workDate: 'workDate',
+  note: 'note',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.InstructorCategoryScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  label: 'label',
+  sortOrder: 'sortOrder',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.InstructorScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   universityId: 'universityId',
+  categoryId: 'categoryId',
+  managerId: 'managerId',
   employeeCode: 'employeeCode',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -244,6 +268,11 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   deliverableId: 'deliverableId',
   createdById: 'createdById',
   isOncePerDay: 'isOncePerDay',
+  rawText: 'rawText',
+  submissionId: 'submissionId',
+  broadCategoryId: 'broadCategoryId',
+  deliverableTypeId: 'deliverableTypeId',
+  quantity: 'quantity',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -545,6 +574,65 @@ exports.Prisma.MetricsJobRunScalarFieldEnum = {
   durationMs: 'durationMs'
 };
 
+exports.Prisma.ImportJobScalarFieldEnum = {
+  id: 'id',
+  createdById: 'createdById',
+  sourceType: 'sourceType',
+  fileName: 'fileName',
+  fileSize: 'fileSize',
+  checksum: 'checksum',
+  status: 'status',
+  mapping: 'mapping',
+  rows: 'rows',
+  rowCount: 'rowCount',
+  processedRows: 'processedRows',
+  errors: 'errors',
+  warnings: 'warnings',
+  summary: 'summary',
+  extractionConfidence: 'extractionConfidence',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DeliverableTypeScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  label: 'label',
+  activityTypeId: 'activityTypeId',
+  sortOrder: 'sortOrder',
+  isActive: 'isActive',
+  isCountable: 'isCountable',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.WorklogSubmissionScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  workDate: 'workDate',
+  rawBullets: 'rawBullets',
+  status: 'status',
+  parseError: 'parseError',
+  rejections: 'rejections',
+  submittedAt: 'submittedAt',
+  parsedAt: 'parsedAt',
+  supersededAt: 'supersededAt',
+  reviewedAt: 'reviewedAt',
+  escalatedAt: 'escalatedAt',
+  needsReview: 'needsReview',
+  approval: 'approval',
+  exceptionReason: 'exceptionReason',
+  decidedById: 'decidedById',
+  decidedAt: 'decidedAt',
+  decisionNote: 'decisionNote',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -681,12 +769,48 @@ exports.MetricsJobStatus = exports.$Enums.MetricsJobStatus = {
   FAILED: 'FAILED'
 };
 
+exports.ImportSourceType = exports.$Enums.ImportSourceType = {
+  CSV: 'CSV',
+  PDF: 'PDF'
+};
+
+exports.ImportStatus = exports.$Enums.ImportStatus = {
+  UPLOADED: 'UPLOADED',
+  MAPPED: 'MAPPED',
+  VALIDATED: 'VALIDATED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  COMPLETED_WITH_WARNINGS: 'COMPLETED_WITH_WARNINGS',
+  FAILED: 'FAILED'
+};
+
+exports.WorklogParseStatus = exports.$Enums.WorklogParseStatus = {
+  PENDING: 'PENDING',
+  PARSED: 'PARSED',
+  FAILED: 'FAILED'
+};
+
+exports.WorklogApproval = exports.$Enums.WorklogApproval = {
+  NOT_REQUIRED: 'NOT_REQUIRED',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED'
+};
+
+exports.WorklogExceptionReason = exports.$Enums.WorklogExceptionReason = {
+  SUBMITTED_OFF_HOURS: 'SUBMITTED_OFF_HOURS',
+  ACTIVITY_OFF_HOURS: 'ACTIVITY_OFF_HOURS',
+  BOTH: 'BOTH'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   University: 'University',
   UniversityWorkingHours: 'UniversityWorkingHours',
   UniversityHoliday: 'UniversityHoliday',
   Manager: 'Manager',
+  WorklogDayNote: 'WorklogDayNote',
+  InstructorCategory: 'InstructorCategory',
   Instructor: 'Instructor',
   ActivityType: 'ActivityType',
   LeaveRequest: 'LeaveRequest',
@@ -712,7 +836,10 @@ exports.Prisma.ModelName = {
   InstructorWeeklyMetric: 'InstructorWeeklyMetric',
   UniversityDailyMetric: 'UniversityDailyMetric',
   ReportJob: 'ReportJob',
-  MetricsJobRun: 'MetricsJobRun'
+  MetricsJobRun: 'MetricsJobRun',
+  ImportJob: 'ImportJob',
+  DeliverableType: 'DeliverableType',
+  WorklogSubmission: 'WorklogSubmission'
 };
 
 /**

@@ -56,7 +56,7 @@ export function SolutionPage({ content }: { content: SolutionContent }) {
               ))}
             </ul>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/contact">Request a Demo</ButtonLink>
+              <ButtonLink href="/contact">Request access</ButtonLink>
               <ButtonLink href="/platform" variant="secondary">
                 Explore Platform →
               </ButtonLink>
@@ -105,9 +105,9 @@ export function SolutionPage({ content }: { content: SolutionContent }) {
 
       <CTABand
         title="See it against your own data."
-        lede="Walk through the platform with our team using the questions your institution actually needs answered."
+        lede="Ask the NIAT team the question your campus actually needs answered, and see where the platform answers it."
       >
-        <ButtonLink href="/contact">Request a Demo</ButtonLink>
+        <ButtonLink href="/contact">Request access</ButtonLink>
         <ButtonLink
           href="/login"
           variant="secondary"

@@ -3,7 +3,7 @@ import { AdminPreview } from "@/app/_components/public/DashboardPreview";
 import { SolutionPage, type SolutionContent } from "@/app/_components/public/SolutionPage";
 
 export const metadata: Metadata = {
-  title: "For Universities | NEXTWAVE",
+  title: "For Universities | NIAT",
   description:
     "Monitor universities, managers, instructors and operational performance across your whole network from one centralized view.",
   alternates: { canonical: "/solutions/universities" },
@@ -14,7 +14,7 @@ const CONTENT: SolutionContent = {
   title: "See the bigger picture.",
   lede: "Monitor universities, managers, instructors and operational performance from one centralized command center — with each institution keeping its own configuration.",
   preview: AdminPreview,
-  previewLabel: "NEXTWAVE — Admin Overview",
+  previewLabel: "NIAT — Admin Overview",
   capabilities: [
     "Multi-university visibility from one platform",
     "Compare utilization and compliance across institutions",

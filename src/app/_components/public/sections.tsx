@@ -197,9 +197,9 @@ export function UniversityNetwork() {
           <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
         </svg>
         <span className="font-display text-sm font-semibold tracking-tight text-white">
-          NEXTWAVE
+          NIAT
         </span>
-        <span className="text-xs text-sidebar-text-muted">Organization</span>
+        <span className="text-xs text-sidebar-text-muted">Institute</span>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -222,7 +222,7 @@ export function UniversityNetwork() {
 
       <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-6 sm:grid-cols-4">
         {[
-          ["One organization", "A single NEXTWAVE tenant."],
+          ["One institute", "A single NIAT tenant."],
           ["Multiple universities", "Each with its own configuration."],
           ["Centralized visibility", "Compare performance across the network."],
           ["Scoped access", "Each role sees only what it should."],

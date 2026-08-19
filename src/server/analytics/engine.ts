@@ -221,6 +221,13 @@ export type AnalyticsQuery = {
    * it; operational dashboards must not.
    */
   includeInactive?: boolean;
+  /**
+   * Restrict to one manager's roster. `undefined` means "no manager filter"
+   * (every instructor in the university); `null` means "those with no manager",
+   * which is how an admin reviews who still needs assigning. The distinction
+   * matters, so this is deliberately not a plain optional string.
+   */
+  managerId?: string | null;
 };
 
 function trendPoint(current: number | null, previous: number | null): TrendPoint {
@@ -336,6 +343,11 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       universityId,
       ...(query.instructorId ? { id: query.instructorId } : {}),
       ...(query.includeInactive ? {} : { user: { isActive: true } }),
+      // `undefined` leaves the roster unfiltered; `null` selects the
+      // unassigned. `"managerId" in query` distinguishes the two — a plain
+      // truthiness test would silently turn "show me the unassigned" into
+      // "show me everyone".
+      ...("managerId" in query ? { managerId: query.managerId } : {}),
     },
     select: {
       id: true,
@@ -395,6 +407,10 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         universityId,
         deletedAt: null,
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
+        // Must track the instructor filter above, or a manager-scoped call
+        // would report their own hours against the whole university's
+        // deliverables.
+        ...("managerId" in query ? { instructor: { managerId: query.managerId } } : {}),
       },
       select: {
         id: true,

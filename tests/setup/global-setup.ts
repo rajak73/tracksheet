@@ -52,6 +52,16 @@ export async function setup() {
       ...process.env,
       DATABASE_URL,
       DISABLE_ROLLUP_SCHEDULER: "1",
+      // No provider, deliberately. With a real GEMINI_API_KEY in .env the server
+      // makes real calls to Google during the suite, and those are neither fast
+      // nor reliable: a 503 under load took 35 seconds and a cold call 41, which
+      // blocked the server long enough to time out every test in whichever file
+      // happened to be running. A test suite must not depend on a third party
+      // being up. The AI paths are exercised against a FAKE provider that speaks
+      // the real protocol (tests/phase10-gemini, ai-narration-integration,
+      // ai-assistant, bulk-import-pdf), and the real provider is verified
+      // separately — see `npm run ai:sample`.
+      GEMINI_API_KEY: "",
       // Every test logs in from 127.0.0.1, so the shared per-IP ceiling has to
       // be raised or the suite throttles itself. The per-account limit stays
       // low enough that one test can trip it with a throwaway address, so the

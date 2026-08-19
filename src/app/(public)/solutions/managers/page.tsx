@@ -3,7 +3,7 @@ import { ManagerPreview } from "@/app/_components/public/DashboardPreview";
 import { SolutionPage, type SolutionContent } from "@/app/_components/public/SolutionPage";
 
 export const metadata: Metadata = {
-  title: "For Managers | NEXTWAVE",
+  title: "For Managers | NIAT",
   description:
     "Understand instructor workload, schedules, deliverables and operational risks inside your university.",
   alternates: { canonical: "/solutions/managers" },
@@ -14,7 +14,7 @@ const CONTENT: SolutionContent = {
   title: "Turn workforce data into action.",
   lede: "Understand instructor workload, schedules, deliverables and operational risks inside your university — and see who needs attention first.",
   preview: ManagerPreview,
-  previewLabel: "NEXTWAVE — Manager Dashboard",
+  previewLabel: "NIAT — Manager Dashboard",
   capabilities: [
     "Workforce visibility across your university",
     "Instructor workload and utilization",

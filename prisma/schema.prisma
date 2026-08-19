@@ -38,9 +38,30 @@ model User {
   isActive     Boolean @default(true)
 
   phone       String?
+  /// The user's own profile picture, held as a size-capped `data:` URI.
+  ///
+  /// A column rather than a file because this application has no object storage
+  /// and deliberately writes no uploads to disk — the bulk importer drops the
+  /// files it reads for the same reason. An avatar is small and is read only by
+  /// the profile endpoints, never by session validation, so the cost stays where
+  /// it belongs. The endpoint enforces the image type and the size cap; nothing
+  /// else in the application writes this field.
+  avatarUrl   String?
   lastLoginAt DateTime?
-  /// Soft delete: an instructor leaving must not erase their recorded work.
+
+  /// When this person left. Soft delete: someone leaving must not erase their
+  /// recorded work. Set together with `isActive: false`, cleared if they are
+  /// ever reinstated.
+  ///
+  /// `isActive` alone answered "can they sign in", which is the security
+  /// question, and left the OPERATIONAL one — who left, and when — recoverable
+  /// only by reading the audit log. A company keeps a leavers list; this is the
+  /// column that makes one queryable.
   deletedAt   DateTime?
+
+  /// Why they left, in the operator's own words. Never a credential, and never
+  /// a judgement the system invented — it is typed by whoever processes the exit.
+  leftReason  String?
 
   universityId String?
   university   University? @relation("UniversityUsers", fields: [universityId], references: [id], onDelete: Restrict)
@@ -54,6 +75,8 @@ model User {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   reportJobs ReportJob[]
+  importJobs ImportJob[] @relation("ImportJobCreatedBy")
+  worklogDecisions WorklogSubmission[] @relation("WorklogDecidedBy")
 
   /// Records this user authored on someone else's behalf (§14 created_by).
   activityLogsCreated ActivityLog[] @relation("ActivityCreatedBy")
@@ -64,6 +87,8 @@ model User {
   // than its own user account.
   @@unique([id, universityId])
   @@index([universityId])
+  /// The leavers list is a filter on this, so it should not be a table scan.
+  @@index([deletedAt])
 }
 
 model University {
@@ -113,6 +138,7 @@ model University {
   deliverables  Deliverable[]
   aiInsights    AiInsight[]
   auditLogs     AuditLog[]
+  worklogSubmissions WorklogSubmission[]
 
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
@@ -183,11 +209,95 @@ model Manager {
   updatedAt    DateTime    @updatedAt
   aiInsights   AiInsight[]
 
+  /// The instructors this manager leads. A manager owns a roster, not the whole
+  /// university: two managers in one tenant have different people reporting to
+  /// them, which is the distinction the university-level scope cannot express.
+  instructors Instructor[] @relation("ManagerInstructors")
+
   // Required by Prisma for the composite FK above; userId alone is already
   // unique, so this adds no new business constraint.
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
+  // Target for Instructor's composite (managerId, universityId) FK. `id` is
+  // already the primary key, so this adds no business constraint either — it
+  // exists so the database can enforce that a manager and the instructors
+  // reporting to them are always in the same university.
+  @@unique([id, universityId])
   @@index([universityId])
+}
+
+/// The instructor's own note about a day: "all planned sessions completed",
+/// "lab ran short, two students to follow up".
+///
+/// ── Why this is not the activity remarks joined together ──────────────────
+/// Those are read out of the sentences and describe individual entries — a
+/// topic, a batch, a unit. This is a judgement about the DAY as a whole, and
+/// only the person who lived it can make it. The client's report has a column
+/// for exactly this, and filling it by concatenating topics would put "binary
+/// trees, section A" where "all planned sessions completed" belongs.
+///
+/// One per instructor per day, so writing it again is a correction rather than
+/// a second opinion.
+model WorklogDayNote {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  universityId String
+  /// The day being described, in the university's zone.
+  workDate DateTime @db.Date
+
+  note String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([instructorId, workDate])
+  @@index([universityId, workDate])
+}
+
+/// What an instructor TEACHES: Technical, English, Aptitude or Mathematics.
+///
+/// ── It is a specialism, not a department ──────────────────────────────────
+/// Somebody from any tech discipline delivering programming is TECH; the column
+/// says what they teach, not which department they came from. Confirmed against
+/// the client's own roster: TECH instructors sit against Programming
+/// Foundations, Python, Node JS, DSA and React; ENGLISH against Communicative
+/// English Foundation and Advanced; APTITUDE against Logical Reasoning and
+/// Quantitative Aptitude; MATH against Numerical Ability and Probability &
+/// Statistics. Four categories, ~600 instructors, and the split is clean.
+///
+/// ── Why it cannot be derived, and must be set ─────────────────────────────
+/// The obvious shortcut is to read somebody's courses and infer their stream.
+/// The data says no: below the top few courses the associations overlap heavily
+/// — ENGLISH instructors are attached to "Build Your Own Static Website",
+/// MATH instructors to "Generative AI" — because an instructor is linked to the
+/// whole programme their students take, not only what they personally deliver.
+/// Any inference from activity would therefore be wrong for a large minority,
+/// and wrong differently each month: somebody who spent a month on meetings
+/// would change category, and a signed-off sheet would reshuffle its own rows
+/// between two readings of the same period. Somebody is hired into a stream and
+/// stays in it, so an admin sets it and it stays set.
+///
+/// Held as a TABLE rather than an enum for the same reason the activity
+/// taxonomy is: adding "Data Science" should be an insert and a seed run, not
+/// a migration and a deploy.
+model InstructorCategory {
+  id    String @id @default(cuid())
+  code  String @unique
+  label String
+
+  sortOrder Int     @default(100)
+  isActive  Boolean @default(true)
+
+  instructors  Instructor[]
+  activityLogs ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
 }
 
 model Instructor {
@@ -195,8 +305,31 @@ model Instructor {
   userId       String @unique
   universityId String
 
+  /// Nullable because it is ASSIGNED, never inferred — an instructor nobody has
+  /// categorised yet is a real state, and the sheet shows it as blank rather
+  /// than guessing. `Restrict`, so a category in use cannot be deleted out from
+  /// under the rows that report on it.
+  categoryId String?
+  category   InstructorCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
   user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
   university University @relation("UniversityInstructors", fields: [universityId], references: [id], onDelete: Restrict)
+
+  /// Who this instructor reports to. Nullable because ownership is assigned by
+  /// an admin, never inferred: an instructor who has not been placed on a
+  /// roster yet is "unassigned", which is a real state and not a defect.
+  ///
+  /// The FK is COMPOSITE — (managerId, universityId) against Manager's
+  /// (id, universityId) — so PostgreSQL itself refuses an instructor whose
+  /// manager belongs to another university. That is the same technique the
+  /// User relation above uses, and it means cross-tenant assignment is
+  /// impossible rather than merely guarded against in application code.
+  ///
+  /// Restrict, not SetNull: on a composite FK, SET NULL would null BOTH
+  /// columns, and universityId is NOT NULL. Managers are deactivated rather
+  /// than deleted, so nothing legitimate is blocked.
+  managerId String?
+  manager   Manager? @relation("ManagerInstructors", fields: [managerId, universityId], references: [id, universityId], onDelete: Restrict)
 
   employeeCode            String?
   activityLogs            ActivityLog[]
@@ -212,6 +345,7 @@ model Instructor {
   deliverableLogs         DeliverableLog[]
   instructorDailyMetrics  InstructorDailyMetric[]
   instructorWeeklyMetrics InstructorWeeklyMetric[]
+  worklogDayNotes         WorklogDayNote[]
 
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
@@ -227,6 +361,10 @@ model Instructor {
   // Sort-over-Seq-Scan -> Index Scan).
   @@index([universityId, createdAt])
   @@index([createdAt])
+  // Every manager-scoped report filters on this column.
+  @@index([managerId])
+
+  worklogSubmissions WorklogSubmission[]
 }
 
 /// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
@@ -278,6 +416,8 @@ model ActivityType {
   workloadTargets WorkloadTarget[]
 
   @@index([isActive, sortOrder])
+
+  deliverableTypes DeliverableType[]
 }
 
 enum LeaveStatus {
@@ -371,6 +511,48 @@ model ActivityLog {
 
   isOncePerDay Boolean @default(false)
 
+  /// The bullet this row was parsed from, exactly as the instructor typed it.
+  ///
+  /// Kept forever, and deliberately on the ROW rather than only on the
+  /// submission: somebody asking "did the AI read this right?" is looking at one
+  /// activity, and the answer has to sit beside it. Null for rows created by any
+  /// other path — a manager logging on somebody's behalf, or the importer.
+  rawText String?
+
+  /// Which press of Submit produced this row. Null for non-worklog entries.
+  submissionId String?
+  submission   WorklogSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  /// The specific deliverable the AI matched within the broad category, from the
+  /// fixed taxonomy. Null when nothing in the taxonomy fits, which is a real
+  /// answer rather than a failure.
+  /// Which subject this entry falls under — Technical, English, Aptitude,
+  /// Mathematics — as the reader judged it FROM THE SENTENCE.
+  ///
+  /// ── Why per entry, and not simply the instructor's own ────────────────
+  /// An instructor is filed under one stream, and that is what the client's
+  /// monthly sheet prints. But a day is not always one subject: the same
+  /// person can take a DSA class and then a communication session, and a
+  /// column that answered "Technical" for both would be describing the person
+  /// where the row is asking about the work.
+  ///
+  /// Nullable, and left null rather than guessed: a line like "staff meeting
+  /// 2 to 3" has no subject at all, and filling one in would be inventing the
+  /// most consequential column in the report.
+  broadCategoryId String?
+  broadCategory   InstructorCategory? @relation(fields: [broadCategoryId], references: [id], onDelete: Restrict)
+
+  deliverableTypeId String?
+  deliverableType   DeliverableType? @relation(fields: [deliverableTypeId], references: [id], onDelete: SetNull)
+
+  /// How many of that deliverable this row accounts for.
+  ///
+  /// Defaults to 1 so every pre-existing row keeps meaning exactly what it meant
+  /// before this column existed. The free-text parser reconciles repeats ACROSS a
+  /// day's bullets into a single row with a higher count, rather than writing two
+  /// rows of one — which is what the client's sheet has always counted.
+  quantity Int @default(1)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -394,6 +576,8 @@ model ActivityLog {
   @@index([universityId, instructorId, workDate])
   @@index([scheduleSlotId])
   @@index([deliverableId])
+  // The report groups by subject; without this that is a scan per week.
+  @@index([broadCategoryId])
 }
 
 model Deliverable {
@@ -1081,4 +1265,291 @@ model MetricsJobRun {
 
   @@index([status, startedAt])
   @@index([startedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BULK IMPORT — onboarding an existing organisation from a file
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum ImportSourceType {
+  CSV
+  PDF
+}
+
+enum ImportStatus {
+  /// Parsed, awaiting column mapping.
+  UPLOADED
+  /// Mapping decided, awaiting validation.
+  MAPPED
+  /// Validated; the preview is ready and the admin has not confirmed yet.
+  VALIDATED
+  /// Confirmed and being written, in batches.
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_WARNINGS
+  FAILED
+}
+
+/// One bulk import, from upload to written rows.
+///
+/// ── Why this table exists at all ───────────────────────────────────────────
+/// A row here is not architecture for its own sake; four requirements make it
+/// unavoidable, and each one is a requirement the feature cannot drop:
+///
+///   1. The workflow is four steps (upload -> map -> validate -> confirm) and
+///      the dataset has to survive between them. The alternative is making the
+///      browser re-upload a 10,000-row file at every step.
+///   2. Writing 10,000 rows cannot finish inside one HTTP request, so the
+///      request must hand off and the client must be able to ask "how far".
+///   3. "Who imported what, and what did it do" has to be answerable later.
+///   4. Re-running an interrupted import must not duplicate anything, which
+///      needs the parsed rows and the progress counter to be durable.
+///
+/// ── Why not an AuditLog row ────────────────────────────────────────────────
+/// The same reason `MetricsJobRun` is not one: `AuditLog.userId` is NOT NULL,
+/// and progress is written repeatedly by background work with no actor at the
+/// keyboard. The audit trail still records the import as an event — this table
+/// records its execution. Neither replaces the other.
+///
+/// ── What is deliberately NOT stored ────────────────────────────────────────
+/// Not the uploaded file, and no credential. `rows` holds the PARSED,
+/// structurally-typed records only, which is what steps 2-4 operate on; the
+/// original bytes are dropped once parsed. The batch password supplied at
+/// confirmation is hashed and used, never written here.
+model ImportJob {
+  id String @id @default(cuid())
+
+  /// Restrict, not Cascade: import history outlives the admin who ran it.
+  /// (`ReportJob` uses Cascade and loses its history with the user; that is the
+  /// wrong trade for a record of what entered the database.)
+  createdById String
+  createdBy   User   @relation("ImportJobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  sourceType ImportSourceType
+  fileName   String
+  fileSize   Int
+  /// SHA-256 of the uploaded bytes. Not a uniqueness constraint: re-importing a
+  /// corrected file is legitimate, and the upsert is idempotent regardless. It
+  /// is here so the UI can warn "this exact file was already imported".
+  checksum   String
+
+  status ImportStatus @default(UPLOADED)
+
+  /// Source column header -> canonical field name, as confirmed by the admin.
+  mapping Json @default("{}")
+  /// The parsed records. Structurally typed, never the raw file.
+  rows    Json @default("[]")
+
+  rowCount      Int @default(0)
+  processedRows Int @default(0)
+
+  /// Bounded diagnostics — the first N of each, never the whole dataset.
+  errors   Json @default("[]")
+  warnings Json @default("[]")
+  /// Preview counts before confirmation, outcome counts after.
+  summary  Json @default("{}")
+
+  /// Populated only for PDF, where extraction is interpretive.
+  extractionConfidence String?
+  errorMessage         String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdById, createdAt])
+  @@index([checksum])
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FREE-TEXT WORKLOG — what the instructor wrote, and what was parsed from it
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One deliverable within a broad category — "Lecture" inside Teaching.
+///
+/// ── Why this is a table and not a string on ActivityLog ────────────────────
+/// It is a CLOSED vocabulary the client supplied, and closed vocabularies stop
+/// being closed the moment they are free text: "Lecture", "lecture" and "Lec"
+/// become three deliverables and the sheet's quantity column stops adding up.
+/// A foreign key makes the AI's output checkable — a deliverable that is not in
+/// this table simply cannot be written.
+///
+/// ── Not the same thing as `Deliverable` ────────────────────────────────────
+/// `Deliverable` is a piece of work ASSIGNED to one instructor, with a target
+/// and a due date. This is the taxonomy those pieces of work are classified by.
+/// They are different nouns that unfortunately share a word.
+model DeliverableType {
+  id    String @id @default(cuid())
+  /// Stable machine name, e.g. `LECTURE`. What the parser is allowed to emit.
+  code  String @unique
+  label String
+
+  /// The broad category this belongs under.
+  activityTypeId String
+  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+
+  sortOrder Int     @default(100)
+  isActive  Boolean @default(true)
+
+  /// Whether a COUNT of this means anything.
+  ///
+  /// The client's monthly sheet lists every kind of work with its hours, but
+  /// counts only some of them: "12 Classes, 6 Assignments, 3 Doubt Sessions"
+  /// beside a deliverable list that also held Lesson Prep and Meetings/Reports.
+  /// That is not an omission — "6 lesson preps" is not a sentence anybody says.
+  /// Preparation, meetings, reporting and admin are EFFORT: their hours are
+  /// real and are reported, but they have no unit to be counted in.
+  ///
+  /// Defaulted true because most are countable, and because a wrong default
+  /// that shows a number is easier to notice than one that hides it.
+  isCountable Boolean @default(true)
+
+  activityLogs ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activityTypeId, sortOrder])
+}
+
+/// Whether a submission may be recorded, or needs a manager's agreement first.
+enum WorklogApproval {
+  /// Written on the day, inside the university's hours, describing work inside
+  /// them. The ordinary case, and it needs nobody's permission.
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Why a submission needed asking about. Both can apply at once.
+enum WorklogExceptionReason {
+  /// Submitted outside the university's working hours.
+  SUBMITTED_OFF_HOURS
+  /// One or more activities fall outside the working-hours window.
+  ACTIVITY_OFF_HOURS
+  /// Both of the above.
+  BOTH
+}
+
+enum WorklogParseStatus {
+  /// Saved, not yet parsed. The instructor's text is already safe at this point.
+  PENDING
+  PARSED
+  /// The provider could not be reached, or returned nothing usable. The raw text
+  /// is intact and the submission can be parsed again.
+  FAILED
+}
+
+/// One press of Submit: the bullets exactly as typed, and the clock they start.
+///
+/// ── Why this exists rather than living on ActivityLog ──────────────────────
+/// Three requirements need a row that is neither an activity nor an instructor:
+///
+///   1. The text must survive a parsing failure. Saving the submission FIRST and
+///      parsing afterwards is what makes "the instructor's data is never lost"
+///      true rather than aspirational.
+///   2. The review clock is PER SUBMISSION — two submissions on two days each
+///      run their own — so it needs somewhere to live that is not the instructor
+///      and not any one activity.
+///   3. A bullet can fail to parse while its siblings succeed. This row holds
+///      every bullet; `ActivityLog` holds only the ones that became work.
+model WorklogSubmission {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  /// The day being logged, in the university's zone.
+  workDate DateTime @db.Date
+
+  /// The bullets, in order, exactly as typed. Never rewritten by parsing.
+  rawBullets Json
+
+  status     WorklogParseStatus @default(PENDING)
+  /// Why parsing failed, in words an instructor can act on. Never a stack trace.
+  parseError String?
+
+  /// The bullets that produced no activity, each with the reason, in bullet
+  /// order: `[{ index, rawText, reason }]`.
+  ///
+  /// Without this the review view can only tell an instructor that a line is
+  /// missing, which is the least useful half of the answer — "no time could be
+  /// read from this line" and "this overlaps 14:00–15:00" ask for completely
+  /// different corrections. The reason is produced while writing and is not
+  /// recoverable afterwards, so it is kept rather than recomputed.
+  ///
+  /// Rewritten in full on every parse, so a re-parse that succeeds clears what
+  /// the failed one recorded.
+  rejections Json?
+
+  /// t0. The review clock runs from here and from nothing else — how fast
+  /// parsing happened must not move anybody's deadline.
+  submittedAt DateTime  @default(now())
+  parsedAt    DateTime?
+
+  /// Replaced by a later submission for the same day.
+  ///
+  /// ── Why the old one is kept at all ────────────────────────────────────
+  /// Editing a day means "this is what happened, not what I said before", so
+  /// the ACTIVITIES from the earlier text are removed — they no longer describe
+  /// anything. The submission itself stays, marked here, because it is the
+  /// record of what the instructor actually wrote at the time, and deleting
+  /// somebody's own words to make a screen tidier is not a trade this product
+  /// makes. Reads filter it out; the audit trail can still find it.
+  supersededAt DateTime?
+
+  /// When the instructor first corrected a parsed entry from this submission.
+  /// Its presence at the three-hour mark is the whole escalation decision.
+  reviewedAt DateTime?
+
+  /// When the manager was told. Set once and never cleared: a later correction
+  /// adds `reviewedAt` beside it rather than erasing the fact that it was
+  /// escalated, because "flagged and then fixed" and "never flagged" are
+  /// different histories and a manager is entitled to tell them apart.
+  escalatedAt DateTime?
+  needsReview Boolean   @default(false)
+
+  /* ── Approval ─────────────────────────────────────────────────────────────
+   * An instructor records their OWN day, inside their university's hours, and
+   * that needs no permission — the overwhelming case is `NOT_REQUIRED` and it
+   * costs a manager nothing.
+   *
+   * What is asked about is work that falls outside those hours, or a day
+   * written up after them. Both are legitimate — people stay late — but both
+   * are also how a timesheet quietly stops reflecting the working day it is
+   * measured against, so a person rather than a rule decides.
+   *
+   * The submission itself carries this rather than a separate request table:
+   * what a manager needs in order to decide IS the submission — the sentences,
+   * the times, and what they were read as. A request row pointing at it would
+   * be the same thing with an extra join.
+   */
+  approval        WorklogApproval         @default(NOT_REQUIRED)
+  exceptionReason WorklogExceptionReason?
+  decidedById     String?
+  decidedBy       User?                   @relation("WorklogDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt       DateTime?
+  /// The manager's own words, shown to the instructor. Never a code.
+  decisionNote    String?
+
+  activities ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The escalation sweep reads exactly this shape: not yet escalated, not yet
+  // reviewed, old enough to be due.
+  @@index([escalatedAt, reviewedAt, submittedAt])
+  // The manager's queue: everything waiting on them, oldest first.
+  @@index([approval, universityId, submittedAt])
+  @@index([instructorId, workDate])
+  // Reads want the day's LIVE submissions, never the replaced ones.
+  @@index([instructorId, workDate, supersededAt])
+  @@index([status, submittedAt])
 }

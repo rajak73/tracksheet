@@ -279,6 +279,16 @@ describe("former staff remain visible in history", () => {
     expect(created.status).toBe(201);
     formerId = created.body.instructor.id as string;
 
+    // Instructors now report to a specific manager, and a manager's tracker is
+    // their own roster. An admin-created instructor starts unassigned, so place
+    // them on this university's manager — otherwise the manager's grid below is
+    // correctly empty and this test would be asserting the wrong thing.
+    const me = await manager.get("/api/auth/me");
+    const managerId = me.body.user.managerId as string;
+    expect(managerId).toBeTruthy();
+    const assigned = await admin.patch(`/api/instructors/${formerId}/manager`, { managerId });
+    expect(assigned.status).toBe(200);
+
     const them = new ApiClient("former");
     await them.login("tracker.former@example.edu");
     const act = await them.post(`/api/instructors/${formerId}/activities`, {

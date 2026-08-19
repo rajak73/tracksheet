@@ -1,333 +1,402 @@
 "use client";
 
 /**
- * The platform-wide view.
+ * The admin's dashboard: the network, one row per university.
  *
- * Ordered per §16: overview, then global utilization, then compliance, then
- * exceptions, then the university comparison table an admin drills into. This
- * page is a summary of the same rollup every university's manager sees, never
- * a second calculation of it.
+ * ── The question this page answers ────────────────────────────────────────
+ * A manager asks "how is MY roster doing". An admin is not managing a roster
+ * and cannot usefully read thirty of them; the admin's question is whether the
+ * day is being RECORDED across the institute, and where it is not. So the
+ * centrepiece is a league table of universities, and the loudest figure on the
+ * page is the count of people who wrote nothing.
+ *
+ * ── Why it was rewritten ──────────────────────────────────────────────────
+ * The previous version led with a Utilization percentage taken from the
+ * engine's `productiveMinutes` — every recorded minute, meetings and
+ * preparation included — and ranked "top performing managers" by it. Working
+ * Hours had since been defined as time spent WITH STUDENTS, and the instructor
+ * sheet, the manager sheet, the manager dashboard and the client's tracker were
+ * all rebuilt around that. This page was the last one still adding up a
+ * different number and calling it the same thing, and it also still spoke the
+ * old vocabulary: "Teaching" hours after that category was renamed Lecture,
+ * bare decimal hours after the product settled on `01h 30m`.
+ *
+ * Ranking people by that figure was the part that had to go rather than be
+ * relabelled. It rewarded whoever recorded the most minutes of anything.
+ *
+ * ── What is deliberately absent ───────────────────────────────────────────
+ * No utilization percentage, and no averages per instructor. Both need a
+ * capacity to divide by, and capacity is configured per university — an
+ * institute-wide percentage would be dividing by a number that means something
+ * different in each row. The network view reports totals and counts, which are
+ * true whatever each university's hours are, and the drill-through leads to the
+ * university's own page where capacity is known.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { KpiCard } from "@/app/_components/ManagerDashboard";
+import { PeriodPicker, type View } from "@/app/_components/PeriodPicker";
 import {
-  Alert,
-  Badge,
+  IconUniversity,
+  IconUsers,
+  IconActivity,
+  IconAlert,
+} from "@/app/_components/icons";
+import {
   Card,
-  CardHeader,
-  CardList,
-  CardListItem,
-  EmptyState,
   ErrorState,
-  Meter,
+  EmptyState,
   PageHeader,
-  SearchInput,
-  Section,
   StatGridSkeleton,
-  StatTile,
-  Table,
   TableSkeleton,
-  TableWrap,
-  TBody,
-  TD,
-  THead,
-  TR,
-  complianceTone,
-  utilizationLabel,
-  utilizationTone,
-  type SortDirection,
 } from "@/app/_components/ui";
-import { ButtonLink } from "@/app/_components/ui";
-import { AllocationBar, ChartCard } from "@/app/_components/charts";
-import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, useLoad } from "@/app/_lib/api";
-import { formatDate, formatHours } from "@/app/_lib/format";
+import { formatDayAs, formatHours } from "@/app/_lib/format";
+import { categoryColor } from "@/app/_components/charts";
+
+/* ── What the endpoint returns ────────────────────────────────────────────── */
+
+type Line = { code: string; label: string; hours: number; countable: boolean };
 
 type UniversityRow = {
-  universityId: string;
+  id: string;
   name: string;
-  timezone: string;
-  from: string;
-  to: string;
+  slug: string;
   instructors: number;
-  capacityHours: number;
-  productiveHours: number;
-  unutilizedHours: number;
-  missingDataHours: number;
-  utilizationPct: number | null;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
+  recording: number;
+  silent: number;
+  workingHours: number;
+  otherHours: number;
+  lines: Line[];
+  lastRecordedOn: string | null;
 };
 
-type Overview = {
-  totalUniversities: number;
-  totalManagers: number;
-  totalInstructors: number;
-  openInsights: number;
-  capacityHours: number;
-  productiveHours: number;
-  unutilizedHours: number;
-  missingDataHours: number;
-  utilizationPct: number | null;
-  teachingHours: number;
-  learningHours: number;
-  /** False when the rollup cache does not cover the whole selected window. */
-  rollupComplete?: boolean;
+type Network = {
+  period: { from: string; to: string };
+  universities: UniversityRow[];
+  totals: {
+    universities: number;
+    silentUniversities: number;
+    instructors: number;
+    recording: number;
+    silent: number;
+    workingHours: number;
+    otherHours: number;
+  };
 };
+
+/* ── Dates. The same rules as the manager dashboard, so the two agree. ────── */
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  return addDays(iso, -((d.getUTCDay() + 6) % 7));
+}
+
+/** The month as WHOLE weeks — a week clipped at the 1st is not comparable. */
+function monthEdges(iso: string): { from: string; to: string } {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
+}
+
+const todayIso = () =>
+  new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
+    .toISOString()
+    .slice(0, 10);
+
+const VIEW_KEY = "niat:admin:view";
+
+type Sort = "name" | "hours-desc" | "hours-asc" | "silent-desc";
+
+/* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  const [period, setPeriod] = useState<Period | null>(null);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<{ key: string; direction: SortDirection }>({
-    key: "utilizationPct",
-    direction: "asc",
-  });
+  const today = todayIso();
+  const [view, setView] = useState<View>("day");
+  const [anchor, setAnchor] = useState(today);
+  /* Silent first by default. The reason to open this page is to find what is
+   * missing, and sorting by name would bury it behind whoever is alphabetically
+   * first. */
+  const [sort, setSort] = useState<Sort>("silent-desc");
+  const [restored, setRestored] = useState(false);
 
-  const load = useCallback(async () => {
-    const body = await apiGet<{ overview: Overview; universities: UniversityRow[] }>(
-      `/api/admin/overview${periodQuery(period)}`,
-      "Could not load platform metrics.",
-    );
-    return body;
-  }, [period]);
+  /* The chosen view survives a refresh; the chosen DATE does not. Coming back
+   * to the page tomorrow should land on tomorrow, but it should not silently
+   * switch from the month you were reading back to a single day. */
+  useEffect(() => {
+    // Scheduled rather than set here: setting state synchronously inside an
+    // effect cascades one render into another before the first has painted.
+    const restore = setTimeout(() => {
+      const saved = window.localStorage.getItem(VIEW_KEY);
+      if (saved === "day" || saved === "week" || saved === "month") setView(saved);
+      setRestored(true);
+    }, 0);
+    return () => clearTimeout(restore);
+  }, []);
 
-  const { data, error, loading, reload } = useLoad(
-    load,
-    period ? `${period.from}:${period.to}` : "default",
+  useEffect(() => {
+    if (restored) window.localStorage.setItem(VIEW_KEY, view);
+  }, [restored, view]);
+
+  const range = useMemo(() => {
+    if (view === "day") return { from: anchor, to: anchor };
+    if (view === "week") {
+      const monday = mondayOf(anchor);
+      return { from: monday, to: addDays(monday, 6) };
+    }
+    return monthEdges(anchor);
+  }, [view, anchor]);
+
+  const load = useCallback(
+    () =>
+      apiGet<Network>(
+        `/api/admin/network?from=${range.from}&to=${range.to}`,
+        "Could not load the network.",
+      ),
+    [range.from, range.to],
   );
+  const network = useLoad(load, `admin-network:${range.from}:${range.to}`);
 
   const rows = useMemo(() => {
-    if (!data) return [];
-    const needle = query.trim().toLowerCase();
-    const filtered = data.universities.filter((u) => !needle || u.name.toLowerCase().includes(needle));
-    return [...filtered].sort((a, b) => {
-      const key = sort.key as keyof UniversityRow;
-      const av = a[key];
-      const bv = b[key];
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      const cmp =
-        typeof av === "number" && typeof bv === "number"
-          ? av - bv
-          : String(av).localeCompare(String(bv));
-      return sort.direction === "asc" ? cmp : -cmp;
-    });
-  }, [data, query, sort]);
+    const all = network.data?.universities ?? [];
+    if (sort === "name") return [...all].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "silent-desc") {
+      // Ties broken by name, so the order is stable rather than incidental.
+      return [...all].sort((a, b) => b.silent - a.silent || a.name.localeCompare(b.name));
+    }
+    return [...all].sort((a, b) =>
+      sort === "hours-desc"
+        ? b.workingHours - a.workingHours
+        : a.workingHours - b.workingHours,
+    );
+  }, [network.data, sort]);
 
-  function toggleSort(key: string) {
-    setSort((s) => ({ key, direction: s.key === key && s.direction === "asc" ? "desc" : "asc" }));
-  }
+  const totals = network.data?.totals ?? null;
 
-  const selector = <PeriodSelector value={period} onChange={setPeriod} />;
-
-  if (loading) {
+  if (network.error && !network.data) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Overview" description="Platform-wide metrics across all universities." actions={selector} />
-        <StatGridSkeleton />
-        <TableSkeleton cols={7} />
+        <PageHeader title="Dashboard" />
+        <ErrorState message="Unable to load the dashboard" detail={network.error} />
       </div>
     );
   }
-  if (error || !data) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Overview" actions={selector} />
-        <ErrorState message="Unable to load platform metrics" detail={error ?? undefined} onRetry={reload} />
-      </div>
-    );
-  }
-
-  const { overview } = data;
-  const period0 = data.universities[0];
-  const attention = data.universities.filter(
-    (u) => u.utilizationPct !== null && u.utilizationPct < 60,
-  );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
-        title="Overview"
-        description={
-          period0
-            ? `Platform-wide metrics · ${formatDate(period0.from)} to ${formatDate(period0.to)}`
-            : "Platform-wide metrics across all universities."
+        title="Dashboard"
+        description="Every university delivering the programme, in the period you are looking at."
+        actions={
+          <PeriodPicker
+            view={view}
+            onView={setView}
+            selected={anchor}
+            onSelect={setAnchor}
+            today={today}
+          />
         }
-        actions={selector}
       />
 
-      {/* 1 — Platform overview / university count. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile label="Universities" value={overview.totalUniversities} emphasis />
-        <StatTile label="Managers" value={overview.totalManagers} />
-        <StatTile label="Active instructors" value={overview.totalInstructors} />
-        <StatTile
-          label="Open insights"
-          value={overview.openInsights}
-          tone={overview.openInsights > 0 ? "info" : "neutral"}
-        />
-      </div>
-
-      {/* 2 — Global utilization. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          label="Utilization"
-          value={overview.utilizationPct}
-          suffix="%"
-          tone={utilizationTone(overview.utilizationPct)}
-          status={utilizationLabel(overview.utilizationPct)}
-          emphasis
-          hint={`${overview.productiveHours} of ${overview.capacityHours} hrs`}
-        />
-        <StatTile label="Teaching" value={overview.teachingHours} suffix="hrs" />
-        <StatTile label="Learning" value={overview.learningHours} suffix="hrs" />
-        <StatTile
-          label="Unutilized"
-          value={overview.unutilizedHours}
-          suffix="hrs"
-          tone={overview.unutilizedHours > 0 ? "warning" : "neutral"}
-        />
-      </div>
-
-      {/* The figures on this page are read from a summary cache. If the
-          scheduler has not summarised the whole selected window yet, they are
-          computed over fewer days than were requested and will not match the
-          per-university analytics — so say so rather than presenting partial
-          data as complete. */}
-      {overview.rollupComplete === false ? (
-        <Alert tone="warning" title="These figures are still being summarised">
-          Part of the selected period has not been rolled up yet, so the totals below cover fewer
-          days than the range you chose and may differ from a university&rsquo;s own analytics
-          page. They will reconcile once the next summary run completes.
-        </Alert>
-      ) : null}
-
-      {overview.missingDataHours > 0 ? (
-        <Alert tone="warning" title="Some working time has no records">
-          {formatHours(overview.missingDataHours)} of expected working time carry no activity
-          records across the platform. This is reported as missing data, not as unutilized time
-          — the figures above should be read with that in mind.
-        </Alert>
-      ) : null}
-
-      {/* 3 — Compliance / risk. */}
-      {attention.length > 0 ? (
-        <Alert tone="warning" title={`${attention.length} universit${attention.length === 1 ? "y needs" : "ies need"} attention`}>
-          Utilization is below 60% in this period. See the comparison table below.
-        </Alert>
-      ) : null}
-
-      <ChartCard
-        question="How was platform-wide time allocated?"
-        description="Teaching, learning and other recorded work, summed across every university."
-        isEmpty={overview.teachingHours + overview.learningHours === 0}
-      >
-        <AllocationBar
-          slices={[
-            { code: "TEACHING", hours: overview.teachingHours },
-            { code: "LEARNING", hours: overview.learningHours },
-          ]}
-          unutilizedHours={overview.unutilizedHours}
-          missingDataHours={overview.missingDataHours}
-        />
-      </ChartCard>
-
-      {/* 4 — University comparison / drill-down. */}
-      <Section title="Universities">
-        <Card>
-          <CardHeader
-            title="Comparison"
-            description="Select a university to drill into its managers and instructors."
-            actions={
-              data.universities.length > 5 ? (
-                <SearchInput
-                  label="Search universities"
-                  value={query}
-                  onChange={setQuery}
-                  placeholder="Search by name…"
-                  className="w-full sm:w-56"
-                />
-              ) : null
+      {/* ── The four figures ─────────────────────────────────────────────── */}
+      {network.loading && !totals ? (
+        <StatGridSkeleton />
+      ) : totals ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            label="Universities"
+            value={String(totals.universities)}
+            icon={<IconUniversity size={20} />}
+            tint="blue"
+            footnote={
+              totals.silentUniversities > 0
+                ? `${totals.silentUniversities} recorded nothing`
+                : "All recorded something"
             }
           />
-          {data.universities.length === 0 ? (
-            <EmptyState
-              title="No universities yet"
-              description="Create the first university to start tracking workload."
-              action={<ButtonLink href="/admin/universities/new">Create a university</ButtonLink>}
-            />
-          ) : rows.length === 0 ? (
-            <EmptyState title="No university matches that search" />
+          <KpiCard
+            label="Instructors"
+            value={String(totals.instructors)}
+            icon={<IconUsers size={20} />}
+            tint="violet"
+            footnote={`${totals.recording} recorded in this period`}
+          />
+          <KpiCard
+            label="Working Hours"
+            value={formatHours(totals.workingHours)}
+            icon={<IconActivity size={20} />}
+            tint="green"
+            footnote={
+              /* Stated, not hidden. The two figures do not add up to a day's
+               * work by accident — one of them is deliberately excluded, and a
+               * total with no explanation invites the arithmetic anyway. */
+              <>Time with students. {formatHours(totals.otherHours)} recorded elsewhere.</>
+            }
+          />
+          <KpiCard
+            label="Recorded nothing"
+            value={String(totals.silent)}
+            icon={<IconAlert size={20} />}
+            tint="amber"
+            footnote={
+              totals.silent === 0
+                ? "Everyone wrote something"
+                : "Not the same as zero hours — nothing was written"
+            }
+          />
+        </div>
+      ) : null}
+
+      {/* ── The network ──────────────────────────────────────────────────── */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-content">Universities</h2>
+            <p className="mt-0.5 text-sm text-muted">
+              {formatDayAs(range.from, { day: "numeric", month: "short", year: "numeric" })}
+              {range.from === range.to
+                ? null
+                : ` – ${formatDayAs(range.to, { day: "numeric", month: "short", year: "numeric" })}`}
+            </p>
+          </div>
+          <SortControl sort={sort} onSort={setSort} />
+        </div>
+
+        {network.loading && !network.data ? (
+          <TableSkeleton rows={5} cols={4} />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            title="No universities yet"
+            description="Add a university and its instructors before anything can be recorded."
+          />
+        ) : (
+          <ul>
+            {rows.map((row) => (
+              <UniversityCard key={row.id} row={row} />
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ── Sorting ──────────────────────────────────────────────────────────────── */
+
+function SortControl({ sort, onSort }: { sort: Sort; onSort: (next: Sort) => void }) {
+  const options: Array<[Sort, string]> = [
+    ["silent-desc", "Not recording first"],
+    ["hours-desc", "Most hours"],
+    ["hours-asc", "Fewest hours"],
+    ["name", "Name"],
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {options.map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onSort(value)}
+          aria-pressed={sort === value}
+          className={`rounded-chip px-3 py-1.5 text-xs font-medium transition-colors ${
+            sort === value
+              ? "bg-primary-subtle text-primary-text"
+              : "text-muted hover:bg-hovered hover:text-content"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── One university ───────────────────────────────────────────────────────── */
+
+function UniversityCard({ row }: { row: UniversityRow }) {
+  const nothingWritten = row.instructors > 0 && row.recording === 0;
+
+  return (
+    <li className="border-b border-line last:border-b-0">
+      <Link
+        href={`/admin/universities/${row.id}`}
+        className="flex flex-wrap items-start gap-4 px-5 py-4 transition-colors hover:bg-primary-subtle"
+      >
+        {/* Identity and the recording count, fixed at the left, because these
+            are what the row is scanned for. */}
+        <div className="min-w-0 flex-1 basis-64">
+          <p className="truncate text-sm font-semibold text-content">{row.name}</p>
+          <p className="mt-1 text-xs text-muted">
+            {row.instructors === 0 ? (
+              "No instructors yet"
+            ) : (
+              <>
+                <span className={nothingWritten ? "font-medium text-warning-text" : undefined}>
+                  {row.recording} of {row.instructors}
+                </span>{" "}
+                recorded
+                {row.lastRecordedOn ? (
+                  <>
+                    {" · last on "}
+                    {formatDayAs(row.lastRecordedOn, { day: "numeric", month: "short" })}
+                  </>
+                ) : null}
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* What the hours were spent on. Muted segments are the ones that do
+            not count toward Working Hours — shown, because the work happened,
+            and muted, so nobody adds the bar up to the figure beside it. */}
+        <div className="min-w-0 flex-1 basis-72">
+          {row.lines.length === 0 ? (
+            <p className="text-xs text-subtle">Nothing recorded</p>
           ) : (
             <>
-              <div className="hidden md:block">
-                <TableWrap>
-                  <Table caption="University comparison">
-                    <THead
-                      sort={sort}
-                      onSort={toggleSort}
-                      columns={[
-                        { label: "University", sortKey: "name" },
-                        { label: "Instructors", align: "right", sortKey: "instructors" },
-                        { label: "Capacity", align: "right", sortKey: "capacityHours" },
-                        { label: "Recorded", align: "right", sortKey: "productiveHours" },
-                        { label: "Utilization", sortKey: "utilizationPct" },
-                        { label: "Opening" },
-                        { label: "Closing" },
-                      ]}
-                    />
-                    <TBody>
-                      {rows.map((u) => (
-                        <TR key={u.universityId}>
-                          <TD strong>
-                            <Link
-                              href={`/admin/universities/${u.universityId}`}
-                              className="text-primary hover:underline"
-                            >
-                              {u.name}
-                            </Link>
-                            <span className="ml-2 text-xs text-subtle">{u.timezone}</span>
-                          </TD>
-                          <TD align="right">{u.instructors}</TD>
-                          <TD align="right">{u.capacityHours}</TD>
-                          <TD align="right">{u.productiveHours}</TD>
-                          <TD>
-                            <Meter value={u.utilizationPct} tone={utilizationTone(u.utilizationPct)} />
-                          </TD>
-                          <TD>
-                            <Badge tone={complianceTone(u.openingCompliancePct)}>
-                              {u.openingCompliancePct === null ? "—" : `${u.openingCompliancePct}%`}
-                            </Badge>
-                          </TD>
-                          <TD>
-                            <Badge tone={complianceTone(u.closingCompliancePct)}>
-                              {u.closingCompliancePct === null ? "—" : `${u.closingCompliancePct}%`}
-                            </Badge>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                </TableWrap>
+              <div className="flex h-2 overflow-hidden rounded-chip bg-sunken">
+                {row.lines.map((line) => (
+                  <span
+                    key={`${line.code}:${line.countable}`}
+                    title={`${line.label} – ${formatHours(line.hours)}${
+                      line.countable ? "" : " (not counted in Working Hours)"
+                    }`}
+                    style={{
+                      width: `${(line.hours / (row.workingHours + row.otherHours)) * 100}%`,
+                      background: categoryColor(line.code),
+                      opacity: line.countable ? 1 : 0.35,
+                    }}
+                  />
+                ))}
               </div>
-              <div className="md:hidden">
-                <CardList>
-                  {rows.map((u) => (
-                    <CardListItem
-                      key={u.universityId}
-                      href={`/admin/universities/${u.universityId}`}
-                      title={u.name}
-                      subtitle={`${u.instructors} instructors`}
-                      meta={<Meter value={u.utilizationPct} tone={utilizationTone(u.utilizationPct)} />}
-                    />
-                  ))}
-                </CardList>
-              </div>
+              <p className="mt-1.5 truncate text-xs text-muted">
+                {row.lines
+                  .slice(0, 3)
+                  .map((l) => `${l.label} ${formatHours(l.hours)}`)
+                  .join(" · ")}
+                {row.lines.length > 3 ? ` · +${row.lines.length - 3} more` : ""}
+              </p>
             </>
           )}
-        </Card>
-      </Section>
-    </div>
+        </div>
+
+        {/* The figure the table sorts on, last and right-aligned, the same
+            place the manager sheet puts it. */}
+        <div className="shrink-0 text-right">
+          <p className="tabular text-base font-semibold text-content">
+            {formatHours(row.workingHours)}
+          </p>
+          <p className="text-xs text-subtle">Working Hours</p>
+        </div>
+      </Link>
+    </li>
   );
 }

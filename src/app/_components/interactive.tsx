@@ -192,7 +192,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         aria-atomic="false"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 p-4 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end"
       >
         {toasts.map((t) => {
           const Glyph = glyphs[t.tone];
@@ -395,6 +395,9 @@ const SEVERITY_TONE: Record<string, Tone> = {
   MEDIUM: "warning",
   LOW: "info",
   INFO: "info",
+  // A workforce tool that can only ever report problems trains its readers to
+  // dismiss it, and "this improved" is a real finding. Same card, green accent.
+  POSITIVE: "success",
 };
 
 const SEVERITY_ACCENT: Record<string, string> = {
@@ -403,6 +406,7 @@ const SEVERITY_ACCENT: Record<string, string> = {
   MEDIUM: "border-l-warning",
   LOW: "border-l-info",
   INFO: "border-l-info",
+  POSITIVE: "border-l-success",
 };
 
 export type Insight = {

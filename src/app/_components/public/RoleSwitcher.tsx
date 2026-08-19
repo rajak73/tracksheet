@@ -56,7 +56,7 @@ const ROLES: RoleContent[] = [
     href: "/solutions/universities",
     cta: "Explore Admin Platform",
     preview: AdminPreview,
-    previewLabel: "NEXTWAVE — Admin Overview",
+    previewLabel: "NIAT — Admin Overview",
   },
   {
     id: "manager",
@@ -75,7 +75,7 @@ const ROLES: RoleContent[] = [
     href: "/solutions/managers",
     cta: "Explore Manager Platform",
     preview: ManagerPreview,
-    previewLabel: "NEXTWAVE — Manager Dashboard",
+    previewLabel: "NIAT — Manager Dashboard",
   },
   {
     id: "instructor",
@@ -94,7 +94,7 @@ const ROLES: RoleContent[] = [
     href: "/solutions/instructors",
     cta: "Explore Instructor Platform",
     preview: InstructorPreview,
-    previewLabel: "NEXTWAVE — Instructor Today",
+    previewLabel: "NIAT — Instructor Today",
   },
 ];
 

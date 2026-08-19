@@ -31,14 +31,29 @@ import {
 } from "@/app/_components/ui";
 import { TrackerGrid, type Tracker } from "@/app/_components/TrackerGrid";
 import { apiGet, useLoad } from "@/app/_lib/api";
-import { formatDate, formatHours, formatPct, todayISO } from "@/app/_lib/format";
+import { formatDate, formatHours, todayISO } from "@/app/_lib/format";
 
-type Mode = "week" | "month" | "custom";
+/**
+ * The four reporting periods the client works in. `currentMonth` and `month`
+ * both resolve to a `?month=` query — the difference is only whether the user
+ * picks it or the app does — but they are separate modes because "this month"
+ * must keep meaning this month when the page is left open across a month
+ * boundary, rather than freezing whatever was selected on load.
+ */
+type Mode = "week" | "currentMonth" | "month" | "custom";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+/** What the currently selected period is called, for the heading above the grid. */
+const PERIOD_LABEL: Record<Mode, string> = {
+  week: "Current Week",
+  currentMonth: "Current Month",
+  month: "Selected Month",
+  custom: "Custom Date Range",
+};
 
 /** A small window of years around today — enough to report on, not a scroll of 50. */
 function yearOptions(): number[] {
@@ -50,11 +65,14 @@ export function TrackerReport({
   universityId,
   /** Narrows the grid to one person, authorised server-side. */
   instructorId,
+  /** Narrows the grid to one manager's roster, authorised server-side. */
+  managerId,
   /** Shown above the grid; the caller knows whether this is a team or a person. */
   emptyHint,
 }: {
   universityId: string;
   instructorId?: string;
+  managerId?: string;
   emptyHint?: string;
 }) {
   const today = todayISO();
@@ -66,6 +84,9 @@ export function TrackerReport({
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
+    // Read from `today` rather than from state, so this stays correct even if
+    // the month turns over while the page is open.
+    if (mode === "currentMonth") params.set("month", today.slice(0, 7));
     if (mode === "month") params.set("month", `${year}-${String(month).padStart(2, "0")}`);
     if (mode === "custom") {
       params.set("from", from);
@@ -73,9 +94,10 @@ export function TrackerReport({
     }
     // Absent period means the current week, resolved in the tenant's timezone.
     if (instructorId) params.set("instructorId", instructorId);
+    if (managerId) params.set("managerId", managerId);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [mode, year, month, from, to, instructorId]);
+  }, [mode, year, month, from, to, instructorId, managerId, today]);
 
   const load = useCallback(
     () =>
@@ -99,9 +121,10 @@ export function TrackerReport({
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
-            ["week", "Current week"],
-            ["month", "Monthly"],
-            ["custom", "Custom period"],
+            ["week", "Current Week"],
+            ["currentMonth", "Current Month"],
+            ["month", "Custom Month"],
+            ["custom", "Custom Date Range"],
           ] as Array<[Mode, string]>
         ).map(([value, label]) => (
           <Button
@@ -187,27 +210,45 @@ export function TrackerReport({
         <ErrorState message="Unable to load the report" detail={error} onRetry={reload} />
       ) : !data ? null : (
         <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          {/* ── What this row reports, and what it stopped reporting ────────
+              Utilization is gone. Recorded minutes over configured capacity
+              said nothing about students — a day of back-to-back internal
+              meetings scored exactly like a day of lectures — and it ran past
+              100% routinely enough that the percentage taught the reader to
+              ignore it.
+
+              The deliverable-hours tile went with it, because the label
+              covered two different figures. Here it meant hours on entries
+              carrying any named deliverable; on the roster screens it meant
+              hours whose category was literally "Deliverable Work". Same
+              underlying data, answers an order of magnitude apart, one name.
+
+              What remains is named for what it actually holds. The tracker's
+              hours come from the engine, which counts preparation, meetings
+              and admin exactly like teaching, so this tile says "Recorded
+              hours" — not "Working Hours", which counts only student-facing
+              time and is the smaller figure the grid below totals out of the
+              same response. Quantity stays: a count of deliverables completed
+              is its own question, not an hours figure wearing a misleading
+              name. */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <StatTile label="Instructors" value={data.totals.instructors} emphasis />
-            <StatTile
-              label="Total working hours"
-              value={formatHours(data.totals.totalWorkingHours)}
-            />
-            <StatTile
-              label="Deliverable hours"
-              value={formatHours(data.totals.deliverableHours)}
-            />
+            <StatTile label="Recorded hours" value={formatHours(data.totals.totalWorkingHours)} />
             <StatTile label="Deliverable quantity" value={data.totals.quantity} />
-            <StatTile label="Utilization" value={formatPct(data.totals.utilizationPct)} />
           </div>
 
-          {/* The distinction is easy to misread, so it is stated once, plainly,
-              above the grid rather than left to a tooltip. */}
-          <Alert tone="info" title="Two hour figures, deliberately kept apart">
-            <strong>Total working hours</strong> is recorded activity — the same figure the
-            dashboards and utilization use. <strong>Deliverable hours</strong> is time booked
-            against a named deliverable. They measure different things and are never added
-            together; only total working hours affects utilization.
+          {/* Both figures are on THIS screen — this tile above, the grid's
+              Working Hours column below — and the tile is the larger of the
+              two, so a reader who conflates them overstates teaching load.
+              The difference is therefore stated once, plainly, between them
+              rather than left to a tooltip. It must not send the reader off to
+              some other page: the smaller figure is a scroll away, not a
+              screen away. */}
+          <Alert tone="info" title="Recorded hours is not Working Hours">
+            <strong>Recorded hours</strong> is every minute logged in this period — preparation,
+            meetings, reporting and admin included. <strong>Working Hours</strong>, the column in
+            the grid below, counts only time spent with students, so it is the smaller figure.
+            They answer different questions and are never added together.
           </Alert>
 
           {data.totals.formerInstructors > 0 ? (
@@ -220,11 +261,19 @@ export function TrackerReport({
             </Alert>
           ) : null}
 
-          <p className="text-sm text-muted">
-            {formatDate(data.from)} to {formatDate(data.to)} · {data.weeks.length} week
-            {data.weeks.length === 1 ? "" : "s"} · times in {data.timezone}
-            {emptyHint && data.rows.length === 0 ? ` · ${emptyHint}` : ""}
-          </p>
+          {/* The period, stated plainly. The grid below repeats each week's own
+              dates, but the reader needs to know what window they are looking
+              at before they start scrolling it. */}
+          <div>
+            <p className="text-sm font-semibold text-content">{PERIOD_LABEL[mode]}</p>
+            <p className="tabular mt-0.5 text-sm text-muted">
+              {formatDate(data.from)} – {formatDate(data.to)} · {data.weeks.length} week
+              {data.weeks.length === 1 ? "" : "s"} · times in {data.timezone}
+            </p>
+            {emptyHint && data.rows.length === 0 ? (
+              <p className="mt-1 text-sm text-subtle">{emptyHint}</p>
+            ) : null}
+          </div>
 
           {/* The per-category split is only legible on a one-person report;
               on a team grid it repeats for every row. */}

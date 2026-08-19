@@ -1,4 +1,4 @@
-# NEXTWAVE Verification Report
+# NIAT Verification Report
 
 **Verified against the codebase as of commit `85c07ec` (2026-08-14).**
 

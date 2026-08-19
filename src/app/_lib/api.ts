@@ -114,6 +114,21 @@ export type Load<T> = {
  * rendered: without that, switching period twice quickly can leave the older,
  * slower response on screen showing numbers for a range nobody selected.
  */
+/**
+ * Uploads a file.
+ *
+ * A separate helper because {@link apiSend} sets `content-type: application/json`
+ * — for multipart the header must be OMITTED so the browser can generate the
+ * boundary. Setting it by hand produces a body the server cannot parse.
+ */
+export async function apiUpload<T>(url: string, file: File, fallback: string): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(url, { method: "POST", body: form });
+  if (!res.ok) throw new Error(await readError(res, fallback));
+  return (await res.json()) as T;
+}
+
 export function useLoad<T>(loader: () => Promise<T>, key: string): Load<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);

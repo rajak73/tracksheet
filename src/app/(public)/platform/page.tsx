@@ -25,7 +25,7 @@ import {
 } from "@/app/_components/public/sections";
 
 export const metadata: Metadata = {
-  title: "Platform | NEXTWAVE",
+  title: "Platform | NIAT",
   description:
     "One platform connecting administrators, university managers and instructors around the same workforce data — workload, utilization, deliverables and analytics.",
   alternates: { canonical: "/platform" },
@@ -39,7 +39,7 @@ export default function PlatformPage() {
           as="h1"
           eyebrow="Platform"
           title="One platform. Every role."
-          lede="NEXTWAVE connects the complete university workforce ecosystem — administrators overseeing a network, managers running one institution, and instructors recording the work that everything else is calculated from."
+          lede="NIAT connects the complete university workforce ecosystem — administrators overseeing a network, managers running one institution, and instructors recording the work that everything else is calculated from."
         />
         <div className="mt-14">
           <RoleSwitcher />
@@ -88,7 +88,7 @@ export default function PlatformPage() {
             <SectionHeading
               eyebrow="Capacity model"
               title="Know where every hour goes."
-              lede="Recorded work, unutilized capacity and missing data are three different things, and NEXTWAVE reports them as three different things."
+              lede="Recorded work, unutilized capacity and missing data are three different things, and NIAT reports them as three different things."
             />
             <p className="mt-6 text-sm leading-relaxed text-muted">
               Worked time is measured as the union of recorded intervals rather than the sum of
@@ -139,7 +139,7 @@ export default function PlatformPage() {
         title="Ready to see the platform?"
         lede="We'll walk through the parts that matter to how your institutions operate."
       >
-        <ButtonLink href="/contact">Request a Demo</ButtonLink>
+        <ButtonLink href="/contact">Request access</ButtonLink>
         <ButtonLink
           href="/ai-intelligence"
           variant="secondary"

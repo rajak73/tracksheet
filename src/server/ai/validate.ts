@@ -106,7 +106,7 @@ function extractDates(text: string): string[] {
  * characterises competence, effort or attitude — a judgement the data cannot
  * support and that a workforce tool must not put in writing about someone.
  */
-const JUDGEMENT_TERMS = [
+export const JUDGEMENT_TERMS = [
   "underperform",
   "poor perform",
   "lazy",
@@ -128,7 +128,7 @@ const JUDGEMENT_TERMS = [
  * Claims of fact the condition cannot support. These are phrasings that assert
  * a trend, cause or comparison the deterministic layer never computed.
  */
-const UNSUPPORTED_ASSERTIONS = [
+export const UNSUPPORTED_ASSERTIONS = [
   "compared to last year",
   "compared with last year",
   "industry average",

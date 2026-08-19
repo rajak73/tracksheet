@@ -1,28 +1,50 @@
 "use client";
 
 /**
- * Every manager, across every university.
+ * Managers — the admin's primary operational page.
  *
- * There is no single "list all managers" endpoint — managers are read per
- * university, the same as the manager-creation form on a university's detail
- * page. This assembles the cross-tenant view the same way the deliverables
- * page assembles a per-instructor view: one request per university, in
- * parallel, over data the server already scopes correctly. No new endpoint,
- * no new authorization path (§39).
+ * ── One request, not one per university ────────────────────────────────────
+ * This page used to load every university and then ask each one for its
+ * managers, with the analytics engine running once per manager behind that. It
+ * now makes a SINGLE call to `/api/managers`, which groups one engine pass per
+ * university into per-manager figures server-side. Sorting and searching are
+ * server-side too, so the browser never holds a partial set and sorts it into a
+ * different answer than the API would give.
+ *
+ * ── One hours figure, and it is about students ─────────────────────────────
+ * A roster is summarised here by its Working Hours — the time its instructors
+ * spent WITH STUDENTS. Utilization used to lead this page: recorded minutes
+ * against the configured working day, the Healthy / Borderline / Needs
+ * attention band derived from it, the week-on-week movement in it, and the
+ * filter that kept only the failing bands. None of it asked about students —
+ * a roster whose week went to internal meetings scored exactly like one that
+ * taught — and it routinely passed 100%. The "Deliverable" and
+ * "Non-deliverable" columns went with it: they split hours by whether the
+ * CATEGORY was literally "Deliverable Work", which filed a lecture under
+ * "non-deliverable".
+ *
+ * So a manager is read by roster size and the hours that roster spent teaching,
+ * and every row links through to the manager's own page for anything finer.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
+import Link from "next/link";
 import {
   Badge,
+  Button,
+  ButtonLink,
   Card,
   CardHeader,
   CardList,
   CardListItem,
   EmptyState,
   ErrorState,
+  Field,
   PageHeader,
   SearchInput,
-  StatusPill,
+  Section,
+  Select,
+  StatTile,
   Table,
   TableSkeleton,
   TableWrap,
@@ -31,125 +53,177 @@ import {
   THead,
   TR,
 } from "@/app/_components/ui";
-import Link from "next/link";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { formatHours } from "@/app/_lib/format";
 
-type University = { id: string; name: string };
-type Manager = {
+type ManagerRow = {
   id: string;
+  name: string;
+  email: string;
   employeeCode: string | null;
+  isActive: boolean;
   isPrimary: boolean;
+  universityId: string;
+  universityName: string;
+  universityCode: string;
   instructorCount: number;
-  user: { name: string; email: string; isActive: boolean };
+  /** Time with students, summed across the roster. The one hours figure. */
+  workingHours: number;
 };
 
-type Row = Manager & { universityId: string; universityName: string };
+type Response = {
+  managers: ManagerRow[];
+  universities: Array<{ id: string; name: string; code: string }>;
+  period: { from: string; to: string } | null;
+};
+
+const SORTS: Array<[string, string]> = [
+  ["workingHours", "Working Hours"],
+  ["instructors", "Instructors"],
+  ["name", "Name"],
+];
 
 export default function AdminManagersPage() {
-  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("workingHours");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const [search, setSearch] = useState("");
+  const [universityId, setUniversityId] = useState("");
+  const [status, setStatus] = useState("active");
 
-  const load = useCallback(async () => {
-    const universities = await apiGet<{ universities: University[] }>(
-      "/api/universities?limit=200",
-      "Could not load universities.",
-    );
+  const load = useCallback(() => {
+    const params = new URLSearchParams({ sort, order, status });
+    if (search.trim()) params.set("search", search.trim());
+    if (universityId) params.set("universityId", universityId);
+    return apiGet<Response>(`/api/managers?${params}`, "Could not load managers.");
+  }, [sort, order, search, universityId, status]);
 
-    const perUniversity = await Promise.all(
-      universities.universities.map(async (u) => {
-        const body = await apiGet<{ managers: Manager[] }>(
-          `/api/universities/${u.id}/managers`,
-          "Could not load managers.",
-        ).catch(() => ({ managers: [] as Manager[] }));
-        return body.managers.map((m) => ({ ...m, universityId: u.id, universityName: u.name }));
-      }),
-    );
+  const { data, error, loading, reload } = useLoad(
+    load,
+    `admin-managers:${sort}:${order}:${search}:${universityId}:${status}`,
+  );
 
-    return perUniversity.flat();
-  }, []);
-
-  const { data, error, loading, reload } = useLoad(load, "admin-managers");
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const needle = query.trim().toLowerCase();
-    if (!needle) return data;
-    return data.filter(
-      (m: Row) =>
-        m.user.name.toLowerCase().includes(needle) ||
-        m.user.email.toLowerCase().includes(needle) ||
-        m.universityName.toLowerCase().includes(needle),
-    );
-  }, [data, query]);
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <PageHeader title="Managers" description="Every manager across all universities." />
-        <TableSkeleton cols={5} />
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <PageHeader title="Managers" />
-        <ErrorState message="Unable to load managers" detail={error} onRetry={reload} />
-      </div>
-    );
-  }
-  if (!data) return null;
+  const rows = data?.managers ?? [];
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Managers" description="Every manager across all universities." />
+    <div className="space-y-5">
+      <PageHeader
+        title="Managers"
+        description="Every manager and the performance of the instructors who report to them."
+      />
+
+      {error ? <ErrorState message="Unable to load managers" detail={error} onRetry={reload} /> : null}
+
+      {data ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatTile label="Managers" value={rows.length} />
+          <StatTile
+            label="Instructors on a roster"
+            value={rows.reduce((n, m) => n + m.instructorCount, 0)}
+          />
+          <StatTile
+            label="Working Hours this week"
+            value={formatHours(rows.reduce((n, m) => n + m.workingHours, 0))}
+          />
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader
-          title={`${data.length} manager${data.length === 1 ? "" : "s"}`}
+          title={data?.period ? `Current week · ${data.period.from} to ${data.period.to}` : "Managers"}
           actions={
-            data.length > 5 ? (
+            <div className="flex flex-wrap items-end gap-2">
               <SearchInput
                 label="Search managers"
-                value={query}
-                onChange={setQuery}
-                placeholder="Search by name, email or university…"
-                className="w-full sm:w-64"
+                value={search}
+                onChange={setSearch}
+                placeholder="Name, email, ID or university…"
+                className="w-full sm:w-56"
               />
-            ) : null
+              <Field label="University">
+                <Select
+                  value={universityId}
+                  onChange={(e) => setUniversityId(e.target.value)}
+                  className="min-w-40"
+                >
+                  <option value="">All universities</option>
+                  {(data?.universities ?? []).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Status">
+                <Select value={status} onChange={(e) => setStatus(e.target.value)} className="min-w-32">
+                  <option value="active">Active</option>
+                  <option value="inactive">Deactivated</option>
+                  <option value="all">All</option>
+                </Select>
+              </Field>
+              <Field label="Sort by">
+                <Select value={sort} onChange={(e) => setSort(e.target.value)} className="min-w-40">
+                  {SORTS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setOrder(order === "desc" ? "asc" : "desc")}
+                aria-label={`Sort ${order === "desc" ? "ascending" : "descending"}`}
+              >
+                {order === "desc" ? "Highest first" : "Lowest first"}
+              </Button>
+            </div>
           }
         />
-        {data.length === 0 ? (
-          <EmptyState
-            title="No managers yet"
-            description="Assign a primary manager from a university's detail page."
-          />
+
+        {loading && !data ? (
+          <TableSkeleton cols={7} />
         ) : rows.length === 0 ? (
-          <EmptyState title="No manager matches that search" />
+          <EmptyState
+            title="No managers match"
+            description="Adjust the search or filters, or add a manager from a university."
+          />
         ) : (
           <>
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <TableWrap>
-                <Table caption="Managers across every university">
+                <Table caption="Managers and their roster performance for the current week">
                   <THead
                     columns={[
                       { label: "Manager" },
-                      { label: "Email" },
+                      { label: "Employee ID" },
                       { label: "University" },
                       { label: "Instructors", align: "right" },
+                      { label: "Working Hours", align: "right" },
                       { label: "Status" },
+                      { label: "Action" },
                     ]}
                   />
                   <TBody>
-                    {rows.map((m: Row) => (
+                    {rows.map((m) => (
                       <TR key={m.id}>
                         <TD strong>
-                          {m.user.name}
+                          <Link
+                            href={`/admin/managers/${m.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {m.name}
+                          </Link>
                           {m.isPrimary ? (
                             <span className="ml-2">
                               <Badge tone="primary">Primary</Badge>
                             </span>
                           ) : null}
                         </TD>
-                        <TD>{m.user.email}</TD>
+                        <TD>
+                          <span className="tabular text-muted">{m.employeeCode ?? "—"}</span>
+                        </TD>
                         <TD>
                           <Link
                             href={`/admin/universities/${m.universityId}`}
@@ -158,11 +232,30 @@ export default function AdminManagersPage() {
                             {m.universityName}
                           </Link>
                         </TD>
-                        <TD align="right">{m.instructorCount}</TD>
+                        <TD align="right">
+                          <span className="tabular">{m.instructorCount}</span>
+                        </TD>
+                        <TD align="right">
+                          <span className="tabular">{formatHours(m.workingHours)}</span>
+                        </TD>
+                        {/* Account status, which is what this column now means.
+                            It used to carry the utilization band as well, and a
+                            roster reading "Healthy" beside a deactivated account
+                            was two unrelated facts wearing one heading. */}
                         <TD>
-                          <Badge tone={m.user.isActive ? "success" : "neutral"}>
-                            {m.user.isActive ? "Active" : "Inactive"}
+                          <Badge tone={m.isActive ? "success" : "neutral"}>
+                            {m.isActive ? "Active" : "Deactivated"}
                           </Badge>
+                        </TD>
+                        <TD>
+                          <ButtonLink
+                            href={`/admin/managers/${m.id}`}
+                            variant="secondary"
+                            size="sm"
+                            aria-label={`Open ${m.name}'s roster`}
+                          >
+                            View →
+                          </ButtonLink>
                         </TD>
                       </TR>
                     ))}
@@ -170,15 +263,42 @@ export default function AdminManagersPage() {
                 </Table>
               </TableWrap>
             </div>
-            <div className="md:hidden">
+
+            {/* Below the table's breakpoint the same facts stack, so a phone
+                loses layout but never information. */}
+            <div className="lg:hidden">
               <CardList>
-                {rows.map((m: Row) => (
+                {rows.map((m) => (
                   <CardListItem
                     key={m.id}
-                    href={`/admin/universities/${m.universityId}`}
-                    title={m.user.name}
-                    subtitle={m.universityName}
-                    trailing={<StatusPill status={m.user.isActive ? "ACTIVE" : "INACTIVE"} />}
+                    href={`/admin/managers/${m.id}`}
+                    title={
+                      <>
+                        {m.name}
+                        {m.isPrimary ? (
+                          <span className="ml-2">
+                            <Badge tone="primary">Primary</Badge>
+                          </span>
+                        ) : null}
+                        {!m.isActive ? (
+                          <span className="ml-2">
+                            <Badge tone="neutral">Deactivated</Badge>
+                          </span>
+                        ) : null}
+                      </>
+                    }
+                    subtitle={
+                      `${m.employeeCode ?? "—"} · ${m.universityName} · ${m.instructorCount} instructor` +
+                      `${m.instructorCount === 1 ? "" : "s"}`
+                    }
+                    trailing={
+                      <span className="text-right">
+                        <span className="tabular block text-sm text-content">
+                          {formatHours(m.workingHours)}
+                        </span>
+                        <span className="text-xs text-subtle">Working Hours</span>
+                      </span>
+                    }
                   />
                 ))}
               </CardList>
@@ -186,6 +306,18 @@ export default function AdminManagersPage() {
           </>
         )}
       </Card>
+
+      <Section title="Unassigned instructors">
+        <Card>
+          <p className="px-5 py-4 text-sm text-muted">
+            Instructors who report to nobody appear on no roster above.{" "}
+            <Link href="/admin/instructors" className="text-primary hover:underline">
+              Open the instructor directory
+            </Link>{" "}
+            to assign them.
+          </p>
+        </Card>
+      </Section>
     </div>
   );
 }

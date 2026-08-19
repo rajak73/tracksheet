@@ -1,464 +1,639 @@
 "use client";
 
 /**
- * The manager's university.
+ * The manager's dashboard.
  *
- * Ordered to answer one question first — "who needs attention?" (§17). The
- * health figures set context, the instructor table names the people, and
- * exceptions say what specifically is wrong. Trends come last because they
- * inform next week rather than today.
+ * ── Four figures, then the roster, then the shape of the month ────────────
+ * The order is the order the questions get asked. "Is my team in today?" is
+ * answered before anything else and in four numbers; "who, exactly?" is the
+ * table under them; "how has the month gone, and where did the hours go?" sits
+ * beside both because it is context rather than an alert.
  *
- * The instructor table is sortable in the browser over rows the server already
- * returned, so ranking by utilisation costs no request and cannot disagree with
- * the totals above it.
+ * ── Today's figures never follow the table's date ─────────────────────────
+ * The four cards read TODAY and keep reading today when somebody pages the
+ * table back to last Tuesday. A card labelled "Logged Today" that quietly
+ * became last Tuesday's count would be worse than no card: it is the number
+ * people repeat without re-reading the label.
+ *
+ * ── Nothing here is computed in the browser ───────────────────────────────
+ * Every hour, percentage and count arrives derived from `computeAnalytics`.
+ * The page arranges and formats; it never adds up a column, because a total the
+ * page invents is a total that can disagree with the one the report carries.
  */
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
-  Badge,
-  ButtonLink,
+  Button,
+  SearchInput,
+  Select,
   Card,
   CardHeader,
-  CardList,
-  CardListItem,
   EmptyState,
   ErrorState,
-  Meter,
   PageHeader,
-  SearchInput,
   Section,
   StatGridSkeleton,
-  StatTile,
-  Table,
   TableSkeleton,
-  TableWrap,
-  TBody,
-  TD,
-  THead,
-  TR,
-  complianceLabel,
-  complianceTone,
-  utilizationLabel,
-  utilizationTone,
-  type SortDirection,
 } from "@/app/_components/ui";
-import { AllocationBar, ChartCard } from "@/app/_components/charts";
 import {
-  InsightCard,
-  PeriodSelector,
-  periodQuery,
-  type Period,
-} from "@/app/_components/interactive";
-import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatHours } from "@/app/_lib/format";
+  Change,
+  DayTimelineCard,
+  HoursDonut,
+  KpiCard,
+  WeekBars,
+  type DayInstructor,
+  type Slice,
+  type WeekBar,
+} from "@/app/_components/ManagerDashboard";
+import {
+  IconAlert,
+  IconChevronDown,
+  IconDownload,
+  IconCheck,
+  IconClock,
+  IconUsers,
+} from "@/app/_components/icons";
+import { useToast } from "@/app/_components/interactive";
+import { formatDuration, type Activity } from "@/app/_components/workload";
+import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { formatDayAs } from "@/app/_lib/format";
+import { pingNotifications } from "@/app/_components/NotificationBell";
+import { Avatar } from "@/app/_components/AccountDialogs";
+import { rollUp } from "@/app/_components/sheet-rollup";
 
-type InstructorRow = {
+/* ── Shapes ───────────────────────────────────────────────────────────────── */
+
+type Overview = {
+  timezone: string | null;
+  today: {
+    date: string;
+    instructors: number;
+    expected: number;
+    logged: number;
+    missing: number;
+    loggedPct: number | null;
+    hours: number;
+    activities: number;
+    yesterday: { hours: number | null; deltaPct: number | null; direction: string };
+  } | null;
+  month: { month: string; from: string; to: string; totalHours: number; weeks: WeekBar[] } | null;
+  distribution: Slice[];
+};
+
+type WorklogRow = {
   instructorId: string;
-  instructorName: string;
+  name: string;
+  avatarUrl: string | null;
   employeeCode: string | null;
-  capacityHours: number;
-  productiveHours: number;
-  unutilizedHours: number;
-  missingDataHours: number;
-  utilizationPct: number | null;
-  overlapHours: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
+  totalHours: number;
+  activityCount: number;
+  status: DayInstructor["status"];
+  days: Array<{ date: string; hours: number; activityCount: number; status: string }>;
+  activities: Array<Activity & { date: string; durationHours: number }>;
 };
 
-type Totals = {
-  instructors: number;
-  capacityHours: number;
-  productiveHours: number;
-  unutilizedHours: number;
-  missingDataHours: number;
-  utilizationPct: number | null;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
-  hoursByActivityType: Record<string, number>;
+type Worklog = {
+  period: { from: string; to: string };
+  timezone: string | null;
+  instructors: WorklogRow[];
 };
 
-type Insight = {
-  id: string;
-  type: string;
-  severity: string;
-  title?: string;
-  summary?: string;
-  recommendation: string;
-  period?: string;
-  status?: string;
-  sourceMetrics?: Record<string, unknown> | null;
-};
+type View = "day" | "week" | "month";
 
-type ExceptionFlag = {
-  type: string;
-  severity: string;
-  instructorName: string;
-  date: string;
-  detail: string;
-};
+/** One column of the roster grid: a day in Week view, a week in Month view. */
+type GridPeriod = { key: string; label: string; sublabel: string; dates: string[] };
+
+/** How many instructors the day view shows before asking. */
+const VISIBLE_INSTRUCTORS = 5;
+
+/* ── Dates ────────────────────────────────────────────────────────────────── */
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  return addDays(iso, -((d.getUTCDay() + 6) % 7));
+}
+
+/**
+ * The month, as WHOLE weeks.
+ *
+ * A week cut off at the 1st is not comparable to the six-day column beside it —
+ * the shorter total reads as a quieter week rather than a clipped one. Which is
+ * why the first column can begin in the previous month. The week bars on the
+ * right and the monthly tracker use the same rule, so all three agree.
+ */
+function monthEdges(iso: string): { from: string; to: string } {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
+}
+
+/** Today, as the browser reads it. Corrected to the tenant's zone once known. */
+const todayIso = () =>
+  new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
+    .toISOString()
+    .slice(0, 10);
+
+const fmt = formatDayAs;
+
+/* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function ManagerDashboardPage() {
-  const [period, setPeriod] = useState<Period | null>(null);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<{ key: string; direction: SortDirection }>({
-    key: "utilizationPct",
-    direction: "asc",
-  });
+  const today = todayIso();
+  const [view, setView] = useState<View>("day");
+  const [anchor, setAnchor] = useState(today);
+  const [reminding, setReminding] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  /* Name first, because a roster is usually read looking for somebody. Hours
+   * is the other question — "who is light this week, who is buried" — and it
+   * only answers it if the figure sorted on is the SAME one on the cards. */
+  const [sort, setSort] = useState<"name" | "hours-desc" | "hours-asc">("name");
+  const toast = useToast();
 
-  const load = useCallback(async () => {
-    const me = await fetchMe();
-    const universityId = me.user.universityId;
-    if (!universityId) throw new Error("No university is linked to this account.");
+  const month = anchor.slice(0, 7);
 
-    const query = periodQuery(period);
-    const [analytics, insights, exceptions] = await Promise.all([
-      apiGet<{ analytics: { from: string; to: string; totals: Totals; instructors: InstructorRow[] } }>(
-        `/api/universities/${universityId}/analytics${query}`,
-        "Could not load your university's workload for this period.",
+  const loadOverview = useCallback(
+    () =>
+      apiGet<Overview>(
+        `/api/manager/overview?date=${today}&month=${month}`,
+        "Could not load your dashboard.",
       ),
-      apiGet<{ insights: Insight[] }>(
-        `/api/universities/${universityId}/insights${query}`,
-        "Could not load insights.",
-      ).catch(() => ({ insights: [] as Insight[] })),
-      apiGet<{ exceptions: { total: number; exceptions: ExceptionFlag[] } }>(
-        `/api/universities/${universityId}/exceptions${query}`,
-        "Could not load exceptions.",
-      ).catch(() => ({ exceptions: { total: 0, exceptions: [] as ExceptionFlag[] } })),
-    ]);
-
-    return {
-      universityId,
-      from: analytics.analytics.from,
-      to: analytics.analytics.to,
-      totals: analytics.analytics.totals,
-      instructors: analytics.analytics.instructors,
-      insights: insights.insights,
-      exceptions: exceptions.exceptions,
-    };
-  }, [period]);
-
-  const { data, error, loading, reload } = useLoad(
-    load,
-    period ? `${period.from}:${period.to}` : "default",
+    [today, month],
   );
+  const overview = useLoad(loadOverview, `manager-overview:${today}:${month}`);
 
-  /** Sorting and filtering over rows the server already sent. No refetch. */
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const needle = query.trim().toLowerCase();
-    const filtered = data.instructors.filter(
-      (i) =>
+  const range = useMemo(() => {
+    if (view === "day") return { from: anchor, to: anchor };
+    if (view === "week") {
+      const monday = mondayOf(anchor);
+      return { from: monday, to: addDays(monday, 6) };
+    }
+    return monthEdges(anchor);
+  }, [view, anchor]);
+
+  const loadWorklog = useCallback(
+    () =>
+      apiGet<Worklog>(
+        `/api/manager/worklog?from=${range.from}&to=${range.to}`,
+        "Could not load your roster's worklog.",
+      ),
+    [range.from, range.to],
+  );
+  const worklog = useLoad(loadWorklog, `manager-worklog:${range.from}:${range.to}`);
+
+  const timeZone = overview.data?.timezone ?? worklog.data?.timezone ?? "UTC";
+
+  /* Filtered here rather than by the endpoint: this is a roster of a size a
+   * person scans, and narrowing it should not cost a round trip while they
+   * type. */
+  const roster = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const rows = (worklog.data?.instructors ?? []).filter(
+      (r) =>
         !needle ||
-        i.instructorName.toLowerCase().includes(needle) ||
-        (i.employeeCode ?? "").toLowerCase().includes(needle),
+        r.name.toLowerCase().includes(needle) ||
+        (r.employeeCode ?? "").toLowerCase().includes(needle),
     );
 
-    return [...filtered].sort((a, b) => {
-      const key = sort.key as keyof InstructorRow;
-      const av = a[key];
-      const bv = b[key];
+    if (sort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name));
 
-      // Nulls last in both directions: "not measurable" is never the most
-      // interesting row, whichever way the column is sorted.
-      if (av === null) return 1;
-      if (bv === null) return -1;
+    /* Sorted on the SAME hours the card shows — the student-facing total from
+     * `rollUp`, not the engine's every-recorded-minute figure. Ordering by one
+     * number while displaying another is how a list stops making sense. */
+    const hoursOf = (r: WorklogRow) => rollUp(r.activities).hours;
+    return [...rows].sort((a, b) =>
+      sort === "hours-desc" ? hoursOf(b) - hoursOf(a) : hoursOf(a) - hoursOf(b),
+    );
+  }, [worklog.data, search, sort]);
 
-      const cmp =
-        typeof av === "number" && typeof bv === "number"
-          ? av - bv
-          : String(av).localeCompare(String(bv));
-      return sort.direction === "asc" ? cmp : -cmp;
+  /* A long roster is a wall. The first few answer "is anything wrong today?",
+   * which is the question this page opens with; the rest is a click away. */
+  const visible = showAll ? roster : roster.slice(0, VISIBLE_INSTRUCTORS);
+
+  /** Exactly what is on screen, as a spreadsheet. */
+  const exportCsv = () => {
+    if (roster.length === 0) return;
+    const rows = [
+      ["Instructor", "Employee ID", "Date", "Total hours", "Activities", "Status"],
+      ...roster.flatMap((r) =>
+        r.days.map((d) => [
+          r.name,
+          r.employeeCode ?? "",
+          d.date,
+          formatDuration(d.hours),
+          String(d.activityCount),
+          d.status,
+        ]),
+      ),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `roster-${range.from}-to-${range.to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* Week gives a column per day; Month gives a column per WEEK. Thirty-one
+   * columns is not a table anybody reads a row of. */
+  const gridPeriods: GridPeriod[] = useMemo(() => {
+    if (view === "month") {
+      const out: GridPeriod[] = [];
+      for (let start = range.from, i = 1; start <= range.to; start = addDays(start, 7), i++) {
+        out.push({
+          key: start,
+          label: `Week ${i}`,
+          sublabel: `${fmt(start, { day: "numeric", month: "short" })} – ${fmt(addDays(start, 6), { day: "numeric", month: "short" })}`,
+          dates: Array.from({ length: 7 }, (_, d) => addDays(start, d)),
+        });
+      }
+      return out;
+    }
+
+    const days = Math.round(
+      (Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86_400_000,
+    ) + 1;
+    return Array.from({ length: days }, (_, i) => {
+      const date = addDays(range.from, i);
+      return {
+        key: date,
+        label: fmt(date, { day: "numeric", month: "short" }),
+        sublabel: fmt(date, { weekday: "short" }),
+        dates: [date],
+      };
     });
-  }, [data, query, sort]);
+  }, [view, range.from, range.to]);
 
-  function toggleSort(key: string) {
-    setSort((s) => ({
-      key,
-      direction: s.key === key && s.direction === "asc" ? "desc" : "asc",
-    }));
-  }
+  const step = (direction: 1 | -1) => {
+    if (view === "day") return setAnchor(addDays(anchor, direction));
+    if (view === "week") return setAnchor(addDays(anchor, direction * 7));
+    const d = new Date(`${anchor}T00:00:00.000Z`);
+    d.setUTCMonth(d.getUTCMonth() + direction, 1);
+    setAnchor(d.toISOString().slice(0, 10));
+  };
 
-  const selector = (
-    <>
-      <PeriodSelector value={period} onChange={setPeriod} />
-      <ButtonLink href="/manager/reports" variant="secondary">
-        View reports
-      </ButtonLink>
-    </>
-  );
+  /** A nudge, not a record: it writes a notification and changes no hours. */
+  const remind = async (instructorId: string) => {
+    setReminding(instructorId);
+    try {
+      await apiSend(
+        `/api/instructors/${instructorId}/remind`,
+        "POST",
+        { workDate: range.from },
+        "That reminder could not be sent.",
+      );
+      toast("success", "Reminder sent.");
+    } catch (e) {
+      toast("danger", e instanceof Error ? e.message : "That reminder could not be sent.");
+      pingNotifications();
+    } finally {
+      setReminding(null);
+    }
+  };
 
-  if (loading) {
+  if (overview.error && !overview.data) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Overview" actions={selector} />
-        <StatGridSkeleton />
-        <TableSkeleton cols={6} />
+        <PageHeader title="Dashboard" />
+        <ErrorState message="Unable to load your dashboard" detail={overview.error} />
       </div>
     );
   }
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Overview" actions={selector} />
-        <ErrorState message="Unable to load your university" detail={error} onRetry={reload} />
-      </div>
-    );
-  }
-  if (!data) return null;
 
-  const t = data.totals;
-  const attention = data.instructors.filter(
-    (i) => i.utilizationPct !== null && i.utilizationPct < 60,
-  );
+  const stats = overview.data?.today ?? null;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Overview"
-        description={`${formatDate(data.from)} to ${formatDate(data.to)}`}
-        actions={selector}
-      />
+    <div className="space-y-6">
+      <PageHeader title="Dashboard" />
 
-      {/* 1 — University health. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          label="Utilization"
-          value={t.utilizationPct}
-          suffix="%"
-          tone={utilizationTone(t.utilizationPct)}
-          status={utilizationLabel(t.utilizationPct)}
-          emphasis
-          hint={`${t.productiveHours} of ${t.capacityHours} hrs`}
-        />
-        <StatTile label="Active instructors" value={t.instructors} />
-        <StatTile
-          label="Opening compliance"
-          value={t.openingCompliancePct}
-          suffix="%"
-          tone={complianceTone(t.openingCompliancePct)}
-          status={complianceLabel(t.openingCompliancePct)}
-        />
-        <StatTile
-          label="Closing compliance"
-          value={t.closingCompliancePct}
-          suffix="%"
-          tone={complianceTone(t.closingCompliancePct)}
-          status={complianceLabel(t.closingCompliancePct)}
-        />
-      </div>
-
-      {t.missingDataHours > 0 ? (
-        <Alert tone="warning" title="Some working time has no records">
-          {formatHours(t.missingDataHours)} carry no activity. That is missing data, not
-          unutilized time — the utilization figure above is calculated over what was recorded.
-        </Alert>
-      ) : null}
-
-      {/* 2 — Who needs attention. */}
-      <Section
-        title="Instructor workload"
-        description="Sorted by utilization, lowest first — the people most likely to need a conversation."
-      >
-        <Card>
-          <CardHeader
-            title="Instructors"
-            description={
-              attention.length > 0
-                ? `${attention.length} below 60% utilization in this period.`
-                : "All instructors are at or above 60% utilization."
-            }
-            actions={
-              data.instructors.length > 5 ? (
-                <SearchInput
-                  label="Search instructors"
-                  value={query}
-                  onChange={setQuery}
-                  placeholder="Search by name or code…"
-                  className="w-full sm:w-56"
-                />
-              ) : null
+      {/* ── The four figures ─────────────────────────────────────────────── */}
+      {overview.loading && !stats ? (
+        <StatGridSkeleton />
+      ) : stats ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            label="Total instructors"
+            value={String(stats.instructors)}
+            icon={<IconUsers size={20} />}
+            tint="blue"
+            footnote="All active"
+          />
+          <KpiCard
+            label="Logged today"
+            value={String(stats.logged)}
+            icon={<IconCheck size={20} />}
+            tint="green"
+            footnote={
+              stats.loggedPct === null
+                ? "No working days today"
+                : `${stats.loggedPct}% of ${stats.expected} expected · ${stats.activities} ${
+                    stats.activities === 1 ? "activity" : "activities"
+                  }`
             }
           />
-
-          {data.instructors.length === 0 ? (
-            <EmptyState
-              title="No active instructors"
-              description="Add instructors to start tracking workload for this university."
-              action={<ButtonLink href="/manager/instructors">Add an instructor</ButtonLink>}
-            />
-          ) : rows.length === 0 ? (
-            <EmptyState
-              title="No instructor matches that search"
-              description="Try a different name or employee code."
-            />
-          ) : (
-            <>
-              <div className="hidden md:block">
-                <TableWrap>
-                  <Table caption="Instructor workload for the selected period">
-                    <THead
-                      sort={sort}
-                      onSort={toggleSort}
-                      columns={[
-                        { label: "Instructor", sortKey: "instructorName" },
-                        { label: "Capacity", align: "right", sortKey: "capacityHours" },
-                        { label: "Recorded", align: "right", sortKey: "productiveHours" },
-                        { label: "No records", align: "right", sortKey: "missingDataHours" },
-                        { label: "Utilization", sortKey: "utilizationPct" },
-                        { label: "Open / close" },
-                      ]}
-                    />
-                    <TBody>
-                      {rows.map((i) => (
-                        <TR key={i.instructorId}>
-                          <TD strong>
-                            <span className="whitespace-nowrap">{i.instructorName}</span>
-                            {i.employeeCode ? (
-                              <span className="ml-2 text-xs text-subtle">{i.employeeCode}</span>
-                            ) : null}
-                            {i.overlapHours > 0 ? (
-                              <span className="ml-2">
-                                <Badge tone="warning">Overlapping records</Badge>
-                              </span>
-                            ) : null}
-                          </TD>
-                          <TD align="right">{i.capacityHours}</TD>
-                          <TD align="right">{i.productiveHours}</TD>
-                          <TD align="right">
-                            {i.missingDataHours > 0 ? (
-                              <span className="text-warning">{i.missingDataHours}</span>
-                            ) : (
-                              0
-                            )}
-                          </TD>
-                          <TD>
-                            <Meter
-                              value={i.utilizationPct}
-                              tone={utilizationTone(i.utilizationPct)}
-                              label={utilizationLabel(i.utilizationPct)}
-                            />
-                          </TD>
-                          <TD>
-                            <div className="flex items-center gap-1.5">
-                              <Badge tone={complianceTone(i.openingCompliancePct)}>
-                                {i.openingCompliancePct === null
-                                  ? "—"
-                                  : `${i.openingCompliancePct}%`}
-                              </Badge>
-                              <Badge tone={complianceTone(i.closingCompliancePct)}>
-                                {i.closingCompliancePct === null
-                                  ? "—"
-                                  : `${i.closingCompliancePct}%`}
-                              </Badge>
-                            </div>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                </TableWrap>
-              </div>
-
-              {/* Mobile: name, utilization, status — the three fields that
-                  answer "who needs attention". The rest is a drill-down. */}
-              <div className="md:hidden">
-                <CardList>
-                  {rows.map((i) => (
-                    <CardListItem
-                      key={i.instructorId}
-                      title={i.instructorName}
-                      subtitle={utilizationLabel(i.utilizationPct)}
-                      meta={
-                        <Meter
-                          value={i.utilizationPct}
-                          tone={utilizationTone(i.utilizationPct)}
-                        />
-                      }
-                    />
-                  ))}
-                </CardList>
-              </div>
-            </>
-          )}
-        </Card>
-      </Section>
-
-      {/* 3 — Exceptions. */}
-      {data.exceptions.total > 0 ? (
-        <Section
-          title="Exceptions"
-          description="Data-quality flags detected in this period. Each one names the measurement, not a judgement about a person."
-        >
-          <Card>
-            <CardHeader
-              title={`${data.exceptions.total} flagged`}
-              description={
-                data.exceptions.exceptions.length < data.exceptions.total
-                  ? `Showing the first ${data.exceptions.exceptions.length}.`
-                  : undefined
-              }
-            />
-            <CardList>
-              {data.exceptions.exceptions.slice(0, 8).map((e, i) => (
-                <CardListItem
-                  key={`${e.type}-${e.instructorName}-${e.date}-${i}`}
-                  title={e.instructorName}
-                  subtitle={e.detail}
-                  trailing={
-                    <Badge
-                      tone={
-                        e.severity === "HIGH"
-                          ? "danger"
-                          : e.severity === "MEDIUM"
-                            ? "warning"
-                            : "info"
-                      }
-                    >
-                      {e.type.replaceAll("_", " ").toLowerCase()}
-                    </Badge>
-                  }
-                />
-              ))}
-            </CardList>
-          </Card>
-        </Section>
-      ) : null}
-
-      {/* 4 — Trends. */}
-      <ChartCard
-        question="How was your university's capacity allocated?"
-        description={`${formatDate(data.from)} to ${formatDate(data.to)}`}
-        isEmpty={Object.keys(t.hoursByActivityType).length === 0}
-        emptyTitle="No activity recorded in this period"
-        emptyDescription="Once instructors record activity, the distribution appears here."
-      >
-        <AllocationBar
-          slices={Object.entries(t.hoursByActivityType).map(([code, hours]) => ({ code, hours }))}
-          unutilizedHours={t.unutilizedHours}
-          missingDataHours={t.missingDataHours}
+          <KpiCard
+            label="Total hours today"
+            value={formatDuration(stats.hours)}
+            icon={<IconClock size={20} />}
+            tint="amber"
+            footnote={
+              <Change pct={stats.yesterday.deltaPct} direction={stats.yesterday.direction} />
+            }
+          />
+          <KpiCard
+            label="Missing worklog"
+            value={String(stats.missing)}
+            icon={<IconAlert size={20} />}
+            tint="violet"
+            footnote={
+              stats.missing > 0 ? (
+                <a className="text-primary-text hover:underline" href="/manager/worklog">
+                  View instructors →
+                </a>
+              ) : (
+                "Everyone on your roster is in"
+              )
+            }
+          />
+        </div>
+      ) : (
+        <EmptyState
+          title="No instructors assigned to you yet"
+          description="Once instructors are assigned to you, their workload appears here."
         />
-      </ChartCard>
+      )}
 
-      {/* 5 — Insights. */}
-      {data.insights.length > 0 ? (
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* ── The roster ─────────────────────────────────────────────────── */}
         <Section
-          title="AI insights"
-          description="Each one shows the metrics it was derived from."
+          title={
+            view === "day"
+              ? fmt(anchor, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+              : view === "week"
+                ? `Week: ${fmt(range.from, { day: "numeric", month: "short" })} – ${fmt(range.to, { day: "numeric", month: "short" })}`
+                : fmt(anchor, { month: "long", year: "numeric" })
+          }
           actions={
-            <ButtonLink href="/manager/insights" variant="ghost" size="sm">
-              View all
-            </ButtonLink>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-control border border-line p-0.5">
+                {(["day", "week", "month"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    aria-pressed={view === v}
+                    className={`rounded-[0.4rem] px-3 py-1.5 text-sm font-medium capitalize transition ${
+                      view === v ? "bg-primary text-white" : "text-muted hover:text-content"
+                    }`}
+                  >
+                    {v} view
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setAnchor(today)}>
+                Today
+              </Button>
+              <Button size="sm" variant="ghost" aria-label={`Previous ${view}`} onClick={() => step(-1)}>
+                ←
+              </Button>
+              <Button size="sm" variant="ghost" aria-label={`Next ${view}`} onClick={() => step(1)}>
+                →
+              </Button>
+              <SearchInput
+                label="Search instructor or ID"
+                value={search}
+                onChange={setSearch}
+                placeholder="Search instructor"
+                className="w-48"
+              />
+              <Select
+                aria-label="Sort by"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as typeof sort)}
+                className="w-auto min-w-[11rem]"
+              >
+                <option value="name">Sort: name</option>
+                <option value="hours-desc">Sort: most hours</option>
+                <option value="hours-asc">Sort: fewest hours</option>
+              </Select>
+              <Button size="sm" variant="secondary" onClick={exportCsv}>
+                <IconDownload size={16} />
+                Export
+              </Button>
+            </div>
           }
         >
-          <div className="space-y-3">
-            {data.insights.slice(0, 3).map((insight) => (
-              <InsightCard key={insight.id} insight={insight} />
-            ))}
-          </div>
+          {worklog.loading && !worklog.data ? (
+            <TableSkeleton cols={5} />
+          ) : worklog.error ? (
+            <ErrorState message="Unable to load the worklog" detail={worklog.error} />
+          ) : roster.length === 0 ? (
+            <EmptyState
+              title={search.trim() ? "Nobody matches that search" : "Nobody on your roster yet"}
+              description={
+                search.trim()
+                  ? "Clear the search to see the whole roster."
+                  : "Instructors assigned to you appear here with their day."
+              }
+            />
+          ) : view === "day" ? (
+            <div className="space-y-3">
+              {visible.map((row) => (
+                <DayTimelineCard
+                  key={row.instructorId}
+                  row={{
+                    instructorId: row.instructorId,
+                    name: row.name,
+                    avatarUrl: row.avatarUrl,
+                    employeeCode: row.employeeCode,
+                    totalHours: row.totalHours,
+                    activityCount: row.activityCount,
+                    status: row.status,
+                    activities: row.activities,
+                  }}
+                  timeZone={timeZone}
+                  onRemind={anchor === today ? remind : undefined}
+                  reminding={reminding === row.instructorId}
+                />
+              ))}
+
+              {roster.length > VISIBLE_INSTRUCTORS ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAll((v) => !v)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-card border border-line bg-surface py-2.5 text-sm font-medium text-muted transition hover:bg-hovered hover:text-content"
+                >
+                  {showAll
+                    ? "Show fewer instructors"
+                    : `View more instructors (${roster.length - VISIBLE_INSTRUCTORS})`}
+                  <IconChevronDown
+                    size={16}
+                    className={`transition-transform ${showAll ? "rotate-180" : ""}`}
+                  />
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <Card>
+              <RosterGrid rows={roster} periods={gridPeriods} />
+            </Card>
+          )}
         </Section>
-      ) : null}
+
+        {/* ── The month, beside the roster rather than under it ───────────── */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader
+              title={`Month view (${fmt(`${month}-01`, { month: "long", year: "numeric" })})`}
+              description="Week-wise total hours across your whole roster."
+            />
+            <div className="px-5 pb-5">
+              {overview.data?.month ? (
+                <WeekBars weeks={overview.data.month.weeks} />
+              ) : (
+                <p className="text-sm text-muted">Nothing recorded this month.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Hours distribution"
+              description="Across the same weeks, so the two add up to one total."
+            />
+            <div className="px-5 pb-5">
+              {overview.data && overview.data.distribution.length > 0 ? (
+                <HoursDonut
+                  slices={overview.data.distribution}
+                  totalHours={overview.data.month?.totalHours ?? 0}
+                />
+              ) : (
+                <p className="text-sm text-muted">No hours recorded in this period yet.</p>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Week and month: instructors down, days across ────────────────────────── */
+
+/**
+ * The roster as a grid: instructors down, periods across.
+ *
+ * ── A month is weeks, not thirty-one days ─────────────────────────────────
+ * Rendering a day per column made the month view a wall about a metre wide
+ * that nobody could read a row of. Weeks are the unit the report is written
+ * in — the client's own sheet has four columns, not thirty — so the month
+ * aggregates into them and stays legible on one screen.
+ *
+ * ── The hours are the ones on the cards ───────────────────────────────────
+ * Computed by `rollUp`, so this grid, the day cards and both sheets show the
+ * same figure: the time spent with students. A grid that quietly used the
+ * engine's every-recorded-minute total would disagree with the card directly
+ * above it.
+ */
+function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod[] }) {
+  const head = "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted";
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only-text">
+          Hours and activity counts recorded by each instructor in each period.
+        </caption>
+        <thead>
+          <tr className="border-b border-line bg-sunken">
+            <th scope="col" className={`${head} text-left`}>
+              Instructor
+            </th>
+            {periods.map((p) => (
+              <th key={p.key} scope="col" className={`${head} text-right`}>
+                {p.label}
+                <span className="block font-normal normal-case">{p.sublabel}</span>
+              </th>
+            ))}
+            <th scope="col" className={`${head} text-right`}>
+              Total hours
+            </th>
+            <th scope="col" className={`${head} text-right`}>
+              Activities
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const byDate = row.activities.reduce<Record<string, typeof row.activities>>(
+              (acc, a) => {
+                (acc[a.date] ??= []).push(a);
+                return acc;
+              },
+              {},
+            );
+
+            const cells = periods.map((p) => {
+              const acts = p.dates.flatMap((d) => byDate[d] ?? []);
+              return { key: p.key, hours: rollUp(acts).hours, count: acts.length };
+            });
+
+            return (
+              <tr
+                key={row.instructorId}
+                className="border-b border-line-subtle transition-colors hover:bg-hovered"
+              >
+                <th scope="row" className="px-3 py-2.5 text-left font-normal">
+                  <span className="flex items-center gap-2">
+                    <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-content">{row.name}</span>
+                      {row.employeeCode ? (
+                        <span className="tabular block truncate text-xs text-muted">
+                          {row.employeeCode}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                </th>
+
+                {cells.map((c) => (
+                  <td key={c.key} className="px-3 py-2.5 text-right">
+                    {c.count > 0 ? (
+                      <>
+                        <span className="tabular block text-content">{formatDuration(c.hours)}</span>
+                        <span className="tabular block text-xs text-muted">{c.count}</span>
+                      </>
+                    ) : (
+                      // A dash rather than "00h 00m": nothing recorded and
+                      // nothing done are different claims.
+                      <>
+                        <span className="block text-subtle">—</span>
+                        <span className="tabular block text-xs text-subtle">0</span>
+                      </>
+                    )}
+                  </td>
+                ))}
+
+                <td className="tabular px-3 py-2.5 text-right font-semibold text-content">
+                  {formatDuration(cells.reduce((n, c) => n + c.hours, 0))}
+                </td>
+                <td className="tabular px-3 py-2.5 text-right font-semibold text-content">
+                  {cells.reduce((n, c) => n + c.count, 0)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

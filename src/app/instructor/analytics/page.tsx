@@ -6,8 +6,27 @@
  * Every number here is read from the analytics engine's response for a `self`
  * scope, which the server narrows to this instructor. The page contains no
  * arithmetic beyond choosing which figure to put in which tile — a second
- * implementation of utilisation in the browser is exactly how a dashboard ends
- * up contradicting the report it links to.
+ * implementation of a total in the browser is exactly how a dashboard ends up
+ * contradicting the report it links to.
+ *
+ * ── What this screen measures, and what it does not ───────────────────────
+ * It measures RECORDED time: the activity an instructor logged, preparation
+ * and meetings included, set against the capacity that was configured for
+ * those days. (The engine drops missed and excused entries and counts
+ * overlapping entries once, so it is logged time rather than the literal sum
+ * of every row.) It does not measure Working Hours — time WITH students —
+ * because this endpoint totals hours by activity type and never splits them on
+ * the student-facing rule in `_lib/student-facing.ts`. So nothing here is
+ * called Working Hours; the tracker and the performance screens own that
+ * figure, and a second, looser definition of it living on this page is exactly
+ * the contradiction the paragraph above is about.
+ *
+ * The page also used to open on utilisation — recorded minutes over the
+ * configured working day, coloured and labelled as a verdict. That ratio has
+ * nothing to do with students: a day of back-to-back internal meetings scored
+ * identically to a day of lectures, and it read over 100% routinely. Recorded
+ * hours and the capacity beside them say the same thing without pretending to
+ * be a score.
  */
 
 import { useCallback, useState } from "react";
@@ -27,8 +46,6 @@ import {
   TD,
   THead,
   TR,
-  utilizationLabel,
-  utilizationTone,
 } from "@/app/_components/ui";
 import {
   AllocationBar,
@@ -57,7 +74,6 @@ type Mine = {
   productiveHours: number;
   unutilizedHours: number;
   missingDataHours: number;
-  utilizationPct: number | null;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
   hoursByActivityType: Record<string, number>;
@@ -131,28 +147,31 @@ export default function InstructorAnalyticsPage() {
         actions={selector}
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/*
+        Three tiles, and the lead one is a count rather than a ratio. Its name
+        carries the caveat: this is logged time, teaching and admin alike,
+        which is why the tile says "Recorded hours" and not "Working Hours" —
+        that figure counts only time with students and is not in this response.
+        Every hour on this page goes through `formatHours`, so the tiles and
+        the table below read as hours and minutes rather than as a decimal,
+        matching the manager's copy of this screen.
+      */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile
-          label="Utilization"
-          value={m.utilizationPct}
-          suffix="%"
-          tone={utilizationTone(m.utilizationPct)}
-          status={utilizationLabel(m.utilizationPct)}
+          label="Recorded hours"
+          value={formatHours(m.productiveHours)}
           emphasis
-          hint={`${m.productiveHours} of ${m.capacityHours} hrs`}
+          hint="Logged activity, preparation and meetings included"
         />
-        <StatTile label="Recorded" value={m.productiveHours} suffix="hrs" />
         <StatTile
           label="Unutilized"
-          value={m.unutilizedHours}
-          suffix="hrs"
+          value={formatHours(m.unutilizedHours)}
           tone={m.unutilizedHours > 0 ? "warning" : "neutral"}
           hint="Capacity with no activity against it"
         />
         <StatTile
           label="No records"
-          value={m.missingDataHours}
-          suffix="hrs"
+          value={formatHours(m.missingDataHours)}
           tone={m.missingDataHours > 0 ? "warning" : "neutral"}
           hint="Missing data, not zero hours worked"
         />
@@ -160,13 +179,13 @@ export default function InstructorAnalyticsPage() {
 
       {m.missingDataHours > 0 ? (
         <Alert tone="warning" title="Part of this period has no records">
-          {formatHours(m.missingDataHours)} of working time carry no activity. Utilization above
-          is calculated over what was recorded, so it understates your work for this period.
+          {formatHours(m.missingDataHours)} of working time carry no activity. Every total above
+          is counted over what was recorded, so they understate your work for this period.
         </Alert>
       ) : null}
 
       <ChartCard
-        question="How did your utilization move across the period?"
+        question="How did your recorded hours move across the period?"
         description="Days with no records break the line rather than dropping it to zero."
         isEmpty={workingDays.length < 2}
         emptyTitle="Not enough working days to show a trend"
@@ -240,13 +259,13 @@ export default function InstructorAnalyticsPage() {
                             ? "On leave"
                             : "No"}
                     </TD>
-                    <TD align="right">{d.capacityHours}</TD>
-                    <TD align="right">{d.productiveHours}</TD>
+                    <TD align="right">{formatHours(d.capacityHours)}</TD>
+                    <TD align="right">{formatHours(d.productiveHours)}</TD>
                     <TD align="right">
                       {d.unutilizedHours === null ? (
                         <span className="text-warning">No data</span>
                       ) : (
-                        d.unutilizedHours
+                        formatHours(d.unutilizedHours)
                       )}
                     </TD>
                     <TD>

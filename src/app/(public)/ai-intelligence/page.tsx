@@ -10,9 +10,9 @@ import {
 } from "@/app/_components/public/marketing";
 
 export const metadata: Metadata = {
-  title: "AI Intelligence | NEXTWAVE",
+  title: "AI Intelligence | NIAT",
   description:
-    "NEXTWAVE analyzes recorded workforce activity to identify workload imbalance, compliance risk, data quality issues and underused capacity — each shown with its supporting metrics.",
+    "NIAT analyzes recorded workforce activity to identify workload imbalance, compliance risk, data quality issues and underused capacity — each shown with its supporting metrics.",
   alternates: { canonical: "/ai-intelligence" },
 };
 
@@ -32,10 +32,10 @@ export default function AIIntelligencePage() {
           as="h1"
           eyebrow="AI intelligence"
           title="Smarter insights. Better outcomes."
-          lede="NEXTWAVE analyzes workforce activity and performance data to identify patterns, risks and opportunities that deserve attention — as an intelligence layer over your own records, not a separate source of truth."
+          lede="NIAT analyzes workforce activity and performance data to identify patterns, risks and opportunities that deserve attention — as an intelligence layer over your own records, not a separate source of truth."
         />
         <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-          <ButtonLink href="/contact">Request a Demo</ButtonLink>
+          <ButtonLink href="/contact">Request access</ButtonLink>
           <ButtonLink href="/analytics" variant="secondary">
             See the analytics →
           </ButtonLink>
@@ -147,10 +147,10 @@ export default function AIIntelligencePage() {
       </Band>
 
       <CTABand
-        title="See what NEXTWAVE would surface for you."
+        title="See what NIAT would surface for you."
         lede="We'll walk through the insight layer against the operational questions your institution cares about."
       >
-        <ButtonLink href="/contact">Request a Demo</ButtonLink>
+        <ButtonLink href="/contact">Request access</ButtonLink>
         <ButtonLink
           href="/platform"
           variant="secondary"

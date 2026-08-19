@@ -2,11 +2,31 @@
 
 /**
  * The university list, as an enterprise comparison table rather than a
- * config browser (§13 of the NEXTWAVE brief). Identity and working-hours
- * configuration come from `/api/universities`; utilization and compliance
- * are merged in from the SAME rollup-backed `/api/admin/overview` the
- * platform Overview page already uses — one real number, read twice, never
- * recomputed here.
+ * config browser (§13 of the NIAT brief). Identity and working-hours
+ * configuration come from `/api/universities`; headcount, hours and
+ * deliverables are merged in from the SAME rollup-backed
+ * `/api/admin/overview` the platform Overview page already uses — one real
+ * number, read twice, never recomputed here.
+ *
+ * ── Why the hours column says "Recorded", not "Working" ───────────────────
+ * Working Hours counts time spent WITH STUDENTS, and that answer lives on
+ * each entry's deliverable — or, when an entry carries none, on its category.
+ * `/api/admin/overview` reads the daily rollup, which stores MINUTES; neither
+ * of those two facts survives into it, so a student-facing total cannot be
+ * recovered from this response at all. What the rollup does hold is every
+ * recorded productive minute, and that is what this column reports, under
+ * that name. It was labelled "Working hours" before, which promised a figure
+ * this endpoint has never carried. The student-facing view of the network
+ * reads the entries themselves — see `/api/admin/network`.
+ *
+ * ── Why utilization is not on this screen ─────────────────────────────────
+ * Recorded minutes over the configured working-day capacity says nothing
+ * about students: a week of back-to-back internal meetings scores exactly
+ * like a week of lectures, and the ratio runs past 100% routinely besides.
+ * The network tile that led on it and the per-university meter are both gone.
+ * What the table compares now is headcount, hours actually recorded, and
+ * deliverables completed — three figures that mean the same thing on every
+ * row.
  *
  * NOTE ON SCOPE: the brief also asks for Status, Risk, Deliverable health and
  * Last-activity columns. None of those four fields exist anywhere in the API
@@ -18,7 +38,6 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  Badge,
   ButtonLink,
   Card,
   CardHeader,
@@ -26,10 +45,10 @@ import {
   CardListItem,
   EmptyState,
   ErrorState,
-  Meter,
   PageHeader,
   Pagination,
   SearchInput,
+  StatTile,
   Table,
   TableSkeleton,
   TableWrap,
@@ -37,24 +56,32 @@ import {
   TD,
   THead,
   TR,
-  complianceTone,
-  utilizationTone,
   type SortDirection,
 } from "@/app/_components/ui";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { formatHours } from "@/app/_lib/format";
 import { IconPlus } from "@/app/_components/icons";
 
 type University = {
   id: string;
   name: string;
+  code: string;
   slug: string;
   timezone: string;
   _count: { instructors: number; managers: number };
 };
 
+type Overview = {
+  totalUniversities: number;
+  totalManagers: number;
+  totalInstructors: number;
+  totalDeliverables: number;
+};
+
 type OverviewRow = {
   universityId: string;
-  utilizationPct: number | null;
+  productiveHours: number;
+  deliverables: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
 };
@@ -62,13 +89,16 @@ type OverviewRow = {
 type Row = University & {
   instructors: number;
   managers: number;
-  utilizationPct: number | null;
+  /** Hours, from every productive minute the rollup recorded — see the header. */
+  recordedHours: number;
+  deliverables: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
 };
 
 type UniversitiesResponse = {
   rows: Row[];
+  overview: Overview | null;
   page: number;
   limit: number;
   total: number;
@@ -107,10 +137,10 @@ export default function AdminUniversitiesPage() {
         total: number;
         hasMore: boolean;
       }>(`/api/universities?${params.toString()}`, "Could not load universities."),
-      apiGet<{ universities: OverviewRow[] }>(
+      apiGet<{ overview: Overview; universities: OverviewRow[] }>(
         "/api/admin/overview",
         "Could not load performance metrics.",
-      ).catch(() => ({ universities: [] as OverviewRow[] })),
+      ).catch(() => ({ overview: null as Overview | null, universities: [] as OverviewRow[] })),
     ]);
 
     const perf = new Map(overview.universities.map((u) => [u.universityId, u]));
@@ -121,7 +151,8 @@ export default function AdminUniversitiesPage() {
         ...u,
         instructors: u._count.instructors,
         managers: u._count.managers,
-        utilizationPct: p?.utilizationPct ?? null,
+        recordedHours: p?.productiveHours ?? 0,
+        deliverables: p?.deliverables ?? 0,
         openingCompliancePct: p?.openingCompliancePct ?? null,
         closingCompliancePct: p?.closingCompliancePct ?? null,
       };
@@ -129,6 +160,7 @@ export default function AdminUniversitiesPage() {
 
     return {
       rows,
+      overview: overview.overview ?? null,
       page: universities.page,
       limit: universities.limit,
       total: universities.total,
@@ -149,8 +181,16 @@ export default function AdminUniversitiesPage() {
   const rows = useMemo(() => {
     if (!data) return [];
     const needle = query.trim().toLowerCase();
+    // The server already matched name, code AND slug (see the route's `where`),
+    // so this second pass has to match on the same three. Filtering on name and
+    // slug alone threw away rows the server found by code — and the box says
+    // "name or code", which is also what the Code column invites you to type.
     const filtered = data.rows.filter(
-      (u) => !needle || u.name.toLowerCase().includes(needle) || u.slug.includes(needle),
+      (u) =>
+        !needle ||
+        u.name.toLowerCase().includes(needle) ||
+        u.code.toLowerCase().includes(needle) ||
+        u.slug.toLowerCase().includes(needle),
     );
     // The server already returned the page sorted by name when that's the
     // active sort — re-sorting it here would be redundant at best and could
@@ -186,7 +226,7 @@ export default function AdminUniversitiesPage() {
     return (
       <div className="space-y-4">
         <PageHeader title="Universities" actions={actions} />
-        <TableSkeleton cols={6} />
+        <TableSkeleton cols={7} />
       </div>
     );
   }
@@ -209,9 +249,25 @@ export default function AdminUniversitiesPage() {
     <div className="space-y-4">
       <PageHeader
         title="Universities"
-        description="Every tenant on the network, with current-period performance."
+        description="Overview of all universities."
         actions={actions}
       />
+
+      {/* Network totals. Every figure is the API's own aggregate — nothing here
+          is summed in the browser, so these cards and the table below cannot
+          disagree. Three counts and no percentage: the fourth card ranked the
+          whole network by utilization, a ratio of recorded minutes to capacity
+          that is blind to whether anyone was in front of students. This
+          response carries no student-facing total to put in its place, so the
+          card is gone rather than refilled with a number that answers a
+          different question. */}
+      {data.overview ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatTile label="Total universities" value={data.overview.totalUniversities} />
+          <StatTile label="Total managers" value={data.overview.totalManagers} />
+          <StatTile label="Total instructors" value={data.overview.totalInstructors} />
+        </div>
+      ) : null}
 
       {data.total > 4 || query.trim() ? (
         <SearchInput
@@ -243,11 +299,16 @@ export default function AdminUniversitiesPage() {
                     onSort={toggleSort}
                     columns={[
                       { label: "University", sortKey: "name" },
-                      { label: "Instructors", align: "right", sortKey: "instructors" },
+                      { label: "Code" },
                       { label: "Managers", align: "right", sortKey: "managers" },
-                      { label: "Utilization", sortKey: "utilizationPct" },
-                      { label: "Opening" },
-                      { label: "Closing" },
+                      { label: "Instructors", align: "right", sortKey: "instructors" },
+                      // The hours column inherits the sort the utilization
+                      // column used to carry, so ranking the network by effort
+                      // still works — against a measured quantity of time now,
+                      // rather than against a percentage of capacity.
+                      { label: "Recorded hours", align: "right", sortKey: "recordedHours" },
+                      { label: "Deliverables", align: "right" },
+                      { label: "Action" },
                     ]}
                   />
                   <TBody>
@@ -264,20 +325,26 @@ export default function AdminUniversitiesPage() {
                           </ButtonLink>
                           <span className="ml-2 text-xs text-subtle">{u.timezone}</span>
                         </TD>
-                        <TD align="right">{u.instructors}</TD>
+                        <TD>
+                          <span className="tabular text-muted">{u.code}</span>
+                        </TD>
                         <TD align="right">{u.managers}</TD>
-                        <TD>
-                          <Meter value={u.utilizationPct} tone={utilizationTone(u.utilizationPct)} />
+                        <TD align="right">{u.instructors}</TD>
+                        <TD align="right">
+                          <span className="tabular">{formatHours(u.recordedHours)}</span>
+                        </TD>
+                        <TD align="right">
+                          <span className="tabular">{u.deliverables}</span>
                         </TD>
                         <TD>
-                          <Badge tone={complianceTone(u.openingCompliancePct)}>
-                            {u.openingCompliancePct === null ? "—" : `${u.openingCompliancePct}%`}
-                          </Badge>
-                        </TD>
-                        <TD>
-                          <Badge tone={complianceTone(u.closingCompliancePct)}>
-                            {u.closingCompliancePct === null ? "—" : `${u.closingCompliancePct}%`}
-                          </Badge>
+                          <ButtonLink
+                            href={`/admin/universities/${u.id}`}
+                            variant="secondary"
+                            size="sm"
+                            aria-label={`Open ${u.name}`}
+                          >
+                            View →
+                          </ButtonLink>
                         </TD>
                       </TR>
                     ))}
@@ -293,7 +360,16 @@ export default function AdminUniversitiesPage() {
                     href={`/admin/universities/${u.id}`}
                     title={u.name}
                     subtitle={`${u.instructors} instructors · ${u.timezone}`}
-                    meta={<Meter value={u.utilizationPct} tone={utilizationTone(u.utilizationPct)} />}
+                    // The card carries the same figure the desktop row does —
+                    // hours recorded — where a utilization meter used to sit.
+                    // Two surfaces, one number, and it is a quantity of time
+                    // rather than a percentage of a capacity nobody asked
+                    // about.
+                    meta={
+                      <span className="tabular text-sm text-muted">
+                        {formatHours(u.recordedHours)} recorded
+                      </span>
+                    }
                   />
                 ))}
               </CardList>

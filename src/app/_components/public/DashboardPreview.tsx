@@ -56,7 +56,7 @@ function PreviewSidebar({ role }: { role: PreviewRole }) {
           <rect x="14.5" y="1" width="4.5" height="18" rx="1" fill="currentColor" />
         </svg>
         <span className="font-display text-[10px] font-semibold tracking-tight text-white">
-          NEXTWAVE
+          NIAT
         </span>
       </div>
       <p className="px-1 pb-2 text-[9px] uppercase tracking-wider text-sidebar-text-muted">
@@ -212,7 +212,7 @@ export function AdminPreview() {
         <div>
           <h3 className="text-sm font-semibold text-content">Admin Overview</h3>
           <p className="text-[10px] text-muted">
-            Real-time overview of the NEXTWAVE university network
+            Real-time overview of the NIAT university network
           </p>
         </div>
 

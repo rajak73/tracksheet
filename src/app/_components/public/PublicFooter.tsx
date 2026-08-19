@@ -47,7 +47,8 @@ export function PublicFooter() {
           <div className="col-span-2">
             <Wordmark />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-              University Workforce Intelligence Platform.
+              The academic workforce platform for NIAT — NxtWave&apos;s institute, delivering an
+              industry-ready B.Tech with collaborating universities across India.
             </p>
           </div>
 
@@ -74,7 +75,7 @@ export function PublicFooter() {
 
         <div className="mt-12 border-t border-line pt-6">
           <p className="text-xs text-subtle">
-            © {new Date().getFullYear()} NEXTWAVE. All rights reserved.
+            © {new Date().getFullYear()} NIAT. All rights reserved.
           </p>
         </div>
       </div>

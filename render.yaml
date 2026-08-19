@@ -75,8 +75,12 @@ services:
       # Set in the Render dashboard, never committed.
       - key: GEMINI_API_KEY
         sync: false
+      # An alias, not a pinned version: gemini-2.0-flash was retired and every
+      # call started returning 404, which the AI layer absorbed as a silent
+      # fallback to deterministic text. Pin a version here only to hold a
+      # specific one deliberately.
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-flash-latest
       # Rollup cadence. Defaults are fine; here so they are visible and tunable
       # without a redeploy of code.
       - key: ROLLUP_INTERVAL_MINUTES

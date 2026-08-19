@@ -22,7 +22,14 @@ loadEnv({ path: process.env.TEST_ENV ? ".env.test" : ".env", quiet: true });
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { ACTIVITY_TYPE_COUNT, provisionActivityTypes } from "../prisma/reference-data";
+import {
+  ACTIVITY_TYPE_COUNT,
+  DELIVERABLE_TYPE_COUNT,
+  provisionActivityTypes,
+  provisionDeliverableTypes,
+  provisionInstructorCategories,
+  INSTRUCTOR_CATEGORY_COUNT,
+} from "../prisma/reference-data";
 
 function fail(message: string): never {
   console.error(`\n✖ ${message}\n`);
@@ -58,6 +65,40 @@ async function main() {
     if (total < ACTIVITY_TYPE_COUNT) {
       fail(`Expected at least ${ACTIVITY_TYPE_COUNT} activity types, found ${total}.`);
     }
+
+    // Second, and only after the categories exist: every deliverable points at
+    // one, and the foreign key refuses an orphan.
+    const deliverables = await provisionDeliverableTypes(prisma);
+    const deliverableTotal = await prisma.deliverableType.count();
+
+    console.log(`✔ Deliverable types provisioned.\n`);
+    console.log(
+      `  created:   ${deliverables.created.length}${
+        deliverables.created.length ? ` (${deliverables.created.length} codes)` : ""
+      }`,
+    );
+    console.log(`  unchanged: ${deliverables.updated.length}`);
+    console.log(`  in database: ${deliverableTotal}\n`);
+
+    // Third, and independent of the two above: what an instructor TEACHES.
+    // It references nothing, so its order does not matter — it is provisioned
+    // here so one command still leaves the database fully seeded.
+    const categories = await provisionInstructorCategories(prisma);
+    const categoryTotal = await prisma.instructorCategory.count();
+
+    console.log(`✔ Instructor categories provisioned.\n`);
+    console.log(`  created:   ${categories.created.length}`);
+    console.log(`  unchanged: ${categories.updated.length}`);
+    console.log(`  in database: ${categoryTotal}\n`);
+
+    if (categoryTotal < INSTRUCTOR_CATEGORY_COUNT) {
+      fail(`Expected at least ${INSTRUCTOR_CATEGORY_COUNT} instructor categories, found ${categoryTotal}.`);
+    }
+
+    if (deliverableTotal < DELIVERABLE_TYPE_COUNT) {
+      fail(`Expected at least ${DELIVERABLE_TYPE_COUNT} deliverable types, found ${deliverableTotal}.`);
+    }
+
     console.log("Nothing was deleted. Safe to run again at any time.\n");
   } finally {
     await prisma.$disconnect();

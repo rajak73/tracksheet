@@ -50,6 +50,9 @@ export const GET = withAuth(async ({ scope, req }) => {
       select: {
         id: true,
         name: true,
+        // Searchable since Phase 3 but never returned, so the directory could
+        // not show the code it let you search by.
+        code: true,
         slug: true,
         timezone: true,
         openingDurationMin: true,

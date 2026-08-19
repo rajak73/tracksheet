@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /**
- * The NEXTWAVE wordmark.
+ * The NIAT wordmark.
  *
  * Matches the authenticated product exactly — the same serif `font-display`
  * face and the same small primary-coloured mark used on the sign-in screen —
@@ -37,7 +37,7 @@ export function Wordmark({
           onNavy ? "text-white" : "text-content"
         }`}
       >
-        NEXTWAVE
+        NIAT
       </span>
     </span>
   );
@@ -45,7 +45,7 @@ export function Wordmark({
   if (href === null) return inner;
 
   return (
-    <Link href={href} className="rounded-control" aria-label="NEXTWAVE — home">
+    <Link href={href} className="rounded-control" aria-label="NIAT — home">
       {inner}
     </Link>
   );
