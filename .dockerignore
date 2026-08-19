@@ -1,0 +1,17 @@
+# Anything the image does not need, or must never contain.
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+secrets/
+*service-account*.json
+*credentials*.json
+tests
+coverage
+*.md
+docker-compose.yml
+.vscode
+.idea
+.DS_Store
