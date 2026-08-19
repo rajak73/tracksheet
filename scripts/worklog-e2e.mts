@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env", quiet: true });
 const { prisma } = await import("@/server/db");
-const { submitWorklog, runParse } = await import("@/server/worklog/service");
+const { submitWorklog } = await import("@/server/worklog/service");
 
 const DAY = "2043-09-15";
 const inst = await prisma.instructor.findFirstOrThrow({

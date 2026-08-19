@@ -27,9 +27,16 @@ defects — read [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md), which is the
 authoritative status document. This README describes how the system is built;
 that one records what has actually been proven about it.
 
-Deploys to **Render** (`starter` plan, **single instance**). See
-[DEPLOYMENT.md](DEPLOYMENT.md) for why single-instance is a correctness
-requirement and not a cost choice.
+Ships as a **container** ([Dockerfile](Dockerfile)), currently on Northflank;
+[render.yaml](render.yaml) describes the same deployment on Render. **Single
+instance** either way — that is a correctness requirement, not a cost choice.
+Two processes each run their own login rate limiter, so an attacker gets twice
+the attempt budget. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Migrations and reference data run in the container entrypoint, before the
+server accepts a request, so the schema is never behind the code that expects
+it. A failure exits the container rather than serving against a database the
+code does not match.
 See [DATABASE-ARCHITECTURE.md](DATABASE-ARCHITECTURE.md) for the schema, index
 strategy, aggregation design and measured query plans, and
 [VERIFICATION-REPORT.md](VERIFICATION-REPORT.md) for what has been verified,
@@ -178,6 +185,48 @@ These are enforced, not merely documented:
    as `missingDataHours`, distinct from `unutilizedHours`.
 10. **AI states only what it can show.** Every insight stores the metric snapshot it
    was derived from, and a test asserts every number in its prose appears there.
+11. **No name a user typed reaches a model.** People are replaced with
+   positional labels before the prompt is built and restored after the reply is
+   verified — see [pseudonyms.ts](src/server/ai/pseudonyms.ts). Display names
+   are self-editable, so without this an instructor could write instructions
+   into their manager's brief.
+12. **The rules live in `src/domain`, and the direction is enforced.**
+   `domain ← server ← app/api ← app`; a `no-restricted-imports` rule in
+   [eslint.config.mjs](eslint.config.mjs) fails the build if `src/server` or
+   `src/domain` reaches into `src/app`. See
+   [src/domain/README.md](src/domain/README.md) for what belongs there and
+   why it exists.
+
+## Working Hours
+
+The figure the client's report is read for, and the one number every screen has
+to agree on.
+
+**Working Hours is time spent WITH STUDENTS.** Lectures, practice sessions,
+exams, mentoring, student support. Preparation, meetings, reporting, admin,
+research and an instructor's own learning are all real work and are all
+recorded — they appear on the sheet with their hours, muted — but they are not
+what this figure measures.
+
+The rule is one function,
+[`countsAsWorkingHours`](src/domain/working-hours.ts): an entry's
+**deliverable** decides when it has one, and its **category** decides when it
+does not. That fallback is load-bearing rather than defensive — the manual
+entry route cannot attach a deliverable at all, so without it real teaching
+hours vanish from the report with nothing on screen to say so.
+
+Three figures exist and are deliberately different. Confusing them has caused
+real defects, so they are named apart:
+
+| figure | what it counts | where |
+|---|---|---|
+| **Working Hours** | time with students | `src/domain/working-hours.ts` |
+| **Recorded hours** | every recorded minute except `UNUTILIZED` | analytics engine, `productiveHours` |
+| **Deliverable hours** | hours on entries that name a deliverable | tracker, reporting detail only |
+
+They are never added together and never reconciled. The Deliverable column on
+the sheet deliberately does not sum to Working Hours, and the muted lines are
+what says so.
 
 ## Pagination
 

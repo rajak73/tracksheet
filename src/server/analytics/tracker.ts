@@ -7,15 +7,18 @@
  * knows how to read is the screen this renders.
  *
  * ── TWO hour figures, never one ────────────────────────────────────────────
- * `deliverableHours` is the sum of `DeliverableLog.hoursSpent` — time booked
- * against a named deliverable. `totalWorkingHours` is what the analytics engine
- * already reports as recorded time for the same instructor and window.
+ * `deliverableHours` is time recorded against a NAMED deliverable — an entry
+ * whose `deliverableTypeId` is set. `totalWorkingHours` is what the analytics
+ * engine reports as recorded time for the same instructor and window.
  *
  * They are DIFFERENT questions and they are deliberately never added, merged,
  * or reconciled: an instructor can record 40 hours of work while only 12 of
- * them were booked against a deliverable. Utilisation, capacity, missing data
- * and every other business metric continue to come from the engine alone —
- * deliverable hours are reporting detail and must never feed a metric.
+ * them name a deliverable. Utilisation, capacity, missing data and every other
+ * business metric continue to come from the engine alone — deliverable hours
+ * are reporting detail and must never feed a metric.
+ *
+ * Neither is Working Hours, which is a third figure again: the hours the
+ * client's sheet counts, decided per entry by `countsAsWorkingHours`.
  *
  * ── One source of truth ────────────────────────────────────────────────────
  * Nothing here recomputes workload maths. `totalWorkingHours` and the category
@@ -62,9 +65,9 @@ export type TrackerDeliverable = {
 
 export type TrackerCell = {
   deliverables: TrackerDeliverable[];
-  /** Sum of DeliverableLog.quantityCompleted. */
+  /** Countable deliverable units recorded in this cell. */
   quantity: number;
-  /** Sum of DeliverableLog.hoursSpent. Reporting detail only. */
+  /** Hours on entries that name a deliverable. Reporting detail only. */
   deliverableHours: number;
   /** Engine recorded hours. The metric everything else already agrees with. */
   totalWorkingHours: number;
@@ -307,30 +310,24 @@ export async function buildTracker(args: {
     ),
   );
 
-  // One query for every deliverable log in the whole span. The
-  // (universityId, instructorId, workDate) index covers this exactly.
-  const logs = await prisma.deliverableLog.findMany({
-    where: {
-      universityId: config.id,
-      ...(instructorId ? { instructorId } : {}),
-      // Narrowed to the same roster the engine returned. Not a safety boundary
-      // — a log whose instructor the engine did not return is skipped below
-      // either way — but fetching a whole university's logs to then discard
-      // most of them is waste the (universityId, instructorId, workDate) index
-      // cannot save us from.
-      ...("managerId" in args ? { instructor: { managerId: args.managerId } } : {}),
-      workDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
-    },
-    orderBy: { workDate: "asc" },
-    select: {
-      instructorId: true,
-      workDate: true,
-      quantityCompleted: true,
-      hoursSpent: true,
-      remarks: true,
-      deliverable: { select: { title: true } },
-    },
-  });
+  /* ── The sheet reads ActivityLog, and only ActivityLog ──────────────────
+   * `DeliverableLog` used to be summed into these same cells. Both records are
+   * written for one piece of work — `/instructor/activity-tracker` POSTs an
+   * activity AND a deliverable log when the category is DELIVERABLE — so two
+   * hours of work reported four, and a quantity of one reported two.
+   *
+   * ActivityLog is the source because it is the only one that can answer the
+   * question this sheet asks. Working Hours counts time WITH STUDENTS, decided
+   * by the entry's deliverable type or its category; a `Deliverable` is a
+   * planned item with a free-text category and no `isCountable` at all, so its
+   * hours were entering the client's Working Hours under a hard-coded
+   * `countable: true` — planned course material counted as time in front of
+   * students.
+   *
+   * `DeliverableLog` is not going away: it remains the record of progress
+   * against a plan, which is what the deliverables screen is for. It is simply
+   * not a record of the working day, and this sheet is.
+   */
 
   /* ── Where a "deliverable" comes from ─────────────────────────────────────
    * Two things in this product are called a deliverable, and the report has to
@@ -440,39 +437,6 @@ export async function buildTracker(args: {
       categoryHours.set(b.instructorId, agg);
     }
   });
-
-  for (const log of logs) {
-    const workDate = log.workDate.toISOString().slice(0, 10);
-    const week = weeks.find((w) => workDate >= w.from && workDate <= w.to);
-    const row = rows.get(log.instructorId);
-    // A log outside the resolved weeks, or for an instructor the engine did not
-    // return (e.g. a different tenant), is skipped rather than inventing a row.
-    if (!week || !row) continue;
-
-    const cell = (row.cells[week.index] ??= {
-      deliverables: [],
-      quantity: 0,
-      deliverableHours: 0,
-      totalWorkingHours: 0,
-      hoursByCategory: {},
-      remarks: [],
-    });
-
-    let entry = cell.deliverables.find((d) => d.title === log.deliverable.title);
-    if (!entry) {
-      entry = { title: log.deliverable.title, quantity: 0, hours: 0, countable: true };
-      cell.deliverables.push(entry);
-    }
-    entry.quantity += log.quantityCompleted;
-    entry.hours = round(entry.hours + log.hoursSpent);
-
-    cell.quantity += log.quantityCompleted;
-    cell.deliverableHours = round(cell.deliverableHours + log.hoursSpent);
-    if (log.remarks && log.remarks.trim()) cell.remarks.push(log.remarks.trim());
-
-    row.totals.quantity += log.quantityCompleted;
-    row.totals.deliverableHours = round(row.totals.deliverableHours + log.hoursSpent);
-  }
 
   for (const log of activityDeliverables) {
     const workDate = log.workDate.toISOString().slice(0, 10);

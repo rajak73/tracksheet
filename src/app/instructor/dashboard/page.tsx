@@ -37,7 +37,7 @@ import {
   type Activity,
   type ActivityTypeOption,
 } from "@/app/_components/workload";
-import { type Submission } from "@/app/_components/WorklogReview";
+import { type Submission } from "@/app/_lib/worklog-types";
 import { InstructorSheet, type SheetPeriod } from "@/app/_components/InstructorSheet";
 import { WorklogNotices } from "@/app/_components/WorklogNotices";
 import { PeriodPicker, type View } from "@/app/_components/PeriodPicker";
