@@ -35,6 +35,17 @@ export const GET = withAuth<{ id: string }>(
     if (!manager) throw new ApiError(404, "NOT_FOUND", "Manager not found");
     assertCanAccessUniversity(scope, manager.universityId);
 
+    /* The tenant check is not sufficient here. It answers "may you touch this
+     * university", and a manager's colleagues are inside it — so on its own it
+     * handed one manager a peer's name, email, employee code, primary flag and
+     * roster size. The LIST route already refuses that same request through
+     * `narrowManagerRow`; asking for `?managerId=N` there returns 403 while
+     * asking for `/managers/N` here returned the record. One boundary, two
+     * answers, is not a boundary. */
+    if (scope.kind === "university" && scope.managerId !== manager.id) {
+      throw new ApiError(403, "CROSS_MANAGER_DENIED", "That manager is not you");
+    }
+
     const [instructorCount, primary] = await Promise.all([
       prisma.instructor.count({
         where: { managerId: manager.id, user: { isActive: true } },

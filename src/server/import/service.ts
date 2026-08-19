@@ -318,8 +318,30 @@ export async function confirmImportJob(
 
   // Validation is not optional: it is what produced the preview the admin just
   // agreed to, and it is where cross-tenant rows were rejected.
-  if (job.status !== ImportStatus.VALIDATED) {
+  /* PROCESSING is allowed back in, and that is the whole recovery story this
+   * module's header promises. A container restart mid-run leaves a job
+   * PROCESSING with no worker behind it; refusing everything but VALIDATED made
+   * that state terminal — `validateImportJob` also declines PROCESSING — so a
+   * crash at row 4,000 of 10,000 stranded the remaining 6,000 people with no
+   * route but re-uploading the file.
+   *
+   * Re-running is safe because resolution is re-done from the stored rows
+   * against the CURRENT database: everybody already written resolves to an
+   * update rather than a create. The `updateMany` below is what stops a live
+   * run being joined rather than resumed. */
+  if (job.status !== ImportStatus.VALIDATED && job.status !== ImportStatus.PROCESSING) {
     throw new ApiError(409, "NOT_VALIDATED", "Validate this import before confirming it.");
+  }
+
+  /* A job that is still moving must not be restarted underneath itself. Only a
+   * run that has been silent long enough to be certainly dead is resumable. */
+  const STALE_AFTER_MS = 15 * 60_000;
+  if (
+    job.status === ImportStatus.PROCESSING &&
+    job.startedAt !== null &&
+    Date.now() - job.startedAt.getTime() < STALE_AFTER_MS
+  ) {
+    throw new ApiError(409, "ALREADY_RUNNING", "This import is still running.");
   }
 
   const summary = job.summary as StoredSummary;
@@ -333,10 +355,22 @@ export async function confirmImportJob(
 
   const rows = mappedRows(job);
 
-  await prisma.importJob.update({
-    where: { id: jobId },
+  /* The status check above is a READ, and this is the write it guards. Between
+   * them another request can do the same thing — a double-clicked Confirm, or a
+   * client retrying the slow 202 — and both would see VALIDATED, both would
+   * start, and two runs would write the same rows concurrently: colliding on
+   * the same emails, failing chunks with P2002, and reporting WRITE_FAILED for
+   * people who were in fact created.
+   *
+   * Conditioning the update on the status makes the transition itself the lock.
+   * Whoever loses writes nothing and says so. */
+  const claimed = await prisma.importJob.updateMany({
+    where: { id: jobId, status: job.status },
     data: { status: ImportStatus.PROCESSING, startedAt: new Date(), processedRows: 0, errorMessage: null },
   });
+  if (claimed.count === 0) {
+    throw new ApiError(409, "ALREADY_RUNNING", "This import has already been started.");
+  }
 
   // Deliberately NOT awaited. The client polls the job; see the module note on
   // why the confirming request must not be the one that finishes the work.

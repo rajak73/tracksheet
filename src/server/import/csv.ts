@@ -82,7 +82,19 @@ function splitRecords(text: string): string[][] {
       continue;
     }
 
-    if (ch === '"' && field === "") {
+    /* An opening quote counts if nothing but WHITESPACE precedes it in the
+     * field — not only at offset zero, which is what this used to require.
+     * Several spreadsheet exporters emit a space after the delimiter, and that
+     * one space demoted the quote to a literal: `UNI-A, "Smith, Jane", ins@x`
+     * parsed as four fields instead of three, shifting every column to its
+     * right by one. The admin then saw INVALID_EMAIL reported against a row
+     * that is plainly well-formed, and a file with one such row mis-mapped only
+     * part of itself. `decodeCell` trims after the split, so it cannot rescue
+     * this — the whitespace has to be forgiven here. */
+    if (ch === '"' && field.trim() === "") {
+      // Discard the leading whitespace with it; a quoted field starts at the
+      // quote, and re-emitting those spaces would put them inside the value.
+      field = "";
       quoted = true;
       continue;
     }

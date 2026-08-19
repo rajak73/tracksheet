@@ -114,9 +114,9 @@ type Snapshot = {
   /** Every user named by the file, whether or not they are in scope. */
   userByEmail: Map<string, { id: string; role: string; universityId: string | null; name: string; isActive: boolean }>;
   managerByCode: Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null }>;
-  managerByUserId: Map<string, { id: string; universityId: string; employeeCode: string | null }>;
+  managerByUserId: Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null }>;
   instructorByCode: Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null; managerId: string | null }>;
-  instructorByUserId: Map<string, { id: string; universityId: string; employeeCode: string | null; managerId: string | null }>;
+  instructorByUserId: Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null; managerId: string | null }>;
   /** Codes that exist SOMEWHERE, used to tell "wrong tenant" from "new". */
   managerCodeTenants: Map<string, string[]>;
 };
@@ -164,7 +164,7 @@ async function loadSnapshot(rows: CanonicalRow[]): Promise<Snapshot> {
 
   const codeOfUniversity = new Map(universities.map((u) => [u.id, key(u.code)]));
   const managerByCode = new Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null }>();
-  const managerByUserId = new Map<string, { id: string; universityId: string; employeeCode: string | null }>();
+  const managerByUserId = new Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null }>();
   for (const m of managers) {
     if (m.employeeCode) {
       managerByCode.set(`${codeOfUniversity.get(m.universityId)}::${key(m.employeeCode)}`, m);
@@ -173,7 +173,7 @@ async function loadSnapshot(rows: CanonicalRow[]): Promise<Snapshot> {
   }
 
   const instructorByCode = new Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null; managerId: string | null }>();
-  const instructorByUserId = new Map<string, { id: string; universityId: string; employeeCode: string | null; managerId: string | null }>();
+  const instructorByUserId = new Map<string, { id: string; universityId: string; userId: string; employeeCode: string | null; managerId: string | null }>();
   for (const i of instructors) {
     if (i.employeeCode) {
       instructorByCode.set(`${codeOfUniversity.get(i.universityId)}::${key(i.employeeCode)}`, i);
@@ -329,6 +329,19 @@ export async function resolveImport(
           message: `${uniRaw} will be created without working hours. Utilisation stays unmeasured until you set them in that university's settings.`,
         });
       }
+    } else if (values.universityName && !university.name) {
+      /* The first row that mentioned this university left the name blank, so
+       * the plan was created with `name: null` and `action: "unchanged"` — and
+       * nothing filled it in afterwards. A rename stated on any later row was
+       * dropped silently: the write step took its skipped branch, the preview
+       * said nothing, and the admin was told the import succeeded.
+       *
+       * The name is a property of the university, not of the row that happened
+       * to come first. */
+      university.name = values.universityName;
+      if (existingUniversity && values.universityName !== existingUniversity.name) {
+        university.action = "update";
+      }
     } else if (
       values.universityName &&
       university.name &&
@@ -357,7 +370,18 @@ export async function resolveImport(
         employeeCode: managerCode,
         email: managerEmail,
         name: values.managerName ?? null,
-        isActiveRaw: values.status,
+        /* NOT `values.status`. The row has one status cell and it describes the
+         * INSTRUCTOR the row is about; feeding it to the manager as well meant a
+         * row marking one instructor Inactive also deactivated the manager named
+         * on it — and `merge` uses `??=`, which will not overwrite `false`, so
+         * later rows saying Active could not undo it. An existing manager was
+         * locked out of the product by an import that meant to retire one
+         * instructor; a new one was created disabled.
+         *
+         * A manager's own status has to come from a row that is ABOUT them,
+         * which this format has no column for. Undefined is the honest answer:
+         * leave what is already there. */
+        isActiveRaw: undefined,
         snapshot,
         fail,
       });
@@ -610,7 +634,19 @@ function resolvePerson(input: {
     isActive: isActive ?? null,
     managerCode: null,
     existingProfileId: existing?.id ?? null,
-    existingUserId: user?.id ?? null,
+    /* From the profile too, not only from the email lookup.
+     *
+     * A person matched by EMPLOYEE CODE alone — the path the module header
+     * advertises, "update 500 existing staff without restating every address" —
+     * left this null, and `updatePerson` guards the user write on it. So the
+     * name and the status stated in the file were never written, while the
+     * preview said "1 update", the outcome said "updated: 1", and the job went
+     * green. The snapshot has carried `userId` on every profile all along.
+     *
+     * `wouldChange` still compares against the email-matched user, so a
+     * code-only row reports a change whenever it states a name. Writing the same
+     * value twice is harmless; not writing it at all was not. */
+    existingUserId: user?.id ?? existing?.userId ?? null,
     action: !existing ? "create" : wouldChange ? "update" : "unchanged",
     rowNumbers: [rowNumber],
   } satisfies PersonPlan;
@@ -652,7 +688,34 @@ function merge(
   found.rowNumbers.push(...person.rowNumbers);
   found.name ??= person.name;
   found.email ??= person.email;
-  found.employeeCode ??= person.employeeCode;
+
+  /* An employee code may only be adopted if nobody else already holds it.
+   *
+   * `found` is whichever plan matched FIRST, in id-email-code order, so a row
+   * carrying both an email and a code can match on the email and then take a
+   * code that a different plan is already registered under. Both stay `create`,
+   * neither is flagged, `errorCount` is zero — and the preview the admin
+   * approves is clean right up until `createMany` violates
+   * `@@unique([universityId, employeeCode])` and the whole chunk fails.
+   *
+   * `DUPLICATE_IDENTIFIER` was declared for exactly this and emitted nowhere. */
+  if (person.employeeCode) {
+    const codeKey = `${uniKey}::CODE::${key(person.employeeCode)}`;
+    const holder = into.get(codeKey);
+    if (holder && holder !== found) {
+      warn({
+        rowNumber: person.rowNumbers[0]!,
+        code: "DUPLICATE_IDENTIFIER",
+        field: person.kind === "MANAGER" ? "managerCode" : "instructorCode",
+        message:
+          `Employee code ${person.employeeCode} is already used by ` +
+          `${holder.email ?? holder.name ?? "another person"} in this file. ` +
+          `It was not applied to ${person.email ?? person.name ?? "this row"}.`,
+      });
+    } else {
+      found.employeeCode ??= person.employeeCode;
+    }
+  }
   found.managerCode ??= person.managerCode;
   found.isActive ??= person.isActive;
   // The merged plan now carries fields the first row did not have, so the first

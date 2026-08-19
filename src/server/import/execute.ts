@@ -162,48 +162,62 @@ async function createChunk(
   people: PersonPlan[],
   ctx: (plan: PersonPlan) => PersonContext,
 ): Promise<void> {
-  const users = await prisma.user.createManyAndReturn({
-    data: people.map((p) => {
+  /* ── One transaction, both inserts ──────────────────────────────────────
+   * These were two statements. When the PROFILE insert failed — a duplicate
+   * employee code, a dropped connection — the users were already committed, and
+   * the retry path then re-ran `createChunk`, whose first statement is the user
+   * insert, so every retry failed with P2002. The chunk's people were reported
+   * WRITE_FAILED while their `User` rows existed: able to authenticate, given
+   * `managerId: null` by the session resolver because they have no profile, and
+   * permanently un-importable, since resolution finds the user by email, finds
+   * no profile, and plans a create that always collides.
+   *
+   * Together or not at all. That is also what makes the retry correct.
+   */
+  await prisma.$transaction(async (tx) => {
+    const users = await tx.user.createManyAndReturn({
+      data: people.map((p) => {
+        const c = ctx(p);
+        return {
+          email: p.email!,
+          name: p.name!,
+          role: kind,
+          passwordHash: c.passwordHash,
+          // The CHECK `user_role_tenant_binding` requires a tenant for every
+          // non-admin role, so this is not optional.
+          universityId: c.universityId,
+          // Unstated means active for a NEW account; there is nothing to preserve.
+          isActive: p.isActive ?? true,
+        };
+      }),
+      select: { id: true, email: true, universityId: true },
+    });
+
+    const userIdByEmail = new Map(users.map((u) => [u.email.toLowerCase(), u.id]));
+
+    const profiles = people.map((p) => {
       const c = ctx(p);
+      const userId = userIdByEmail.get(p.email!.toLowerCase())!;
       return {
-        email: p.email!,
-        name: p.name!,
-        role: kind,
-        passwordHash: c.passwordHash,
-        // The CHECK `user_role_tenant_binding` requires a tenant for every
-        // non-admin role, so this is not optional.
+        userId,
         universityId: c.universityId,
-        // Unstated means active for a NEW account; there is nothing to preserve.
-        isActive: p.isActive ?? true,
+        employeeCode: p.employeeCode,
+        ...(kind === "INSTRUCTOR"
+          ? {
+              managerId: p.managerCode
+                ? (c.managerIdByCode?.get(p.managerCode.trim().toUpperCase()) ?? null)
+                : null,
+            }
+          : {}),
       };
-    }),
-    select: { id: true, email: true, universityId: true },
+    });
+
+    if (kind === "MANAGER") {
+      await tx.manager.createMany({ data: profiles });
+    } else {
+      await tx.instructor.createMany({ data: profiles as Prisma.InstructorCreateManyInput[] });
+    }
   });
-
-  const userIdByEmail = new Map(users.map((u) => [u.email.toLowerCase(), u.id]));
-
-  const profiles = people.map((p) => {
-    const c = ctx(p);
-    const userId = userIdByEmail.get(p.email!.toLowerCase())!;
-    return {
-      userId,
-      universityId: c.universityId,
-      employeeCode: p.employeeCode,
-      ...(kind === "INSTRUCTOR"
-        ? {
-            managerId: p.managerCode
-              ? (c.managerIdByCode?.get(p.managerCode.trim().toUpperCase()) ?? null)
-              : null,
-          }
-        : {}),
-    };
-  });
-
-  if (kind === "MANAGER") {
-    await prisma.manager.createMany({ data: profiles });
-  } else {
-    await prisma.instructor.createMany({ data: profiles as Prisma.InstructorCreateManyInput[] });
-  }
 }
 
 /** Updates one existing person. Only fields an import is allowed to change. */

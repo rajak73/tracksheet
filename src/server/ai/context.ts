@@ -269,9 +269,29 @@ async function adminContext(): Promise<InsightContext> {
       deliverables: foldDeliverables([i]),
     }));
 
+  /* The widest window the facts actually span.
+   *
+   * This took `periodFor.get(universities[0])` — the week of whichever
+   * university the oldest manager happened to belong to. `periodFor` is
+   * resolved PER university precisely because "this week" is timezone
+   * dependent: with tenants in Asia/Kolkata and America/Los_Angeles, on a
+   * Sunday evening UTC one has rolled into the new ISO week and the other has
+   * not, so the ranges sit seven days apart. Stamping one of them on a fact set
+   * built from both made the brief, the "written from your figures for …"
+   * label, and the persisted periodStart/periodEnd all state a week that half
+   * the numbers are not from — and `allowedDates` then admitted only that week,
+   * so the model could not cite the other one truthfully either.
+   *
+   * The envelope is honest: every fact in here falls inside it. */
+  const spans = universities.map((u) => periodFor.get(u.id)!).filter(Boolean);
+  const period = {
+    from: spans.reduce((a, p) => (p.from < a ? p.from : a), spans[0]!.from),
+    to: spans.reduce((a, p) => (p.to > a ? p.to : a), spans[0]!.to),
+  };
+
   return {
     audience: "ADMIN",
-    period: periodFor.get(universities[0]!.id)!,
+    period,
     thresholds: THRESHOLD_FACTS,
     managers: managerFacts,
     instructorSummary: {

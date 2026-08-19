@@ -212,9 +212,24 @@ export const GET = withAuth(async ({ scope, req }) => {
   }
 
   /* ── Where the hours went ───────────────────────────────────────────────
-   * Summed over the SAME range as the bars, so the two add up to one total.
+   * Summed over the SAME range as the bars, AND over the same people.
+   *
+   * This read `grid.totals.hoursByActivityType`, which is the engine's total
+   * for whatever it was asked about. When the caller is the university's
+   * primary manager the engine is deliberately run WITHOUT a manager filter —
+   * that is how unassigned instructors get answered for — so the totals cover
+   * every roster in the tenant. The week bars below were narrowed with
+   * `keep()` and this was not, which meant a primary manager's doughnut showed
+   * peer managers' hours and disagreed with the bars beside it on the same
+   * screen. Two figures from one page cannot be allowed to describe two
+   * different sets of people.
    */
-  const byType = grid.totals.hoursByActivityType;
+  const byType: Record<string, number> = {};
+  for (const row of keep(grid.instructors)) {
+    for (const [code, hours] of Object.entries(row.hoursByActivityType)) {
+      byType[code] = (byType[code] ?? 0) + hours;
+    }
+  }
   const mixTotal = Object.values(byType).reduce((n, h) => n + h, 0);
   const distribution = Object.entries(byType)
     .filter(([, hours]) => hours > 0)

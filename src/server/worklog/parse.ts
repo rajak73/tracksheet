@@ -182,14 +182,27 @@ function reconcile(raw: unknown, index: number, rawText: string, taxonomy: Taxon
     taxonomy.categoryByCode.get(String(row.categoryCode)) ??
     taxonomy.categoryByCode.get(FALLBACK_CATEGORY)!;
 
-  // A deliverable is only accepted if it actually belongs to the category the
-  // model chose. Reparenting it would produce a pairing the client's sheet has
-  // never contained.
+  /* A deliverable is only accepted if it actually belongs to the category the
+   * model chose. Reparenting it would produce a pairing the client's sheet has
+   * never contained.
+   *
+   * Anything else is DROPPED, which is what the paragraph above always claimed
+   * and what the code did not do: it substituted `category.deliverables[0]`.
+   * Every entry category has at least one deliverable, so `deliverableCode` was
+   * never null for a parsed bullet — the category fallback in
+   * `countsAsWorkingHours` could never fire for worklog rows, and a deliverable
+   * nobody chose reached the client's sheet.
+   *
+   * It also flipped countability. "prepared question paper for mid-sem 10 to 12"
+   * classifies as ASSESSMENT; the first deliverable under ASSESSMENT is
+   * Assignment Evaluation, which counts — so two hours of question-paper
+   * preparation, the canonical example of work that is NOT time with students,
+   * was recorded as an evaluation and counted as if it were.
+   *
+   * Null is the honest answer: the category then decides, which is exactly the
+   * fallback that exists for entries carrying no deliverable. */
   const claimed = taxonomy.deliverableByCode.get(String(row.deliverableCode));
-  const deliverable =
-    claimed && claimed.categoryCode === category.code
-      ? claimed
-      : (category.deliverables[0] ?? null);
+  const deliverable = claimed && claimed.categoryCode === category.code ? claimed : null;
 
   const startLocal = normaliseClock(row.startLocal);
   const endLocal = normaliseClock(row.endLocal);

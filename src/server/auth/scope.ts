@@ -161,11 +161,27 @@ export function narrowManager(
 export function narrowManagerRow(
   scope: TenantScope,
   requested: string | null | undefined,
-): { id?: string } {
+): { id?: string | { in: string[] } } {
   const { managerId } = narrowManager(scope, requested);
-  // `null` means "the unassigned", which is a set of instructors and not a
-  // manager. There is no manager row it can name.
-  return typeof managerId === "string" ? { id: managerId } : {};
+  if (typeof managerId === "string") return { id: managerId };
+
+  /* `null` means "the unassigned", which is a set of INSTRUCTORS and not a
+   * manager — there is no manager row it can name, so the honest answer is an
+   * empty set.
+   *
+   * This used to fall through to `{}`, which as a where-fragment means EVERY
+   * row: asking for the managers named "unassigned" listed the entire network
+   * instead of none. A narrowing helper that fails open is worse than one that
+   * throws, because the caller cannot tell it happened. `id: null` matches
+   * nothing, since `Manager.id` is non-nullable.
+   *
+   * `{}` remains correct for an admin who asked for nobody in particular —
+   * that is `requested` being absent, which `narrowManager` returns as `{}`
+   * with no `managerId` key at all, so it never reaches here. */
+  // `{ in: [] }` matches nothing, and says so in Prisma's own vocabulary
+  // rather than through a sentinel value that only works by accident.
+  if (managerId === null) return { id: { in: [] } };
+  return {};
 }
 
 /** Sentinel a client uses to ask for instructors with no manager. */

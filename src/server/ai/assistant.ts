@@ -59,6 +59,7 @@ import { generateStructured, isGeminiConfigured } from "@/server/ai/gemini";
 import { JUDGEMENT_TERMS, UNSUPPORTED_ASSERTIONS } from "@/server/ai/validate";
 import { toDateOnly } from "@/server/time/workday";
 import { BRIEF_TYPE } from "@/server/ai/brief-type";
+import { pseudonymise } from "@/server/ai/pseudonyms";
 
 export { BRIEF_TYPE } from "@/server/ai/brief-type";
 
@@ -498,8 +499,21 @@ export async function assistantInsight(
     }
   }
 
-  const outcome = await generateStructured(buildInstruction(context), {
+  /* Real names never leave the process. `masked.context` carries positional
+   * labels; `context` — the one with real names — is still what gets persisted
+   * and what a later cache hit verifies against. See `pseudonyms.ts`. */
+  const masked = pseudonymise(context);
+
+  const outcome = await generateStructured(buildInstruction(masked.context), {
     maxOutputTokens: MAX_REPLY_TOKENS,
+    /* The narration default is 8s, sized for one 300-token sentence. This call
+     * asks for up to 4096 tokens of JSON across five recommendations, and
+     * current flash models spend part of that budget thinking before emitting
+     * anything — so the old ceiling aborted replies the provider was halfway
+     * through, then classified the abort as retryable and spent 8s more on each
+     * remaining model. The document path already passed its own timeout for
+     * exactly this reason. */
+    timeoutMs: 45_000,
   });
   if (!outcome.ok) {
     // The provider's own words are logged, never returned: they can contain a
@@ -523,13 +537,19 @@ export async function assistantInsight(
     return { available: false, reason: "unverified" };
   }
 
-  const violations = verifyReply(context, reply);
+  // Verified against the MASKED context, because that is what the model was
+  // shown: `knownNames` has to hold the same labels the reply can contain.
+  const violations = verifyReply(masked.context, reply);
   if (violations.length > 0) {
     // Discarded, never repaired. Rewriting one wrong number would produce a
     // sentence nothing authored, whose other clauses are still untrusted.
     console.warn("[ai] assistant reply rejected:", violations.join("; "));
     return { available: false, reason: "unverified" };
   }
+
+  // Names go back in only after the reply has passed. Everything cached and
+  // returned from here on reads as a person, not as "Person 3".
+  const named = masked.restore(reply);
 
   const created = await prisma.aiInsight.create({
     data: {
@@ -538,11 +558,11 @@ export async function assistantInsight(
       severity: InsightSeverity.LOW,
       // The most severe recommendation names the row, so import history and any
       // future insight list read sensibly without a separate headline field.
-      title: reply.recommendations[0]!.title,
+      title: named.recommendations[0]!.title,
       // The reply is stored as it was verified, so a cache hit serves exactly
       // the text that passed, not a reconstruction of it.
-      summary: JSON.stringify(reply),
-      recommendation: reply.recommendations.map((r) => r.action).join(" "),
+      summary: JSON.stringify(named),
+      recommendation: named.recommendations.map((r) => r.action).join(" "),
       period: `${context.period.from} to ${context.period.to}`,
       periodStart: toDateOnly(context.period.from),
       periodEnd: toDateOnly(context.period.to),
@@ -559,6 +579,6 @@ export async function assistantInsight(
     audience: context.audience,
     period: { from: context.period.from, to: context.period.to },
     generatedAt: created.createdAt,
-    reply,
+    reply: named,
   };
 }

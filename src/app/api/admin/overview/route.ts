@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { BRIEF_TYPE } from "@/server/ai/brief-type";
 import { resolvePeriod } from "@/server/analytics/period";
 import { toDateOnly } from "@/server/time/workday";
 
@@ -58,7 +59,12 @@ export const GET = withAuth(
     const [totalManagers, totalInstructors, openInsights] = await Promise.all([
       prisma.manager.count(),
       prisma.instructor.count({ where: { user: { isActive: true } } }),
-      prisma.aiInsight.count({ where: { status: "NEW" } }),
+      /* Briefs excluded. Every generated brief is written status NEW and
+       * cannot be dismissed — `PATCH /api/insights/[id]` deliberately 404s on
+       * them — and nothing deletes expired rows, so counting them made this a
+       * number that only ever goes up. `expiresAt` stops a brief being SERVED,
+       * not counted. "Open insights" means insights somebody can still act on. */
+      prisma.aiInsight.count({ where: { status: "NEW", type: { not: BRIEF_TYPE } } }),
     ]);
 
     // Period-independent, so it is batched ONCE across every university
