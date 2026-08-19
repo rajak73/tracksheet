@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
-import { countsAsWorkingHours } from "@/app/_lib/student-facing";
+import { countsAsWorkingHours } from "@/domain/working-hours";
 
 /**
  * Working Hours — time spent WITH STUDENTS — per instructor, over one period.

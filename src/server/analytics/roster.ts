@@ -28,7 +28,7 @@
  */
 
 import { computeAnalytics } from "@/server/analytics/engine";
-import { workingHoursByInstructor } from "@/server/analytics/working-hours";
+import { workingHoursByInstructor } from "@/server/analytics/hours-by-instructor";
 import { addDays, mondayOf } from "@/server/analytics/tracker";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { workDateFor } from "@/server/time/workday";
@@ -52,7 +52,7 @@ export type InstructorPerformance = {
   universityName: string;
   managerId: string | null;
   managerName: string | null;
-  /** Time with students. See `working-hours.ts`. */
+  /** Time with students. See `hours-by-instructor.ts`. */
   workingHours: number;
   /** Every recorded minute. A different question, under its own name. */
   recordedHours: number;

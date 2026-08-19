@@ -144,7 +144,7 @@ async function main() {
 
     /* Working Hours, by the product's own rule, so this agrees with every
      * screen rather than being a fourth answer. */
-    const { workingHoursByInstructor } = await import("../src/server/analytics/working-hours.js");
+    const { workingHoursByInstructor } = await import("../src/server/analytics/hours-by-instructor.js");
     const today = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const hours = await workingHoursByInstructor({ from, to: today });

@@ -46,7 +46,7 @@ import {
   type ManagerPerson,
   type SheetSort,
 } from "@/app/_components/ManagerSheet";
-import { rollUp } from "@/app/_components/sheet-rollup";
+import { rollUp } from "@/domain/rollup";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */

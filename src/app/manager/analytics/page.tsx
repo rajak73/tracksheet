@@ -18,7 +18,7 @@
  *
  * The hours question itself belongs to Working Hours, time spent WITH
  * STUDENTS, which is decided per entry by that entry's deliverable
- * (src/app/_lib/student-facing.ts). This university-wide payload carries
+ * (src/app/domain/working-hours.ts). This university-wide payload carries
  * category totals only, never the entries, so Working Hours cannot be rebuilt
  * here and is not approximated from categories. The tile therefore states the
  * figure this page genuinely holds — every recorded minute — under its own

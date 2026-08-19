@@ -79,7 +79,7 @@ export default function ManagerTrackerPage() {
            * The hours tile is the tracker's own total under an honest name:
            * this response sums every recorded minute, student-facing or not, so
            * it reads "Recorded hours". Working Hours means time spent WITH
-           * STUDENTS (see `_lib/student-facing.ts`), the tracker does not carry
+           * STUDENTS (see `domain/working-hours.ts`), the tracker does not carry
            * that figure, and borrowing the label here would put a number on
            * screen that disagrees with every screen that does.
            */}

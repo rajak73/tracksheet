@@ -8,8 +8,27 @@
  * rules below are the report's definition of itself.
  */
 
-import type { Activity } from "@/app/_components/workload";
-import { countsAsWorkingHours } from "@/app/_lib/student-facing";
+import { countsAsWorkingHours } from "@/domain/working-hours";
+
+/**
+ * The least an entry has to be for this to add it up.
+ *
+ * Declared here rather than imported from the UI's `Activity`, which is what
+ * this used to do. A rule that imports a component's type cannot be used by the
+ * server without dragging React's half of the app behind it — and the point of
+ * this layer is that both sides can call it.
+ *
+ * Structural, so the UI's `Activity` and a row selected straight out of Prisma
+ * both satisfy it without either being changed or converted.
+ */
+export type RollupActivity = {
+  durationHours: number;
+  remarks: string | null;
+  activityType: { code: string; label: string };
+  deliverableType?: { isCountable: boolean } | null;
+  broadCategory?: { label: string } | null;
+  quantity?: number;
+};
 
 export type RollupLine = {
   /** Unique per line — a category can produce a counted and an uncounted one. */
@@ -64,7 +83,7 @@ const distinct = (values: Array<string | null | undefined>) => [
  * deliberately does NOT add up to Working Hours; the lines that do not count
  * are shown muted so nobody attempts the arithmetic.
  */
-export function rollUp(activities: Activity[]): Rollup {
+export function rollUp(activities: RollupActivity[]): Rollup {
   const byCategory = new Map<string, RollupLine>();
 
   for (const a of activities) {

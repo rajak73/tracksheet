@@ -1,6 +1,11 @@
 /**
  * Which broad categories are time spent WITH STUDENTS.
  *
+ * Lives in `src/domain` because both halves of the app have to give the same
+ * answer: the admin network endpoint adds these hours up on the server, the
+ * instructor's sheet adds them up in the browser, and a minute of difference
+ * between them is a bug the client would find before we did.
+ *
  * ── Why this exists at all ────────────────────────────────────────────────
  * Working Hours counts student-facing time, and that answer normally comes
  * from the DELIVERABLE, which is where the distinction was written down: an

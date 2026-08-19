@@ -16,7 +16,7 @@
  * overlapping entries once, so it is logged time rather than the literal sum
  * of every row.) It does not measure Working Hours — time WITH students —
  * because this endpoint totals hours by activity type and never splits them on
- * the student-facing rule in `_lib/student-facing.ts`. So nothing here is
+ * the student-facing rule in `domain/working-hours.ts`. So nothing here is
  * called Working Hours; the tracker and the performance screens own that
  * figure, and a second, looser definition of it living on this page is exactly
  * the contradiction the paragraph above is about.

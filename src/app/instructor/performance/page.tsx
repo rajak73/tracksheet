@@ -61,7 +61,7 @@ import {
 } from "@/app/_components/ui";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
-import { isStudentFacingCategory } from "@/app/_lib/student-facing";
+import { isStudentFacingCategory } from "@/domain/working-hours";
 import { AiRecommendations } from "@/app/_components/AiRecommendations";
 
 type Week = { index: number; from: string; to: string; labelFrom: string | null; labelTo: string | null };

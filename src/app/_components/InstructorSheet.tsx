@@ -30,7 +30,7 @@ import { useState } from "react";
 import { Badge, Button, inputClass } from "@/app/_components/ui";
 import { categoryColor } from "@/app/_components/charts";
 import { formatDuration, type Activity } from "@/app/_components/workload";
-import { rollUp, type RollupLine } from "@/app/_components/sheet-rollup";
+import { rollUp, type RollupLine } from "@/domain/rollup";
 
 /**
  * One row of the sheet: a day, or a week.

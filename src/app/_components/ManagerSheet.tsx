@@ -23,7 +23,7 @@
 
 import { categoryColor } from "@/app/_components/charts";
 import { formatDuration, type Activity } from "@/app/_components/workload";
-import { rollUp } from "@/app/_components/sheet-rollup";
+import { rollUp } from "@/domain/rollup";
 
 export type ManagerPeriod = {
   /** Every date this column covers. */

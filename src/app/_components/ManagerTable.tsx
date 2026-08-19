@@ -16,7 +16,7 @@
  * ── Why the hours column says "Recorded", not "Working" ───────────────────
  * Working Hours counts time spent WITH STUDENTS, and that answer lives on each
  * entry's deliverable — or, when an entry carries none, on its category (see
- * `_lib/student-facing.ts`). What this endpoint reports is `computeAnalytics`'s
+ * `domain/working-hours.ts`). What this endpoint reports is `computeAnalytics`'s
  * productive total: every logged minute that is not declared idle time, so a
  * morning of internal meetings lands in it exactly like a morning of lectures.
  * That is a real quantity and worth comparing across managers, but it is not

@@ -13,7 +13,7 @@
  * ── Why the hours column says "Recorded hours" ─────────────────────────────
  * Because that is the question this payload answers: the tracker sums every
  * recorded minute, student-facing or not. Working Hours means time spent WITH
- * STUDENTS (see `_lib/student-facing.ts`), this response does not carry that
+ * STUDENTS (see `domain/working-hours.ts`), this response does not carry that
  * figure, and putting the label on this number would publish a total that
  * disagrees with every screen that measures it properly. The honest name and
  * the same number is the trade this column makes.

@@ -29,7 +29,7 @@
  * without deactivated staff cluttering a current-week view they had no part in.
  */
 
-import { countsAsWorkingHours } from "@/app/_lib/student-facing";
+import { countsAsWorkingHours } from "@/domain/working-hours";
 import { prisma } from "@/server/db";
 import { computeAnalytics, type InstructorBreakdown } from "@/server/analytics/engine";
 import { csvCell } from "@/server/reports/generator";

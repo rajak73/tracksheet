@@ -59,7 +59,7 @@ import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { formatDayAs } from "@/app/_lib/format";
 import { pingNotifications } from "@/app/_components/NotificationBell";
 import { Avatar } from "@/app/_components/AccountDialogs";
-import { rollUp } from "@/app/_components/sheet-rollup";
+import { rollUp } from "@/domain/rollup";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 

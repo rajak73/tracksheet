@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { toDateOnly } from "@/server/time/workday";
-import { countsAsWorkingHours } from "@/app/_lib/student-facing";
+import { countsAsWorkingHours } from "@/domain/working-hours";
 
 /**
  * The network, one row per university, for the admin dashboard.

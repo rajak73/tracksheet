@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
 import { categoryColor } from "@/app/_components/charts";
 import { Badge, Button, Card } from "@/app/_components/ui";
 import { Avatar } from "@/app/_components/AccountDialogs";
-import { rollUp } from "@/app/_components/sheet-rollup";
+import { rollUp } from "@/domain/rollup";
 import { IconArrowDown, IconArrowUp } from "@/app/_components/icons";
 import { formatDuration, minutesInZone, type Activity } from "@/app/_components/workload";
 import { formatDayShort } from "@/app/_lib/format";
