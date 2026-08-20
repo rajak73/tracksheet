@@ -96,7 +96,12 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
       where: {
         universityId,
         ...(query.instructorId ? { id: query.instructorId } : {}),
-        ...(query.managerId ? { managerId: query.managerId } : {}),
+        // Presence, NOT truthiness. `narrowManager` returns `{ managerId: null }`
+        // for the admin's "unassigned" filter, and `null` is falsy — a truthiness
+        // test drops the filter and answers with the WHOLE university, which is
+        // the opposite of what was asked for. `undefined` is the only value that
+        // means "no roster filter".
+        ...(query.managerId !== undefined ? { managerId: query.managerId } : {}),
         user: { isActive: true },
       },
       select: { id: true, user: { select: { name: true } } },
@@ -106,7 +111,8 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         universityId,
         workDate: { gte: fromDate, lte: toDate },
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
-        ...(query.managerId ? { instructor: { managerId: query.managerId } } : {}),
+        // Presence, not truthiness — see the note on the instructor query above.
+        ...(query.managerId !== undefined ? { instructor: { managerId: query.managerId } } : {}),
       },
       select: {
         id: true,
@@ -128,7 +134,8 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         startDate: { lte: toDate },
         endDate: { gte: fromDate },
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
-        ...(query.managerId ? { instructor: { managerId: query.managerId } } : {}),
+        // Presence, not truthiness — see the note on the instructor query above.
+        ...(query.managerId !== undefined ? { instructor: { managerId: query.managerId } } : {}),
       },
       select: { instructorId: true, startDate: true, endDate: true },
     }),

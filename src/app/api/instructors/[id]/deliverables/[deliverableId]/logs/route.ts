@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -16,7 +16,7 @@ const LogInput = z.object({
 });
 
 async function requireDeliverable(
-  scope: Parameters<typeof assertCanReadInstructor>[0],
+  scope: Parameters<typeof assertCanReadInstructorWork>[0],
   instructorId: string,
   deliverableId: string,
 ) {
@@ -31,7 +31,10 @@ async function requireDeliverable(
     },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level: this reports an individual's work, and a
+   * manager's reach over that is their roster. An off-roster id answers 404,
+   * exactly as an unknown one does — see `assertCanReadInstructorWork`. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
 
   const deliverable = await prisma.deliverable.findFirst({
     where: { id: deliverableId, instructorId: instructor.id },

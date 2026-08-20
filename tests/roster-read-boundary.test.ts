@@ -32,13 +32,22 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * See the same note in `roster-write-boundary.test.ts`.
  */
 
-const RUN = Math.random().toString(36).slice(2, 10);
+/* Letters only, deliberately. This string ends up inside an instructor's NAME,
+ * and a name is read back out of AI briefs by `verifyReply`, which rejects any
+ * number the FACTS do not support. A tag like "READBOUNDARY7f3" would put a
+ * stray 7 and 3 into a person's name and could fail an unrelated AI test for a
+ * reason nobody would look for here. `Math.random().toString(36)` yields digits
+ * about a third of the time, so it is mapped to letters. */
+const RUN = Math.random()
+  .toString(36)
+  .slice(2, 10)
+  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 const PW = "read-boundary-pw-1234";
 /** Appears in this instructor's name, so a leak anywhere is greppable. */
 const MARK = `READBOUNDARY${RUN}`;
 
 let admin: ApiClient, seedManager: ApiClient;
-let northId = "", theirInstructorId = "";
+let northId = "", theirInstructorId = "", theirDeliverableId = "";
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
@@ -71,6 +80,15 @@ beforeAll(async () => {
     remarks: `${MARK}-REMARK`,
   });
   expect(planted.status, JSON.stringify(planted.body)).toBe(201);
+
+  const deliverable = await admin.post(`/api/instructors/${theirInstructorId}/deliverables`, {
+    title: `${MARK}-DELIVERABLE`,
+    targetQuantity: 3,
+    targetHours: 6,
+    dueDate: "2027-02-01",
+  });
+  expect(deliverable.status, JSON.stringify(deliverable.body)).toBe(201);
+  theirDeliverableId = deliverable.body.deliverable.id;
 });
 
 describe("a manager cannot read another manager's instructor's work", () => {
@@ -93,6 +111,42 @@ describe("a manager cannot read another manager's instructor's work", () => {
 
   test("not their metrics", async () => {
     const res = await seedManager.get(`/api/instructors/${theirInstructorId}/metrics`);
+    expect(res.status).toBe(404);
+  });
+
+  test("not their deliverables", async () => {
+    const res = await seedManager.get(`/api/instructors/${theirInstructorId}/deliverables`);
+    expect(res.status).toBe(404);
+  });
+
+  test("not the progress logged against their deliverable", async () => {
+    const res = await seedManager.get(
+      `/api/instructors/${theirInstructorId}/deliverables/${theirDeliverableId}/logs`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test("not their leave", async () => {
+    const res = await seedManager.get(`/api/instructors/${theirInstructorId}/leave`);
+    expect(res.status).toBe(404);
+  });
+
+  test("not their schedule", async () => {
+    const res = await seedManager.get(
+      `/api/instructors/${theirInstructorId}/schedule?date=2026-08-11`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test("not the insights written about them", async () => {
+    const res = await seedManager.get(`/api/instructors/${theirInstructorId}/insights`);
+    expect(res.status).toBe(404);
+  });
+
+  test("not the notes on their worklog", async () => {
+    const res = await seedManager.get(
+      `/api/instructors/${theirInstructorId}/worklog/notes?date=2026-08-11`,
+    );
     expect(res.status).toBe(404);
   });
 

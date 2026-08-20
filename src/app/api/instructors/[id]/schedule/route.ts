@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -10,7 +10,7 @@ import { loadUniversityConfig } from "@/server/universities/config";
 import { toDateOnly, workDateFor } from "@/server/time/workday";
 
 async function visibleInstructor(
-  scope: Parameters<typeof assertCanReadInstructor>[0],
+  scope: Parameters<typeof assertCanReadInstructorWork>[0],
   id: string,
 ) {
   const instructor = await prisma.instructor.findUnique({
@@ -23,7 +23,10 @@ async function visibleInstructor(
     },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level: this reports an individual's work, and a
+   * manager's reach over that is their roster. An off-roster id answers 404,
+   * exactly as an unknown one does — see `assertCanReadInstructorWork`. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
   return instructor;
 }
 

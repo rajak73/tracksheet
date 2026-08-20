@@ -1,4 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
+import { createServer } from "node:net";
 import { config as loadEnv } from "dotenv";
 
 const testEnv = loadEnv({ path: ".env.test", quiet: true }).parsed ?? {};
@@ -8,6 +9,35 @@ const PORT = Number(process.env.TEST_PORT ?? 3100);
 export const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 let server: ChildProcess | undefined;
+/** Set the moment the spawned server dies, so waiting can stop rather than time out. */
+let serverDied: string | undefined;
+/** The tail of the server's stderr, so a death can say what it said on the way out. */
+const serverStderr: string[] = [];
+
+/**
+ * Is somebody already listening on this port?
+ *
+ * ── Why the harness has to ask ────────────────────────────────────────────
+ * `waitForServer` probes a URL, and a URL cannot tell you WHOSE server answered.
+ * When a previous run left an orphan on this port — which happens whenever a
+ * run is killed rather than torn down — `next dev` fails with EADDRINUSE, the
+ * probe succeeds against the orphan, and the whole suite runs against a server
+ * built from WHATEVER CODE THAT ORPHAN STARTED WITH. Tests then pass or fail
+ * for reasons that are not in the working tree, which is close to the worst
+ * failure a test harness can have: it is not wrong, it is answering a different
+ * question.
+ *
+ * Observed, not theorised: a run reported thirty-eight failures whose only real
+ * cause was a stale server holding the port.
+ */
+function portInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once("error", (err: NodeJS.ErrnoException) => resolve(err.code === "EADDRINUSE"));
+    probe.once("listening", () => probe.close(() => resolve(false)));
+    probe.listen(port, "127.0.0.1");
+  });
+}
 
 async function waitForServer(url: string, timeoutMs = 180_000) {
   const deadline = Date.now() + timeoutMs;
@@ -18,6 +48,15 @@ async function waitForServer(url: string, timeoutMs = 180_000) {
       if (res.status === 401 || res.ok) return;
     } catch {
       /* not up yet */
+    }
+    // Checked AFTER the probe: a server that answered is ready even if the
+    // wrapper process has since gone. Checked at all because a dead child
+    // otherwise costs the full timeout and then reports the wrong thing.
+    if (serverDied) {
+      throw new Error(
+        `The test server exited before it was ready (${serverDied}).\n` +
+          (serverStderr.length ? serverStderr.join("") : "It printed nothing on stderr."),
+      );
     }
     await new Promise((r) => setTimeout(r, 500));
   }
@@ -37,6 +76,16 @@ export async function setup() {
 
   console.log("[test] seeding the test database…");
   execFileSync("npx", ["prisma", "db", "seed"], { env: childEnv, stdio: "inherit" });
+
+  /* Refuse to share the port. Answering "something is listening" is not the
+   * same as "our server is listening" — see `portInUse`. */
+  if (await portInUse(PORT)) {
+    throw new Error(
+      `Port ${PORT} is already in use, so the suite would run against a server ` +
+        `this harness did not start — probably an orphan from a killed run.\n` +
+        `Clear it first:  lsof -ti:${PORT} | xargs kill -9`,
+    );
+  }
 
   console.log(`[test] starting Next.js on ${BASE_URL}…`);
   server = spawn("npx", ["next", "dev", "--port", String(PORT), "--hostname", "127.0.0.1"], {
@@ -98,7 +147,24 @@ export async function setup() {
    * The `?.` are load-bearing in the other direction: if `stdio` is ever
    * changed back to "inherit" these are undefined, and the child then writes
    * to the real terminal, which drains itself. */
-  server.stderr?.on("data", (d) => process.stderr.write(`[next] ${d}`));
+  /* A death is reported, not waited out. Without this a server that dies —
+   * EADDRINUSE, an out-of-memory kill, a crash on boot — showed up as a
+   * three-minute timeout and then as dozens of ECONNREFUSED failures in
+   * unrelated files, which says nothing about what went wrong. */
+  server.on("exit", (code, signal) => {
+    serverDied = signal ? `killed by ${signal}` : `exit code ${code}`;
+  });
+  server.on("error", (err) => {
+    serverDied = `could not be spawned: ${err.message}`;
+  });
+
+  server.stderr?.on("data", (d) => {
+    process.stderr.write(`[next] ${d}`);
+    // Kept so a death has something to show. Bounded: the tail is what matters,
+    // and an unbounded buffer would be its own leak.
+    serverStderr.push(String(d));
+    if (serverStderr.length > 50) serverStderr.shift();
+  });
   server.stdout?.on("data", (d) => {
     if (process.env.TEST_SERVER_LOG) process.stdout.write(`[next] ${d}`);
   });

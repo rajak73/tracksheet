@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
-import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { logAudit } from "@/server/audit/logger";
@@ -29,7 +29,7 @@ const createDeliverableSchema = z.object({
 
 /** Resolves the target instructor and authorises the caller against them. */
 async function requireVisibleInstructor(
-  scope: Parameters<typeof assertCanReadInstructor>[0],
+  scope: Parameters<typeof assertCanReadInstructorWork>[0],
   instructorId: string,
 ) {
   const instructor = await prisma.instructor.findUnique({
@@ -49,7 +49,10 @@ async function requireVisibleInstructor(
   // assertCanReadInstructor, NOT assertCanAccessUniversity: the latter only
   // compares the tenant, so a self-scoped caller would pass for any colleague
   // in their own university.
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level: this reports an individual's work, and a
+   * manager's reach over that is their roster. An off-roster id answers 404,
+   * exactly as an unknown one does — see `assertCanReadInstructorWork`. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
   return instructor;
 }
 

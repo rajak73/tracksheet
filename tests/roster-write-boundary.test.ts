@@ -38,7 +38,16 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * to a DIFFERENT manager for the boundary to be the thing under test.
  */
 
-const RUN = Math.random().toString(36).slice(2, 10);
+/* Letters only, deliberately. This string ends up inside an instructor's NAME,
+ * and a name is read back out of AI briefs by `verifyReply`, which rejects any
+ * number the FACTS do not support. A tag like "READBOUNDARY7f3" would put a
+ * stray 7 and 3 into a person's name and could fail an unrelated AI test for a
+ * reason nobody would look for here. `Math.random().toString(36)` yields digits
+ * about a third of the time, so it is mapped to letters. */
+const RUN = Math.random()
+  .toString(36)
+  .slice(2, 10)
+  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 const PASSWORD = "roster-boundary-pw-1234";
 
 /* Today in the university's zone (Asia/Kolkata). A worklog may only be written
