@@ -70,7 +70,7 @@ beforeAll(async () => {
 });
 
 describe("the rollup agrees with the live engine", () => {
-  test("admin overview (summary-backed) matches manager analytics (engine)", async () => {
+  test("admin overview (summary-backed) matches the live engine", async () => {
     const overview = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
     expect(overview.status).toBe(200);
 
@@ -78,7 +78,21 @@ describe("the rollup agrees with the live engine", () => {
       (u: { universityId: string }) => u.universityId === northId,
     );
 
-    const analytics = await mgrN.get(
+    /* Both sides are read as the ADMIN, on purpose.
+     *
+     * This used to call the engine as a MANAGER, and it held only while that
+     * manager happened to own every instructor in North. A manager's analytics
+     * are now pinned to their own roster — `narrowManager` does it for the
+     * tracker, the reports and this endpoint alike, so one question has one
+     * answer — while the admin overview covers the whole university. The moment
+     * any other test file adds a North instructor under a different manager,
+     * the two are counting different people and the equality is meaningless:
+     * capacity came back 120 against 80, three instructors against two.
+     *
+     * The comparison this test exists to make is between the two CODE PATHS,
+     * not the two roles. Reading both as the admin holds the population fixed
+     * so a difference can only come from the thing under test. */
+    const analytics = await admin.get(
       `/api/universities/${northId}/analytics?from=${WEEK_FROM}&to=${WEEK_TO}`,
     );
     const totals = analytics.body.analytics.totals;
@@ -129,8 +143,11 @@ describe("the rollup agrees with the live engine", () => {
     const fresh = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
     expect(fresh.body.overview.productiveHours).toBe(beforeHours + 1);
 
-    // …and it still matches the engine after recomputation.
-    const analytics = await mgrN.get(
+    // …and it still matches the engine after recomputation. Read as the ADMIN
+    // so both sides cover the whole university — a manager's analytics are
+    // pinned to their own roster, and comparing that to a university-wide
+    // summary compares two different populations. See the note above.
+    const analytics = await admin.get(
       `/api/universities/${northId}/analytics?from=${WEEK_FROM}&to=${WEEK_TO}`,
     );
     const north = fresh.body.universities.find(
@@ -150,8 +167,9 @@ describe("the rollup agrees with the live engine", () => {
     expect(Object.keys(north.hoursByActivityType).length).toBeGreaterThan(0);
     expect(north.hoursByActivityType.TEACHING).toBeGreaterThan(0);
 
-    // And it agrees with the engine for the same window.
-    const analytics = await mgrN.get(
+    // And it agrees with the engine for the same window — admin on both halves,
+    // so the only difference between them is the code path. See the note above.
+    const analytics = await admin.get(
       `/api/universities/${northId}/analytics?from=${WEEK_FROM}&to=${WEEK_TO}`,
     );
     expect(north.hoursByActivityType.TEACHING).toBe(

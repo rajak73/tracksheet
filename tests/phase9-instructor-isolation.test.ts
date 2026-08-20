@@ -48,19 +48,37 @@ beforeAll(async () => {
   const west = await admin.get(`/api/instructors?universityId=${westId}`);
   west1Id = west.body.instructors[0].id;
 
-  // Plant a distinctive activity log and deliverable owned by north2.
-  await managerNorth.post(`/api/instructors/${north2Id}/activities`, {
+  /* Plant a distinctive activity log and deliverable owned by north2.
+   *
+   * The statuses are ASSERTED, which they were not before. Everything below
+   * this line checks that a colleague cannot see these two records — so if a
+   * plant silently fails, every one of those tests passes while proving
+   * nothing: there is no secret in the database to leak. A vacuous security
+   * test is worse than a failing one, because it reports safety it never
+   * established.
+   *
+   * They are planted by the ADMIN rather than by north2's manager. A manager
+   * may only act on their own roster — correctly — so planting as the manager
+   * made this fixture depend on who north2 reported to at the moment the file
+   * ran, and other files move instructors between rosters as part of what they
+   * test. The admin can always act, so the fixture no longer has an opinion
+   * about roster state. What is under test here is who can READ these rows,
+   * not who created them. */
+  const plantedLog = await admin.post(`/api/instructors/${north2Id}/activities`, {
     activityTypeCode: "TEACHING",
     startTime: "2026-09-02T10:00:00Z",
     endTime: "2026-09-02T11:00:00Z",
     remarks: CONFIDENTIAL,
   });
-  await managerNorth.post(`/api/instructors/${north2Id}/deliverables`, {
+  expect(plantedLog.status, `planting the activity log failed: ${JSON.stringify(plantedLog.body)}`).toBe(201);
+
+  const plantedDeliverable = await admin.post(`/api/instructors/${north2Id}/deliverables`, {
     title: "COLLEAGUE-PRIVATE-DELIVERABLE",
     targetQuantity: 10,
     targetHours: 12,
     dueDate: "2026-12-01",
   });
+  expect(plantedDeliverable.status, `planting the deliverable failed: ${JSON.stringify(plantedDeliverable.body)}`).toBe(201);
 });
 
 describe("activity logs are not visible to a colleague", () => {
@@ -112,7 +130,13 @@ describe("deliverables are not visible to a colleague", () => {
   test("an instructor can read their own deliverables", async () => {
     const res = await north2.get(`/api/instructors/${north2Id}/deliverables`);
     expect(res.status).toBe(200);
-    expect(res.body.deliverables[0].title).toBe("COLLEAGUE-PRIVATE-DELIVERABLE");
+    /* Presence, not position. This asserted on `deliverables[0]` and broke the
+     * moment another test file gave this instructor a deliverable of its own —
+     * the suite shares one database, so index 0 belongs to whichever file ran
+     * last, not to this one. The claim in the test's name is that the
+     * instructor can READ their own deliverable, which is what is checked. */
+    const titles = res.body.deliverables.map((d: { title: string }) => d.title);
+    expect(titles).toContain("COLLEAGUE-PRIVATE-DELIVERABLE");
   });
 
   test("an instructor cannot create a deliverable on a colleague", async () => {

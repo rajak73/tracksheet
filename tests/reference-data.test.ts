@@ -160,10 +160,17 @@ describe("running it again is safe", () => {
 
     await provisionActivityTypes(empty);
 
+    /* Asserted against the canonical definition rather than against literals.
+     * This test used to expect the label "Teaching", and went stale the moment
+     * the client's own word replaced it — the row was being reconciled
+     * perfectly, and the test failed anyway. What is worth pinning is that
+     * provisioning restores the row to whatever the canonical set says, which
+     * a rename should never break. */
+    const canonical = ACTIVITY_TYPES.find((t) => t.code === "TEACHING")!;
     const fixed = await empty.activityType.findUniqueOrThrow({ where: { code: "TEACHING" } });
     expect(fixed.id).toBe(original.id);
-    expect(fixed.label).toBe("Teaching");
-    expect(fixed.sortOrder).toBe(20);
+    expect(fixed.label).toBe(canonical.label);
+    expect(fixed.sortOrder).toBe(canonical.sortOrder);
   });
 });
 

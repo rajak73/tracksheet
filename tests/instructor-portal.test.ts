@@ -16,7 +16,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
 
 let admin: ApiClient, manager: ApiClient, inst1: ApiClient, inst2: ApiClient, anon: ApiClient;
 let northId: string, westId: string;
-let inst1Id: string, inst2Id: string, westInstructorId: string;
+let inst1Id: string, inst2Id: string;
 let managerId: string;
 
 beforeAll(async () => {
@@ -35,7 +35,6 @@ beforeAll(async () => {
 
   const west = new ApiClient("instructor-west");
   westId = (await west.login(ACCOUNTS.instructorWest1)).user.universityId!;
-  westInstructorId = (await west.get("/api/auth/me")).body.user.instructorId;
 
   anon = new ApiClient("anonymous");
 

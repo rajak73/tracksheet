@@ -73,7 +73,35 @@ export async function setup() {
     detached: true,
   });
 
+  /* ── Both pipes MUST be drained, or the server freezes ──────────────────
+   * `stdio` above makes stdout and stderr pipes. A pipe has a small kernel
+   * buffer — tens of kilobytes — and when it fills, the next `write()` by the
+   * child BLOCKS until somebody reads. Nothing here read stdout, so Next's
+   * ordinary request logging filled it after roughly six hundred tests' worth
+   * of lines and the server stopped dead.
+   *
+   * It stopped in a way that hid the cause completely. The process was alive,
+   * the port still accepted TCP connections, Postgres sat idle with no locks,
+   * and CPU was flat zero — every symptom of a server waiting politely for
+   * work. A stack sample said otherwise: the main thread was inside
+   * `uv__try_write → write()`, reached from an HTTP read callback. The event
+   * loop was not idle, it was parked mid-log-line, so no request was ever
+   * accepted again and every later test failed on its own 30s timeout.
+   *
+   * Attaching a listener puts the stream in flowing mode, which is the whole
+   * fix: the bytes have somewhere to go. stderr is forwarded because a crash
+   * or a stack trace is the reason anyone reads this output. stdout is
+   * discarded by default — it is compile and request noise that would bury the
+   * reporter — but set TEST_SERVER_LOG=1 to see it when a test fails for
+   * reasons the assertion cannot explain.
+   *
+   * The `?.` are load-bearing in the other direction: if `stdio` is ever
+   * changed back to "inherit" these are undefined, and the child then writes
+   * to the real terminal, which drains itself. */
   server.stderr?.on("data", (d) => process.stderr.write(`[next] ${d}`));
+  server.stdout?.on("data", (d) => {
+    if (process.env.TEST_SERVER_LOG) process.stdout.write(`[next] ${d}`);
+  });
 
   await waitForServer(BASE_URL);
   console.log("[test] server ready");
