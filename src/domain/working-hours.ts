@@ -74,3 +74,45 @@ export function countsAsWorkingHours(
  * `notIn` and there is still one list rather than one per query.
  */
 export const DID_NOT_HAPPEN = ["MISSED", "EXCUSED"] as const;
+
+
+/**
+ * The shape any reader needs to answer "does this entry's time count?".
+ *
+ * Structural rather than a named model, so a route handler's Prisma row and a
+ * component's props both satisfy it without either importing the other's types.
+ */
+export type CountableEntry = {
+  /** COMPLETED / LATE / MISSED / EXCUSED. Absent on rows written before it existed. */
+  status?: string | null;
+  activityType: { code: string };
+  deliverableType?: { isCountable: boolean } | null;
+};
+
+/**
+ * Did this entry happen at all?
+ *
+ * MISSED and EXCUSED did not, and they are excluded from every hours total.
+ * This lived only inside `rollUp`, so the readers that did not go through
+ * `rollUp` — the week sheet and the calendar heading — counted a lecture nobody
+ * gave. `status` was on the type and read by nothing.
+ */
+export function didHappen(entry: CountableEntry): boolean {
+  return !entry.status || !(DID_NOT_HAPPEN as readonly string[]).includes(entry.status);
+}
+
+/**
+ * Both questions, in the order the report asks them: did it happen, and was it
+ * spent with students. This is what "Working Hours" means anywhere it is
+ * printed, so anything printing that phrase should be adding up the entries
+ * this returns true for.
+ */
+export function countsAsWorking(entry: CountableEntry): boolean {
+  return (
+    didHappen(entry) &&
+    countsAsWorkingHours(
+      entry.activityType.code,
+      entry.deliverableType ? entry.deliverableType.isCountable : null,
+    )
+  );
+}

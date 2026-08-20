@@ -8,7 +8,7 @@
  * rules below are the report's definition of itself.
  */
 
-import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
+import { countsAsWorkingHours, didHappen } from "@/domain/working-hours";
 
 /**
  * The least an entry has to be for this to add it up.
@@ -98,7 +98,7 @@ export function rollUp(activities: RollupActivity[]): Rollup {
      * did not, so the instructor's sheet and the manager's sheet counted a
      * lecture nobody gave while the tracker beside them did not. Same rule,
      * same list, one place. */
-    if (a.status && (DID_NOT_HAPPEN as readonly string[]).includes(a.status)) continue;
+    if (!didHappen(a)) continue;
 
     const label = a.activityType.label;
     // A deliverable decides when there is one; otherwise the category does.

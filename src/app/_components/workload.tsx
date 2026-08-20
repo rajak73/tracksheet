@@ -1,6 +1,11 @@
 "use client";
 
 import { formatHours } from "@/app/_lib/format";
+/* Imported and re-exported, not redefined. Both week views and the calendar
+ * heading read these, and the rule itself belongs beside the one the server
+ * uses — a second copy in the UI is how the sheets came to disagree before. */
+import { countsAsWorking, didHappen } from "@/domain/working-hours";
+export { countsAsWorking, didHappen };
 
 /**
  * The instructor's workload, as a day timeline, a week grid and an editor.
@@ -373,7 +378,13 @@ export function WeekGrid({
         {days.map((day) => {
           const dayActivities = activitiesByDate[day.date] ?? [];
           const placed = placeActivities(dayActivities, timeZone);
-          const totalHours = dayActivities.reduce((n, a) => n + a.durationHours, 0);
+          /* Time actually spent. This summed every row regardless of status,
+           * so a day whose only entry was a missed class read as a worked day.
+           * The clock still DRAWS what was scheduled — the block is information
+           * — but an absence contributes no hours to the heading above it. */
+          const totalHours = dayActivities
+            .filter(didHappen)
+            .reduce((n, a) => n + a.durationHours, 0);
 
           return (
             <div key={day.date} className="min-w-0 flex-1">

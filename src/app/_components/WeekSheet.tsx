@@ -26,6 +26,8 @@
 
 import { categoryColor } from "@/app/_components/charts";
 import {
+  countsAsWorking,
+  didHappen,
   formatClock,
   formatDuration,
   minutesInZone,
@@ -78,7 +80,13 @@ export function WeekSheet({
     (n, a) => n + (a.deliverableType?.isCountable ? (a.quantity ?? 1) : 0),
     0,
   );
-  const weekHours = all.reduce((n, a) => n + hoursOf(a, timeZone), 0);
+  /* Working Hours, by the product's own rule — which is what the column above
+   * this footer is called. It summed every row: an absence counted, and so did
+   * a meeting, so the instructor's own week disagreed with the manager's sheet
+   * and with the client's report, all three claiming the same name. The per-row
+   * cells still show what each entry took; only rows that COUNT reach the
+   * total, exactly as `rollUp` does it for every other sheet. */
+  const weekHours = all.filter(countsAsWorking).reduce((n, a) => n + hoursOf(a, timeZone), 0);
 
   return (
     <div className="overflow-x-auto">
@@ -111,7 +119,7 @@ export function WeekSheet({
             (n, a) => n + (a.deliverableType?.isCountable ? (a.quantity ?? 1) : 0),
             0,
           );
-          const dayHours = rows.reduce((n, a) => n + hoursOf(a, timeZone), 0);
+          const dayHours = rows.filter(countsAsWorking).reduce((n, a) => n + hoursOf(a, timeZone), 0);
 
           return (
             <tbody key={day.date} className="border-t border-line">
@@ -185,8 +193,24 @@ export function WeekSheet({
                         <span className="text-subtle">—</span>
                       )}
                     </td>
+                    {/* An absence has no hours to report, and a row that is
+                        not student-facing has hours that do not count — muted
+                        with the same wording the monthly sheet uses, so the two
+                        explain themselves the same way. Both were rendered as
+                        plain durations here, indistinguishable from taught
+                        time. */}
                     <td className="tabular px-3 py-2.5 text-right text-content">
-                      {formatDuration(hoursOf(a, timeZone))}
+                      {!didHappen(a) ? (
+                        <span className="text-subtle" title="This did not happen, so it is not counted">
+                          {a.status === "EXCUSED" ? "Excused" : "Missed"}
+                        </span>
+                      ) : countsAsWorking(a) ? (
+                        formatDuration(hoursOf(a, timeZone))
+                      ) : (
+                        <span className="text-muted" title="Not counted in Working Hours">
+                          {formatDuration(hoursOf(a, timeZone))}
+                        </span>
+                      )}
                     </td>
                     <td className="max-w-[16rem] px-3 py-2.5 text-muted">
                       {a.remarks ?? <span className="text-subtle">—</span>}
