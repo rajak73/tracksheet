@@ -43,16 +43,50 @@ export const PATCH = withAuth<{ submissionId: string }>(
         id: true,
         universityId: true,
         approval: true,
-        instructor: { select: { id: true, managerId: true } },
+        instructor: {
+          select: {
+            id: true,
+            managerId: true,
+            // For the primary-manager stand-in below.
+            university: { select: { primaryManagerId: true } },
+          },
+        },
       },
     });
     if (!submission) throw new ApiError(404, "NOT_FOUND", "Worklog not found");
 
-    // The roster this caller is allowed to decide for. A manager gets their own
-    // id and cannot ask for another; an admin gets no filter.
+    /* The roster this caller is allowed to decide for. A manager gets their own
+     * id and cannot ask for another; an admin gets no filter.
+     *
+     * ── The unassigned belong to the primary manager, here too ────────────
+     * The QUEUE at `GET /api/manager/worklog` shows a university's primary
+     * manager the held days of instructors on nobody's roster — that is what
+     * `answersForUnassigned` means there, and the notification for such a day
+     * is addressed to them. This route had no matching clause, so the item
+     * appeared in their queue, the bell told them to action it, and pressing
+     * approve answered 404.
+     *
+     * That is worse than an inconsistent boundary. `decideSubmission` is what
+     * WRITES the activities, so nobody below an admin could record that day at
+     * all: the instructor's hours were simply never counted, and the only
+     * person told about it was told it was theirs to fix.
+     *
+     * Same rule as `assertCanManageInstructor` — mine, or unassigned and I am
+     * the primary. Spelled out rather than delegated because this route answers
+     * 404 for an off-roster submission, and that is right: a submission id the
+     * caller may not decide should look like an id that does not exist. */
     const roster = narrowManager(scope, null);
-    if (roster.managerId && submission.instructor.managerId !== roster.managerId) {
-      throw new ApiError(404, "NOT_FOUND", "Worklog not found");
+    if (roster.managerId) {
+      const mine = submission.instructor.managerId === roster.managerId;
+      const primaryManagerId = submission.instructor.university.primaryManagerId;
+      const unassignedAndIAmPrimary =
+        submission.instructor.managerId === null &&
+        primaryManagerId != null &&
+        primaryManagerId === roster.managerId;
+
+      if (!mine && !unassignedAndIAmPrimary) {
+        throw new ApiError(404, "NOT_FOUND", "Worklog not found");
+      }
     }
 
     const decided = await decideSubmission({
