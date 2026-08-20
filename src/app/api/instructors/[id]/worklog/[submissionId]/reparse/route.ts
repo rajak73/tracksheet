@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor } from "@/server/auth/scope";
 import { runParse } from "@/server/worklog/service";
 
 /**
@@ -21,10 +21,20 @@ export const POST = withAuth<{ id: string; submissionId: string }>(
   async ({ scope, params }) => {
     const instructor = await prisma.instructor.findUnique({
       where: { id: params.id },
-      select: { id: true, universityId: true },
+      select: {
+        id: true,
+        universityId: true,
+        managerId: true,
+        university: { select: { primaryManagerId: true } },
+      },
     });
     if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-    assertCanReadInstructor(scope, instructor);
+    /* Re-running the parser REPLACES the activities the submission produced, so
+     * this is a write however much it reads like a refresh. It was gated by
+     * `assertCanReadInstructor`, which for a manager compares only the
+     * university — the same read-for-a-write mistake that let a manager post
+     * activities and approve leave for a colleague's roster member. */
+    assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
     const submission = await prisma.worklogSubmission.findUnique({
       where: { id: params.submissionId },

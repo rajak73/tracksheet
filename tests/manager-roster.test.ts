@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
 
 /**
@@ -18,6 +18,8 @@ let admin: ApiClient, mgrNorth: ApiClient, mgrWest: ApiClient, instNorth: ApiCli
 let northId: string, westId: string;
 /** Two Northfield managers, so "different rosters" is testable at all. */
 let mgrA: string, mgrB: string;
+/** Who each North instructor reported to before this file touched anything. */
+let originalRosters: Array<{ id: string; managerId: string | null }> = [];
 let westManagerId: string;
 let northInstructors: string[] = [];
 let westInstructorId: string;
@@ -76,12 +78,42 @@ beforeAll(async () => {
   const north = await admin.get(`/api/instructors?universityId=${northId}&limit=200`);
   expect(north.status).toBe(200);
   northInstructors = north.body.instructors.map((i: { id: string }) => i.id);
+  // Recorded BEFORE `unassignAll` below, so `afterAll` can put back exactly what
+  // was here rather than guessing at the seeded arrangement.
+  originalRosters = north.body.instructors.map((i: { id: string; managerId: string | null }) => ({
+    id: i.id,
+    managerId: i.managerId ?? null,
+  }));
   expect(northInstructors.length).toBeGreaterThanOrEqual(2);
 
   const west = await admin.get(`/api/instructors?universityId=${westId}&limit=200`);
   westInstructorId = west.body.instructors[0]!.id;
 
   await unassignAll();
+});
+
+/**
+ * Put the rosters back.
+ *
+ * ── What this fixes ───────────────────────────────────────────────────────
+ * This file moves the SEEDED Northfield instructors between managers, and its
+ * managers are chosen positionally — `managers[0]` and `managers[1]` of the
+ * university. It had no teardown, so whatever the last test did was still true
+ * for every file that ran afterwards, and the file order changes between runs.
+ *
+ * Two suites failed intermittently because of it. `phase7-ai-insights` logs
+ * activity as the seeded North manager and started getting 403 once recording
+ * someone's hours became a roster-level write. `phase9-instructor-isolation`
+ * asks whether that manager can see their roster's rows, which is only a
+ * question worth asking if the roster is what the seed made it.
+ *
+ * Restoring the exact prior assignment — rather than unassigning, and rather
+ * than assuming the seed — leaves the database as this file found it.
+ */
+afterAll(async () => {
+  for (const row of originalRosters) {
+    await admin.patch(`/api/instructors/${row.id}/manager`, { managerId: row.managerId });
+  }
 });
 
 describe("existing data survived the migration", () => {

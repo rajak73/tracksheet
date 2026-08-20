@@ -102,7 +102,23 @@ describe("activity logs are not visible to a colleague", () => {
     expect(JSON.stringify(res.body)).toContain(CONFIDENTIAL);
   });
 
-  test("a manager sees every instructor in their university", async () => {
+  test("a manager sees the rows of an instructor on their own roster", async () => {
+    /* This used to be called "a manager sees every instructor in their
+     * university", and that is no longer the rule. `/api/activities` narrowed a
+     * manager to their roster while this endpoint returned the whole tenant, so
+     * the same manager asking the same question about the same table got two
+     * answers depending on the URL. Both narrow now.
+     *
+     * The premise is asserted rather than assumed: this passes only because
+     * north2 is on THIS manager's roster, and other files move the seeded
+     * instructors around. Without the check, a drifted roster would look like a
+     * broken endpoint. */
+    const roster = await managerNorth.get("/api/instructors?limit=200");
+    expect(
+      roster.body.instructors.map((i: { id: string }) => i.id),
+      "north2 is expected to be on the seeded North manager's roster",
+    ).toContain(north2Id);
+
     const res = await managerNorth.get(`/api/universities/${northId}/activities`);
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).toContain(CONFIDENTIAL);

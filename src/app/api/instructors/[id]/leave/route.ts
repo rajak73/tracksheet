@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { assertValidDate } from "@/server/time/schedule-windows";
@@ -21,11 +21,50 @@ async function visibleInstructor(
 ) {
   const instructor = await prisma.instructor.findUnique({
     where: { id },
-    select: { id: true, universityId: true },
+    // `managerId` and the primary manager ride along for `assertWritable`,
+    // which the POST needs and the GET does not.
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
   assertCanReadInstructor(scope, instructor);
   return instructor;
+}
+
+/**
+ * The write-level check — booking or approving leave, not reading it.
+ *
+ * ── What reading-level authorisation allowed here ─────────────────────────
+ * This route resolved its instructor through `visibleInstructor` and then
+ * wrote, and that helper asks `assertCanReadInstructor`, which for a manager
+ * compares only the university. A probe confirmed the consequence: a manager
+ * posted leave for an instructor on a DIFFERENT manager's roster, with
+ * `status: "APPROVED"` in the body, and got 201.
+ *
+ * Leave is not an annotation. APPROVED leave REMOVES days from available
+ * capacity — the comment below this one says so — so it changes the
+ * denominator of that instructor's utilization and every figure derived from
+ * it. One manager could quietly reshape another manager's numbers.
+ *
+ * The same check the deliverable, schedule and reminder routes use. An
+ * instructor requesting their own leave is unaffected: the read check pins a
+ * self scope to itself and `assertCanManageInstructor` returns before the
+ * roster rule for any scope that is not a manager's.
+ */
+function assertWritable(
+  scope: Parameters<typeof assertCanManageInstructor>[0],
+  instructor: {
+    id: string;
+    universityId: string;
+    managerId: string | null;
+    university: { primaryManagerId: string | null };
+  },
+) {
+  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 }
 
 export const GET = withAuth<{ id: string }>(async ({ params, scope }) => {
@@ -53,6 +92,7 @@ export const POST = withAuth<{ id: string }>(
     }
 
     const instructor = await visibleInstructor(scope, params.id);
+    assertWritable(scope, instructor);
 
     // A self-scoped caller is pinned to PENDING regardless of what was sent.
     const isSelfScoped = scope.kind === "self";

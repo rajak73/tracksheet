@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -22,7 +22,13 @@ async function requireDeliverable(
 ) {
   const instructor = await prisma.instructor.findUnique({
     where: { id: instructorId },
-    select: { id: true, universityId: true },
+    // managerId and the primary manager ride along for `assertWritable`.
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
   assertCanReadInstructor(scope, instructor);
@@ -54,6 +60,27 @@ export const GET = withAuth<{ id: string; deliverableId: string }>(async ({ para
  * field, which is what lets a weekly report be reconstructed for any period
  * without storing week columns.
  */
+/**
+ * The write-level check.
+ *
+ * Logging progress adds HOURS against a deliverable, and those hours reach the
+ * client's reports. The helper this route shares with the GET authorises with
+ * `assertCanReadInstructor`, which compares only the university for a manager —
+ * correct for reading the log, wrong for appending to it, and the same
+ * read-for-a-write mistake found on activity creation and leave.
+ */
+function assertWritable(
+  scope: Parameters<typeof assertCanManageInstructor>[0],
+  instructor: {
+    id: string;
+    universityId: string;
+    managerId: string | null;
+    university: { primaryManagerId: string | null };
+  },
+) {
+  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
+}
+
 export const POST = withAuth<{ id: string; deliverableId: string }>(
   async ({ params, req, scope, principal }) => {
     const input = LogInput.parse(await req.json().catch(() => null));
@@ -64,6 +91,7 @@ export const POST = withAuth<{ id: string; deliverableId: string }>(
       params.id,
       params.deliverableId,
     );
+    assertWritable(scope, instructor);
 
     const log = await prisma.deliverableLog.create({
       data: {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { instructorOwnedWhere } from "@/server/auth/scope";
+import { instructorOwnedWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { parseDateParam } from "@/server/http/params";
 
@@ -8,6 +8,20 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   // Throws 403 for another tenant, and pins instructorId for a self-scoped
   // caller so an instructor sees only their own logs on this shared endpoint.
   const scopeWhere = instructorOwnedWhere(scope, params.id);
+
+  /* ── The roster boundary, on this endpoint too ──────────────────────────
+   * `/api/activities` narrows a manager to their own roster and this route did
+   * not, so the same manager asking the same question about the same table got
+   * two different answers depending on the URL. A probe confirmed it: an
+   * instructor taken off the roster disappeared from `/api/activities` and was
+   * still returned in full here — including `remarks`, which is free text the
+   * instructor wrote.
+   *
+   * `narrowManager` is the authority, the same one the tracker, the reports and
+   * the analytics use: an admin gets `{}` and still sees the whole university
+   * (and may name any manager), a manager gets their own id and cannot ask for
+   * anyone else's, an instructor may not filter by roster at all. */
+  const managerFilter = narrowManager(scope, req.nextUrl.searchParams.get("managerId"));
 
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
@@ -31,6 +45,12 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     prisma.activityLog.findMany({
       where: {
         ...scopeWhere,
+        // `managerId` lives on Instructor, so the roster filter is expressed as
+        // a relation filter rather than a column on ActivityLog — the same
+        // shape `/api/activities` uses.
+        ...("managerId" in managerFilter
+          ? { instructor: { managerId: managerFilter.managerId } }
+          : {}),
         ...dateFilter,
       },
       include: {

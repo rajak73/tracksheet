@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
 import { logActivity } from "@/server/activities/logger";
@@ -36,10 +36,17 @@ const PostActivityInput = z
 export const POST = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
   const input = PostActivityInput.parse(await req.json().catch(() => null));
   
-  // Verify access and get the instructor to find their universityId
+  // Verify access and get the instructor to find their universityId.
+  // `managerId` and the university's primary manager come along because the
+  // WRITE check below needs them.
   const instructor = await prisma.instructor.findUnique({
     where: { id: params.id },
-    select: { id: true, universityId: true },
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
 
   if (!instructor) {
@@ -49,7 +56,23 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     );
   }
 
-  assertCanReadInstructor(scope, instructor);
+  /* ── Recording somebody's hours is a write, so the roster decides ────────
+   * This used `assertCanReadInstructor`, which for a manager compares only the
+   * university. A probe confirmed what that allowed: a manager posted a
+   * TEACHING block, with free-text `remarks`, onto an instructor belonging to
+   * a DIFFERENT manager in the same university, and got 201.
+   *
+   * That is not a cosmetic boundary. Hours posted here flow into Working Hours,
+   * utilization and every report the client reads, so one manager could move
+   * another manager's numbers, and the row would carry the instructor's name
+   * rather than the author's.
+   *
+   * `assertCanManageInstructor` is the same check the deliverable, schedule and
+   * reminder routes already use. It runs the read check first — so an
+   * instructor is still pinned to themselves and an admin still passes — and
+   * only then requires a manager to own the roster entry, with the university's
+   * primary manager standing in for an unassigned instructor. */
+  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
   const log = await logActivity({
     instructorId: instructor.id,

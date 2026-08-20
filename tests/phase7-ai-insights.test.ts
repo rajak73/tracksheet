@@ -27,7 +27,13 @@ async function log(client: ApiClient, instructorId: string, date: string, code: 
   const res = await client.post(`/api/instructors/${instructorId}/activities`, {
     activityTypeCode: code, startTime: ist(date, s), endTime: ist(date, e),
   });
-  expect([201, 409]).toContain(res.status);
+  // The body is in the message because a bare status told us nothing when this
+  // started failing: 403 could be the roster rule or the tenant rule, and the
+  // error code is the only thing that distinguishes them.
+  expect(
+    [201, 409],
+    `logging ${code} for ${instructorId} on ${date}: ${res.status} ${JSON.stringify(res.body)}`,
+  ).toContain(res.status);
 }
 
 /** Northfield: Mon-Fri 09:00-18:00 IST, 60 min break -> 8h capacity/day. */
