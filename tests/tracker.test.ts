@@ -128,10 +128,18 @@ describe("the two hour figures stay separate", () => {
     const row = rowFor(res.body, n1Id)!;
     expect(row).toBeDefined();
 
-    // The whole point of the feature: two numbers, never merged.
+    /* The whole point of the feature: two numbers, never merged.
+     *
+     * `quantity` is 10, not 5: it counts the ten countable TEACHING sessions
+     * this week. The five units of course material recorded against the
+     * deliverable are deliberately NOT in it — a `Deliverable` is a planned
+     * item with no `isCountable`, so its units are shown on their own muted
+     * line rather than added to the count of student-facing work. Its twelve
+     * hours are still reported, in `deliverableHours`, which is exactly the
+     * separation this describe block is named for. */
     expect(row.totals.totalWorkingHours).toBe(40);
     expect(row.totals.deliverableHours).toBe(12);
-    expect(row.totals.quantity).toBe(5);
+    expect(row.totals.quantity).toBe(10);
 
     // 40h against a 40h week.
     expect(row.totals.capacityHours).toBe(40);
@@ -178,11 +186,27 @@ describe("weekly cells carry the sheet's columns", () => {
     const week = res.body.tracker.weeks[0];
     const cell = row.cells[week.index];
 
-    expect(cell.deliverables).toHaveLength(1);
-    expect(cell.deliverables[0].title).toBe("Tracker Course Material");
-    expect(cell.deliverables[0].quantity).toBe(5);
-    expect(cell.deliverables[0].hours).toBe(12);
-    expect(cell.quantity).toBe(5);
+    /* TWO lines, because the week held two different kinds of work and the
+     * sheet says so: forty hours of teaching, and twelve hours against a
+     * planned deliverable. This test was written when the tracker read
+     * `DeliverableLog` alone; the activities were invisible to it. */
+    expect(cell.deliverables).toHaveLength(2);
+
+    type Line = { title: string; quantity: number; hours: number; countable: boolean };
+    const lines = cell.deliverables as Line[];
+    const teaching = lines.find((d) => d.countable)!;
+    expect(teaching.title).toBe("Lecture");
+    expect(teaching.hours).toBe(40);
+    expect(teaching.quantity).toBe(10);
+
+    // Not countable: a planned deliverable carries no `isCountable`, so its
+    // hours must never reach the student-facing total.
+    const planned = lines.find((d) => !d.countable)!;
+    expect(planned.title).toBe("Tracker Course Material");
+    expect(planned.quantity).toBe(5);
+    expect(planned.hours).toBe(12);
+
+    expect(cell.quantity).toBe(10);
     expect(cell.deliverableHours).toBe(12);
     expect(cell.totalWorkingHours).toBe(40);
     // Remarks stay individual, never concatenated into one blob.

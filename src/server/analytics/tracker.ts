@@ -310,24 +310,45 @@ export async function buildTracker(args: {
     ),
   );
 
-  /* ── The sheet reads ActivityLog, and only ActivityLog ──────────────────
-   * `DeliverableLog` used to be summed into these same cells. Both records are
-   * written for one piece of work — `/instructor/activity-tracker` POSTs an
-   * activity AND a deliverable log when the category is DELIVERABLE — so two
-   * hours of work reported four, and a quantity of one reported two.
+  /* ── Two sources, and only one of them is Working Hours ─────────────────
+   * `DeliverableLog` used to be summed into these cells as though it were the
+   * same thing as an activity, with a hard-coded `countable: true`. That was
+   * wrong twice over. `/instructor/activity-tracker` POSTs an activity AND a
+   * deliverable log for one piece of work, so two hours reported four; and a
+   * `Deliverable` is a planned item with a free-text category and no
+   * `isCountable` at all, so planned course material counted as time in front
+   * of students.
    *
-   * ActivityLog is the source because it is the only one that can answer the
-   * question this sheet asks. Working Hours counts time WITH STUDENTS, decided
-   * by the entry's deliverable type or its category; a `Deliverable` is a
-   * planned item with a free-text category and no `isCountable` at all, so its
-   * hours were entering the client's Working Hours under a hard-coded
-   * `countable: true` — planned course material counted as time in front of
-   * students.
+   * Removing it outright was wrong too, and the test suite is what said so:
+   * hours logged through the deliverables screen alone — progress against a
+   * plan, with no accompanying activity — exist in no other table, so they
+   * simply vanished from the report. That is the same defect as the twelve and
+   * three quarter hours of unclassified teaching, arrived at from the other
+   * direction.
    *
-   * `DeliverableLog` is not going away: it remains the record of progress
-   * against a plan, which is what the deliverables screen is for. It is simply
-   * not a record of the working day, and this sheet is.
+   * So both are read, and countability is what separates them. A DeliverableLog
+   * contributes to `deliverableHours` — the reporting-detail figure, which is
+   * explicitly NOT Working Hours — and is marked not-countable, so it can never
+   * reach the student-facing total. The hours stay visible; they stop being
+   * counted as something they are not.
    */
+  const deliverableLogs = await prisma.deliverableLog.findMany({
+    where: {
+      universityId: config.id,
+      ...(instructorId ? { instructorId } : {}),
+      ...("managerId" in args ? { instructor: { managerId: args.managerId } } : {}),
+      workDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
+    },
+    orderBy: { workDate: "asc" },
+    select: {
+      instructorId: true,
+      workDate: true,
+      quantityCompleted: true,
+      hoursSpent: true,
+      remarks: true,
+      deliverable: { select: { title: true } },
+    },
+  });
 
   /* ── Where a "deliverable" comes from ─────────────────────────────────────
    * Two things in this product are called a deliverable, and the report has to
@@ -437,6 +458,40 @@ export async function buildTracker(args: {
       categoryHours.set(b.instructorId, agg);
     }
   });
+
+  for (const log of deliverableLogs) {
+    const workDate = log.workDate.toISOString().slice(0, 10);
+    const week = weeks.find((w) => workDate >= w.from && workDate <= w.to);
+    const row = rows.get(log.instructorId);
+    if (!week || !row) continue;
+
+    const cell = (row.cells[week.index] ??= {
+      deliverables: [],
+      quantity: 0,
+      deliverableHours: 0,
+      totalWorkingHours: 0,
+      hoursByCategory: {},
+      remarks: [],
+    });
+
+    /* `countable: false`, always. A planned deliverable carries no
+     * `isCountable` to consult, and the honest reading of an unknown is "not
+     * time with students" — the figure this protects is the one the client
+     * reads. The hours are still reported, on their own muted line. */
+    let entry = cell.deliverables.find((d) => d.title === log.deliverable.title && !d.countable);
+    if (!entry) {
+      entry = { title: log.deliverable.title, quantity: 0, hours: 0, countable: false };
+      cell.deliverables.push(entry);
+    }
+    entry.quantity += log.quantityCompleted;
+    entry.hours = round(entry.hours + log.hoursSpent);
+
+    cell.deliverableHours = round(cell.deliverableHours + log.hoursSpent);
+    row.totals.deliverableHours = round(row.totals.deliverableHours + log.hoursSpent);
+
+    const remark = log.remarks?.trim();
+    if (remark && !cell.remarks.includes(remark)) cell.remarks.push(remark);
+  }
 
   for (const log of activityDeliverables) {
     const workDate = log.workDate.toISOString().slice(0, 10);

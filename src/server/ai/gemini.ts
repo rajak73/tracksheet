@@ -146,8 +146,28 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
   const baseUrl = process.env.GEMINI_BASE_URL ?? DEFAULT_BASE_URL;
   let last: Transport = { ok: false, reason: "no model was attempted" };
 
+  /* ── `timeoutMs` is a budget for the CHAIN, not for each attempt ────────
+   * It used to be per attempt, and every transport failure — including a
+   * timeout — was marked retryable, so an unresponsive provider cost
+   * `timeoutMs × MODEL_CHAIN.length` before the caller saw its fallback.
+   * Narration waited 24 seconds for a deterministic sentence it already had;
+   * the assistant, once its ceiling was raised to 45 seconds for a longer
+   * reply, would have waited 135.
+   *
+   * A deadline fixes both without changing what retrying is for. A capacity
+   * refusal (429, 503) comes back in milliseconds and leaves almost the whole
+   * budget, so the next model is still tried — which is the case the chain
+   * exists for. A timeout consumes the budget by definition, so there is
+   * nothing left to spend and the loop stops. Slowness stops being a reason to
+   * be slower.
+   */
+  const deadline = Date.now() + timeoutMs;
+
   for (const model of MODEL_CHAIN) {
-    last = await attempt(`${baseUrl}/models/${model}:generateContent`, apiKey, body, timeoutMs);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return last;
+
+    last = await attempt(`${baseUrl}/models/${model}:generateContent`, apiKey, body, remaining);
     if (last.ok) return last;
     // Anything that is not a capacity problem will fail the same way on the
     // next model, so stop rather than spending the caller's time on it.
@@ -197,7 +217,9 @@ async function attempt(
         : error instanceof Error
           ? error.message
           : "unknown transport error";
-    // A timeout may well be this model being slow; the next one is worth a try.
+    /* Still retryable — the deadline above is what stops a timeout from being
+     * spent three times over. A network blip that fails fast leaves budget and
+     * genuinely deserves the next model; a hang leaves none and gets none. */
     return { ok: false, retryable: true, reason };
   } finally {
     clearTimeout(timer);

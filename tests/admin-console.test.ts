@@ -46,8 +46,7 @@ describe("GET /api/managers", () => {
         "universityName",
         "instructorCount",
         "workingHours",
-        "deliverableHours",
-        "nonDeliverableHours",
+        "recordedHours",
         "utilizationPct",
         "band",
         "trendPct",
@@ -56,9 +55,10 @@ describe("GET /api/managers", () => {
         expect(m).toHaveProperty(field);
       }
       expect(typeof m.workingHours).toBe("number");
-      // Both hour figures come from ActivityLog, so neither can be negative.
-      expect(m.deliverableHours).toBeGreaterThanOrEqual(0);
-      expect(m.nonDeliverableHours).toBeGreaterThanOrEqual(0);
+      // Both hour figures come from ActivityLog, so neither can be negative —
+      // and Working Hours is a subset of what was recorded, never more.
+      expect(m.recordedHours).toBeGreaterThanOrEqual(0);
+      expect(m.workingHours).toBeLessThanOrEqual(m.recordedHours);
     }
   });
 

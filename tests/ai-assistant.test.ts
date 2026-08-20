@@ -20,7 +20,8 @@ import { assistantInsight, BRIEF_TYPE, parseReply, verifyReply } from "@/server/
  * below are about bytes that actually went over a socket.
  *
  * ── The three things being proved ──────────────────────────────────────────
- * 1. Scope: a manager's prompt contains their roster and nobody else's, and no
+ * 1. Scope: a manager's prompt describes their roster and nobody else's — under
+ *    pseudonyms, so no real name leaves the process at all — and no
  *    argument can change that, because the context is built from the session.
  * 2. Secrets: no connection string, credential or raw activity row is ever in
  *    a request body, and the key travels in a header rather than a URL.
@@ -259,16 +260,35 @@ describe("what leaves the process", () => {
     }
   });
 
+/**
+ * Distinct pseudonyms in a prompt body.
+ *
+ * Real names no longer reach the model — `pseudonyms.ts` replaces every person
+ * with a positional label and puts the name back only after the reply has been
+ * verified. So the scope guarantee these tests were written for is checked the
+ * other way round now, and more strictly: not "their roster is named and
+ * nobody else is", but "NOBODY is named, and the prompt describes exactly as
+ * many people as the caller can see".
+ */
+function labelsIn(body: string): string[] {
+  return [...new Set(body.match(/Person [A-Z]+/g) ?? [])];
+}
+
   test("a manager's prompt contains their roster and nobody else's", async () => {
     const context = await buildInsightContext(northManagerScope);
     replyPayload = truthfulReply(context);
     await assistantInsight(northManagerScope);
 
     const body = captured[0]!.body;
-    for (const name of northRosterNames) expect(body).toContain(name);
-    for (const name of westRosterNames.filter((n) => !northRosterNames.includes(n))) {
-      expect(body).not.toContain(name);
-    }
+
+    // Not one real name, from either roster — including their own people.
+    for (const name of [...northRosterNames, ...westRosterNames]) expect(body).not.toContain(name);
+
+    // And exactly as many people as this manager can see: themselves plus
+    // their roster. A label for somebody else's instructor would mean the
+    // context was built too wide, pseudonyms or not.
+    if (context.audience !== "MANAGER") throw new Error("expected a MANAGER context");
+    expect(labelsIn(body)).toHaveLength(1 + context.roster.length);
   });
 
   test("the other manager gets the mirror image, from the same code path", async () => {
@@ -277,10 +297,15 @@ describe("what leaves the process", () => {
     await assistantInsight(westManagerScope);
 
     const body = captured[0]!.body;
-    for (const name of westRosterNames) expect(body).toContain(name);
-    for (const name of northRosterNames.filter((n) => !westRosterNames.includes(n))) {
-      expect(body).not.toContain(name);
-    }
+
+    // Not one real name, from either roster — including their own people.
+    for (const name of [...westRosterNames, ...northRosterNames]) expect(body).not.toContain(name);
+
+    // And exactly as many people as this manager can see: themselves plus
+    // their roster. A label for somebody else's instructor would mean the
+    // context was built too wide, pseudonyms or not.
+    if (context.audience !== "MANAGER") throw new Error("expected a MANAGER context");
+    expect(labelsIn(body)).toHaveLength(1 + context.roster.length);
   });
 
   test("an admin's prompt spans every manager, and still carries no secrets", async () => {
@@ -290,16 +315,19 @@ describe("what leaves the process", () => {
     await assistantInsight(adminScope);
 
     const body = captured[0]!.body;
-    // An administrator oversees every roster, so every MANAGER is named.
-    for (const m of context.managers) expect(body).toContain(m.name);
+    // An administrator oversees every roster — and still sees no real name.
+    for (const m of context.managers) expect(body).not.toContain(m.name);
 
     // Instructors are not: the admin context carries only the few needing
     // attention, so the prompt stays bounded as the platform grows instead of
     // scaling with headcount. Anything beyond that bound would be a regression
     // in cost as much as in disclosure.
     expect(context.worstInstructors.length).toBeLessThanOrEqual(5);
-    const namesInBody = [...northRosterNames, ...westRosterNames].filter((n) => body.includes(n));
-    expect(namesInBody.length).toBeLessThanOrEqual(context.worstInstructors.length);
+    for (const n of [...northRosterNames, ...westRosterNames]) expect(body).not.toContain(n);
+    // One label per person the context actually carries, and no more.
+    expect(labelsIn(body)).toHaveLength(
+      context.managers.length + context.worstInstructors.length,
+    );
 
     expect(body).not.toContain("@example.edu");
     expect(body.toLowerCase()).not.toContain("postgresql://");
@@ -311,11 +339,12 @@ describe("what leaves the process", () => {
     await assistantInsight(instructorScope);
 
     const body = captured[0]!.body;
-    const me = northRosterNames[0]!;
-    expect(body).toContain(me);
-    for (const name of [...northRosterNames.slice(1), ...westRosterNames]) {
-      if (name !== me) expect(body).not.toContain(name);
+    // Their own name is absent too — the model is told about "Person A".
+    for (const name of [...northRosterNames, ...westRosterNames]) {
+      expect(body).not.toContain(name);
     }
+    // One person, so one label.
+    expect(labelsIn(body)).toHaveLength(1);
   });
 });
 

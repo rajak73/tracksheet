@@ -292,9 +292,16 @@ describe("roster metrics are real and roster-scoped", () => {
       (i: { user: { isActive: boolean } }) => i.user.isActive,
     );
     expect(me.instructorCount).toBe(activeMine.length);
-    // Both hour figures come from ActivityLog and can never be negative.
-    expect(me.deliverableHours).toBeGreaterThanOrEqual(0);
-    expect(me.nonDeliverableHours).toBeGreaterThanOrEqual(0);
+    /* `deliverableHours` and `nonDeliverableHours` are gone. The first was
+     * hours whose CATEGORY happened to be "Deliverable Work" and the second was
+     * everything else — so a lecture counted as "non-deliverable", a name that
+     * said the opposite of what it measured. What a roster reports now is the
+     * student-facing figure and the every-recorded-minute one, each under the
+     * name it actually has, and neither can be negative. */
+    expect(me.workingHours).toBeGreaterThanOrEqual(0);
+    expect(me.recordedHours).toBeGreaterThanOrEqual(0);
+    // Working Hours is a subset of what was recorded, never more than it.
+    expect(me.workingHours).toBeLessThanOrEqual(me.recordedHours);
   });
 
   test("the instructor rows it returns are only this manager's people", async () => {
