@@ -4,7 +4,7 @@ import { prisma } from "@/server/db";
 import { fakeVerifyDelay, verifyPassword } from "@/server/auth/password";
 import { issueSession, setSessionCookie } from "@/server/auth/session";
 import { jsonError, withPublic } from "@/server/http/route";
-import { AUTH_LIMITS, clientIp, hit } from "@/server/http/rate-limit";
+import { AUTH_LIMITS, clientIp, forget, hit } from "@/server/http/rate-limit";
 
 const LoginBody = z.object({
   email: z.string().email().max(320),
@@ -55,6 +55,12 @@ export const POST = withPublic(async (req) => {
   if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
     return jsonError(401, "INVALID_CREDENTIALS", "Invalid email or password");
   }
+
+  /* The password was right, so the failed attempts before it were not an
+     attack on this account and must stop counting against it. Only the account
+     bucket — the address one is a flood guard for everybody behind a shared
+     network and one person's success is not evidence about the rest. */
+  forget(`login:email:${email}`);
 
   // Recorded after the password check, so a failed attempt cannot be used to
   // probe whether an account is active.

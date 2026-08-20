@@ -26,14 +26,28 @@ export type WorkloadReport = {
   totals: AnalyticsResult["totals"];
 };
 
+/**
+ * `scope` narrows WHOSE rows the report contains, and is not optional in
+ * practice: a report is the same engine pass every dashboard runs, so it has to
+ * carry the same roster and self boundaries or it becomes the way around them.
+ * `managerId: null` means "the unassigned" and is distinct from omitting the
+ * key, exactly as in `AnalyticsQuery`.
+ */
 export async function generateWorkloadReport(
   universityId: string,
   from: string,
   to: string,
+  scope: { instructorId?: string; managerId?: string | null } = {},
 ): Promise<WorkloadReport> {
   // `from`/`to` are required rather than optional. They used to be optional and
   // silently ignored, which made every "weekly" report an all-time report.
-  const analytics = await computeAnalytics({ universityId, from, to });
+  const analytics = await computeAnalytics({
+    universityId,
+    from,
+    to,
+    ...(scope.instructorId ? { instructorId: scope.instructorId } : {}),
+    ...("managerId" in scope ? { managerId: scope.managerId } : {}),
+  });
 
   return {
     universityId,

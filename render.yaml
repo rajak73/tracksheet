@@ -94,6 +94,15 @@ services:
         value: "60"
       - key: ROLLUP_WINDOW_DAYS
         value: "3"
+      # Stated here so the numbers are visible to whoever operates this, not
+      # only to whoever reads rate-limit.ts. These ARE the code defaults — the
+      # deployment does not depend on them being set, it just says them out
+      # loud. The per-account limit is the real defence; the per-address one is
+      # deliberately loose because a campus shares one outbound address.
+      - key: RATE_LIMIT_LOGIN_EMAIL
+        value: "8"
+      - key: RATE_LIMIT_LOGIN_IP
+        value: "200"
 
 databases:
   - name: tracksheet-db

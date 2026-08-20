@@ -29,7 +29,7 @@ async function requireDeliverable(
 
   const deliverable = await prisma.deliverable.findFirst({
     where: { id: deliverableId, instructorId: instructor.id },
-    select: { id: true, targetQuantity: true },
+    select: { id: true, targetQuantity: true, status: true },
   });
   if (!deliverable) throw new ApiError(404, "NOT_FOUND", "Deliverable not found");
 
@@ -84,17 +84,24 @@ export const POST = withAuth<{ id: string; deliverableId: string }>(
       _sum: { quantityCompleted: true },
     });
     const done = totals._sum.quantityCompleted ?? 0;
-    await prisma.deliverable.update({
-      where: { id: deliverable.id },
-      data: {
-        status:
-          done >= deliverable.targetQuantity
-            ? "COMPLETED"
-            : done > 0
-              ? "IN_PROGRESS"
-              : "NOT_STARTED",
-      },
-    });
+    /* CANCELLED is a DECISION, not a position on the progress scale, so it is
+     * not something an increment may overwrite. Recomputing it unconditionally
+     * moved a called-off deliverable back to IN_PROGRESS the moment a stale tab
+     * logged against it — putting it back on the dashboards and back into the
+     * deadline sweep, which excludes exactly COMPLETED and CANCELLED. */
+    if (deliverable.status !== "CANCELLED") {
+      await prisma.deliverable.update({
+        where: { id: deliverable.id },
+        data: {
+          status:
+            done >= deliverable.targetQuantity
+              ? "COMPLETED"
+              : done > 0
+                ? "IN_PROGRESS"
+                : "NOT_STARTED",
+        },
+      });
+    }
 
     await logAudit(principal, scope, {
       action: "DELIVERABLE_PROGRESS_LOGGED",

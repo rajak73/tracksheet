@@ -181,6 +181,14 @@ export function narrowManagerRow(
   // `{ in: [] }` matches nothing, and says so in Prisma's own vocabulary
   // rather than through a sentinel value that only works by accident.
   if (managerId === null) return { id: { in: [] } };
+
+  /* A self-scoped caller also arrives here with no `managerId` key, because
+   * `narrowManager` answers `{}` for a role that has no manager dimension at
+   * all. Falling through to `{}` would make that "every manager row" — the
+   * same fail-open the branch above exists to close, reached by a different
+   * door. An instructor names no roster, so the honest answer is the empty
+   * set; only the admin's "nobody in particular" means everyone. */
+  if (scope.kind === "self") return { id: { in: [] } };
   return {};
 }
 
@@ -220,6 +228,43 @@ export function assertCanAccessUniversity(scope: TenantScope, universityId: stri
 }
 
 /** Throws unless the scope permits reading this specific instructor. */
+/**
+ * May this caller ACT on this instructor's record?
+ *
+ * ── Why reading and acting are different questions ────────────────────────
+ * `assertCanReadInstructor` compares only the university for a manager, and
+ * that is right for reading: a manager sees their tenant. It is wrong for
+ * writing, and four routes used it that way — leave revocation, deliverable
+ * creation, schedule slots and reminders — so a manager could act on a peer
+ * manager's instructor. Revoking somebody else's roster member's leave changes
+ * that manager's capacity denominator, and they would have no idea why.
+ *
+ * The product's own statement is that a manager runs ONE roster and cannot see
+ * a peer's, so acting tenant-wide was never the intent.
+ *
+ * ── Unassigned instructors ────────────────────────────────────────────────
+ * Somebody with no manager is answered for by the university's primary
+ * manager, which is the same rule the roster and the approval queue use — so
+ * that person is not left with nobody able to act for them.
+ */
+export function assertCanManageInstructor(
+  scope: TenantScope,
+  instructor: { id: string; universityId: string; managerId: string | null },
+  /** The university's primary manager, when the caller needs to stand in. */
+  primaryManagerId?: string | null,
+): void {
+  assertCanReadInstructor(scope, instructor);
+  if (scope.kind !== "university") return;
+
+  const mine = instructor.managerId === scope.managerId;
+  const unassignedAndIAmPrimary =
+    instructor.managerId === null && primaryManagerId != null && primaryManagerId === scope.managerId;
+
+  if (!mine && !unassignedAndIAmPrimary) {
+    throw new ApiError(403, "NOT_YOUR_ROSTER", "That instructor is not on your roster");
+  }
+}
+
 export function assertCanReadInstructor(
   scope: TenantScope,
   instructor: { id: string; universityId: string },

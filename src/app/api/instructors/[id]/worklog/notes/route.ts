@@ -5,6 +5,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { assertCanReadInstructor } from "@/server/auth/scope";
 import { logAudit } from "@/server/audit/logger";
+import { assertValidDate } from "@/server/time/schedule-windows";
 
 /**
  * The instructor's own note about a day.
@@ -51,6 +52,10 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   if (!from || !to || !DAY.test(from) || !DAY.test(to)) {
     throw new ApiError(400, "INVALID_PERIOD", "Provide `from` and `to` as YYYY-MM-DD.");
   }
+  // Shape is not reality: the pattern accepts 2026-13-45, which becomes an
+  // Invalid Date and fails inside Prisma as a 500 rather than a 400.
+  assertValidDate(from);
+  assertValidDate(to);
 
   const notes = await prisma.worklogDayNote.findMany({
     where: {
@@ -69,6 +74,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
 
 export const PATCH = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
   const input = SaveNote.parse(await req.json().catch(() => null));
+  assertValidDate(input.workDate);
 
   const instructor = await prisma.instructor.findUnique({
     where: { id: params.id },

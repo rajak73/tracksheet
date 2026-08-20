@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
-import { assertCanAccessUniversity } from "@/server/auth/scope";
+import { assertCanAccessUniversity, narrowManager } from "@/server/auth/scope";
 import { formatReportAsCsv, generateWorkloadReport } from "@/server/reports/generator";
 import { resolvePeriod } from "@/server/analytics/period";
 import { loadUniversityConfig } from "@/server/universities/config";
-import { computeAnalytics } from "@/server/analytics/engine";
 import { prisma } from "@/server/db";
 import { createNotification } from "@/server/notifications/service";
 import { logAudit } from "@/server/audit/logger";
@@ -17,42 +16,30 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
   const period = resolvePeriod(req.nextUrl.searchParams, config.timezone);
   const selfOnly = scope.kind === "self" ? scope.instructorId : undefined;
 
-  // Self-scoped callers get a report containing only their own row, so the
-  // export path cannot become a way around instructor-level isolation.
-  const report = selfOnly
-    ? await (async () => {
-        const a = await computeAnalytics({
-          universityId: params.id,
-          from: period.from,
-          to: period.to,
-          instructorId: selfOnly,
-        });
-        return {
-          universityId: params.id,
-          from: period.from,
-          to: period.to,
-          rows: a.instructors.map((i) => ({
-            instructorName: i.instructorName,
-            employeeCode: i.employeeCode,
-            capacityHours: i.capacityHours,
-            productiveHours: i.productiveHours,
-            unutilizedHours: i.unutilizedHours,
-            missingDataHours: i.missingDataHours,
-            utilizationPct: i.utilizationPct,
-            openingCompliancePct: i.openingCompliancePct,
-            closingCompliancePct: i.closingCompliancePct,
-          })),
-          totals: a.totals,
-        };
-      })()
-    : await generateWorkloadReport(params.id, period.from, period.to);
+  /* Both boundaries, and neither of them re-derived here.
+   *
+   * Self-scoped callers get a report containing only their own row, so the
+   * export path cannot become a way around instructor-level isolation.
+   *
+   * A MANAGER is bounded by their ROSTER, not by the university. Asking only
+   * `assertCanAccessUniversity` let one manager export every instructor in the
+   * tenant, peers' rosters included — the same grid `/tracker` refuses them,
+   * reachable through the CSV instead. `narrowManager` is the authority for
+   * that decision, exactly as it is there: an admin may name any roster or
+   * `unassigned`, a manager only themselves. */
+  const rosterFilter = narrowManager(scope, req.nextUrl.searchParams.get("managerId"));
+
+  const report = await generateWorkloadReport(params.id, period.from, period.to, {
+    ...(selfOnly ? { instructorId: selfOnly } : {}),
+    ...rosterFilter,
+  });
 
   const format = req.nextUrl.searchParams.get("export");
   if (format !== "csv") {
     // The CSV export path below needs every row for a complete file; JSON
-    // callers page over `report.rows` instead. `totals` is computed over the
-    // WHOLE university and is never re-derived from the sliced page, so it
-    // stays correct regardless of which page is being viewed.
+    // callers page over `report.rows` instead. `totals` is computed over every
+    // row the caller's scope covers and is never re-derived from the sliced
+    // page, so it stays correct regardless of which page is being viewed.
     const page = parsePage(req.nextUrl.searchParams.get("page"));
     const limit = parseLimit(req.nextUrl.searchParams.get("limit"), { fallback: 50, max: 200 });
     const total = report.rows.length;
@@ -81,7 +68,14 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
       requestedById: principal.userId,
       reportType: "INSTRUCTOR_WORKLOAD",
       format: "CSV",
-      parameters: { from: period.from, to: period.to, selfOnly: Boolean(selfOnly) },
+      // The roster the export actually covered, so "who exported what" answers
+      // WHOSE rows as well as which period.
+      parameters: {
+        from: period.from,
+        to: period.to,
+        selfOnly: Boolean(selfOnly),
+        managerId: rosterFilter.managerId ?? null,
+      },
       status: "RUNNING",
       startedAt: new Date(),
     },

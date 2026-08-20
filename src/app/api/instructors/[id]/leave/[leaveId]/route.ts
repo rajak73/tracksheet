@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -17,10 +17,18 @@ export const DELETE = withAuth<{ id: string; leaveId: string }>(
   async ({ params, scope, principal }) => {
     const instructor = await prisma.instructor.findUnique({
       where: { id: params.id },
-      select: { id: true, universityId: true },
+      select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
     });
     if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-    assertCanReadInstructor(scope, instructor);
+    /* Manage, not read. Revoking somebody's leave changes their capacity — and
+       therefore their manager's figures — so this is a write on that manager's
+       roster, not a read of the tenant. */
+    assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
     // Scoped by instructorId in the predicate, so a leave id belonging to
     // another instructor cannot be removed even by guessing it.

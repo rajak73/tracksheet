@@ -39,8 +39,22 @@ export function hit(key: string, limit: number, windowMs: number): RateLimitResu
 
   if (!existing || existing.resetAt <= now) {
     if (buckets.size >= MAX_TRACKED_KEYS) {
-      // Evict everything already expired before giving up on new keys.
+      // Evict everything already expired first — that is the cheap pass and in
+      // normal operation it is the only one needed.
       for (const [k, v] of buckets) if (v.resetAt <= now) buckets.delete(k);
+
+      // A flood of DISTINCT keys inside one window expires nothing, so the
+      // sweep above frees nothing and the map would keep growing — the bound
+      // was documented but not enforced. Drop the oldest live windows too:
+      // Map iterates in insertion order, and insertion order is window-start
+      // order, so the first entries are the ones closest to expiring anyway.
+      if (buckets.size >= MAX_TRACKED_KEYS) {
+        let toDrop = buckets.size - MAX_TRACKED_KEYS + 1;
+        for (const k of buckets.keys()) {
+          if (toDrop-- <= 0) break;
+          buckets.delete(k);
+        }
+      }
     }
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, remaining: limit - 1, retryAfterSeconds: 0 };
@@ -55,6 +69,24 @@ export function hit(key: string, limit: number, windowMs: number): RateLimitResu
   };
 }
 
+/**
+ * Forget one key's window.
+ *
+ * Called when a login SUCCEEDS. The limiter exists to slow password guessing,
+ * and a correct password is proof this was not that — so the failed attempts
+ * that preceded it should not go on counting against the person who has just
+ * proved who they are. Without this, someone signing in from a second device
+ * inside five minutes could be refused with the right password, and the
+ * tighter the per-account limit the sooner that happens.
+ *
+ * Only the account bucket is cleared, never the address one: one successful
+ * login on a shared network must not reset the flood guard for everybody
+ * behind it.
+ */
+export function forget(key: string): void {
+  buckets.delete(key);
+}
+
 /** Test-only: lets a suite exercise the limiter without waiting out a window. */
 export function resetRateLimits(): void {
   buckets.clear();
@@ -66,14 +98,27 @@ export function resetRateLimits(): void {
  * limit low enough for a test to actually trip it.
  */
 export const AUTH_LIMITS = {
-  /** Per IP: generous enough for a shared office, tight enough to matter. */
+  /**
+   * Per IP: a blunt flood guard, and deliberately generous.
+   *
+   * This was 30, which is a number for an office. The people using this share
+   * a campus: two hundred instructors behind one outbound address all signing
+   * in at nine in the morning would exhaust it in the first minute, and every
+   * one of them after the thirtieth would be refused. It would have locked out
+   * the users while barely inconveniencing an attacker, who can change address.
+   */
   perIp: {
-    limit: Number(process.env.RATE_LIMIT_LOGIN_IP ?? 30),
+    limit: Number(process.env.RATE_LIMIT_LOGIN_IP ?? 200),
     windowMs: 5 * 60_000,
   },
-  /** Per account: an attacker guessing one password should stall quickly. */
+  /**
+   * Per account: this is the limit that actually stops password guessing, and
+   * it holds however many addresses an attacker spreads across. Eight in five
+   * minutes is roughly ninety-six attempts an hour against one account — slow
+   * enough to be useless — and eight is more than any real person needs.
+   */
   perEmail: {
-    limit: Number(process.env.RATE_LIMIT_LOGIN_EMAIL ?? 10),
+    limit: Number(process.env.RATE_LIMIT_LOGIN_EMAIL ?? 8),
     windowMs: 5 * 60_000,
   },
 } as const;

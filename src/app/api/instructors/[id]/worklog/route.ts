@@ -5,6 +5,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { createNotification } from "@/server/notifications/service";
 import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertValidDate } from "@/server/time/schedule-windows";
 import { logAudit } from "@/server/audit/logger";
 import { MAX_BULLETS, MAX_BULLET_CHARS, submitWorklog } from "@/server/worklog/service";
 
@@ -131,6 +132,8 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new ApiError(400, "INVALID_DATE", "Provide `date` as YYYY-MM-DD.");
   }
+  // The pattern is shape only; 2026-13-45 would reach Prisma as Invalid Date.
+  assertValidDate(date);
 
   const instructor = await prisma.instructor.findUnique({
     where: { id: params.id },

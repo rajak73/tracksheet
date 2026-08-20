@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { logAudit } from "@/server/audit/logger";
@@ -34,7 +34,12 @@ async function requireVisibleInstructor(
 ) {
   const instructor = await prisma.instructor.findUnique({
     where: { id: instructorId },
-    select: { id: true, universityId: true },
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
 
   if (!instructor) {
@@ -75,10 +80,29 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
  * deliverables — not even on themselves. The role gate runs in withAuth, and
  * the tenant/ownership check still runs below for managers.
  */
+/**
+ * The write-level check.
+ *
+ * `loadInstructor` above asks "may you see this person", which for a manager is
+ * a tenant comparison. Writing is a different question: a manager runs ONE
+ * roster, so acting on a peer's instructor is out of bounds even inside their
+ * own university. Unassigned instructors fall to the primary manager, the same
+ * rule the roster and the approval queue use.
+ */
+function assertWritable(scope: Parameters<typeof assertCanManageInstructor>[0], instructor: {
+  id: string;
+  universityId: string;
+  managerId: string | null;
+  university: { primaryManagerId: string | null };
+}) {
+  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
+}
+
 export const POST = withAuth<{ id: string }>(
   async ({ params, req, scope, principal }) => {
     const data = createDeliverableSchema.parse(await req.json().catch(() => null));
     const instructor = await requireVisibleInstructor(scope, params.id);
+    assertWritable(scope, instructor);
 
     const deliverable = await prisma.deliverable.create({
       data: {

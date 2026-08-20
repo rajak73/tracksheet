@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor } from "@/server/auth/scope";
+import { assertValidDate } from "@/server/time/schedule-windows";
 import { createNotification } from "@/server/notifications/service";
 import { logAudit } from "@/server/audit/logger";
 
@@ -33,18 +34,26 @@ const Remind = z.object({
 export const POST = withAuth<{ id: string }>(
   async ({ scope, params, req, principal }) => {
     const input = Remind.parse(await req.json().catch(() => null));
+    // The regex admits 2026-13-45, which becomes an Invalid Date and reaches
+    // Prisma as a 500. `assertValidDate` is the one place that says what a real
+    // calendar date is; every other dated route already asks it.
+    assertValidDate(input.workDate);
 
     const instructor = await prisma.instructor.findUnique({
       where: { id: params.id },
       select: {
         id: true,
         universityId: true,
+        managerId: true,
+        university: { select: { primaryManagerId: true } },
         userId: true,
         user: { select: { isActive: true } },
       },
     });
     if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-    assertCanReadInstructor(scope, instructor);
+    /* A reminder is a write on a roster: it puts a notification in somebody's
+       bell. A manager may nudge their own people, not a peer's. */
+    assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
     if (!instructor.user.isActive) {
       throw new ApiError(400, "INSTRUCTOR_INACTIVE", "That instructor's account is deactivated.");

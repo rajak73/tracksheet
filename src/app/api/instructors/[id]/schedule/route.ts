@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -15,7 +15,12 @@ async function visibleInstructor(
 ) {
   const instructor = await prisma.instructor.findUnique({
     where: { id },
-    select: { id: true, universityId: true },
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
   assertCanReadInstructor(scope, instructor);
@@ -95,12 +100,31 @@ const SlotInput = z.object({
  * Planning an instructor's day is a management action, so instructors cannot
  * schedule themselves — they record what actually happened via /activities.
  */
+/**
+ * The write-level check.
+ *
+ * `loadInstructor` above asks "may you see this person", which for a manager is
+ * a tenant comparison. Writing is a different question: a manager runs ONE
+ * roster, so acting on a peer's instructor is out of bounds even inside their
+ * own university. Unassigned instructors fall to the primary manager, the same
+ * rule the roster and the approval queue use.
+ */
+function assertWritable(scope: Parameters<typeof assertCanManageInstructor>[0], instructor: {
+  id: string;
+  universityId: string;
+  managerId: string | null;
+  university: { primaryManagerId: string | null };
+}) {
+  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
+}
+
 export const POST = withAuth<{ id: string }>(
   async ({ params, req, scope, principal }) => {
     const input = SlotInput.parse(await req.json().catch(() => null));
     assertValidDate(input.date);
 
     const instructor = await visibleInstructor(scope, params.id);
+    assertWritable(scope, instructor);
 
     if (new Date(input.endTime) <= new Date(input.startTime)) {
       throw new ApiError(400, "INVALID_INTERVAL", "endTime must be after startTime");
