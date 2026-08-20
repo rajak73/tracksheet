@@ -247,6 +247,7 @@ export const GET = withAuth(async ({ scope, req }) => {
       workDate: true,
       startTime: true,
       endTime: true,
+      status: true,
       remarks: true,
       activityType: { select: { code: true, label: true } },
       // A timeline block has room for one line, and "Teaching" on its own does
@@ -360,6 +361,9 @@ export const GET = withAuth(async ({ scope, req }) => {
           endTime: log.endTime.toISOString(),
           durationHours: round((log.endTime.getTime() - log.startTime.getTime()) / 3_600_000),
           remarks: log.remarks,
+          // The sheets exclude an absence from Working Hours, which they can
+          // only do if the payload says so.
+          status: log.status,
           activityType: log.activityType,
           deliverableType: log.deliverableType,
           broadCategory: log.broadCategory,

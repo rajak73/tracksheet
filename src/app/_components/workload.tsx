@@ -56,6 +56,8 @@ export type Activity = {
   endTime: string;
   durationHours: number;
   remarks: string | null;
+  /** COMPLETED / LATE / MISSED / EXCUSED. Absent on older payloads. */
+  status?: string;
   activityType: { code: string; label: string };
   /* ── The client's report columns ────────────────────────────────────────
    * Optional because the same type describes rows written before deliverables

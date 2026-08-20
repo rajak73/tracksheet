@@ -4,11 +4,8 @@
  * Part of the shared UI primitives — see `ui/index.ts`.
  */
 
+import { cx } from "@/app/_components/ui/cx";
 import type { ReactNode } from "react";
-
-function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
 
 /* ── Status ────────────────────────────────────────────────────────────── */
 

@@ -334,12 +334,19 @@ export async function confirmImportJob(
   }
 
   /* A job that is still moving must not be restarted underneath itself. Only a
-   * run that has been silent long enough to be certainly dead is resumable. */
+   * run that has been silent long enough to be certainly dead is resumable.
+   *
+   * Silence is measured from the LAST WRITE, not from `startedAt`. `runImport`
+   * writes `processedRows` every hundred people, so a live run keeps bumping
+   * `updatedAt`; a ten-thousand-row import legitimately runs longer than this
+   * window, and dating the check from the start declared a perfectly healthy
+   * run dead and let a second one join it — the exact double-write this guard
+   * exists to prevent. A claim sets `updatedAt` too, so a brand new run is
+   * covered from its first instant. */
   const STALE_AFTER_MS = 15 * 60_000;
   if (
     job.status === ImportStatus.PROCESSING &&
-    job.startedAt !== null &&
-    Date.now() - job.startedAt.getTime() < STALE_AFTER_MS
+    Date.now() - job.updatedAt.getTime() < STALE_AFTER_MS
   ) {
     throw new ApiError(409, "ALREADY_RUNNING", "This import is still running.");
   }
@@ -363,9 +370,15 @@ export async function confirmImportJob(
    * people who were in fact created.
    *
    * Conditioning the update on the status makes the transition itself the lock.
-   * Whoever loses writes nothing and says so. */
+   * Whoever loses writes nothing and says so.
+   *
+   * `startedAt` is part of the condition, not decoration. Resuming a stale run
+   * is PROCESSING -> PROCESSING, which the status alone cannot serialise: two
+   * requests reading the same dead job would both match `status` and both
+   * claim it. `startedAt` is rewritten by the claim, so it is the value that
+   * actually changes, and the second request finds nothing to update. */
   const claimed = await prisma.importJob.updateMany({
-    where: { id: jobId, status: job.status },
+    where: { id: jobId, status: job.status, startedAt: job.startedAt },
     data: { status: ImportStatus.PROCESSING, startedAt: new Date(), processedRows: 0, errorMessage: null },
   });
   if (claimed.count === 0) {

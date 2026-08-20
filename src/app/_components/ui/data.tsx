@@ -4,14 +4,11 @@
  * Part of the shared UI primitives — see `ui/index.ts`.
  */
 
+import { cx } from "@/app/_components/ui/cx";
 import { TONE_TEXT } from "@/app/_components/ui/status";
 
 import type { ReactNode } from "react";
 import type { Tone } from "@/app/_components/ui/status";
-
-function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
 
 /* ── Data display ──────────────────────────────────────────────────────── */
 

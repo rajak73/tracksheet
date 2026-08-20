@@ -8,7 +8,7 @@
  * rules below are the report's definition of itself.
  */
 
-import { countsAsWorkingHours } from "@/domain/working-hours";
+import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 
 /**
  * The least an entry has to be for this to add it up.
@@ -24,6 +24,12 @@ import { countsAsWorkingHours } from "@/domain/working-hours";
 export type RollupActivity = {
   durationHours: number;
   remarks: string | null;
+  /**
+   * Whether it happened. Optional because not every payload has always carried
+   * it — an entry with no status is treated as having happened, which is what
+   * `ActivityStatus`'s own default says.
+   */
+  status?: string;
   activityType: { code: string; label: string };
   deliverableType?: { isCountable: boolean } | null;
   broadCategory?: { label: string } | null;
@@ -87,6 +93,13 @@ export function rollUp(activities: RollupActivity[]): Rollup {
   const byCategory = new Map<string, RollupLine>();
 
   for (const a of activities) {
+    /* An absence is not work. The server-side readers — the tracker, the admin
+     * network, hours-by-instructor — all exclude MISSED and EXCUSED, and this
+     * did not, so the instructor's sheet and the manager's sheet counted a
+     * lecture nobody gave while the tracker beside them did not. Same rule,
+     * same list, one place. */
+    if (a.status && (DID_NOT_HAPPEN as readonly string[]).includes(a.status)) continue;
+
     const label = a.activityType.label;
     // A deliverable decides when there is one; otherwise the category does.
     // See `countsAsWorkingHours` — an entry with no deliverable used to be

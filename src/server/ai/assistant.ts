@@ -548,7 +548,7 @@ export async function assistantInsight(
   }
 
   // Names go back in only after the reply has passed. Everything cached and
-  // returned from here on reads as a person, not as "Person 3".
+  // returned from here on reads as a person, not as "Person C".
   const named = masked.restore(reply);
 
   const created = await prisma.aiInsight.create({

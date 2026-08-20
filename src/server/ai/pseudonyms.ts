@@ -32,8 +32,8 @@ import type { AssistantReply } from "@/server/ai/prompts";
  *
  * ── How ───────────────────────────────────────────────────────────────────
  * Every person name is replaced with an opaque, positional label before the
- * facts are serialised. The model reasons about "Person 3" and answers about
- * "Person 3"; the real name is put back afterwards, on the way to the screen.
+ * facts are serialised. The model reasons about "Person C" and answers about
+ * "Person C"; the real name is put back afterwards, on the way to the screen.
  * Verification runs against the pseudonymised context, so `knownNames` and the
  * reply agree, and the cache stores the restored text so a later cache hit
  * verifies against the real context and still passes.
@@ -55,9 +55,25 @@ export type Pseudonyms = {
  * Labels a model will echo back unchanged and a human will never mistake for a
  * real name — which matters, because a failure to restore one should look
  * obviously wrong on screen rather than plausibly right.
+ *
+ * ── Letters, NOT digits ───────────────────────────────────────────────────
+ * `verifyReply` scans every field of the reply for bare numbers and rejects any
+ * that the FACTS do not contain. "Person 3" carries a `3`, and the label's
+ * position has nothing to do with any metric — so numbering these would have
+ * made the model's own subject an unsupported number and discarded, as
+ * unverified, exactly the replies that did what the prompt asked and named
+ * somebody. The suffix is `A`, `B`, … `AA`, which the number scan ignores and
+ * which the name check also ignores, since a single capital is not a name.
  */
-const personLabel = (n: number) => `Person ${n}`;
-const placeLabel = (n: number) => `University ${n}`;
+const suffix = (n: number): string => {
+  let out = "";
+  for (let i = n; i > 0; i = Math.floor((i - 1) / 26)) {
+    out = String.fromCharCode(65 + ((i - 1) % 26)) + out;
+  }
+  return out;
+};
+const personLabel = (n: number) => `Person ${suffix(n)}`;
+const placeLabel = (n: number) => `University ${suffix(n)}`;
 
 export function pseudonymise(context: InsightContext): Pseudonyms {
   const people = new Map<string, string>();
@@ -99,15 +115,25 @@ export function pseudonymise(context: InsightContext): Pseudonyms {
     clone.name = person(clone.name);
   }
 
-  /* Longest first: without it, "Person 1" would match inside "Person 10" and
-   * leave a stray digit behind. */
+  /* Longest first: without it, "Person A" would match inside "Person AA" and
+   * leave a stray letter behind. */
   const back = [...people, ...places]
     .map(([real, label]) => [label, real] as const)
     .sort((a, b) => b[0].length - a[0].length);
 
+  /* Names are substituted back AFTER `verifyReply` has run, so a name is the
+   * one string in a brief the validator never sees — its markup and link checks
+   * have already finished. `PATCH /api/me/profile` now refuses anything but a
+   * name, which closes this at the source; rows written before that rule exist,
+   * so the same shape is enforced here on the way out. Nothing is rejected: an
+   * unexpected character is dropped, because a brief is worth more than the
+   * punctuation in one display name. */
+  const asName = (real: string): string =>
+    real.replace(/[^\p{L}\p{M}\s.'\u2019-]/gu, "").replace(/\s+/g, " ").trim() || real;
+
   const put = (text: string): string => {
     let out = text;
-    for (const [label, real] of back) out = out.split(label).join(real);
+    for (const [label, real] of back) out = out.split(label).join(asName(real));
     return out;
   };
 

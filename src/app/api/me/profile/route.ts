@@ -36,7 +36,31 @@ const MAX_AVATAR_BYTES = 256 * 1024;
 const AVATAR_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 
 const UpdateProfile = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
+  /**
+   * A display name, and only that.
+   *
+   * ── Why this is constrained ─────────────────────────────────────────────
+   * This field is rendered in other people's screens — a manager's roster, an
+   * admin's list — and it reaches the AI brief, where names are put back into
+   * the reply AFTER the reply has been checked for markup and links. So a name
+   * is the one user-authored string in a brief that the validator never sees.
+   * `pseudonyms.ts` keeps the name out of the PROMPT, which closes the
+   * injection channel; this closes the rendering one.
+   *
+   * Letters, marks, spaces, and the punctuation that appears in real names.
+   * No angle brackets, no braces, no quotes, no backticks, no colons, no URLs.
+   * Sixty is generous for a person and mean for a paragraph.
+   */
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .regex(
+      /^[\p{L}\p{M}][\p{L}\p{M}\s.'\u2019-]*$/u,
+      "A name may contain letters, spaces, apostrophes, hyphens and full stops.",
+    )
+    .optional(),
   // Nullable: clearing a phone number is a legitimate edit, and `undefined`
   // (absent) has to keep meaning "leave it alone".
   phone: z.string().trim().max(32).nullable().optional(),

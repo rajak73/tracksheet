@@ -238,6 +238,13 @@ export async function runParse(submissionId: string): Promise<ParseOutcome | nul
     }
 
     if (!parsed.ok) {
+      /* Asked again for the same reason the success path asks: the retries
+       * above take over a minute, and an instructor who rewrote the day inside
+       * that window has already been shown the replacement. Marking the
+       * withdrawn text FAILED would light the day red and tell them to try
+       * again — on a submission `POST .../reparse` now refuses as superseded,
+       * so there is no "again" to try. */
+      if (await isSuperseded(submissionId)) return null;
       await prisma.worklogSubmission.update({
         where: { id: submissionId },
         data: {

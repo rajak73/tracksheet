@@ -4,6 +4,7 @@
  * Part of the shared UI primitives — see `ui/index.ts`.
  */
 
+import { cx } from "@/app/_components/ui/cx";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -11,10 +12,6 @@ import {
   IconArrowUp,
   IconChevronRight,
 } from "@/app/_components/icons";
-
-function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
 
 /* ── Tables ────────────────────────────────────────────────────────────── */
 

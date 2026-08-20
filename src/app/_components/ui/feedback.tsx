@@ -4,6 +4,7 @@
  * Part of the shared UI primitives — see `ui/index.ts`.
  */
 
+import { cx } from "@/app/_components/ui/cx";
 import { Button } from "@/app/_components/ui/buttons";
 import { Card } from "@/app/_components/ui/surfaces";
 
@@ -14,10 +15,6 @@ import {
   IconEmpty,
   IconInfo,
 } from "@/app/_components/icons";
-
-function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
 
 /* ── Feedback ──────────────────────────────────────────────────────────── */
 
