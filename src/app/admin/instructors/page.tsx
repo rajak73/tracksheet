@@ -9,6 +9,7 @@ import {
   CardListItem,
   EmptyState,
   ErrorState,
+  Button,
   PageHeader,
   Pagination,
   SearchInput,
@@ -23,6 +24,7 @@ import {
 } from "@/app/_components/ui";
 import Link from "next/link";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { ManagerAssign, useManagerCache } from "@/app/_components/ManagerAssign";
 import { CategoryPicker, type InstructorCategory } from "@/app/_components/CategoryPicker";
 
@@ -79,6 +81,20 @@ export default function AdminInstructorsPage() {
     [],
   );
   const categories = useLoad(categoriesLoad, "instructor-categories");
+
+  /* The create dialog has to know which university to put somebody in, and this
+   * list is admin-wide. Fetched once and cached — it does not change while
+   * somebody is filling in a form. */
+  const universitiesLoad = useCallback(
+    () =>
+      apiGet<{ universities: Array<{ id: string; name: string }> }>(
+        "/api/universities?limit=200",
+        "Could not load universities.",
+      ),
+    [],
+  );
+  const universities = useLoad(universitiesLoad, "universities-for-create");
+  const [creating, setCreating] = useState(false);
   const rows = data?.instructors ?? [];
 
   if (loading) {
@@ -103,7 +119,23 @@ export default function AdminInstructorsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Instructors" description="Every instructor across all universities." />
+      <PageHeader
+        title="Instructors"
+        description="Every instructor across all universities."
+        actions={<Button onClick={() => setCreating(true)}>Add instructor</Button>}
+      />
+
+      <CreateStaffDialog
+        open={creating}
+        role="INSTRUCTOR"
+        universities={universities.data?.universities ?? []}
+        onClose={() => setCreating(false)}
+        onCreated={() => {
+          setCreating(false);
+          reload();
+        }}
+      />
+
       <Card>
         <CardHeader
           title={`${data.total} instructor${data.total === 1 ? "" : "s"}`}

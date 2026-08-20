@@ -54,6 +54,7 @@ import {
   TR,
 } from "@/app/_components/ui";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { formatHours } from "@/app/_lib/format";
 
 type ManagerRow = {
@@ -102,6 +103,7 @@ export default function AdminManagersPage() {
     `admin-managers:${sort}:${order}:${search}:${universityId}:${status}`,
   );
 
+  const [creating, setCreating] = useState(false);
   const rows = data?.managers ?? [];
 
   return (
@@ -109,6 +111,23 @@ export default function AdminManagersPage() {
       <PageHeader
         title="Managers"
         description="Every manager and the performance of the instructors who report to them."
+        actions={
+          /* Adding one person belongs on the list of those people. Without it
+             the only route to a single manager was the bulk CSV importer — a
+             spreadsheet and a column mapping, to create one account. */
+          <Button onClick={() => setCreating(true)}>Add manager</Button>
+        }
+      />
+
+      <CreateStaffDialog
+        open={creating}
+        role="MANAGER"
+        universities={data?.universities ?? []}
+        onClose={() => setCreating(false)}
+        onCreated={() => {
+          setCreating(false);
+          reload();
+        }}
       />
 
       {error ? <ErrorState message="Unable to load managers" detail={error} onRetry={reload} /> : null}
