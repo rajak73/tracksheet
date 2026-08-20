@@ -103,14 +103,34 @@ export async function currentWeekFor(universityId: string): Promise<PeriodBounds
   const config = await loadUniversityConfig(universityId);
   const today = workDateFor(new Date(), config.timezone);
   const from = mondayOf(today);
-  // The WHOLE ISO week, Monday through Sunday. This previously returned
-  // `{ from, to: from }` — Monday alone — while every caller and this
-  // function's own name treated the result as a week. `computeAnalytics`
-  // takes `from`/`to` as inclusive bounds, so a one-day window silently
-  // reported one day's hours as the week's, and `previousWeek` compared
-  // Monday against the previous Monday. Both figures were real; neither was
-  // the week it claimed to be.
-  return { from, to: addDays(from, 6) };
+
+  /* The week SO FAR — Monday through today, never past it.
+   *
+   * ── Two different bugs, and this is not a return to the first ───────────
+   * This once returned `{ from, to: from }`: Monday alone, reported as a week.
+   * The fix was the whole ISO week, `addDays(from, 6)`, and that introduced the
+   * opposite fault — the week now ran to SUNDAY, including days that have not
+   * happened.
+   *
+   * `computeAnalytics` charges capacity for every working day in the range with
+   * no notion of today (see the capacity loop in engine.ts), so on a Tuesday an
+   * instructor with two full 8h days recorded showed 16h against a 40h week:
+   * 40% utilization, which `bandFor` calls "attention". Every roster in the
+   * network was flagged as needing attention on Monday, Tuesday and Wednesday,
+   * `?needsAttention=true` returned all of them, and missingDataHours reported
+   * twenty-four hours of "missing" records for Wednesday, Thursday and Friday —
+   * days in the future.
+   *
+   * On a Monday this returns `{ from, to: from }` again, which LOOKS like the
+   * original bug and is not: one day is the correct answer to "how has this
+   * week gone" when one day has happened. The original returned Monday alone on
+   * a Friday too.
+   *
+   * `previousWeek` shifts both bounds back seven days, so clamping here also
+   * fixes the comparison for free: a Tuesday is measured against last Monday
+   * and Tuesday, not against a complete week it was always going to lose to. */
+  const endOfWeek = addDays(from, 6);
+  return { from, to: today < endOfWeek ? today : endOfWeek };
 }
 
 /** Shifts a week bound back by seven days, for the previous-period comparison. */

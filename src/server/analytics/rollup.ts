@@ -65,6 +65,22 @@ export async function rollupUniversityDaily(
   from: string,
   to: string,
 ): Promise<RollupResult> {
+  /* No `includeInactive` here, deliberately — and no exclusion either.
+   *
+   * This table IS the history: `upsert` with `update: data` overwrites, so
+   * re-running the rollup over a past window rewrites it. While the engine
+   * dropped everyone deactivated, that meant a day a departed instructor really
+   * worked was rewritten as though they had not been there, every time the
+   * scheduler's rolling window or an admin's manual recompute passed over it.
+   *
+   * `includeInactive: true` is not the fix. It would also charge their capacity
+   * for windows AFTER they left, understating everyone else's utilization to
+   * correct the opposite error.
+   *
+   * The engine now answers by DATE instead: somebody who left is included for
+   * the days they were employed and charged nothing beyond them. So the plain
+   * call is the correct one, and history stops moving.
+   */
   const analytics = await computeAnalytics({ universityId, from, to });
 
   // Accumulates the university-level row while walking instructor days, so the

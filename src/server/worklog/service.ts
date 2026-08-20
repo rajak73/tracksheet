@@ -52,8 +52,35 @@ export const MAX_BULLET_CHARS = 500;
  * Backoff grows rather than repeating a fixed gap: a provider under load is
  * made worse, not better, by being retried at the same rate.
  */
-const PARSE_ATTEMPTS = 6;
-const RETRY_BASE_MS = 5_000;
+// Shared with the instructor's page, which has to know how long a parse may
+// legitimately take before it calls one stuck. See the note in that module.
+import { PARSE_ATTEMPTS, RETRY_BASE_MS } from "@/domain/worklog-parse-timing";
+
+/**
+ * Submissions with a parse running right now.
+ *
+ * ── What this stops ───────────────────────────────────────────────────────
+ * `POST .../reparse` refused a submission that was already PARSED or
+ * superseded, and nothing else — so it would start a SECOND parse of a
+ * submission whose first was still in flight. Two `writeActivities` runs over
+ * one day duplicate the day's hours.
+ *
+ * It was not a theoretical race: the instructor's page offered exactly that.
+ * Its "this looks stuck" prompt appeared at four minutes while a parse can
+ * legitimately run for five and three quarters, so the button was presented to
+ * the instructor, by us, in the middle of a working parse.
+ *
+ * In-process, like the rate limiter, and honest about it for the same reason:
+ * this deploys as a single instance. Behind more than one, two processes could
+ * still both start a parse — the durable version of this is a row-level claim
+ * and it is not worth the migration until the deployment needs it.
+ */
+const parsesInFlight = new Set<string>();
+
+/** Is a parse of this submission running in this process right now? */
+export function isParseInFlight(submissionId: string): boolean {
+  return parsesInFlight.has(submissionId);
+}
 
 export type SubmissionRow = {
   id: string;
@@ -194,6 +221,17 @@ async function isSuperseded(submissionId: string): Promise<boolean> {
 }
 
 export async function runParse(submissionId: string): Promise<ParseOutcome | null> {
+  // Claimed for the whole run and released however it ends, so a second caller
+  // — a reparse, a retry — can be told one is already going.
+  parsesInFlight.add(submissionId);
+  try {
+    return await runParseInner(submissionId);
+  } finally {
+    parsesInFlight.delete(submissionId);
+  }
+}
+
+async function runParseInner(submissionId: string): Promise<ParseOutcome | null> {
   const submission = await prisma.worklogSubmission.findUnique({
     where: { id: submissionId },
     select: {
@@ -587,6 +625,30 @@ export async function decideSubmission(input: {
       503,
       "PARSE_UNAVAILABLE",
       "The worklog could not be read just now. Nothing was changed — try approving again shortly.",
+    );
+  }
+
+  /* Asked AGAIN here, immediately before anything is written.
+   *
+   * The check near the top of this function ran before `parseBullets`, and a
+   * parse is a provider round-trip this module is willing to spend over a
+   * minute on — six attempts at forty-five seconds, plus backoff. An instructor
+   * can resubmit the day inside that window, which supersedes this submission
+   * and deletes the activities it had produced.
+   *
+   * Approval is the ONLY path that ever writes a held submission's activities,
+   * so this is precisely the guard that has to hold at write time. Without it,
+   * approving a submission the instructor had already replaced wrote the
+   * withdrawn text's hours onto the day, attached to a row every read filters
+   * out — invisible in the UI and present in every total.
+   *
+   * `runParse` has taken this precaution since it was written; the approval
+   * path simply never had it. */
+  if (await isSuperseded(submission.id)) {
+    throw new ApiError(
+      409,
+      "SUBMISSION_SUPERSEDED",
+      "This worklog was replaced while it was being approved. Nothing was written — open the day to see what it says now.",
     );
   }
 

@@ -7,7 +7,7 @@ import { createNotification } from "@/server/notifications/service";
 import { assertCanReadInstructorWork } from "@/server/auth/scope";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { logAudit } from "@/server/audit/logger";
-import { MAX_BULLETS, MAX_BULLET_CHARS, submitWorklog } from "@/server/worklog/service";
+import { submitWorklog } from "@/server/worklog/service";
 
 /**
  * Submitting a day's worklog as free text, and reading back what came of it.
@@ -34,7 +34,26 @@ import { MAX_BULLETS, MAX_BULLET_CHARS, submitWorklog } from "@/server/worklog/s
 const SubmitWorklog = z.object({
   /** YYYY-MM-DD in the university's zone. */
   workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  bullets: z.array(z.string().max(MAX_BULLET_CHARS)).min(1).max(MAX_BULLETS),
+  /* Shape only. The COUNT and LENGTH limits are deliberately not repeated here,
+   * even though this file imports them.
+   *
+   * zod runs before the try/catch below, so a rejection here returns a bare 400
+   * and nothing else. `submitWorklog` enforces the same two limits — and the
+   * empty case — with messages written for the instructor
+   * ("A day may have at most 40 activities."), and because it throws from
+   * inside that try, `reportSubmitFailure` puts them in the notification list.
+   *
+   * That is the only place they land: the instructor's page deliberately has no
+   * error panel, so a refusal that never becomes a notification is a submission
+   * that silently did nothing. Validating twice meant the stricter copy always
+   * won and the copy that could explain itself was unreachable.
+   *
+   * Nothing is lost by dropping them here — `req.json()` has already
+   * materialised the body by the time zod sees it, so these were never a
+   * defence against a large payload. The service also trims blank lines before
+   * counting, which zod cannot do: `["", " "]` is an empty worklog and only
+   * `submitWorklog` knows it. */
+  bullets: z.array(z.string()),
 });
 
 /** One place the refusal reasons become something an instructor can re-read. */

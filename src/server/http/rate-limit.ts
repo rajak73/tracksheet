@@ -20,7 +20,12 @@
  * wins.
  */
 
-type Window = { count: number; resetAt: number };
+type Window = {
+  count: number;
+  resetAt: number;
+  /** Kept so eviction can tell a throttled key from an idle one. */
+  limit: number;
+};
 
 const buckets = new Map<string, Window>();
 
@@ -43,24 +48,50 @@ export function hit(key: string, limit: number, windowMs: number): RateLimitResu
       // normal operation it is the only one needed.
       for (const [k, v] of buckets) if (v.resetAt <= now) buckets.delete(k);
 
-      // A flood of DISTINCT keys inside one window expires nothing, so the
-      // sweep above frees nothing and the map would keep growing — the bound
-      // was documented but not enforced. Drop the oldest live windows too:
-      // Map iterates in insertion order, and insertion order is window-start
-      // order, so the first entries are the ones closest to expiring anyway.
+      /* ── Eviction must never release a key that is being throttled ────────
+       * A flood of DISTINCT keys inside one window expires nothing, so the
+       * sweep above frees nothing and the map would grow without bound. The
+       * previous answer was to drop the oldest live windows, on the reasoning
+       * that insertion order approximates expiry order.
+       *
+       * That handed an attacker the limiter's off switch. A bucket that has
+       * just hit its limit is, by definition, one of the OLDEST live ones — it
+       * was created by the first failed attempt several attempts ago. So:
+       * guess against one account until it locks, submit ten thousand logins
+       * for distinct addresses, and the victim's counter is evicted as "closest
+       * to expiring". Come back and the account has a fresh allowance. Repeat
+       * for as long as you like; the per-account limit, which is the one that
+       * actually stops password guessing, stops applying.
+       *
+       * So a throttled bucket is not evictable. Among the rest, oldest first is
+       * still the right order.
+       *
+       * If EVERY live bucket is throttled there is nothing safe to drop, and
+       * the new key goes untracked for this request rather than either evicting
+       * a throttled one or refusing a caller who has done nothing wrong. That
+       * is the documented soft edge of an in-memory limiter under a flood; what
+       * matters is that nobody already being slowed down gets released. */
       if (buckets.size >= MAX_TRACKED_KEYS) {
         let toDrop = buckets.size - MAX_TRACKED_KEYS + 1;
-        for (const k of buckets.keys()) {
-          if (toDrop-- <= 0) break;
+        for (const [k, v] of buckets) {
+          if (toDrop <= 0) break;
+          if (v.count >= v.limit) continue; // being throttled — leave it alone
           buckets.delete(k);
+          toDrop -= 1;
+        }
+        if (buckets.size >= MAX_TRACKED_KEYS) {
+          return { allowed: true, remaining: limit - 1, retryAfterSeconds: 0 };
         }
       }
     }
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    buckets.set(key, { count: 1, resetAt: now + windowMs, limit });
     return { allowed: true, remaining: limit - 1, retryAfterSeconds: 0 };
   }
 
   existing.count += 1;
+  // The limit can change under us (it is read from the environment per call),
+  // and eviction reads it off the bucket — so keep the stored copy current.
+  existing.limit = limit;
   const allowed = existing.count <= limit;
   return {
     allowed,

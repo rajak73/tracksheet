@@ -342,7 +342,24 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
     where: {
       universityId,
       ...(query.instructorId ? { id: query.instructorId } : {}),
-      ...(query.includeInactive ? {} : { user: { isActive: true } }),
+      /* Somebody who left in September did real work in August, and a report
+       * for August that silently drops them is wrong — the same reasoning as
+       * `includeInactive`, applied by DATE so it needs no opt-in.
+       *
+       * Without this the stored metrics changed retroactively: the rollup
+       * upserts with `update: data`, so re-running it over a past window after
+       * someone departed rewrote days they had really worked as though they had
+       * not been there. `includeInactive: true` is not the fix — it would also
+       * charge their capacity for windows AFTER they left, understating
+       * utilization for everyone else. The per-day skip below is what makes
+       * this exact rather than merely different. */
+      ...(query.includeInactive
+        ? {}
+        : {
+            user: {
+              OR: [{ isActive: true }, { deletedAt: { gte: new Date(`${from}T00:00:00.000Z`) } }],
+            },
+          }),
       // `undefined` leaves the roster unfiltered; `null` selects the
       // unassigned. `"managerId" in query` distinguishes the two — a plain
       // truthiness test would silently turn "show me the unassigned" into
@@ -352,7 +369,8 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
     select: {
       id: true,
       employeeCode: true,
-      user: { select: { name: true, isActive: true } },
+      // `deletedAt` is when they left. The capacity loop needs it per DAY.
+      user: { select: { name: true, isActive: true, deletedAt: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -462,7 +480,16 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
     const hoursByType: Record<string, number> = {};
     const days: DayBreakdown[] = [];
 
+    /* The day they left, in the university's zone. Their last working day still
+     * counts; everything after it is not theirs to be measured on. */
+    const lastDay = inst.user.deletedAt ? workDateFor(inst.user.deletedAt, config.timezone) : null;
+
     for (const date of dates) {
+      // Employed on this date? A departed instructor keeps every day they
+      // worked and is charged for none after. Work already recorded is still
+      // counted below — an absence of capacity is not an erasure of history.
+      const employed = lastDay === null || date <= lastDay;
+
       const windows = computeDayWindows(config, date);
       const dayLogs = perDate.get(date) ?? [];
       const leave = onLeave(inst.id, date);
@@ -501,6 +528,25 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           date,
           isWorkingDay: false,
           nonWorkingReason: leave ? "LEAVE" : windows.nonWorkingReason,
+          capacityHours: 0,
+          productiveHours: round(dayProductive),
+          unutilizedHours: 0,
+          hasData: dayLogs.length > 0,
+          openingLogged: false,
+          closingLogged: false,
+          hoursByActivityType: dayByType,
+        });
+        continue;
+      }
+
+      if (!employed) {
+        // Past their last day: no capacity, no expectation, no "missing data".
+        days.push({
+          date,
+          isWorkingDay: false,
+          // Not "they were idle" and not "it was a holiday" — they had left.
+          // Distinguished so a day view can say so rather than implying either.
+          nonWorkingReason: "NOT_EMPLOYED",
           capacityHours: 0,
           productiveHours: round(dayProductive),
           unutilizedHours: 0,
@@ -647,13 +693,35 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   let trend: TrendComparison | undefined;
   if (query.includeTrend) {
     const prev = previousPeriod(from, to);
-    // instructorId is carried through so a self-scoped trend compares like
-    // with like rather than the instructor against their whole university.
+    /* EVERY narrowing is carried through, so the trend compares like with like.
+     *
+     * `instructorId` was carried and `managerId` was not. The comment here used
+     * to explain the first and was silent about the second, which is exactly
+     * how it went unnoticed: this block predates rosters, and the roster work
+     * added `managerId` to the instructor query and the deliverable query
+     * without reaching the recursion.
+     *
+     * The effect was not a small skew. A manager with four of Northfield's
+     * forty instructors saw their four people's current week compared against
+     * the whole university's previous week — roughly a tenfold "collapse" in
+     * teaching hours, reported as a real trend with a direction arrow on it.
+     *
+     * `includeInactive` is carried for the same reason: comparing a period that
+     * includes former staff against one that excludes them invents a drop on
+     * the day somebody leaves. Nothing sets it together with `includeTrend`
+     * today, so that half is a latent hazard rather than a live fault — but it
+     * is the same mistake and is fixed at the same time.
+     *
+     * Spread by PRESENCE, not truthiness: the engine narrows on
+     * `"managerId" in query`, and `{ managerId: undefined }` is a different
+     * question from no key at all — see the instructor query above. */
     const previousResult = await computeAnalytics({
       universityId,
       from: prev.from,
       to: prev.to,
       instructorId: query.instructorId,
+      ...("managerId" in query ? { managerId: query.managerId } : {}),
+      ...("includeInactive" in query ? { includeInactive: query.includeInactive } : {}),
     });
 
     const codes = new Set([

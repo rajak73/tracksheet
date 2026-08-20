@@ -3,7 +3,7 @@ import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { assertCanManageInstructor } from "@/server/auth/scope";
-import { runParse } from "@/server/worklog/service";
+import { isParseInFlight, runParse } from "@/server/worklog/service";
 
 /**
  * Reading a saved submission again.
@@ -55,6 +55,24 @@ export const POST = withAuth<{ id: string; submissionId: string }>(
         "You have since rewritten this day. There is nothing left to read here.",
       );
     }
+    /* A parse already running is not a stalled one.
+     *
+     * This refused PARSED and superseded submissions and nothing else, so a
+     * second reparse would start a second `runParse` over the same submission
+     * while the first was still working — and two `writeActivities` runs over
+     * one day duplicate that day's hours.
+     *
+     * The instructor's page used to offer precisely this: its "looks stuck"
+     * prompt appeared at four minutes while a parse may legitimately run for
+     * five and three quarters. Both ends now read the same bound. */
+    if (isParseInFlight(submission.id)) {
+      throw new ApiError(
+        409,
+        "PARSE_IN_FLIGHT",
+        "This worklog is being read right now. Give it a few minutes before trying again.",
+      );
+    }
+
     if (submission.status === "PARSED") {
       throw new ApiError(
         409,

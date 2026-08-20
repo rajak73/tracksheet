@@ -57,6 +57,13 @@ export type LogActivityInput = {
 /** A single activity may not span more than one working day's worth of time. */
 const MAX_ACTIVITY_HOURS = 24;
 
+/** Shifts a date-only value, for the overlap window either side of a day. */
+function addDaysUtc(date: Date, days: number): Date {
+  const out = new Date(date);
+  out.setUTCDate(out.getUTCDate() + days);
+  return out;
+}
+
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -156,12 +163,21 @@ async function writeActivity(input: LogActivityInput, targetId: string | null) {
   //       overlapping records. Checking harder does not fix that — only
   //       serialising the check-and-insert does.
   //
-  //       The lock key is (instructorId, workDate): concurrent writes for the
-  //       SAME instructor on the SAME day are serialised, while unrelated
-  //       instructors and days stay fully parallel. `pg_advisory_xact_lock`
-  //       releases automatically when the transaction ends, which is the same
-  //       pattern the metric-rollup lease already uses in this codebase.
-  const lockKey = `activity:${input.instructorId}:${workDateString}`;
+  //       The lock key is the INSTRUCTOR, not (instructor, day).
+  //
+  //       It was (instructor, workDate), and that is one day too narrow. An
+  //       activity is filed under the day its START falls in, and a row may run
+  //       up to MAX_ACTIVITY_HOURS — so 23:00-01:00 lives under Monday while
+  //       occupying part of Tuesday. Two writes on either side of midnight took
+  //       DIFFERENT locks and never saw each other.
+  //
+  //       Serialising per instructor costs nothing real: one person's writes are
+  //       a handful a day, and a worklog parse writes its rows sequentially for
+  //       one instructor anyway. Different instructors stay fully parallel,
+  //       which is where the concurrency actually is.
+  //       `pg_advisory_xact_lock` releases when the transaction ends, the same
+  //       pattern the metric-rollup lease uses.
+  const lockKey = `activity:${input.instructorId}`;
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
@@ -201,10 +217,22 @@ async function writeActivity(input: LogActivityInput, targetId: string | null) {
     //
     // `excludeActivityId` lets an UPDATE re-check against every OTHER activity
     // without conflicting with the row being edited.
+    /* Compared across the DAY BOUNDARY, not within one day.
+     *
+     * This filtered `workDate` to the new row's own day, and an activity is
+     * filed under the day its start falls in. So a 23:00-01:00 entry sits under
+     * Monday, and a 00:30-01:30 entry the next morning sits under Tuesday: the
+     * two genuinely overlap, and neither query could see the other. No
+     * concurrency was needed — the two writes could be minutes apart.
+     *
+     * The interval test is what decides an overlap; `workDate` is only here to
+     * keep the query on its index. One day either side is sufficient because a
+     * single activity may not exceed MAX_ACTIVITY_HOURS, so an overlapping row
+     * cannot be filed more than a day away. */
     const conflict = await tx.activityLog.findFirst({
       where: {
         instructorId: input.instructorId,
-        workDate,
+        workDate: { gte: addDaysUtc(workDate, -1), lte: addDaysUtc(workDate, 1) },
         ...(input.excludeActivityId ? { id: { not: input.excludeActivityId } } : {}),
         startTime: { lt: endTime },
         endTime: { gt: startTime },

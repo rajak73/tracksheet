@@ -22,6 +22,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge, Button } from "@/app/_components/ui";
+import { MAX_PARSE_MS } from "@/domain/worklog-parse-timing";
 
 export type NoticeSubmission = {
   id: string;
@@ -34,8 +35,21 @@ export type NoticeSubmission = {
   decisionNote: string | null;
 };
 
-/** Past any parse the provider has taken, including its retries. */
-const STALLED_AFTER_MS = 4 * 60_000;
+/**
+ * Past any parse the provider can legitimately take, including every retry and
+ * every backoff — derived, not guessed.
+ *
+ * This was four minutes flat, with a comment that said exactly what this one
+ * says. It was wrong: six attempts at forty-five seconds is four and a half
+ * minutes of provider time before the seventy-five seconds of backoff. So a
+ * parse that was still working was shown to the instructor as stuck, and the
+ * retry we offered them started a second parse of the same submission over the
+ * top of the first. The server now refuses that; this stops us asking for it.
+ *
+ * The margin is a minute on top, so a parse finishing at its true limit is not
+ * announced as stalled a second before it lands.
+ */
+const STALLED_AFTER_MS = MAX_PARSE_MS + 60_000;
 
 export function WorklogNotices({
   submissions,
