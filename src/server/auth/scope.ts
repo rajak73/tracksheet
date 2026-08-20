@@ -227,6 +227,49 @@ export function assertCanAccessUniversity(scope: TenantScope, universityId: stri
   narrowUniversity(scope, universityId);
 }
 
+/**
+ * Throws unless the scope permits reading this instructor's WORK.
+ *
+ * ── Two different reading questions ───────────────────────────────────────
+ * "May I see that this person exists?" and "May I see what they did?" are not
+ * the same question, and a manager gets different answers to them.
+ * {@link assertCanReadInstructor} answers the first: it compares the university
+ * only, which is why the staff directory and the university's manager list
+ * still show a manager everyone in their tenant. This answers the second, and
+ * it is bounded by the roster.
+ *
+ * ── What tenant-level reads allowed ───────────────────────────────────────
+ * `/api/activities` and `/api/instructors` narrow a manager to their roster,
+ * and the per-instructor routes did not, so the boundary held on the list and
+ * fell away the moment a caller knew an id. A probe read a peer manager's
+ * instructor through their profile, their activities, their worklog and their
+ * metrics — remarks and worklog text included, which is the instructor's own
+ * writing about their day.
+ *
+ * ── 404, not 403 ──────────────────────────────────────────────────────────
+ * Off-roster reads answer exactly as a non-existent id does. 403 would confirm
+ * that the id names somebody real, which is the one fact the caller is not
+ * entitled to. This matches `PATCH /api/instructors/[id]`, which already
+ * answered 404 for the same situation.
+ */
+export function assertCanReadInstructorWork(
+  scope: TenantScope,
+  instructor: { id: string; universityId: string; managerId: string | null },
+  /** The university's primary manager, who stands in for an unassigned instructor. */
+  primaryManagerId?: string | null,
+): void {
+  assertCanReadInstructor(scope, instructor);
+  if (scope.kind !== "university") return;
+
+  const mine = instructor.managerId === scope.managerId;
+  const unassignedAndIAmPrimary =
+    instructor.managerId === null && primaryManagerId != null && primaryManagerId === scope.managerId;
+
+  if (!mine && !unassignedAndIAmPrimary) {
+    throw new ApiError(404, "NOT_FOUND", "Instructor not found");
+  }
+}
+
 /** Throws unless the scope permits reading this specific instructor. */
 /**
  * May this caller ACT on this instructor's record?

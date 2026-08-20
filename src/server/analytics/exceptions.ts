@@ -55,6 +55,12 @@ export type ExceptionQuery = {
   from: string;
   to: string;
   instructorId?: string;
+  /**
+   * Restrict to one manager's roster. Supplied by the route from
+   * `narrowManager`, so an admin passes undefined and still sees the whole
+   * university while a manager cannot widen past their own people.
+   */
+  managerId?: string | null;
   types?: ExceptionType[];
 };
 
@@ -90,6 +96,7 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
       where: {
         universityId,
         ...(query.instructorId ? { id: query.instructorId } : {}),
+        ...(query.managerId ? { managerId: query.managerId } : {}),
         user: { isActive: true },
       },
       select: { id: true, user: { select: { name: true } } },
@@ -99,6 +106,7 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         universityId,
         workDate: { gte: fromDate, lte: toDate },
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
+        ...(query.managerId ? { instructor: { managerId: query.managerId } } : {}),
       },
       select: {
         id: true,
@@ -120,6 +128,7 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         startDate: { lte: toDate },
         endDate: { gte: fromDate },
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
+        ...(query.managerId ? { instructor: { managerId: query.managerId } } : {}),
       },
       select: { instructorId: true, startDate: true, endDate: true },
     }),

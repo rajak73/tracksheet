@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanManageInstructor, assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanManageInstructor, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
 import { logActivity } from "@/server/activities/logger";
@@ -99,7 +99,12 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
 export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   const instructor = await prisma.instructor.findUnique({
     where: { id: params.id },
-    select: { id: true, universityId: true },
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
 
   if (!instructor) {
@@ -109,7 +114,11 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     );
   }
 
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level: this returns the instructor's own work, and
+   * a manager's reach over that is their roster. See the note on
+   * `assertCanReadInstructorWork`. An off-roster id answers 404, exactly as an
+   * unknown one does. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
 
   // Optional date filters
   const url = new URL(req.url);

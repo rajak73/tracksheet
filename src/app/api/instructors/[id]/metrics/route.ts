@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { resolvePeriod } from "@/server/analytics/period";
@@ -19,10 +19,19 @@ import { toDateOnly } from "@/server/time/workday";
 export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
   const instructor = await prisma.instructor.findUnique({
     where: { id: params.id },
-    select: { id: true, universityId: true },
+    select: {
+      id: true,
+      universityId: true,
+      managerId: true,
+      university: { select: { primaryManagerId: true } },
+    },
   });
   if (!instructor) throw new ApiError(404, "NOT_FOUND", "Instructor not found");
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level: this returns the instructor's own work, and
+   * a manager's reach over that is their roster. See the note on
+   * `assertCanReadInstructorWork`. An off-roster id answers 404, exactly as an
+   * unknown one does. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
 
   const config = await loadUniversityConfig(instructor.universityId);
   const period = resolvePeriod(req.nextUrl.searchParams, config.timezone);

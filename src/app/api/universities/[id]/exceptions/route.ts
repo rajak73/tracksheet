@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
-import { assertCanAccessUniversity } from "@/server/auth/scope";
+import { assertCanAccessUniversity, narrowManager } from "@/server/auth/scope";
 import { detectExceptions, EXCEPTION_TYPES, type ExceptionType } from "@/server/analytics/exceptions";
 import { resolvePeriod } from "@/server/analytics/period";
 import { loadUniversityConfig } from "@/server/universities/config";
@@ -15,6 +15,14 @@ import { loadUniversityConfig } from "@/server/universities/config";
  */
 export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   assertCanAccessUniversity(scope, params.id);
+
+  /* ── The roster, not the tenant ─────────────────────────────────────────
+   * This listed every instructor in the university to any manager, along with
+   * their names and ids. Two costs: it is the same personal-work read the
+   * per-instructor routes now refuse, and it was the practical way to LEARN a
+   * peer manager's instructor ids, which every other boundary then assumes the
+   * caller does not have. */
+  const roster = narrowManager(scope, req.nextUrl.searchParams.get("managerId"));
 
   const config = await loadUniversityConfig(params.id);
   const period = resolvePeriod(req.nextUrl.searchParams, config.timezone);
@@ -46,6 +54,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     from: period.from,
     to: period.to,
     instructorId: scope.kind === "self" ? scope.instructorId : undefined,
+    managerId: roster.managerId,
     types,
   });
 

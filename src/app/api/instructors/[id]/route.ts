@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanAccessUniversity, assertCanReadInstructor } from "@/server/auth/scope";
+import { assertCanAccessUniversity, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
@@ -22,7 +22,9 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
         select: { id: true, employeeCode: true, user: { select: { name: true, email: true } } },
       },
       user: { select: { id: true, name: true, email: true, isActive: true } },
-      university: { select: { id: true, name: true, slug: true, timezone: true } },
+      university: {
+        select: { id: true, name: true, slug: true, timezone: true, primaryManagerId: true },
+      },
     },
   });
 
@@ -35,7 +37,11 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
 
   // Throws 404 (not 403) when out of scope, so the endpoint cannot be used to
   // probe which instructor ids exist in other tenants.
-  assertCanReadInstructor(scope, instructor);
+  /* Roster-level, not tenant-level. A manager reaching an id off their roster
+   * gets the same 404 an unknown id gets — see `assertCanReadInstructorWork`.
+   * The staff directory and the university's manager list stay tenant-wide, so
+   * "who else works here" is still answerable; "what did they do" is not. */
+  assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
 
   return NextResponse.json({ instructor });
 });
