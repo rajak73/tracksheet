@@ -1,0 +1,16 @@
+-- `ActivityLog.submissionId` had a foreign key and no index.
+--
+-- Superseding a day deletes that submission's activities:
+--
+--   prisma.activityLog.deleteMany({ where: { submissionId: { in: ids } } })
+--
+-- which is the hot path every time an instructor edits their day — and with no
+-- index Postgres had to scan the whole table for it. Measured on 3.9 million
+-- rows: a parallel sequential scan at 1,057 ms, against a table that only grows.
+--
+-- CONCURRENTLY is deliberately NOT used: `prisma migrate deploy` runs each file
+-- in a transaction, and a concurrent build cannot run inside one. The lock this
+-- takes is short on any table small enough to be migrated during a deploy, and
+-- the deploy already holds the door shut — the entrypoint runs migrations before
+-- the server accepts a request.
+CREATE INDEX "ActivityLog_submissionId_idx" ON "ActivityLog"("submissionId");

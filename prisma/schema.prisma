@@ -578,6 +578,10 @@ model ActivityLog {
   @@index([deliverableId])
   // The report groups by subject; without this that is a scan per week.
   @@index([broadCategoryId])
+  // Superseding a day deletes by this. It had a foreign key and no index, so
+  // that delete was a sequential scan — 1,057 ms measured on 3.9M rows, on the
+  // path an instructor takes every time they correct their own day.
+  @@index([submissionId])
 }
 
 model Deliverable {

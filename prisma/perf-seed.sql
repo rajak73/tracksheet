@@ -35,13 +35,18 @@ VALUES
   ('at_unutil','UNUTILIZED',      'Unutilized Time', 110, true, false, false, false, true,  now(), now());
 
 -- ---------------------------------------------------------------- universities
-INSERT INTO "University" (id, name, slug, timezone, "openingDurationMin",
+-- `code` is NOT NULL and unique. It was added after this file was written, so
+-- the seed failed on the constraint and the perf database could not be built at
+-- all — which is worse than it sounds: it is the only place query plans get
+-- measured rather than guessed at.
+INSERT INTO "University" (id, name, slug, code, timezone, "openingDurationMin",
                           "closingDurationMin", "breakDurationMin",
                           "createdAt", "updatedAt")
 SELECT
   'uni_' || u,
   'University ' || u,
   'uni-' || u,
+  'UNI' || lpad(u::text, 4, '0'),
   (ARRAY['Asia/Kolkata','America/New_York','Europe/London','Australia/Sydney'])[1 + (u % 4)],
   15, 15, 60, now(), now()
 FROM generate_series(1, 100) AS u;
