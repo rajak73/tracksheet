@@ -50,9 +50,14 @@ import { apiSend } from "@/app/_lib/api";
  * this shell is a server component and wraps every instructor route — hard-coding
  * one title there would have labelled every page "Dashboard".
  */
-const TITLES: Array<[string, string]> = [
+/**
+ * `null` means the page prints its own title and the bar should not repeat it —
+ * two headings saying the same words is a duplicate <h1>, and on the work log
+ * the client's design puts the title inside the card.
+ */
+const TITLES: Array<[string, string | null]> = [
   ["/instructor/dashboard", "Dashboard"],
-  ["/instructor/worklog", "Work Log History"],
+  ["/instructor/worklog", null],
   ["/instructor/activity-tracker", "Activity Tracker"],
   ["/instructor/performance", "My Performance"],
   ["/instructor/activities", "My Activity"],
@@ -73,7 +78,10 @@ export function InstructorShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const title = TITLES.find(([href]) => pathname.startsWith(href))?.[1] ?? "Dashboard";
+  const match = TITLES.find(([href]) => pathname.startsWith(href));
+  // `undefined` is an unlisted route and falls back; `null` is a page that owns
+  // its own heading, and gets nothing here.
+  const title = match ? match[1] : "Dashboard";
   const { profile, setProfile } = useMyProfile();
   const [accountTab, setAccountTab] = useState<"profile" | "password" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -97,11 +105,14 @@ export function InstructorShell({
               NIAT
             </span>
 
-            <span aria-hidden className="hidden h-6 w-px bg-line sm:block" />
-
-            <h1 className="hidden truncate text-lg font-semibold text-content sm:block">
-              {title}
-            </h1>
+            {title ? (
+              <>
+                <span aria-hidden className="hidden h-6 w-px bg-line sm:block" />
+                <h1 className="hidden truncate text-lg font-semibold text-content sm:block">
+                  {title}
+                </h1>
+              </>
+            ) : null}
 
             <div className="ml-auto flex items-center gap-2">
               <NotificationBell />

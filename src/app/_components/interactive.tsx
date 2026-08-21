@@ -48,6 +48,7 @@ export function Dialog({
   onClose,
   title,
   description,
+  icon,
   children,
   footer,
 }: {
@@ -55,6 +56,8 @@ export function Dialog({
   onClose: () => void;
   title: string;
   description?: string;
+  /** Optional mark beside the title. Decorative — the title carries the meaning. */
+  icon?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
 }) {
@@ -85,11 +88,18 @@ export function Dialog({
       className="m-auto w-[calc(100vw-2rem)] max-w-lg rounded-card border border-line bg-surface p-0 text-content shadow-raised backdrop:bg-black/40"
     >
       <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          {icon ? (
+            <span aria-hidden className="mt-0.5 shrink-0 text-primary-text">
+              {icon}
+            </span>
+          ) : null}
+          <div className="min-w-0">
           <h2 id={titleId} className="text-base font-semibold text-content">
             {title}
           </h2>
           {description ? <p className="mt-0.5 text-sm text-muted">{description}</p> : null}
+          </div>
         </div>
         <IconButton label="Close" onClick={onClose} className="-mr-2 -mt-1">
           <IconClose size={20} />
