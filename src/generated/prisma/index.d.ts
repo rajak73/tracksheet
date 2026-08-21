@@ -310,6 +310,25 @@ export type DeliverableType = $Result.DefaultSelection<Prisma.$DeliverableTypePa
  * every bullet; `ActivityLog` holds only the ones that became work.
  */
 export type WorklogSubmission = $Result.DefaultSelection<Prisma.$WorklogSubmissionPayload>
+/**
+ * Model WorklogDaySummary
+ * One day's worklog, normalised for reading.
+ * 
+ * ── Why this is a cache and never a source ────────────────────────────────
+ * The instructor's own words stay in `ActivityLog.rawText`, untouched. This
+ * holds what a model made of them: better names for the activities, a label
+ * for what each one is counted in, and tidied remarks.
+ * 
+ * It holds NO numbers taken from the model. `groups` records which source rows
+ * each named group covers, and every duration and quantity on screen is summed
+ * from those rows at read time. A model that miscounts therefore cannot put a
+ * wrong figure in front of anybody — it has no figures to give.
+ * 
+ * `sourceFingerprint` is taken over the activities it was built from. Correct
+ * one of them and the fingerprint stops matching, so the row is stale and is
+ * rebuilt rather than shown against data it no longer describes.
+ */
+export type WorklogDaySummary = $Result.DefaultSelection<Prisma.$WorklogDaySummaryPayload>
 
 /**
  * Enums
@@ -1112,6 +1131,16 @@ export class PrismaClient<
     * ```
     */
   get worklogSubmission(): Prisma.WorklogSubmissionDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.worklogDaySummary`: Exposes CRUD operations for the **WorklogDaySummary** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WorklogDaySummaries
+    * const worklogDaySummaries = await prisma.worklogDaySummary.findMany()
+    * ```
+    */
+  get worklogDaySummary(): Prisma.WorklogDaySummaryDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1594,7 +1623,8 @@ export namespace Prisma {
     MetricsJobRun: 'MetricsJobRun',
     ImportJob: 'ImportJob',
     DeliverableType: 'DeliverableType',
-    WorklogSubmission: 'WorklogSubmission'
+    WorklogSubmission: 'WorklogSubmission',
+    WorklogDaySummary: 'WorklogDaySummary'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1610,7 +1640,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -4278,6 +4308,80 @@ export namespace Prisma {
           }
         }
       }
+      WorklogDaySummary: {
+        payload: Prisma.$WorklogDaySummaryPayload<ExtArgs>
+        fields: Prisma.WorklogDaySummaryFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WorklogDaySummaryFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WorklogDaySummaryFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          findFirst: {
+            args: Prisma.WorklogDaySummaryFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WorklogDaySummaryFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          findMany: {
+            args: Prisma.WorklogDaySummaryFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>[]
+          }
+          create: {
+            args: Prisma.WorklogDaySummaryCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          createMany: {
+            args: Prisma.WorklogDaySummaryCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WorklogDaySummaryCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>[]
+          }
+          delete: {
+            args: Prisma.WorklogDaySummaryDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          update: {
+            args: Prisma.WorklogDaySummaryUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          deleteMany: {
+            args: Prisma.WorklogDaySummaryDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WorklogDaySummaryUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WorklogDaySummaryUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>[]
+          }
+          upsert: {
+            args: Prisma.WorklogDaySummaryUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogDaySummaryPayload>
+          }
+          aggregate: {
+            args: Prisma.WorklogDaySummaryAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWorklogDaySummary>
+          }
+          groupBy: {
+            args: Prisma.WorklogDaySummaryGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WorklogDaySummaryGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WorklogDaySummaryCountArgs<ExtArgs>
+            result: $Utils.Optional<WorklogDaySummaryCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -4437,6 +4541,7 @@ export namespace Prisma {
     importJob?: ImportJobOmit
     deliverableType?: DeliverableTypeOmit
     worklogSubmission?: WorklogSubmissionOmit
+    worklogDaySummary?: WorklogDaySummaryOmit
   }
 
   /* Types for Logging */
@@ -4638,6 +4743,7 @@ export namespace Prisma {
     universityDailyMetrics: number
     reportJobs: number
     deliverableLogs: number
+    worklogDaySummaries: number
   }
 
   export type UniversityCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4668,6 +4774,7 @@ export namespace Prisma {
     universityDailyMetrics?: boolean | UniversityCountOutputTypeCountUniversityDailyMetricsArgs
     reportJobs?: boolean | UniversityCountOutputTypeCountReportJobsArgs
     deliverableLogs?: boolean | UniversityCountOutputTypeCountDeliverableLogsArgs
+    worklogDaySummaries?: boolean | UniversityCountOutputTypeCountWorklogDaySummariesArgs
   }
 
   // Custom InputTypes
@@ -4870,6 +4977,13 @@ export namespace Prisma {
     where?: DeliverableLogWhereInput
   }
 
+  /**
+   * UniversityCountOutputType without action
+   */
+  export type UniversityCountOutputTypeCountWorklogDaySummariesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogDaySummaryWhereInput
+  }
+
 
   /**
    * Count Type ManagerCountOutputType
@@ -4969,6 +5083,7 @@ export namespace Prisma {
     instructorWeeklyMetrics: number
     worklogDayNotes: number
     worklogSubmissions: number
+    worklogDaySummaries: number
   }
 
   export type InstructorCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4985,6 +5100,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: boolean | InstructorCountOutputTypeCountInstructorWeeklyMetricsArgs
     worklogDayNotes?: boolean | InstructorCountOutputTypeCountWorklogDayNotesArgs
     worklogSubmissions?: boolean | InstructorCountOutputTypeCountWorklogSubmissionsArgs
+    worklogDaySummaries?: boolean | InstructorCountOutputTypeCountWorklogDaySummariesArgs
   }
 
   // Custom InputTypes
@@ -5087,6 +5203,13 @@ export namespace Prisma {
    */
   export type InstructorCountOutputTypeCountWorklogSubmissionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: WorklogSubmissionWhereInput
+  }
+
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountWorklogDaySummariesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogDaySummaryWhereInput
   }
 
 
@@ -7304,6 +7427,7 @@ export namespace Prisma {
     universityDailyMetrics?: boolean | University$universityDailyMetricsArgs<ExtArgs>
     reportJobs?: boolean | University$reportJobsArgs<ExtArgs>
     deliverableLogs?: boolean | University$deliverableLogsArgs<ExtArgs>
+    worklogDaySummaries?: boolean | University$worklogDaySummariesArgs<ExtArgs>
     _count?: boolean | UniversityCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["university"]>
 
@@ -7403,6 +7527,7 @@ export namespace Prisma {
     universityDailyMetrics?: boolean | University$universityDailyMetricsArgs<ExtArgs>
     reportJobs?: boolean | University$reportJobsArgs<ExtArgs>
     deliverableLogs?: boolean | University$deliverableLogsArgs<ExtArgs>
+    worklogDaySummaries?: boolean | University$worklogDaySummariesArgs<ExtArgs>
     _count?: boolean | UniversityCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type UniversityIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -7444,6 +7569,7 @@ export namespace Prisma {
       universityDailyMetrics: Prisma.$UniversityDailyMetricPayload<ExtArgs>[]
       reportJobs: Prisma.$ReportJobPayload<ExtArgs>[]
       deliverableLogs: Prisma.$DeliverableLogPayload<ExtArgs>[]
+      worklogDaySummaries: Prisma.$WorklogDaySummaryPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -7912,6 +8038,7 @@ export namespace Prisma {
     universityDailyMetrics<T extends University$universityDailyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, University$universityDailyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$UniversityDailyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     reportJobs<T extends University$reportJobsArgs<ExtArgs> = {}>(args?: Subset<T, University$reportJobsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ReportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverableLogs<T extends University$deliverableLogsArgs<ExtArgs> = {}>(args?: Subset<T, University$deliverableLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogDaySummaries<T extends University$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, University$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9043,6 +9170,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: DeliverableLogScalarFieldEnum | DeliverableLogScalarFieldEnum[]
+  }
+
+  /**
+   * University.worklogDaySummaries
+   */
+  export type University$worklogDaySummariesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    where?: WorklogDaySummaryWhereInput
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
   }
 
   /**
@@ -14869,6 +15020,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
     worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
+    worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
@@ -14932,6 +15084,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
     worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
+    worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -14967,6 +15120,7 @@ export namespace Prisma {
       instructorWeeklyMetrics: Prisma.$InstructorWeeklyMetricPayload<ExtArgs>[]
       worklogDayNotes: Prisma.$WorklogDayNotePayload<ExtArgs>[]
       worklogSubmissions: Prisma.$WorklogSubmissionPayload<ExtArgs>[]
+      worklogDaySummaries: Prisma.$WorklogDaySummaryPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -15409,6 +15563,7 @@ export namespace Prisma {
     instructorWeeklyMetrics<T extends Instructor$instructorWeeklyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$instructorWeeklyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorWeeklyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogDayNotes<T extends Instructor$worklogDayNotesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDayNotesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogSubmissions<T extends Instructor$worklogSubmissionsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogDaySummaries<T extends Instructor$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -16194,6 +16349,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: WorklogSubmissionScalarFieldEnum | WorklogSubmissionScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.worklogDaySummaries
+   */
+  export type Instructor$worklogDaySummariesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    where?: WorklogDaySummaryWhereInput
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
   }
 
   /**
@@ -50546,6 +50725,1183 @@ export namespace Prisma {
 
 
   /**
+   * Model WorklogDaySummary
+   */
+
+  export type AggregateWorklogDaySummary = {
+    _count: WorklogDaySummaryCountAggregateOutputType | null
+    _avg: WorklogDaySummaryAvgAggregateOutputType | null
+    _sum: WorklogDaySummarySumAggregateOutputType | null
+    _min: WorklogDaySummaryMinAggregateOutputType | null
+    _max: WorklogDaySummaryMaxAggregateOutputType | null
+  }
+
+  export type WorklogDaySummaryAvgAggregateOutputType = {
+    totalMinutes: number | null
+  }
+
+  export type WorklogDaySummarySumAggregateOutputType = {
+    totalMinutes: number | null
+  }
+
+  export type WorklogDaySummaryMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    sourceFingerprint: string | null
+    totalMinutes: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogDaySummaryMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    workDate: Date | null
+    sourceFingerprint: string | null
+    totalMinutes: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogDaySummaryCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    universityId: number
+    workDate: number
+    sourceFingerprint: number
+    groups: number
+    remarks: number
+    totalMinutes: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WorklogDaySummaryAvgAggregateInputType = {
+    totalMinutes?: true
+  }
+
+  export type WorklogDaySummarySumAggregateInputType = {
+    totalMinutes?: true
+  }
+
+  export type WorklogDaySummaryMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    sourceFingerprint?: true
+    totalMinutes?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogDaySummaryMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    sourceFingerprint?: true
+    totalMinutes?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogDaySummaryCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    workDate?: true
+    sourceFingerprint?: true
+    groups?: true
+    remarks?: true
+    totalMinutes?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WorklogDaySummaryAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogDaySummary to aggregate.
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDaySummaries to fetch.
+     */
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDaySummaries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDaySummaries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WorklogDaySummaries
+    **/
+    _count?: true | WorklogDaySummaryCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: WorklogDaySummaryAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: WorklogDaySummarySumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WorklogDaySummaryMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WorklogDaySummaryMaxAggregateInputType
+  }
+
+  export type GetWorklogDaySummaryAggregateType<T extends WorklogDaySummaryAggregateArgs> = {
+        [P in keyof T & keyof AggregateWorklogDaySummary]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWorklogDaySummary[P]>
+      : GetScalarType<T[P], AggregateWorklogDaySummary[P]>
+  }
+
+
+
+
+  export type WorklogDaySummaryGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogDaySummaryWhereInput
+    orderBy?: WorklogDaySummaryOrderByWithAggregationInput | WorklogDaySummaryOrderByWithAggregationInput[]
+    by: WorklogDaySummaryScalarFieldEnum[] | WorklogDaySummaryScalarFieldEnum
+    having?: WorklogDaySummaryScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WorklogDaySummaryCountAggregateInputType | true
+    _avg?: WorklogDaySummaryAvgAggregateInputType
+    _sum?: WorklogDaySummarySumAggregateInputType
+    _min?: WorklogDaySummaryMinAggregateInputType
+    _max?: WorklogDaySummaryMaxAggregateInputType
+  }
+
+  export type WorklogDaySummaryGroupByOutputType = {
+    id: string
+    instructorId: string
+    universityId: string
+    workDate: Date
+    sourceFingerprint: string
+    groups: JsonValue
+    remarks: JsonValue
+    totalMinutes: number
+    createdAt: Date
+    updatedAt: Date
+    _count: WorklogDaySummaryCountAggregateOutputType | null
+    _avg: WorklogDaySummaryAvgAggregateOutputType | null
+    _sum: WorklogDaySummarySumAggregateOutputType | null
+    _min: WorklogDaySummaryMinAggregateOutputType | null
+    _max: WorklogDaySummaryMaxAggregateOutputType | null
+  }
+
+  type GetWorklogDaySummaryGroupByPayload<T extends WorklogDaySummaryGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WorklogDaySummaryGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WorklogDaySummaryGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WorklogDaySummaryGroupByOutputType[P]>
+            : GetScalarType<T[P], WorklogDaySummaryGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WorklogDaySummarySelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    sourceFingerprint?: boolean
+    groups?: boolean
+    remarks?: boolean
+    totalMinutes?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDaySummary"]>
+
+  export type WorklogDaySummarySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    sourceFingerprint?: boolean
+    groups?: boolean
+    remarks?: boolean
+    totalMinutes?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDaySummary"]>
+
+  export type WorklogDaySummarySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    sourceFingerprint?: boolean
+    groups?: boolean
+    remarks?: boolean
+    totalMinutes?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogDaySummary"]>
+
+  export type WorklogDaySummarySelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    workDate?: boolean
+    sourceFingerprint?: boolean
+    groups?: boolean
+    remarks?: boolean
+    totalMinutes?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WorklogDaySummaryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "workDate" | "sourceFingerprint" | "groups" | "remarks" | "totalMinutes" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogDaySummary"]>
+  export type WorklogDaySummaryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+  export type WorklogDaySummaryIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+  export type WorklogDaySummaryIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+
+  export type $WorklogDaySummaryPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WorklogDaySummary"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+      university: Prisma.$UniversityPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      universityId: string
+      /**
+       * The day, in the university's zone.
+       */
+      workDate: Date
+      /**
+       * Over the source activities. A mismatch means rebuild.
+       */
+      sourceFingerprint: string
+      /**
+       * `[{ name, quantityLabel, sourceIds }]`. Names and labels only — no figures.
+       */
+      groups: Prisma.JsonValue
+      /**
+       * Normalised remarks, as a list of strings.
+       */
+      remarks: Prisma.JsonValue
+      /**
+       * The deterministic total at the time it was written, for a cheap check.
+       */
+      totalMinutes: number
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["worklogDaySummary"]>
+    composites: {}
+  }
+
+  type WorklogDaySummaryGetPayload<S extends boolean | null | undefined | WorklogDaySummaryDefaultArgs> = $Result.GetResult<Prisma.$WorklogDaySummaryPayload, S>
+
+  type WorklogDaySummaryCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WorklogDaySummaryFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WorklogDaySummaryCountAggregateInputType | true
+    }
+
+  export interface WorklogDaySummaryDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorklogDaySummary'], meta: { name: 'WorklogDaySummary' } }
+    /**
+     * Find zero or one WorklogDaySummary that matches the filter.
+     * @param {WorklogDaySummaryFindUniqueArgs} args - Arguments to find a WorklogDaySummary
+     * @example
+     * // Get one WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WorklogDaySummaryFindUniqueArgs>(args: SelectSubset<T, WorklogDaySummaryFindUniqueArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WorklogDaySummary that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WorklogDaySummaryFindUniqueOrThrowArgs} args - Arguments to find a WorklogDaySummary
+     * @example
+     * // Get one WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WorklogDaySummaryFindUniqueOrThrowArgs>(args: SelectSubset<T, WorklogDaySummaryFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogDaySummary that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryFindFirstArgs} args - Arguments to find a WorklogDaySummary
+     * @example
+     * // Get one WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WorklogDaySummaryFindFirstArgs>(args?: SelectSubset<T, WorklogDaySummaryFindFirstArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogDaySummary that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryFindFirstOrThrowArgs} args - Arguments to find a WorklogDaySummary
+     * @example
+     * // Get one WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WorklogDaySummaryFindFirstOrThrowArgs>(args?: SelectSubset<T, WorklogDaySummaryFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WorklogDaySummaries that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WorklogDaySummaries
+     * const worklogDaySummaries = await prisma.worklogDaySummary.findMany()
+     * 
+     * // Get first 10 WorklogDaySummaries
+     * const worklogDaySummaries = await prisma.worklogDaySummary.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const worklogDaySummaryWithIdOnly = await prisma.worklogDaySummary.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WorklogDaySummaryFindManyArgs>(args?: SelectSubset<T, WorklogDaySummaryFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WorklogDaySummary.
+     * @param {WorklogDaySummaryCreateArgs} args - Arguments to create a WorklogDaySummary.
+     * @example
+     * // Create one WorklogDaySummary
+     * const WorklogDaySummary = await prisma.worklogDaySummary.create({
+     *   data: {
+     *     // ... data to create a WorklogDaySummary
+     *   }
+     * })
+     * 
+     */
+    create<T extends WorklogDaySummaryCreateArgs>(args: SelectSubset<T, WorklogDaySummaryCreateArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WorklogDaySummaries.
+     * @param {WorklogDaySummaryCreateManyArgs} args - Arguments to create many WorklogDaySummaries.
+     * @example
+     * // Create many WorklogDaySummaries
+     * const worklogDaySummary = await prisma.worklogDaySummary.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WorklogDaySummaryCreateManyArgs>(args?: SelectSubset<T, WorklogDaySummaryCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WorklogDaySummaries and returns the data saved in the database.
+     * @param {WorklogDaySummaryCreateManyAndReturnArgs} args - Arguments to create many WorklogDaySummaries.
+     * @example
+     * // Create many WorklogDaySummaries
+     * const worklogDaySummary = await prisma.worklogDaySummary.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WorklogDaySummaries and only return the `id`
+     * const worklogDaySummaryWithIdOnly = await prisma.worklogDaySummary.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WorklogDaySummaryCreateManyAndReturnArgs>(args?: SelectSubset<T, WorklogDaySummaryCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WorklogDaySummary.
+     * @param {WorklogDaySummaryDeleteArgs} args - Arguments to delete one WorklogDaySummary.
+     * @example
+     * // Delete one WorklogDaySummary
+     * const WorklogDaySummary = await prisma.worklogDaySummary.delete({
+     *   where: {
+     *     // ... filter to delete one WorklogDaySummary
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WorklogDaySummaryDeleteArgs>(args: SelectSubset<T, WorklogDaySummaryDeleteArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WorklogDaySummary.
+     * @param {WorklogDaySummaryUpdateArgs} args - Arguments to update one WorklogDaySummary.
+     * @example
+     * // Update one WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WorklogDaySummaryUpdateArgs>(args: SelectSubset<T, WorklogDaySummaryUpdateArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WorklogDaySummaries.
+     * @param {WorklogDaySummaryDeleteManyArgs} args - Arguments to filter WorklogDaySummaries to delete.
+     * @example
+     * // Delete a few WorklogDaySummaries
+     * const { count } = await prisma.worklogDaySummary.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WorklogDaySummaryDeleteManyArgs>(args?: SelectSubset<T, WorklogDaySummaryDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogDaySummaries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WorklogDaySummaries
+     * const worklogDaySummary = await prisma.worklogDaySummary.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WorklogDaySummaryUpdateManyArgs>(args: SelectSubset<T, WorklogDaySummaryUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogDaySummaries and returns the data updated in the database.
+     * @param {WorklogDaySummaryUpdateManyAndReturnArgs} args - Arguments to update many WorklogDaySummaries.
+     * @example
+     * // Update many WorklogDaySummaries
+     * const worklogDaySummary = await prisma.worklogDaySummary.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WorklogDaySummaries and only return the `id`
+     * const worklogDaySummaryWithIdOnly = await prisma.worklogDaySummary.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WorklogDaySummaryUpdateManyAndReturnArgs>(args: SelectSubset<T, WorklogDaySummaryUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WorklogDaySummary.
+     * @param {WorklogDaySummaryUpsertArgs} args - Arguments to update or create a WorklogDaySummary.
+     * @example
+     * // Update or create a WorklogDaySummary
+     * const worklogDaySummary = await prisma.worklogDaySummary.upsert({
+     *   create: {
+     *     // ... data to create a WorklogDaySummary
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WorklogDaySummary we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WorklogDaySummaryUpsertArgs>(args: SelectSubset<T, WorklogDaySummaryUpsertArgs<ExtArgs>>): Prisma__WorklogDaySummaryClient<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WorklogDaySummaries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryCountArgs} args - Arguments to filter WorklogDaySummaries to count.
+     * @example
+     * // Count the number of WorklogDaySummaries
+     * const count = await prisma.worklogDaySummary.count({
+     *   where: {
+     *     // ... the filter for the WorklogDaySummaries we want to count
+     *   }
+     * })
+    **/
+    count<T extends WorklogDaySummaryCountArgs>(
+      args?: Subset<T, WorklogDaySummaryCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WorklogDaySummaryCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WorklogDaySummary.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WorklogDaySummaryAggregateArgs>(args: Subset<T, WorklogDaySummaryAggregateArgs>): Prisma.PrismaPromise<GetWorklogDaySummaryAggregateType<T>>
+
+    /**
+     * Group by WorklogDaySummary.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogDaySummaryGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WorklogDaySummaryGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WorklogDaySummaryGroupByArgs['orderBy'] }
+        : { orderBy?: WorklogDaySummaryGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WorklogDaySummaryGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorklogDaySummaryGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WorklogDaySummary model
+   */
+  readonly fields: WorklogDaySummaryFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WorklogDaySummary.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WorklogDaySummaryClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WorklogDaySummary model
+   */
+  interface WorklogDaySummaryFieldRefs {
+    readonly id: FieldRef<"WorklogDaySummary", 'String'>
+    readonly instructorId: FieldRef<"WorklogDaySummary", 'String'>
+    readonly universityId: FieldRef<"WorklogDaySummary", 'String'>
+    readonly workDate: FieldRef<"WorklogDaySummary", 'DateTime'>
+    readonly sourceFingerprint: FieldRef<"WorklogDaySummary", 'String'>
+    readonly groups: FieldRef<"WorklogDaySummary", 'Json'>
+    readonly remarks: FieldRef<"WorklogDaySummary", 'Json'>
+    readonly totalMinutes: FieldRef<"WorklogDaySummary", 'Int'>
+    readonly createdAt: FieldRef<"WorklogDaySummary", 'DateTime'>
+    readonly updatedAt: FieldRef<"WorklogDaySummary", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WorklogDaySummary findUnique
+   */
+  export type WorklogDaySummaryFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDaySummary to fetch.
+     */
+    where: WorklogDaySummaryWhereUniqueInput
+  }
+
+  /**
+   * WorklogDaySummary findUniqueOrThrow
+   */
+  export type WorklogDaySummaryFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDaySummary to fetch.
+     */
+    where: WorklogDaySummaryWhereUniqueInput
+  }
+
+  /**
+   * WorklogDaySummary findFirst
+   */
+  export type WorklogDaySummaryFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDaySummary to fetch.
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDaySummaries to fetch.
+     */
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogDaySummaries.
+     */
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDaySummaries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDaySummaries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDaySummaries.
+     */
+    distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDaySummary findFirstOrThrow
+   */
+  export type WorklogDaySummaryFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDaySummary to fetch.
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDaySummaries to fetch.
+     */
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogDaySummaries.
+     */
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDaySummaries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDaySummaries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDaySummaries.
+     */
+    distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDaySummary findMany
+   */
+  export type WorklogDaySummaryFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogDaySummaries to fetch.
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogDaySummaries to fetch.
+     */
+    orderBy?: WorklogDaySummaryOrderByWithRelationInput | WorklogDaySummaryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WorklogDaySummaries.
+     */
+    cursor?: WorklogDaySummaryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogDaySummaries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogDaySummaries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogDaySummaries.
+     */
+    distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogDaySummary create
+   */
+  export type WorklogDaySummaryCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * The data needed to create a WorklogDaySummary.
+     */
+    data: XOR<WorklogDaySummaryCreateInput, WorklogDaySummaryUncheckedCreateInput>
+  }
+
+  /**
+   * WorklogDaySummary createMany
+   */
+  export type WorklogDaySummaryCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WorklogDaySummaries.
+     */
+    data: WorklogDaySummaryCreateManyInput | WorklogDaySummaryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogDaySummary createManyAndReturn
+   */
+  export type WorklogDaySummaryCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * The data used to create many WorklogDaySummaries.
+     */
+    data: WorklogDaySummaryCreateManyInput | WorklogDaySummaryCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogDaySummary update
+   */
+  export type WorklogDaySummaryUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * The data needed to update a WorklogDaySummary.
+     */
+    data: XOR<WorklogDaySummaryUpdateInput, WorklogDaySummaryUncheckedUpdateInput>
+    /**
+     * Choose, which WorklogDaySummary to update.
+     */
+    where: WorklogDaySummaryWhereUniqueInput
+  }
+
+  /**
+   * WorklogDaySummary updateMany
+   */
+  export type WorklogDaySummaryUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WorklogDaySummaries.
+     */
+    data: XOR<WorklogDaySummaryUpdateManyMutationInput, WorklogDaySummaryUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogDaySummaries to update
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * Limit how many WorklogDaySummaries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogDaySummary updateManyAndReturn
+   */
+  export type WorklogDaySummaryUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * The data used to update WorklogDaySummaries.
+     */
+    data: XOR<WorklogDaySummaryUpdateManyMutationInput, WorklogDaySummaryUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogDaySummaries to update
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * Limit how many WorklogDaySummaries to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogDaySummary upsert
+   */
+  export type WorklogDaySummaryUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * The filter to search for the WorklogDaySummary to update in case it exists.
+     */
+    where: WorklogDaySummaryWhereUniqueInput
+    /**
+     * In case the WorklogDaySummary found by the `where` argument doesn't exist, create a new WorklogDaySummary with this data.
+     */
+    create: XOR<WorklogDaySummaryCreateInput, WorklogDaySummaryUncheckedCreateInput>
+    /**
+     * In case the WorklogDaySummary was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WorklogDaySummaryUpdateInput, WorklogDaySummaryUncheckedUpdateInput>
+  }
+
+  /**
+   * WorklogDaySummary delete
+   */
+  export type WorklogDaySummaryDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+    /**
+     * Filter which WorklogDaySummary to delete.
+     */
+    where: WorklogDaySummaryWhereUniqueInput
+  }
+
+  /**
+   * WorklogDaySummary deleteMany
+   */
+  export type WorklogDaySummaryDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogDaySummaries to delete
+     */
+    where?: WorklogDaySummaryWhereInput
+    /**
+     * Limit how many WorklogDaySummaries to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogDaySummary without action
+   */
+  export type WorklogDaySummaryDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogDaySummary
+     */
+    select?: WorklogDaySummarySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogDaySummary
+     */
+    omit?: WorklogDaySummaryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogDaySummaryInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -51183,6 +52539,22 @@ export namespace Prisma {
   export type WorklogSubmissionScalarFieldEnum = (typeof WorklogSubmissionScalarFieldEnum)[keyof typeof WorklogSubmissionScalarFieldEnum]
 
 
+  export const WorklogDaySummaryScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    universityId: 'universityId',
+    workDate: 'workDate',
+    sourceFingerprint: 'sourceFingerprint',
+    groups: 'groups',
+    remarks: 'remarks',
+    totalMinutes: 'totalMinutes',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WorklogDaySummaryScalarFieldEnum = (typeof WorklogDaySummaryScalarFieldEnum)[keyof typeof WorklogDaySummaryScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -51792,6 +53164,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricListRelationFilter
     reportJobs?: ReportJobListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
+    worklogDaySummaries?: WorklogDaySummaryListRelationFilter
   }
 
   export type UniversityOrderByWithRelationInput = {
@@ -51842,6 +53215,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricOrderByRelationAggregateInput
     reportJobs?: ReportJobOrderByRelationAggregateInput
     deliverableLogs?: DeliverableLogOrderByRelationAggregateInput
+    worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
   }
 
   export type UniversityWhereUniqueInput = Prisma.AtLeast<{
@@ -51895,6 +53269,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricListRelationFilter
     reportJobs?: ReportJobListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
+    worklogDaySummaries?: WorklogDaySummaryListRelationFilter
   }, "id" | "slug" | "code" | "primaryManagerId">
 
   export type UniversityOrderByWithAggregationInput = {
@@ -52301,6 +53676,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
     worklogDayNotes?: WorklogDayNoteListRelationFilter
     worklogSubmissions?: WorklogSubmissionListRelationFilter
+    worklogDaySummaries?: WorklogDaySummaryListRelationFilter
   }
 
   export type InstructorOrderByWithRelationInput = {
@@ -52329,6 +53705,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricOrderByRelationAggregateInput
     worklogDayNotes?: WorklogDayNoteOrderByRelationAggregateInput
     worklogSubmissions?: WorklogSubmissionOrderByRelationAggregateInput
+    worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
   }
 
   export type InstructorWhereUniqueInput = Prisma.AtLeast<{
@@ -52362,6 +53739,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
     worklogDayNotes?: WorklogDayNoteListRelationFilter
     worklogSubmissions?: WorklogSubmissionListRelationFilter
+    worklogDaySummaries?: WorklogDaySummaryListRelationFilter
   }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
 
   export type InstructorOrderByWithAggregationInput = {
@@ -55115,6 +56493,92 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
   }
 
+  export type WorklogDaySummaryWhereInput = {
+    AND?: WorklogDaySummaryWhereInput | WorklogDaySummaryWhereInput[]
+    OR?: WorklogDaySummaryWhereInput[]
+    NOT?: WorklogDaySummaryWhereInput | WorklogDaySummaryWhereInput[]
+    id?: StringFilter<"WorklogDaySummary"> | string
+    instructorId?: StringFilter<"WorklogDaySummary"> | string
+    universityId?: StringFilter<"WorklogDaySummary"> | string
+    workDate?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    sourceFingerprint?: StringFilter<"WorklogDaySummary"> | string
+    groups?: JsonFilter<"WorklogDaySummary">
+    remarks?: JsonFilter<"WorklogDaySummary">
+    totalMinutes?: IntFilter<"WorklogDaySummary"> | number
+    createdAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+  }
+
+  export type WorklogDaySummaryOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    sourceFingerprint?: SortOrder
+    groups?: SortOrder
+    remarks?: SortOrder
+    totalMinutes?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+    university?: UniversityOrderByWithRelationInput
+  }
+
+  export type WorklogDaySummaryWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    instructorId_workDate?: WorklogDaySummaryInstructorIdWorkDateCompoundUniqueInput
+    AND?: WorklogDaySummaryWhereInput | WorklogDaySummaryWhereInput[]
+    OR?: WorklogDaySummaryWhereInput[]
+    NOT?: WorklogDaySummaryWhereInput | WorklogDaySummaryWhereInput[]
+    instructorId?: StringFilter<"WorklogDaySummary"> | string
+    universityId?: StringFilter<"WorklogDaySummary"> | string
+    workDate?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    sourceFingerprint?: StringFilter<"WorklogDaySummary"> | string
+    groups?: JsonFilter<"WorklogDaySummary">
+    remarks?: JsonFilter<"WorklogDaySummary">
+    totalMinutes?: IntFilter<"WorklogDaySummary"> | number
+    createdAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+  }, "id" | "instructorId_workDate">
+
+  export type WorklogDaySummaryOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    sourceFingerprint?: SortOrder
+    groups?: SortOrder
+    remarks?: SortOrder
+    totalMinutes?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WorklogDaySummaryCountOrderByAggregateInput
+    _avg?: WorklogDaySummaryAvgOrderByAggregateInput
+    _max?: WorklogDaySummaryMaxOrderByAggregateInput
+    _min?: WorklogDaySummaryMinOrderByAggregateInput
+    _sum?: WorklogDaySummarySumOrderByAggregateInput
+  }
+
+  export type WorklogDaySummaryScalarWhereWithAggregatesInput = {
+    AND?: WorklogDaySummaryScalarWhereWithAggregatesInput | WorklogDaySummaryScalarWhereWithAggregatesInput[]
+    OR?: WorklogDaySummaryScalarWhereWithAggregatesInput[]
+    NOT?: WorklogDaySummaryScalarWhereWithAggregatesInput | WorklogDaySummaryScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WorklogDaySummary"> | string
+    instructorId?: StringWithAggregatesFilter<"WorklogDaySummary"> | string
+    universityId?: StringWithAggregatesFilter<"WorklogDaySummary"> | string
+    workDate?: DateTimeWithAggregatesFilter<"WorklogDaySummary"> | Date | string
+    sourceFingerprint?: StringWithAggregatesFilter<"WorklogDaySummary"> | string
+    groups?: JsonWithAggregatesFilter<"WorklogDaySummary">
+    remarks?: JsonWithAggregatesFilter<"WorklogDaySummary">
+    totalMinutes?: IntWithAggregatesFilter<"WorklogDaySummary"> | number
+    createdAt?: DateTimeWithAggregatesFilter<"WorklogDaySummary"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WorklogDaySummary"> | Date | string
+  }
+
   export type UserCreateInput = {
     id?: string
     email: string
@@ -55320,6 +56784,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateInput = {
@@ -55369,6 +56834,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUpdateInput = {
@@ -55418,6 +56884,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateInput = {
@@ -55467,6 +56934,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateManyInput = {
@@ -55883,6 +57351,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateInput = {
@@ -55907,6 +57376,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUpdateInput = {
@@ -55931,6 +57401,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateInput = {
@@ -55955,6 +57426,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateManyInput = {
@@ -58946,6 +60418,95 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogDaySummaryCreateInput = {
+    id?: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogDaySummariesInput
+    university: UniversityCreateNestedOneWithoutWorklogDaySummariesInput
+  }
+
+  export type WorklogDaySummaryUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDaySummaryUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogDaySummariesNestedInput
+    university?: UniversityUpdateOneRequiredWithoutWorklogDaySummariesNestedInput
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDaySummaryCreateManyInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDaySummaryUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -59397,6 +60958,12 @@ export namespace Prisma {
     none?: DeliverableLogWhereInput
   }
 
+  export type WorklogDaySummaryListRelationFilter = {
+    every?: WorklogDaySummaryWhereInput
+    some?: WorklogDaySummaryWhereInput
+    none?: WorklogDaySummaryWhereInput
+  }
+
   export type UserOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
@@ -59478,6 +61045,10 @@ export namespace Prisma {
   }
 
   export type DeliverableLogOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type WorklogDaySummaryOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -61889,6 +63460,54 @@ export namespace Prisma {
     _max?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
   }
 
+  export type WorklogDaySummaryInstructorIdWorkDateCompoundUniqueInput = {
+    instructorId: string
+    workDate: Date | string
+  }
+
+  export type WorklogDaySummaryCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    sourceFingerprint?: SortOrder
+    groups?: SortOrder
+    remarks?: SortOrder
+    totalMinutes?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogDaySummaryAvgOrderByAggregateInput = {
+    totalMinutes?: SortOrder
+  }
+
+  export type WorklogDaySummaryMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    sourceFingerprint?: SortOrder
+    totalMinutes?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogDaySummaryMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    workDate?: SortOrder
+    sourceFingerprint?: SortOrder
+    totalMinutes?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogDaySummarySumOrderByAggregateInput = {
+    totalMinutes?: SortOrder
+  }
+
   export type UniversityCreateNestedOneWithoutUsersInput = {
     create?: XOR<UniversityCreateWithoutUsersInput, UniversityUncheckedCreateWithoutUsersInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutUsersInput
@@ -62530,6 +64149,13 @@ export namespace Prisma {
     connect?: DeliverableLogWhereUniqueInput | DeliverableLogWhereUniqueInput[]
   }
 
+  export type WorklogDaySummaryCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput> | WorklogDaySummaryCreateWithoutUniversityInput[] | WorklogDaySummaryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutUniversityInput | WorklogDaySummaryCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogDaySummaryCreateManyUniversityInputEnvelope
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+  }
+
   export type UserUncheckedCreateNestedManyWithoutUniversityInput = {
     create?: XOR<UserCreateWithoutUniversityInput, UserUncheckedCreateWithoutUniversityInput> | UserCreateWithoutUniversityInput[] | UserUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: UserCreateOrConnectWithoutUniversityInput | UserCreateOrConnectWithoutUniversityInput[]
@@ -62723,6 +64349,13 @@ export namespace Prisma {
     connectOrCreate?: DeliverableLogCreateOrConnectWithoutUniversityInput | DeliverableLogCreateOrConnectWithoutUniversityInput[]
     createMany?: DeliverableLogCreateManyUniversityInputEnvelope
     connect?: DeliverableLogWhereUniqueInput | DeliverableLogWhereUniqueInput[]
+  }
+
+  export type WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput> | WorklogDaySummaryCreateWithoutUniversityInput[] | WorklogDaySummaryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutUniversityInput | WorklogDaySummaryCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogDaySummaryCreateManyUniversityInputEnvelope
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
   }
 
   export type EnumUniversityStatusFieldUpdateOperationsInput = {
@@ -63135,6 +64768,20 @@ export namespace Prisma {
     deleteMany?: DeliverableLogScalarWhereInput | DeliverableLogScalarWhereInput[]
   }
 
+  export type WorklogDaySummaryUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput> | WorklogDaySummaryCreateWithoutUniversityInput[] | WorklogDaySummaryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutUniversityInput | WorklogDaySummaryCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogDaySummaryUpsertWithWhereUniqueWithoutUniversityInput | WorklogDaySummaryUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogDaySummaryCreateManyUniversityInputEnvelope
+    set?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    disconnect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    delete?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    update?: WorklogDaySummaryUpdateWithWhereUniqueWithoutUniversityInput | WorklogDaySummaryUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogDaySummaryUpdateManyWithWhereWithoutUniversityInput | WorklogDaySummaryUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+  }
+
   export type UserUncheckedUpdateManyWithoutUniversityNestedInput = {
     create?: XOR<UserCreateWithoutUniversityInput, UserUncheckedCreateWithoutUniversityInput> | UserCreateWithoutUniversityInput[] | UserUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: UserCreateOrConnectWithoutUniversityInput | UserCreateOrConnectWithoutUniversityInput[]
@@ -63523,6 +65170,20 @@ export namespace Prisma {
     deleteMany?: DeliverableLogScalarWhereInput | DeliverableLogScalarWhereInput[]
   }
 
+  export type WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput> | WorklogDaySummaryCreateWithoutUniversityInput[] | WorklogDaySummaryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutUniversityInput | WorklogDaySummaryCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogDaySummaryUpsertWithWhereUniqueWithoutUniversityInput | WorklogDaySummaryUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogDaySummaryCreateManyUniversityInputEnvelope
+    set?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    disconnect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    delete?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    update?: WorklogDaySummaryUpdateWithWhereUniqueWithoutUniversityInput | WorklogDaySummaryUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogDaySummaryUpdateManyWithWhereWithoutUniversityInput | WorklogDaySummaryUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+  }
+
   export type UniversityCreateNestedOneWithoutWorkingHoursInput = {
     create?: XOR<UniversityCreateWithoutWorkingHoursInput, UniversityUncheckedCreateWithoutWorkingHoursInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutWorkingHoursInput
@@ -63908,6 +65569,13 @@ export namespace Prisma {
     connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
   }
 
+  export type WorklogDaySummaryCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput> | WorklogDaySummaryCreateWithoutInstructorInput[] | WorklogDaySummaryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutInstructorInput | WorklogDaySummaryCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogDaySummaryCreateManyInstructorInputEnvelope
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutInstructorInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -63997,6 +65665,13 @@ export namespace Prisma {
     connectOrCreate?: WorklogSubmissionCreateOrConnectWithoutInstructorInput | WorklogSubmissionCreateOrConnectWithoutInstructorInput[]
     createMany?: WorklogSubmissionCreateManyInstructorInputEnvelope
     connect?: WorklogSubmissionWhereUniqueInput | WorklogSubmissionWhereUniqueInput[]
+  }
+
+  export type WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput> | WorklogDaySummaryCreateWithoutInstructorInput[] | WorklogDaySummaryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutInstructorInput | WorklogDaySummaryCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogDaySummaryCreateManyInstructorInputEnvelope
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
   }
 
   export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
@@ -64217,6 +65892,20 @@ export namespace Prisma {
     deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
   }
 
+  export type WorklogDaySummaryUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput> | WorklogDaySummaryCreateWithoutInstructorInput[] | WorklogDaySummaryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutInstructorInput | WorklogDaySummaryCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogDaySummaryUpsertWithWhereUniqueWithoutInstructorInput | WorklogDaySummaryUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogDaySummaryCreateManyInstructorInputEnvelope
+    set?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    disconnect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    delete?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    update?: WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput | WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput | WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -64397,6 +66086,20 @@ export namespace Prisma {
     update?: WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput | WorklogSubmissionUpdateWithWhereUniqueWithoutInstructorInput[]
     updateMany?: WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput | WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput[]
     deleteMany?: WorklogSubmissionScalarWhereInput | WorklogSubmissionScalarWhereInput[]
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput> | WorklogDaySummaryCreateWithoutInstructorInput[] | WorklogDaySummaryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutInstructorInput | WorklogDaySummaryCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogDaySummaryUpsertWithWhereUniqueWithoutInstructorInput | WorklogDaySummaryUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogDaySummaryCreateManyInstructorInputEnvelope
+    set?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    disconnect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    delete?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+    update?: WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput | WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput | WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
   }
 
   export type ActivityLogCreateNestedManyWithoutActivityTypeInput = {
@@ -66129,6 +67832,34 @@ export namespace Prisma {
     deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
   }
 
+  export type InstructorCreateNestedOneWithoutWorklogDaySummariesInput = {
+    create?: XOR<InstructorCreateWithoutWorklogDaySummariesInput, InstructorUncheckedCreateWithoutWorklogDaySummariesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogDaySummariesInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type UniversityCreateNestedOneWithoutWorklogDaySummariesInput = {
+    create?: XOR<UniversityCreateWithoutWorklogDaySummariesInput, UniversityUncheckedCreateWithoutWorklogDaySummariesInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogDaySummariesInput
+    connect?: UniversityWhereUniqueInput
+  }
+
+  export type InstructorUpdateOneRequiredWithoutWorklogDaySummariesNestedInput = {
+    create?: XOR<InstructorCreateWithoutWorklogDaySummariesInput, InstructorUncheckedCreateWithoutWorklogDaySummariesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogDaySummariesInput
+    upsert?: InstructorUpsertWithoutWorklogDaySummariesInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorklogDaySummariesInput, InstructorUpdateWithoutWorklogDaySummariesInput>, InstructorUncheckedUpdateWithoutWorklogDaySummariesInput>
+  }
+
+  export type UniversityUpdateOneRequiredWithoutWorklogDaySummariesNestedInput = {
+    create?: XOR<UniversityCreateWithoutWorklogDaySummariesInput, UniversityUncheckedCreateWithoutWorklogDaySummariesInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogDaySummariesInput
+    upsert?: UniversityUpsertWithoutWorklogDaySummariesInput
+    connect?: UniversityWhereUniqueInput
+    update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorklogDaySummariesInput, UniversityUpdateWithoutWorklogDaySummariesInput>, UniversityUncheckedUpdateWithoutWorklogDaySummariesInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -66811,6 +68542,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUsersInput = {
@@ -66859,6 +68591,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUsersInput = {
@@ -66913,6 +68646,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUserInput = {
@@ -66935,6 +68669,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUserInput = {
@@ -67349,6 +69084,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUsersInput = {
@@ -67397,6 +69133,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ManagerUpsertWithoutUserInput = {
@@ -67463,6 +69200,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
@@ -67485,6 +69223,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -67921,6 +69660,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUniversityInput = {
@@ -67944,6 +69684,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUniversityInput = {
@@ -68897,6 +70638,40 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WorklogDaySummaryCreateWithoutUniversityInput = {
+    id?: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogDaySummariesInput
+  }
+
+  export type WorklogDaySummaryUncheckedCreateWithoutUniversityInput = {
+    id?: string
+    instructorId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDaySummaryCreateOrConnectWithoutUniversityInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    create: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogDaySummaryCreateManyUniversityInputEnvelope = {
+    data: WorklogDaySummaryCreateManyUniversityInput | WorklogDaySummaryCreateManyUniversityInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ManagerUpsertWithoutPrimaryOfInput = {
     update: XOR<ManagerUpdateWithoutPrimaryOfInput, ManagerUncheckedUpdateWithoutPrimaryOfInput>
     create: XOR<ManagerCreateWithoutPrimaryOfInput, ManagerUncheckedCreateWithoutPrimaryOfInput>
@@ -69737,6 +71512,38 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"DeliverableLog"> | Date | string
   }
 
+  export type WorklogDaySummaryUpsertWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    update: XOR<WorklogDaySummaryUpdateWithoutUniversityInput, WorklogDaySummaryUncheckedUpdateWithoutUniversityInput>
+    create: XOR<WorklogDaySummaryCreateWithoutUniversityInput, WorklogDaySummaryUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogDaySummaryUpdateWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    data: XOR<WorklogDaySummaryUpdateWithoutUniversityInput, WorklogDaySummaryUncheckedUpdateWithoutUniversityInput>
+  }
+
+  export type WorklogDaySummaryUpdateManyWithWhereWithoutUniversityInput = {
+    where: WorklogDaySummaryScalarWhereInput
+    data: XOR<WorklogDaySummaryUpdateManyMutationInput, WorklogDaySummaryUncheckedUpdateManyWithoutUniversityInput>
+  }
+
+  export type WorklogDaySummaryScalarWhereInput = {
+    AND?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+    OR?: WorklogDaySummaryScalarWhereInput[]
+    NOT?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+    id?: StringFilter<"WorklogDaySummary"> | string
+    instructorId?: StringFilter<"WorklogDaySummary"> | string
+    universityId?: StringFilter<"WorklogDaySummary"> | string
+    workDate?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    sourceFingerprint?: StringFilter<"WorklogDaySummary"> | string
+    groups?: JsonFilter<"WorklogDaySummary">
+    remarks?: JsonFilter<"WorklogDaySummary">
+    totalMinutes?: IntFilter<"WorklogDaySummary"> | number
+    createdAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
+  }
+
   export type UniversityCreateWithoutWorkingHoursInput = {
     id?: string
     name: string
@@ -69783,6 +71590,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorkingHoursInput = {
@@ -69831,6 +71639,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorkingHoursInput = {
@@ -69895,6 +71704,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorkingHoursInput = {
@@ -69943,6 +71753,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutHolidaysInput = {
@@ -69991,6 +71802,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutHolidaysInput = {
@@ -70039,6 +71851,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutHolidaysInput = {
@@ -70103,6 +71916,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutHolidaysInput = {
@@ -70151,6 +71965,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserCreateWithoutManagerProfileInput = {
@@ -70256,6 +72071,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutManagersInput = {
@@ -70304,6 +72120,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutManagersInput = {
@@ -70357,6 +72174,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutPrimaryManagerInput = {
@@ -70405,6 +72223,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutPrimaryManagerInput = {
@@ -70485,6 +72304,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutManagerInput = {
@@ -70507,6 +72327,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutManagerInput = {
@@ -70639,6 +72460,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutManagersInput = {
@@ -70687,6 +72509,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUpsertWithoutPrimaryManagerInput = {
@@ -70746,6 +72569,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutPrimaryManagerInput = {
@@ -70794,6 +72618,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type AiInsightUpsertWithWhereUniqueWithoutManagerInput = {
@@ -70849,6 +72674,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDayNotesInput = {
@@ -70872,6 +72698,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDayNotesInput = {
@@ -70911,6 +72738,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDayNotesInput = {
@@ -70934,6 +72762,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateWithoutCategoryInput = {
@@ -70957,6 +72786,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCategoryInput = {
@@ -70980,6 +72810,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCategoryInput = {
@@ -71210,6 +73041,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorsInput = {
@@ -71258,6 +73090,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorsInput = {
@@ -71838,6 +73671,40 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WorklogDaySummaryCreateWithoutInstructorInput = {
+    id?: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    university: UniversityCreateNestedOneWithoutWorklogDaySummariesInput
+  }
+
+  export type WorklogDaySummaryUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDaySummaryCreateOrConnectWithoutInstructorInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    create: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogDaySummaryCreateManyInstructorInputEnvelope = {
+    data: WorklogDaySummaryCreateManyInstructorInput | WorklogDaySummaryCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
   export type InstructorCategoryUpsertWithoutInstructorsInput = {
     update: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
     create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
@@ -71991,6 +73858,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorsInput = {
@@ -72039,6 +73907,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ManagerUpsertWithoutInstructorsInput = {
@@ -72293,6 +74162,22 @@ export namespace Prisma {
   export type WorklogSubmissionUpdateManyWithWhereWithoutInstructorInput = {
     where: WorklogSubmissionScalarWhereInput
     data: XOR<WorklogSubmissionUpdateManyMutationInput, WorklogSubmissionUncheckedUpdateManyWithoutInstructorInput>
+  }
+
+  export type WorklogDaySummaryUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    update: XOR<WorklogDaySummaryUpdateWithoutInstructorInput, WorklogDaySummaryUncheckedUpdateWithoutInstructorInput>
+    create: XOR<WorklogDaySummaryCreateWithoutInstructorInput, WorklogDaySummaryUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogDaySummaryWhereUniqueInput
+    data: XOR<WorklogDaySummaryUpdateWithoutInstructorInput, WorklogDaySummaryUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput = {
+    where: WorklogDaySummaryScalarWhereInput
+    data: XOR<WorklogDaySummaryUpdateManyMutationInput, WorklogDaySummaryUncheckedUpdateManyWithoutInstructorInput>
   }
 
   export type ActivityLogCreateWithoutActivityTypeInput = {
@@ -72561,6 +74446,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutLeaveRequestsInput = {
@@ -72584,6 +74470,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutLeaveRequestsInput = {
@@ -72637,6 +74524,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutLeaveRequestsInput = {
@@ -72685,6 +74573,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutLeaveRequestsInput = {
@@ -72724,6 +74613,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -72747,6 +74637,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutLeaveRequestsInput = {
@@ -72806,6 +74697,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -72854,6 +74746,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserCreateWithoutSessionsInput = {
@@ -72997,6 +74890,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutActivityLogsInput = {
@@ -73020,6 +74914,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutActivityLogsInput = {
@@ -73073,6 +74968,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutActivityLogsInput = {
@@ -73121,6 +75017,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutActivityLogsInput = {
@@ -73447,6 +75344,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutActivityLogsInput = {
@@ -73470,6 +75368,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutActivityLogsInput = {
@@ -73529,6 +75428,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutActivityLogsInput = {
@@ -73577,6 +75477,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ActivityTypeUpsertWithoutActivityLogsInput = {
@@ -73929,6 +75830,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverablesInput = {
@@ -73952,6 +75854,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverablesInput = {
@@ -74005,6 +75908,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDeliverablesInput = {
@@ -74053,6 +75957,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDeliverablesInput = {
@@ -74239,6 +76144,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverablesInput = {
@@ -74262,6 +76168,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutDeliverablesInput = {
@@ -74321,6 +76228,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDeliverablesInput = {
@@ -74369,6 +76277,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutDeliverablesCreatedInput = {
@@ -74553,6 +76462,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDeliverableLogsInput = {
@@ -74601,6 +76511,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDeliverableLogsInput = {
@@ -74629,6 +76540,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverableLogsInput = {
@@ -74652,6 +76564,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverableLogsInput = {
@@ -74763,6 +76676,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -74811,6 +76725,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutDeliverableLogsInput = {
@@ -74845,6 +76760,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -74868,6 +76784,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutAiInsightsInput = {
@@ -74916,6 +76833,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAiInsightsInput = {
@@ -74964,6 +76882,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAiInsightsInput = {
@@ -74992,6 +76911,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutAiInsightsInput = {
@@ -75015,6 +76935,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutAiInsightsInput = {
@@ -75106,6 +77027,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAiInsightsInput = {
@@ -75154,6 +77076,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutAiInsightsInput = {
@@ -75188,6 +77111,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutAiInsightsInput = {
@@ -75211,6 +77135,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ManagerUpsertWithoutAiInsightsInput = {
@@ -75292,6 +77217,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAuditLogsInput = {
@@ -75340,6 +77266,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAuditLogsInput = {
@@ -75461,6 +77388,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAuditLogsInput = {
@@ -75509,6 +77437,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutAuditLogsInput = {
@@ -75677,6 +77606,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutNotificationsInput = {
@@ -75725,6 +77655,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutNotificationsInput = {
@@ -75852,6 +77783,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutNotificationsInput = {
@@ -75900,6 +77832,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutUniversitySettingsInput = {
@@ -75948,6 +77881,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUniversitySettingsInput = {
@@ -75996,6 +77930,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUniversitySettingsInput = {
@@ -76060,6 +77995,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUniversitySettingsInput = {
@@ -76108,6 +78044,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutDepartmentsInput = {
@@ -76156,6 +78093,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDepartmentsInput = {
@@ -76204,6 +78142,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDepartmentsInput = {
@@ -76338,6 +78277,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDepartmentsInput = {
@@ -76386,6 +78326,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ProgramUpsertWithWhereUniqueWithoutDepartmentInput = {
@@ -76466,6 +78407,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutProgramsInput = {
@@ -76514,6 +78456,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutProgramsInput = {
@@ -76643,6 +78586,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutProgramsInput = {
@@ -76691,6 +78635,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type DepartmentUpsertWithoutProgramsInput = {
@@ -76788,6 +78733,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAcademicTermsInput = {
@@ -76836,6 +78782,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAcademicTermsInput = {
@@ -76970,6 +78917,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAcademicTermsInput = {
@@ -77018,6 +78966,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type CourseAssignmentUpsertWithWhereUniqueWithoutAcademicTermInput = {
@@ -77098,6 +79047,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutCoursesInput = {
@@ -77146,6 +79096,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutCoursesInput = {
@@ -77342,6 +79293,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutCoursesInput = {
@@ -77390,6 +79342,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type DepartmentUpsertWithoutCoursesInput = {
@@ -77536,6 +79489,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -77584,6 +79538,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -77645,6 +79600,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -77668,6 +79624,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -77761,6 +79718,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -77809,6 +79767,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type CourseUpsertWithoutAssignmentsInput = {
@@ -77882,6 +79841,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -77905,6 +79865,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutAssignmentsInput = {
@@ -77988,6 +79949,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutSchedulesInput = {
@@ -78036,6 +79998,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutSchedulesInput = {
@@ -78064,6 +80027,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutSchedulesInput = {
@@ -78087,6 +80051,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutSchedulesInput = {
@@ -78222,6 +80187,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutSchedulesInput = {
@@ -78270,6 +80236,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutSchedulesInput = {
@@ -78304,6 +80271,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutSchedulesInput = {
@@ -78327,6 +80295,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutSchedulesInput = {
@@ -78426,6 +80395,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutScheduleSlotsInput = {
@@ -78474,6 +80444,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutScheduleSlotsInput = {
@@ -78531,6 +80502,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutScheduleSlotsInput = {
@@ -78554,6 +80526,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutScheduleSlotsInput = {
@@ -78750,6 +80723,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -78798,6 +80772,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ScheduleUpsertWithoutSlotsInput = {
@@ -78867,6 +80842,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -78890,6 +80866,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type CourseUpsertWithoutScheduleSlotsInput = {
@@ -79042,6 +81019,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutBreakPoliciesInput = {
@@ -79090,6 +81068,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutBreakPoliciesInput = {
@@ -79154,6 +81133,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutBreakPoliciesInput = {
@@ -79202,6 +81182,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutWorkloadTargetsInput = {
@@ -79250,6 +81231,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -79298,6 +81280,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -79326,6 +81309,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -79349,6 +81333,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -79456,6 +81441,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -79504,6 +81490,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutWorkloadTargetsInput = {
@@ -79538,6 +81525,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -79561,6 +81549,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
@@ -79658,6 +81647,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutReportingPeriodsInput = {
@@ -79706,6 +81696,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutReportingPeriodsInput = {
@@ -79770,6 +81761,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutReportingPeriodsInput = {
@@ -79818,6 +81810,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutInstructorDailyMetricsInput = {
@@ -79866,6 +81859,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -79914,6 +81908,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -79942,6 +81937,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -79965,6 +81961,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -80029,6 +82026,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -80077,6 +82075,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutInstructorDailyMetricsInput = {
@@ -80111,6 +82110,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -80134,6 +82134,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutInstructorWeeklyMetricsInput = {
@@ -80182,6 +82183,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -80230,6 +82232,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -80258,6 +82261,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -80281,6 +82285,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -80345,6 +82350,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -80393,6 +82399,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutInstructorWeeklyMetricsInput = {
@@ -80427,6 +82434,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -80450,6 +82458,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutUniversityDailyMetricsInput = {
@@ -80498,6 +82507,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUniversityDailyMetricsInput = {
@@ -80546,6 +82556,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUniversityDailyMetricsInput = {
@@ -80610,6 +82621,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUniversityDailyMetricsInput = {
@@ -80658,6 +82670,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutReportJobsInput = {
@@ -80706,6 +82719,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutReportJobsInput = {
@@ -80754,6 +82768,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutReportJobsInput = {
@@ -80875,6 +82890,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutReportJobsInput = {
@@ -80923,6 +82939,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutReportJobsInput = {
@@ -81293,6 +83310,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -81316,6 +83334,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -81369,6 +83388,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -81417,6 +83437,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -81569,6 +83590,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -81592,6 +83614,7 @@ export namespace Prisma {
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogSubmissionsInput = {
@@ -81651,6 +83674,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -81699,6 +83723,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutWorklogDecisionsInput = {
@@ -81778,6 +83803,330 @@ export namespace Prisma {
   export type ActivityLogUpdateManyWithWhereWithoutSubmissionInput = {
     where: ActivityLogScalarWhereInput
     data: XOR<ActivityLogUpdateManyMutationInput, ActivityLogUncheckedUpdateManyWithoutSubmissionInput>
+  }
+
+  export type InstructorCreateWithoutWorklogDaySummariesInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutWorklogDaySummariesInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutWorklogDaySummariesInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutWorklogDaySummariesInput, InstructorUncheckedCreateWithoutWorklogDaySummariesInput>
+  }
+
+  export type UniversityCreateWithoutWorklogDaySummariesInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    primaryManager?: ManagerCreateNestedOneWithoutPrimaryOfInput
+    users?: UserCreateNestedManyWithoutUniversityInput
+    managers?: ManagerCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentCreateNestedManyWithoutUniversityInput
+    programs?: ProgramCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermCreateNestedManyWithoutUniversityInput
+    courses?: CourseCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityUncheckedCreateWithoutWorklogDaySummariesInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    primaryManagerId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    users?: UserUncheckedCreateNestedManyWithoutUniversityInput
+    managers?: ManagerUncheckedCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursUncheckedCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayUncheckedCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
+    programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermUncheckedCreateNestedManyWithoutUniversityInput
+    courses?: CourseUncheckedCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityCreateOrConnectWithoutWorklogDaySummariesInput = {
+    where: UniversityWhereUniqueInput
+    create: XOR<UniversityCreateWithoutWorklogDaySummariesInput, UniversityUncheckedCreateWithoutWorklogDaySummariesInput>
+  }
+
+  export type InstructorUpsertWithoutWorklogDaySummariesInput = {
+    update: XOR<InstructorUpdateWithoutWorklogDaySummariesInput, InstructorUncheckedUpdateWithoutWorklogDaySummariesInput>
+    create: XOR<InstructorCreateWithoutWorklogDaySummariesInput, InstructorUncheckedCreateWithoutWorklogDaySummariesInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutWorklogDaySummariesInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutWorklogDaySummariesInput, InstructorUncheckedUpdateWithoutWorklogDaySummariesInput>
+  }
+
+  export type InstructorUpdateWithoutWorklogDaySummariesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutWorklogDaySummariesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type UniversityUpsertWithoutWorklogDaySummariesInput = {
+    update: XOR<UniversityUpdateWithoutWorklogDaySummariesInput, UniversityUncheckedUpdateWithoutWorklogDaySummariesInput>
+    create: XOR<UniversityCreateWithoutWorklogDaySummariesInput, UniversityUncheckedCreateWithoutWorklogDaySummariesInput>
+    where?: UniversityWhereInput
+  }
+
+  export type UniversityUpdateToOneWithWhereWithoutWorklogDaySummariesInput = {
+    where?: UniversityWhereInput
+    data: XOR<UniversityUpdateWithoutWorklogDaySummariesInput, UniversityUncheckedUpdateWithoutWorklogDaySummariesInput>
+  }
+
+  export type UniversityUpdateWithoutWorklogDaySummariesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    primaryManager?: ManagerUpdateOneWithoutPrimaryOfNestedInput
+    users?: UserUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type UniversityUncheckedUpdateWithoutWorklogDaySummariesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    primaryManagerId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    users?: UserUncheckedUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUncheckedUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUncheckedUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUncheckedUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUncheckedUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUncheckedUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type SessionCreateManyUserInput = {
@@ -82674,6 +85023,18 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type WorklogDaySummaryCreateManyUniversityInput = {
+    id?: string
+    instructorId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type UserUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
@@ -82793,6 +85154,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
@@ -82816,6 +85178,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
@@ -83830,6 +86193,42 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogDaySummaryUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogDaySummariesNestedInput
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateManyWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type AiInsightCreateManyManagerInput = {
     id?: string
     scope?: $Enums.InsightScope
@@ -83944,6 +86343,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutManagerInput = {
@@ -83966,6 +86366,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutManagerInput = {
@@ -84031,6 +86432,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCategoryInput = {
@@ -84054,6 +86456,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
@@ -84334,6 +86737,18 @@ export namespace Prisma {
     decidedById?: string | null
     decidedAt?: Date | string | null
     decisionNote?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogDaySummaryCreateManyInstructorInput = {
+    id?: string
+    universityId: string
+    workDate: Date | string
+    sourceFingerprint: string
+    groups: JsonNullValueInput | InputJsonValue
+    remarks: JsonNullValueInput | InputJsonValue
+    totalMinutes: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -84953,6 +87368,42 @@ export namespace Prisma {
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     decisionNote?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDaySummaryUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    university?: UniversityUpdateOneRequiredWithoutWorklogDaySummariesNestedInput
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogDaySummaryUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceFingerprint?: StringFieldUpdateOperationsInput | string
+    groups?: JsonNullValueInput | InputJsonValue
+    remarks?: JsonNullValueInput | InputJsonValue
+    totalMinutes?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

@@ -636,6 +636,19 @@ exports.Prisma.WorklogSubmissionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.WorklogDaySummaryScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  workDate: 'workDate',
+  sourceFingerprint: 'sourceFingerprint',
+  groups: 'groups',
+  remarks: 'remarks',
+  totalMinutes: 'totalMinutes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -842,7 +855,8 @@ exports.Prisma.ModelName = {
   MetricsJobRun: 'MetricsJobRun',
   ImportJob: 'ImportJob',
   DeliverableType: 'DeliverableType',
-  WorklogSubmission: 'WorklogSubmission'
+  WorklogSubmission: 'WorklogSubmission',
+  WorklogDaySummary: 'WorklogDaySummary'
 };
 
 /**

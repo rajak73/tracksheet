@@ -27,7 +27,7 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { formatHours, todayISO } from "@/app/_lib/format";
+import { formatCompactDuration, formatHours, todayISO } from "@/app/_lib/format";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -76,6 +76,16 @@ function longDate(iso: string): string {
   return `${String(d).padStart(2, "0")} ${month} ${y}`;
 }
 
+/** `2026-08` → `August 2026`, the key the monthly view groups on. */
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  const name = new Date(Date.UTC(y!, (m ?? 1) - 1, 1)).toLocaleString("en-GB", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  return `${name} ${y}`;
+}
+
 /** Monday of the ISO week a date falls in — the key the weekly view groups on. */
 function weekStart(iso: string): string {
   const d = new Date(`${iso}T00:00:00.000Z`);
@@ -115,36 +125,96 @@ export function parseHours(raw: string): number | null {
  * One row of the table is one DAY, not one entry.
  *
  * An instructor writes up a day in as many lines as the day had, and the
- * client's sheet has one line per day: the deliverables read across it
- * separated by commas, and the hours are the day's total. Two rows for one
- * date would ask the reader to add them up themselves.
+ * client's sheet has one line per day. Two rows for one date would ask the
+ * reader to add them up themselves.
  */
 type Group = {
   key: string;
   label: string;
+  dates: string[];
   entries: Row[];
 };
 
-/** The values a day's row prints, made from its entries in order. */
-function summarise(entries: Row[]) {
-  const list = (values: Array<string | null | undefined>) => {
-    const seen = new Set<string>();
-    for (const v of values) {
-      const t = (v ?? "").trim();
-      if (t) seen.add(t);
+/**
+ * A day as the report reads it: names from the model, figures from the record.
+ *
+ * `/worklog/summary` returns one of these per day that has work on it. It
+ * carries no employee data by design — the name, the id and the category on the
+ * row come from the entries themselves, so a summary can never disagree with
+ * the database about who it describes.
+ */
+type DaySummary = {
+  date: string;
+  deliverables: Array<{
+    name: string;
+    durationMinutes: number;
+    quantity: number;
+    quantityLabel: string;
+  }>;
+  remarks: string[];
+  totalMinutes: number;
+  source: "ai" | "fallback";
+};
+
+/**
+ * What a row prints, from the summaries of the days it covers.
+ *
+ * A week or a month merges its days by activity name — twelve lectures across a
+ * week are one line reading "Live Classes - 24h", not twelve. Merging happens
+ * here rather than on the server because the same day summaries answer all
+ * three views, and asking for them again per grouping would be three round
+ * trips for one set of facts.
+ */
+function present(dates: string[], summaries: Record<string, DaySummary | undefined>) {
+  const merged = new Map<string, { name: string; minutes: number; quantity: number; label: string }>();
+  const remarks = new Set<string>();
+  let totalMinutes = 0;
+  let anyFallback = false;
+  let found = false;
+
+  for (const date of dates) {
+    const day = summaries[date];
+    if (!day) continue;
+    found = true;
+    if (day.source === "fallback") anyFallback = true;
+    totalMinutes += day.totalMinutes;
+    for (const r of day.remarks) remarks.add(r);
+
+    for (const d of day.deliverables) {
+      const at = merged.get(d.name);
+      if (at) {
+        at.minutes += d.durationMinutes;
+        at.quantity += d.quantity;
+      } else {
+        merged.set(d.name, {
+          name: d.name,
+          minutes: d.durationMinutes,
+          quantity: d.quantity,
+          label: d.quantityLabel,
+        });
+      }
     }
-    return seen.size ? [...seen].join(", ") : "—";
-  };
+  }
+
+  // Heaviest first: the biggest commitment should not need a second glance.
+  const lines = [...merged.values()].sort((a, z) => z.minutes - a.minutes);
 
   return {
-    // Comma-separated, in the order they were written. An instructor who
-    // already wrote commas into one line keeps them exactly as typed.
-    deliverable: list(entries.map((e) => e.rawText ?? e.deliverableType?.label)),
-    // Parallel to the deliverables, so the two columns still read across.
-    quantity: entries.map((e) => e.quantity ?? 0).join(", "),
-    // Every hour recorded on the day. See the note on the column.
-    hours: entries.reduce((n, e) => n + e.durationHours, 0),
-    remarks: list(entries.map((e) => e.remarks)),
+    found,
+    anyFallback,
+    totalMinutes,
+    // "Live Classes - 2h, Lesson Preparation - 1h 30m"
+    deliverable: lines.length
+      ? lines.map((l) => `${l.name} - ${formatCompactDuration(l.minutes)}`).join(", ")
+      : "—",
+    // "2 Classes, 1 Lesson Plan" — parallel to the line above, same order.
+    quantity: lines.some((l) => l.quantity > 0)
+      ? lines
+          .filter((l) => l.quantity > 0)
+          .map((l) => `${l.quantity} ${l.label}`)
+          .join(", ")
+      : "—",
+    remarks: remarks.size ? [...remarks].join(", ") : "—",
   };
 }
 
@@ -163,7 +233,8 @@ const COLUMNS = [
 export default function WorkLogHistoryPage() {
   const toast = useToast();
 
-  const [view, setView] = useState<"date" | "week">("date");
+  // Day Wise by default, as the client requires.
+  const [view, setView] = useState<"date" | "week" | "month">("date");
   const [from, setFrom] = useState(firstOfMonth);
   const [to, setTo] = useState(todayISO);
   const [search, setSearch] = useState("");
@@ -220,6 +291,22 @@ export default function WorkLogHistoryPage() {
   );
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
+
+  /* The reading of each day: professional activity names, comma-separated, with
+   * every figure summed on the server from the activities themselves. Fetched
+   * for the same window as the rows, and cached there — a second look at the
+   * same report does not ask the model again. */
+  const summaries = useLoad(
+    useCallback(async () => {
+      if (!instructorId) return {} as Record<string, DaySummary>;
+      const res = await apiGet<{ days: Record<string, DaySummary> }>(
+        `/api/instructors/${instructorId}/worklog/summary?from=${from}&to=${to}`,
+        "Could not summarise your work logs.",
+      );
+      return res.days;
+    }, [instructorId, from, to]),
+    `worklog-summary:${instructorId ?? "-"}:${from}:${to}`,
+  );
   const today = todayISO();
   const todaysRows = rows.filter((r) => r.workDate.slice(0, 10) === today);
 
@@ -229,18 +316,27 @@ export default function WorkLogHistoryPage() {
    * not a line per deliverable — two rows carrying one date would ask the
    * reader to add the hours up themselves. */
   const groups = useMemo<Group[]>(() => {
-    const byKey = new Map<string, Row[]>();
+    const byKey = new Map<string, { dates: Set<string>; entries: Row[] }>();
     for (const row of rows) {
       const date = row.workDate.slice(0, 10);
-      const key = view === "date" ? date : weekStart(date);
-      byKey.set(key, [...(byKey.get(key) ?? []), row]);
+      const key = view === "date" ? date : view === "week" ? weekStart(date) : date.slice(0, 7);
+      const bucket = byKey.get(key) ?? { dates: new Set<string>(), entries: [] };
+      bucket.dates.add(date);
+      bucket.entries.push(row);
+      byKey.set(key, bucket);
     }
     return [...byKey.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, entries]) => ({
+      .map(([key, b]) => ({
         key,
-        label: view === "date" ? longDate(key) : `Week of ${longDate(key)}`,
-        entries,
+        label:
+          view === "date"
+            ? longDate(key)
+            : view === "week"
+              ? `Week of ${longDate(key)}`
+              : monthLabel(key),
+        dates: [...b.dates].sort(),
+        entries: b.entries,
       }));
   }, [rows, view]);
 
@@ -312,6 +408,7 @@ export default function WorkLogHistoryPage() {
       setBannerOpen(true);
       logs.reload();
       subjects.reload();
+      summaries.reload();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -331,6 +428,7 @@ export default function WorkLogHistoryPage() {
       toast("success", "Entry removed.");
       logs.reload();
       subjects.reload();
+      summaries.reload();
     } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");
     }
@@ -384,7 +482,7 @@ export default function WorkLogHistoryPage() {
 
       {/* ── Date Wise / Weekly ────────────────────────────────────────── */}
       <div className="mt-6 flex justify-end border-b border-line">
-        {(["date", "week"] as const).map((v) => (
+        {(["date", "week", "month"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -396,7 +494,7 @@ export default function WorkLogHistoryPage() {
                 : "border-transparent text-muted hover:text-content"
             }`}
           >
-            {v === "date" ? "Date Wise" : "Weekly"}
+            {v === "date" ? "Day Wise" : v === "week" ? "Week Wise" : "Month Wise"}
           </button>
         ))}
       </div>
@@ -405,8 +503,10 @@ export default function WorkLogHistoryPage() {
         <Info />
         <p>
           {view === "date"
-            ? "You are viewing your work logs date wise. Weekly view is also available in this section."
-            : "The same entries, grouped by the week they fall in. Switch back to Date Wise for the day-by-day list."}
+            ? "You are viewing your work logs day wise. Week and month views are also available in this section."
+            : view === "week"
+              ? "The same days, added up a week at a time. Activities of the same kind are merged into one line."
+              : "The same days, added up a month at a time. Switch to Day Wise for the day-by-day list."}
         </p>
       </div>
 
@@ -506,7 +606,7 @@ export default function WorkLogHistoryPage() {
               </thead>
               <tbody>
                 {groups.map((group) => {
-                  const cells = summarise(group.entries);
+                  const cells = present(group.dates, summaries.data ?? {});
                   const many = group.entries.length > 1;
                   const isOpen = expanded === group.key;
                   const first = group.entries[0]!;
@@ -526,19 +626,21 @@ export default function WorkLogHistoryPage() {
                         <td className="px-4 py-4 text-content">{cells.deliverable}</td>
                         <td className="tabular px-4 py-4 text-content">{cells.quantity}</td>
                         <td className="tabular px-4 py-4 font-medium text-content">
-                          {formatHours(cells.hours)}
+                          {formatHours(cells.totalMinutes / 60)}
                         </td>
                         <td className="px-4 py-4 text-content">{cells.remarks}</td>
                         <td className="px-4 py-4">
                           <span className="inline-flex items-center gap-2">
                             {many ? (
-                              /* A day written up in several lines. The row shows
-                                 the day; correcting one line means opening it. */
+                              /* What the row was made FROM. The row itself is
+                                 the reading of the day; this is the record it
+                                 was read from, which is what somebody checking
+                                 a figure actually wants to see. */
                               <button
                                 type="button"
                                 onClick={() => setExpanded(isOpen ? null : group.key)}
                                 aria-expanded={isOpen}
-                                aria-label={`${isOpen ? "Hide" : "Show"} the ${group.entries.length} entries on ${group.label}`}
+                                aria-label={`${isOpen ? "Hide" : "Show"} what ${group.label} was made of — ${group.entries.length} entries as recorded`}
                                 className="inline-flex h-9 items-center gap-1.5 rounded-control border border-line px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-hovered hover:text-content"
                               >
                                 {group.entries.length} entries

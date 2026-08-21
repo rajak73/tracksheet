@@ -159,6 +159,8 @@ model University {
   universityDailyMetrics  UniversityDailyMetric[]
   reportJobs              ReportJob[]
   deliverableLogs         DeliverableLog[]
+
+  worklogDaySummaries WorklogDaySummary[]
 }
 
 /// One row per weekday per university. Times are minutes-from-midnight in the
@@ -348,6 +350,8 @@ model Instructor {
   worklogDayNotes         WorklogDayNote[]
 
   worklogSubmissions WorklogSubmission[]
+
+  worklogDaySummaries WorklogDaySummary[]
 
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
@@ -1569,4 +1573,49 @@ model WorklogSubmission {
   // Reads want the day's LIVE submissions, never the replaced ones.
   @@index([instructorId, workDate, supersededAt])
   @@index([status, submittedAt])
+}
+
+/// One day's worklog, normalised for reading.
+///
+/// ── Why this is a cache and never a source ────────────────────────────────
+/// The instructor's own words stay in `ActivityLog.rawText`, untouched. This
+/// holds what a model made of them: better names for the activities, a label
+/// for what each one is counted in, and tidied remarks.
+///
+/// It holds NO numbers taken from the model. `groups` records which source rows
+/// each named group covers, and every duration and quantity on screen is summed
+/// from those rows at read time. A model that miscounts therefore cannot put a
+/// wrong figure in front of anybody — it has no figures to give.
+///
+/// `sourceFingerprint` is taken over the activities it was built from. Correct
+/// one of them and the fingerprint stops matching, so the row is stale and is
+/// rebuilt rather than shown against data it no longer describes.
+model WorklogDaySummary {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  /// The day, in the university's zone.
+  workDate DateTime @db.Date
+
+  /// Over the source activities. A mismatch means rebuild.
+  sourceFingerprint String
+
+  /// `[{ name, quantityLabel, sourceIds }]`. Names and labels only — no figures.
+  groups Json
+
+  /// Normalised remarks, as a list of strings.
+  remarks Json
+
+  /// The deterministic total at the time it was written, for a cheap check.
+  totalMinutes Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([instructorId, workDate])
+  @@index([universityId, workDate])
 }

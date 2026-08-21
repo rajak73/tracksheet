@@ -136,6 +136,22 @@ export function formatHours(value: number | null | undefined): string {
   return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}h ${String(abs % 60).padStart(2, "0")}m`;
 }
 
+/**
+ * A duration as a report writes it beside an activity: `2h`, `1h 30m`, `45m`.
+ *
+ * Distinct from `formatHours`, which pads to `02h 00m` for a column of totals
+ * that has to line up. Inside a comma-separated list, padding reads as noise —
+ * "Doubt Sessions - 00h 45m" says nothing more than "Doubt Sessions - 45m".
+ */
+export function formatCompactDuration(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 export function formatPct(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return `${value}%`;
