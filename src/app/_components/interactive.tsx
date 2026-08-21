@@ -51,6 +51,8 @@ export function Dialog({
   icon,
   children,
   footer,
+  dividers = true,
+  size = "md",
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,6 +62,14 @@ export function Dialog({
   icon?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  /**
+   * Rules between the header, the body and the footer. On by default — they
+   * separate three regions that are doing different jobs. The client's work-log
+   * design is one continuous white sheet, so that screen turns them off.
+   */
+  dividers?: boolean;
+  /** `lg` for a form with four fields in it; `md` for a question or a confirm. */
+  size?: "md" | "lg";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -85,9 +95,9 @@ export function Dialog({
       // `m-auto` is load-bearing: a native modal <dialog> centres itself via
       // `margin: auto`, and Tailwind's preflight resets every margin to 0 —
       // which silently pinned this to the top-left corner of the viewport.
-      className="m-auto w-[calc(100vw-2rem)] max-w-lg rounded-card border border-line bg-surface p-0 text-content shadow-raised backdrop:bg-black/40"
+      className={`m-auto w-[calc(100vw-2rem)] ${size === "lg" ? "max-w-2xl" : "max-w-lg"} rounded-card border border-line bg-surface p-0 text-content shadow-raised backdrop:bg-black/40`}
     >
-      <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <div className={`flex items-start justify-between gap-4 px-5 py-4 ${dividers ? "border-b border-line" : ""}`}>
         <div className="flex min-w-0 items-start gap-3">
           {icon ? (
             <span aria-hidden className="mt-0.5 shrink-0 text-primary-text">
@@ -109,7 +119,7 @@ export function Dialog({
       {children ? <div className="px-5 py-4 text-sm">{children}</div> : null}
 
       {footer ? (
-        <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-4">
+        <div className={`flex flex-wrap justify-end gap-2 px-5 py-4 ${dividers ? "border-t border-line" : ""}`}>
           {footer}
         </div>
       ) : null}

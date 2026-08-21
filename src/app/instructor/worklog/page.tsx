@@ -443,23 +443,23 @@ export default function WorkLogHistoryPage() {
                       : []),
                     ...weekRows.map((row) => (
                       <tr key={row.id} className="border-b border-line-subtle last:border-0">
-                        <td className="px-4 py-3.5 text-content">
+                        <td className="px-4 py-4 text-content">
                           {longDate(row.workDate.slice(0, 10))}
                         </td>
-                        <td className="px-4 py-3.5 text-content">{row.instructorName}</td>
-                        <td className="tabular px-4 py-3.5 text-content">
+                        <td className="px-4 py-4 text-content">{row.instructorName}</td>
+                        <td className="tabular px-4 py-4 text-content">
                           {row.employeeCode ?? "—"}
                         </td>
-                        <td className="px-4 py-3.5 text-content">{broadCategoryOf(row)}</td>
-                        <td className="px-4 py-3.5 text-content">
+                        <td className="px-4 py-4 text-content">{broadCategoryOf(row)}</td>
+                        <td className="px-4 py-4 text-content">
                           {row.rawText ?? row.deliverableType?.label ?? "—"}
                         </td>
-                        <td className="tabular px-4 py-3.5 text-content">{row.quantity ?? "—"}</td>
-                        <td className="tabular px-4 py-3.5 text-content">
+                        <td className="tabular px-4 py-4 text-content">{row.quantity ?? "—"}</td>
+                        <td className="tabular px-4 py-4 text-content">
                           {hours(row.durationHours)}
                         </td>
-                        <td className="px-4 py-3.5 text-content">{row.remarks ?? "—"}</td>
-                        <td className="px-4 py-3.5">
+                        <td className="px-4 py-4 text-content">{row.remarks ?? "—"}</td>
+                        <td className="px-4 py-4">
                           <span className="inline-flex gap-2">
                             <button
                               type="button"
@@ -505,6 +505,8 @@ export default function WorkLogHistoryPage() {
         open={open}
         onClose={() => setOpen(false)}
         icon={<Clipboard />}
+        dividers={false}
+        size="lg"
         title={editing ? "Edit work log" : "Today's Work Log"}
         description={
           editing
@@ -533,7 +535,7 @@ export default function WorkLogHistoryPage() {
           </>
         }
       >
-        <div className="grid gap-5">
+        <div className="grid gap-5 py-1">
           {formError ? (
             <p className="rounded-control border border-danger/30 bg-danger-subtle px-3 py-2 text-sm text-danger-text">
               {formError}

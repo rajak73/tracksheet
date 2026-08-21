@@ -100,9 +100,42 @@ export function InstructorShell({
             the z-30 this used to carry, the "Date" cell simply out-painted the
             bell and profile panels for coming later in the document. */}
         <header className="sticky top-0 z-50 border-b border-line bg-surface">
-          <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <span className="font-display text-base font-semibold tracking-tight text-content">
-              NIAT
+          <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-4 sm:px-6 lg:px-10">
+            {/* The client's mark for this product: a clipboard tile, then the
+                wordmark with the second half in the brand blue. */}
+            <span className="flex shrink-0 items-center gap-2.5">
+              <span
+                aria-hidden
+                className="inline-flex size-10 items-center justify-center rounded-[10px] bg-primary text-white"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="size-6">
+                  <rect
+                    x="5"
+                    y="4"
+                    width="14"
+                    height="17"
+                    rx="2.5"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="M9.5 4V3.2A1.2 1.2 0 0 1 10.7 2h2.6a1.2 1.2 0 0 1 1.2 1.2V4"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="m9 12.5 2 2 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <span className="font-display text-2xl font-bold tracking-tight text-content">
+                Work<span className="text-primary-text">Log</span>
+              </span>
             </span>
 
             {title ? (
@@ -127,7 +160,7 @@ export function InstructorShell({
           </div>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main id="main" className="mx-auto w-full max-w-[96rem] px-4 py-6 sm:px-6 lg:px-10">
           {children}
         </main>
       </div>
