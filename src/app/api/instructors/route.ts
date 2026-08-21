@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import { streamsFor } from "@/server/instructors/stream";
 import type { Prisma } from "@/generated/prisma/client";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
@@ -63,9 +64,12 @@ export const GET = withAuth(async ({ scope, req }) => {
         universityId: true,
         employeeCode: true,
         managerId: true,
-        // What they teach. Returned with the roster so the directory can offer
-        // it as an editable field without a request per row.
-        category: { select: { code: true, label: true } },
+        /* `category` is deliberately NOT selected any more.
+         *
+         * What an instructor teaches is no longer a field an admin fills in —
+         * it is read from their own entries, below. The column still exists and
+         * is null for everybody, so selecting it would return a permanent blank
+         * that looks like a broken derivation. */
         manager: { select: { id: true, employeeCode: true, user: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, isActive: true } },
         university: { select: { id: true, name: true, slug: true, timezone: true } },
@@ -74,12 +78,21 @@ export const GET = withAuth(async ({ scope, req }) => {
     prisma.instructor.count({ where }),
   ]);
 
+  /* Their stream, counted from what they actually taught.
+   *
+   * One grouped query for the whole page rather than one per row — the
+   * directory renders everybody at once. An instructor with no subject-carrying
+   * work is absent from the map and comes back as null, which the directory
+   * renders as "Not yet determined". */
+  const streams = await streamsFor(instructors.map((i) => i.id));
+
   return NextResponse.json({
     // `manager` is flattened to the three fields a roster UI needs, and stays
     // explicitly null when nobody leads this instructor yet — "unassigned" is a
     // state to render, not an absence to hide.
     instructors: instructors.map(({ manager, ...rest }) => ({
       ...rest,
+      category: streams.get(rest.id) ?? null,
       manager: manager
         ? { id: manager.id, employeeCode: manager.employeeCode, name: manager.user.name }
         : null,

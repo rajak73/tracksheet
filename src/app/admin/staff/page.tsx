@@ -43,7 +43,7 @@ import {
 } from "@/app/_components/ui";
 import { ConfirmDialog, Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { CategoryPicker, type InstructorCategory } from "@/app/_components/CategoryPicker";
+import { InstructorStream } from "@/app/_components/InstructorStream";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { formatDate } from "@/app/_lib/format";
 
@@ -68,7 +68,6 @@ type Staff = {
   leftOn: string | null;
   leftReason: string | null;
 };
-
 
 type StaffResponse = {
   staff: Staff[];
@@ -117,18 +116,6 @@ export default function AdminStaffPage() {
     load,
     `admin-staff:${page}:${status}:${query}:${role}:${universityId}`,
   );
-
-  /* The vocabulary, fetched once. It is reference data rather than a tenant's,
-   * so it does not reload when the filters change. */
-  const categoriesLoad = useCallback(
-    () =>
-      apiGet<{ categories: InstructorCategory[] }>(
-        "/api/instructor-categories",
-        "Could not load the category list.",
-      ),
-    [],
-  );
-  const categories = useLoad(categoriesLoad, "instructor-categories");
 
   async function setActive(
     person: Staff,
@@ -266,17 +253,11 @@ export default function AdminStaffPage() {
                           </TD>
                           <TD>{s.employeeCode ?? "—"}</TD>
                           <TD>
-                            {/* Editable in place: it is one value per person and
-                                a dialog for one dropdown is a click nobody
-                                needs. Only instructors have one — a manager
-                                does not teach a stream. */}
+                            {/* Read-only: counted from their entries. A manager
+                                has none — they do not teach a stream — and that
+                                is an em dash, not "not yet determined". */}
                             {s.instructorId ? (
-                              <CategoryPicker
-                                instructorId={s.instructorId}
-                                current={s.category?.code ?? ""}
-                                options={categories.data?.categories ?? []}
-                                onSaved={reload}
-                              />
+                              <InstructorStream stream={s.category ?? null} />
                             ) : (
                               <span className="text-subtle">—</span>
                             )}

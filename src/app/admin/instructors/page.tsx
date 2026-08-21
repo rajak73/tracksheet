@@ -26,7 +26,7 @@ import Link from "next/link";
 import { apiGet, useLoad } from "@/app/_lib/api";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { ManagerAssign, useManagerCache } from "@/app/_components/ManagerAssign";
-import { CategoryPicker, type InstructorCategory } from "@/app/_components/CategoryPicker";
+import { InstructorStream } from "@/app/_components/InstructorStream";
 
 type Instructor = {
   id: string;
@@ -38,7 +38,6 @@ type Instructor = {
   /** What they teach — the column the client's monthly sheet prints. */
   category: { code: string; label: string } | null;
 };
-
 
 type InstructorsResponse = {
   instructors: Instructor[];
@@ -70,17 +69,6 @@ export default function AdminInstructorsPage() {
   }, [page, query]);
 
   const { data, error, loading, reload } = useLoad(load, `admin-instructors:${page}:${query}`);
-
-  /* Reference data, fetched once — it does not change when the search does. */
-  const categoriesLoad = useCallback(
-    () =>
-      apiGet<{ categories: InstructorCategory[] }>(
-        "/api/instructor-categories",
-        "Could not load the category list.",
-      ),
-    [],
-  );
-  const categories = useLoad(categoriesLoad, "instructor-categories");
 
   /* The create dialog has to know which university to put somebody in, and this
    * list is admin-wide. Fetched once and cached — it does not change while
@@ -185,17 +173,9 @@ export default function AdminInstructorsPage() {
                         <TD>{i.user.email}</TD>
                         <TD>{i.employeeCode ?? "—"}</TD>
                         <TD>
-                          {/* Editable in place. It is one value from a closed
-                              list, reversible in the same control, and an unset
-                              category is a blank column in the client's sheet —
-                              so it is made easy to set rather than hidden
-                              behind a dialog. */}
-                          <CategoryPicker
-                            instructorId={i.id}
-                            current={i.category?.code ?? ""}
-                            options={categories.data?.categories ?? []}
-                            onSaved={reload}
-                          />
+                          {/* Read-only: counted from their entries, not filed
+                              by anyone. See `InstructorStream`. */}
+                          <InstructorStream stream={i.category ?? null} />
                         </TD>
                         <TD>{i.university.name}</TD>
                         <TD>

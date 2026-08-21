@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { streamsFor } from "@/server/instructors/stream";
 import type { Prisma } from "@/generated/prisma/client";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
@@ -95,7 +96,8 @@ export const GET = withAuth(
             select: {
               id: true,
               employeeCode: true,
-              category: { select: { code: true, label: true } },
+              // `category` is derived from their entries, not stored — added
+              // to each row below.
             },
           },
           managerProfile: {
@@ -115,6 +117,13 @@ export const GET = withAuth(
       prisma.user.count({ where }),
     ]);
 
+    /* Their streams, counted from their own entries — one grouped query for
+     * the whole page, not one per row. Managers have none: a stream describes
+     * what somebody teaches, and a manager's rows are not teaching. */
+    const streams = await streamsFor(
+      users.map((u) => u.instructorProfile?.id).filter((id): id is string => Boolean(id)),
+    );
+
     const staff = users.map((u) => ({
       userId: u.id,
       name: u.name,
@@ -133,7 +142,7 @@ export const GET = withAuth(
       // Present only for instructors — the tracker is instructor-scoped, so a
       // manager row has nothing to link to.
       instructorId: u.instructorProfile?.id ?? null,
-      category: u.instructorProfile?.category ?? null,
+      category: u.instructorProfile ? (streams.get(u.instructorProfile.id) ?? null) : null,
       managerId: u.managerProfile?.id ?? null,
       /** Null for an instructor. Zero is a real answer for a manager. */
       rosterSize: u.managerProfile?._count.instructors ?? null,

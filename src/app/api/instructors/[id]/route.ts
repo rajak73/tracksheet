@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import { streamFor } from "@/server/instructors/stream";
 import { assertCanAccessUniversity, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
@@ -14,7 +15,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
       universityId: true,
       employeeCode: true,
       managerId: true,
-      category: { select: { code: true, label: true } },
+      // `category` is derived from their entries, not selected — see below.
       // Read-only context for the instructor's own portal: they need to know
       // who they report to. Null is a real state — an admin may have removed
       // them from a roster — and is rendered as "Unassigned" rather than hidden.
@@ -43,17 +44,29 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
    * "who else works here" is still answerable; "what did they do" is not. */
   assertCanReadInstructorWork(scope, instructor, instructor.university.primaryManagerId);
 
-  return NextResponse.json({ instructor });
+  /* Counted here rather than stored on the row. Reading it after the scope
+   * check, not before, so an id the caller may not see costs no query. */
+  return NextResponse.json({
+    instructor: { ...instructor, category: await streamFor(instructor.id) },
+  });
 });
 
 const EditInstructor = z.object({
   name: z.string().min(1).max(200).optional(),
   employeeCode: z.string().max(64).nullable().optional(),
-  /* What this instructor teaches — Technical, English, Aptitude, Mathematics.
-   * `null` clears it, which is a real answer ("nobody has decided") and is
-   * therefore distinguished from the field being absent. Resolved by CODE, not
-   * id, so a request cannot attach a category that does not exist. */
-  categoryCode: z.string().min(1).max(64).nullable().optional(),
+  /* `categoryCode` is gone, deliberately.
+   *
+   * What an instructor teaches is no longer anybody's to set. The client's
+   * position is that a person's stream should follow the work they actually did
+   * rather than an administrator's opinion of it, and it is now counted from
+   * their entries — see `@/server/instructors/stream`.
+   *
+   * A request that still sends `categoryCode` has it stripped — zod drops
+   * unknown keys, and this schema is not strict. That matches how the rest of
+   * this codebase treats fields a route does not own (see the note on
+   * `PATCH /api/me/profile`, where role and tenancy are ignored rather than
+   * rejected): what matters is the state afterwards, and afterwards nobody has
+   * set a stream. */
 });
 
 /**
@@ -101,42 +114,15 @@ export const PATCH = withAuth<{ id: string }>(
       }
     }
 
-    let categoryId: string | null | undefined;
-    if (input.categoryCode !== undefined) {
-      if (input.categoryCode === null) {
-        categoryId = null;
-      } else {
-        const category = await prisma.instructorCategory.findUnique({
-          where: { code: input.categoryCode },
-          select: { id: true, isActive: true },
-        });
-        if (!category || !category.isActive) {
-          throw new ApiError(404, "CATEGORY_NOT_FOUND", "That category does not exist.");
-        }
-        categoryId = category.id;
-      }
-    }
-
     const updated = await prisma.instructor.update({
       where: { id: instructor.id },
       data: {
         ...(input.employeeCode !== undefined ? { employeeCode: input.employeeCode } : {}),
-        /* Through the RELATION rather than the raw column: the same update
-         * also touches `user`, and Prisma will not mix a checked nested write
-         * with an unchecked foreign key in one call. `disconnect` is how the
-         * field is cleared. */
-        ...(categoryId !== undefined
-          ? {
-              category:
-                categoryId === null ? { disconnect: true } : { connect: { id: categoryId } },
-            }
-          : {}),
         ...(input.name ? { user: { update: { name: input.name } } } : {}),
       },
       select: {
         id: true,
         employeeCode: true,
-        category: { select: { code: true, label: true } },
         user: { select: { name: true, email: true, isActive: true } },
       },
     });
@@ -149,7 +135,11 @@ export const PATCH = withAuth<{ id: string }>(
       metadata: { fields: Object.keys(input) },
     });
 
-    return NextResponse.json({ instructor: updated });
+    // The stream comes back with the row so a caller that re-renders from this
+    // response sees the same value the directory would show it.
+    return NextResponse.json({
+      instructor: { ...updated, category: await streamFor(updated.id) },
+    });
   },
   { roles: ["ADMIN", "MANAGER"] },
 );
