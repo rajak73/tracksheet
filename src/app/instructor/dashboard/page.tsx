@@ -33,6 +33,7 @@ import {
 import { ConfirmDialog, useToast } from "@/app/_components/interactive";
 import { SuccessDialog } from "@/app/_components/AccountDialogs";
 import {
+  didHappen,
   formatDuration,
   type Activity,
   type ActivityTypeOption,
@@ -348,10 +349,17 @@ export default function InstructorDashboardPage() {
     () => (activeDate ? (byDate[activeDate] ?? []) : []),
     [byDate, activeDate],
   );
-  const selectedHours = selectedActivities.reduce((n, a) => n + a.durationHours, 0);
+  /* Time actually spent. A class recorded as MISSED or EXCUSED did not happen,
+   * so it contributes no hours here — the same rule the week grid, the week
+   * sheet and every server reader apply. Summed raw, these two boxes told an
+   * instructor they had worked two hours on a day whose only entry was a
+   * lecture nobody gave. */
+  const selectedHours = selectedActivities
+    .filter(didHappen)
+    .reduce((n, a) => n + a.durationHours, 0);
 
   const todayActivities = today ? (byDate[today] ?? []) : [];
-  const todayHours = todayActivities.reduce((n, a) => n + a.durationHours, 0);
+  const todayHours = todayActivities.filter(didHappen).reduce((n, a) => n + a.durationHours, 0);
   const todayAdded = todayActivities.length > 0;
 
   /* ── The editor ────────────────────────────────────────────────────────── */

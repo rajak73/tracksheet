@@ -142,6 +142,29 @@ describe("nobody can file it by hand any more", () => {
     expect(res.body.instructor.category).toMatchObject({ code: "MATH" });
   });
 
+  test("the client's monthly sheet shows the derived stream too", async () => {
+    /* The tracker is the client's own report. It read `Instructor.category` —
+     * the field an admin used to fill in — so when the picker was removed this
+     * column would have gone blank on the one screen that matters most, which
+     * is the opposite of what was asked for. */
+    const id = await newInstructor("tracker");
+    await entry(id, "PHYSICS", 6);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+    const res = await admin.get(`/api/universities/${northId}/tracker?from=${from}&to=${today}`);
+    expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
+
+    const row = res.body.tracker.rows.find(
+      (r: { instructorId: string }) => r.instructorId === id,
+    );
+    expect(row, "the instructor should appear in the tracker").toBeTruthy();
+    expect(
+      row.broadCategory,
+      "Broad Category on the client's sheet must follow what they taught",
+    ).toMatchObject({ code: "PHYSICS" });
+  });
+
   test("an admin sending categoryCode does not change it", async () => {
     const id = await newInstructor("nowrite");
     await entry(id, "MATH", 5);

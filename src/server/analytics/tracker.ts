@@ -39,6 +39,7 @@ import { csvCell } from "@/server/reports/generator";
 import type { UniversityConfig } from "@/server/universities/config";
 import { computeDayWindows } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
+import { streamsFor } from "@/server/instructors/stream";
 
 export type TrackerWeek = {
   /** 1-based, as the sheet numbers them. */
@@ -597,13 +598,18 @@ export async function buildTracker(args: {
    * property of the person, so it does not vary by week and does not belong in
    * the per-week engine pass.
    */
-  const categories = await prisma.instructor.findMany({
-    where: { id: { in: [...rows.keys()] } },
-    select: { id: true, category: { select: { code: true, label: true } } },
-  });
-  for (const instructor of categories) {
-    const row = rows.get(instructor.id);
-    if (row) row.broadCategory = instructor.category ?? null;
+  /* Counted from their own entries, not read off the person.
+   *
+   * This selected `Instructor.category` — the stream an admin filed through a
+   * dropdown. That field is no longer written by anybody: the client's position
+   * is that a stream should follow the work somebody actually did, so it is
+   * derived now. Left as it was, this column would have gone blank on the
+   * client's own monthly sheet the moment the picker was removed, which is the
+   * opposite of what was asked for. */
+  const streams = await streamsFor([...rows.keys()]);
+  for (const [instructorId, stream] of streams) {
+    const row = rows.get(instructorId);
+    if (row) row.broadCategory = stream;
   }
 
   // Former staff appear only where they actually have something to report.
