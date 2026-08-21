@@ -538,6 +538,9 @@ exports.Prisma.UniversityDailyMetricScalarFieldEnum = {
   utilizationPercent: 'utilizationPercent',
   openingCompliancePct: 'openingCompliancePct',
   closingCompliancePct: 'closingCompliancePct',
+  openingsLogged: 'openingsLogged',
+  closingsLogged: 'closingsLogged',
+  expectedInstructorDays: 'expectedInstructorDays',
   computedAt: 'computedAt',
   updatedAt: 'updatedAt'
 };

@@ -66,7 +66,13 @@ export const GET = withAuth(async ({ scope, req }) => {
   const sp = req.nextUrl.searchParams;
 
   const sortParam = (sp.get("sort") ?? "utilization") as SortKey;
-  if (!(sortParam in SORTS)) {
+  /* `hasOwnProperty`, not `in`.
+   *
+   * `in` walks the prototype chain, so `?sort=__proto__`, `?sort=toString` and
+   * `?sort=constructor` all passed this check. `SORTS[sortParam]` then handed
+   * back something that is not a comparator, and `rows.sort()` threw — a 500
+   * where the whole point of this guard is a 400. */
+  if (!Object.prototype.hasOwnProperty.call(SORTS, sortParam)) {
     throw new ApiError(400, "INVALID_SORT", `sort must be one of ${Object.keys(SORTS).join(", ")}`);
   }
   const order = sp.get("order") === "asc" ? "asc" : "desc";

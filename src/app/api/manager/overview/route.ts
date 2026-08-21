@@ -4,6 +4,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
+import { assertValidDate } from "@/server/time/schedule-windows";
 
 /**
  * The manager's dashboard, in one call.
@@ -66,9 +67,18 @@ export const GET = withAuth(async ({ scope, req }) => {
   if (!date || !DAY.test(date)) {
     throw new ApiError(400, "INVALID_DATE", "Provide `date` as YYYY-MM-DD.");
   }
+  /* Shape is not a calendar. `2026-02-31` passes DAY, then reaches `addDays`
+   * and `mondayOf`, where `toISOString()` on an Invalid Date throws a
+   * RangeError — which the route wrapper turns into a 500 for what is plainly
+   * a bad request. */
+  assertValidDate(date);
+
   if (!month || !MONTH.test(month)) {
     throw new ApiError(400, "INVALID_MONTH", "Provide `month` as YYYY-MM.");
   }
+  // `2026-13` matches MONTH and is not a month. Checked by probing its first
+  // day, which is the same question in a form `assertValidDate` can answer.
+  assertValidDate(`${month}-01`);
 
   // The roster, from the session. `narrowManager` pins a manager to their own
   // id and refuses any other; an admin reading this sees the whole university.

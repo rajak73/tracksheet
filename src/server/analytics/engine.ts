@@ -27,6 +27,13 @@ import {
 import { workDateFor } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 
+/** Rounds every value of an hours map once, at the point it is read. */
+function roundMap(map: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(map)) out[k] = round(v);
+  return out;
+}
+
 const MS_PER_HOUR = 3_600_000;
 
 /**
@@ -425,10 +432,30 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         universityId,
         deletedAt: null,
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
-        // Must track the instructor filter above, or a manager-scoped call
-        // would report their own hours against the whole university's
-        // deliverables.
-        ...("managerId" in query ? { instructor: { managerId: query.managerId } } : {}),
+        /* Must track the instructor filter above — ALL of it.
+         *
+         * It tracked the roster and not the population. `instructors[]` leaves
+         * out anybody who had already gone before this period, and this did
+         * not, so `totals.deliverables` counted work belonging to people who
+         * are not among the rows it sits above: a university total that is not
+         * the sum of its own parts.
+         *
+         * Both conditions live on the same `instructor` key, so they are built
+         * together — two separate spreads of `instructor` would silently
+         * overwrite one another. */
+        instructor: {
+          ...("managerId" in query ? { managerId: query.managerId } : {}),
+          ...(query.includeInactive
+            ? {}
+            : {
+                user: {
+                  OR: [
+                    { isActive: true },
+                    { deletedAt: { gte: new Date(`${from}T00:00:00.000Z`) } },
+                  ],
+                },
+              }),
+        },
       },
       select: {
         id: true,
@@ -510,13 +537,30 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       const dayProductive = unionHours(productiveIntervals);
       const dayOverlap = overlapHours(productiveIntervals);
 
+      /* Every recorded row, split by category — NOT only the productive ones.
+       *
+       * That is deliberate and is under test ("UNUTILIZED time is recorded but
+       * is not productive"). This split answers "where did the recorded time
+       * go", and known idle time is part of that answer; `productiveHours`
+       * answers a different question and excludes it. An audit read the
+       * difference as a defect, which it is not — hence this note, so the next
+       * one does not "fix" it either.
+       *
+       * What WAS wrong: the running total was rounded on every addition, and
+       * again per day, and again when university totals were folded. For any
+       * duration whose hour value repeats, that bias is systematic and the
+       * parts stopped adding up to the whole. Accumulated raw now, and rounded
+       * once where it is read — matching `productive`, which was always
+       * accumulated unrounded. */
       const dayByType: Record<string, number> = {};
       for (const l of dayLogs) {
         if (!countsTowardProductive(l.status)) continue;
         const hrs = (l.endTime.getTime() - l.startTime.getTime()) / MS_PER_HOUR;
-        hoursByType[l.activityType.code] = round((hoursByType[l.activityType.code] ?? 0) + hrs);
-        dayByType[l.activityType.code] = round((dayByType[l.activityType.code] ?? 0) + hrs);
+        hoursByType[l.activityType.code] = (hoursByType[l.activityType.code] ?? 0) + hrs;
+        dayByType[l.activityType.code] = (dayByType[l.activityType.code] ?? 0) + hrs;
       }
+      // Rounded here, once, on the way out — the accumulators above stay exact.
+      const dayByTypeOut = roundMap(dayByType);
 
       productive += dayProductive;
       overlap += dayOverlap;
@@ -534,7 +578,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           hasData: dayLogs.length > 0,
           openingLogged: false,
           closingLogged: false,
-          hoursByActivityType: dayByType,
+          hoursByActivityType: dayByTypeOut,
         });
         continue;
       }
@@ -553,7 +597,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           hasData: dayLogs.length > 0,
           openingLogged: false,
           closingLogged: false,
-          hoursByActivityType: dayByType,
+          hoursByActivityType: dayByTypeOut,
         });
         continue;
       }
@@ -590,7 +634,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         hasData,
         openingLogged: hasOpening,
         closingLogged: hasClosing,
-        hoursByActivityType: dayByType,
+        hoursByActivityType: dayByTypeOut,
       });
     }
 
@@ -645,7 +689,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       unutilizedHours: round(unutilized),
       missingDataHours: round(missing),
       utilizationPct: capacity > 0 ? round((productive / capacity) * 100) : null,
-      hoursByActivityType: hoursByType,
+      hoursByActivityType: roundMap(hoursByType),
       overlapHours: round(overlap),
       expectedWorkingDays: expectedDays,
       openingCompliancePct: expectedDays > 0 ? round((openingCount / expectedDays) * 100) : null,

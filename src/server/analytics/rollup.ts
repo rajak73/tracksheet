@@ -195,6 +195,18 @@ export async function rollupUniversityDaily(
       b.workingDays > 0 ? round2((b.openings / b.workingDays) * 100) : null,
     closingCompliancePct:
       b.workingDays > 0 ? round2((b.closings / b.workingDays) * 100) : null,
+    /* The counts, kept as well as the ratio.
+     *
+     * A day's percentage is the right figure for a day. A PERIOD's is not the
+     * average of them: the live engine divides openings by expected
+     * instructor-days across the whole period, and averaging daily percentages
+     * gives a different answer whenever the denominators differ — which
+     * approved leave and part-week holidays guarantee. These were already
+     * computed here and discarded, so the dashboard had no way to add them up
+     * the way the engine does. */
+    openingsLogged: b.openings,
+    closingsLogged: b.closings,
+    expectedInstructorDays: b.workingDays,
   }));
 
   await prisma.$transaction(

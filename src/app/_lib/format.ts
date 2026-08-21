@@ -157,14 +157,35 @@ export function humanizeCode(code: string): string {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-/** The ISO date the browser currently sits on — only ever a form DEFAULT. */
+/**
+ * The ISO date the browser currently sits on — only ever a form DEFAULT.
+ *
+ * Built from LOCAL components, not `toISOString()`. That returns the UTC date,
+ * and the people using this are on IST: between midnight and half past five in
+ * the morning, UTC is still yesterday. An instructor opening the app at one in
+ * the morning to write up the day they had just finished was handed yesterday's
+ * date as the default, on a form whose whole subject is which day the work
+ * belongs to.
+ */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localISO(new Date());
 }
 
-/** `n` days before today, as an ISO date. Used for period-selector presets. */
+/** A Date as `YYYY-MM-DD` in the browser's own zone. */
+function localISO(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * `n` days before today, as an ISO date. Used for period-selector presets.
+ *
+ * Local, for the same reason as `todayISO` — a preset that starts a day early
+ * for the first five and a half hours of every Indian morning would quietly
+ * shift every "last 30 days" figure on screen.
+ */
 export function daysAgoISO(days: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() - days);
+  return localISO(d);
 }

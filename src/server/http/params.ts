@@ -45,6 +45,15 @@ export function parseLimit(
  * quiet fallback, because `?page=abc` reaching `skip = NaN` would ask Prisma
  * for a nonsensical offset rather than tell the caller their request was bad.
  */
+/**
+ * The largest page anyone may ask for.
+ *
+ * `skip` is a 32-bit integer in the database driver, and `skip` is
+ * `(page - 1) * limit`. A million pages at the largest limit this app serves
+ * stays well inside that, and is far past any listing a person will page to.
+ */
+const MAX_PAGE = 1_000_000;
+
 export function parsePage(raw: string | null): number {
   if (raw === null || raw.trim() === "") return 1;
 
@@ -55,6 +64,16 @@ export function parsePage(raw: string | null): number {
   const i = Math.trunc(n);
   if (i < 1) {
     throw new ApiError(400, "INVALID_PAGE", "page must be at least 1");
+  }
+  /* Bounded at the top as well as the bottom.
+   *
+   * `parseLimit` takes a `max` and this took none, so `?page=99999999999`
+   * reached Prisma as a `skip` past the 32-bit integer the driver reads it
+   * into, and the request 500'd — the exact outcome this module exists to
+   * prevent. No real listing has a billionth page; asking for one is a
+   * malformed request and now says so. */
+  if (i > MAX_PAGE) {
+    throw new ApiError(400, "INVALID_PAGE", `page must be at most ${MAX_PAGE}`);
   }
   return i;
 }

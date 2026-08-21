@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // Dev-only: lets the localtunnel-exposed URL fetch HMR/dev assets during
   // this session's local walkthroughs. Harmless in production (unused there —
   // this key only affects `next dev`) and not a security-relevant change.
-  allowedDevOrigins: ["*.loca.lt", "127.0.0.1", "10.255.5.154",],
+  allowedDevOrigins: ["*.loca.lt", "127.0.0.1", "10.255.5.154", "192.168.1.20"],
 };
 
 export default nextConfig;

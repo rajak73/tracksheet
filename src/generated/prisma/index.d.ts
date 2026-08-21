@@ -42985,6 +42985,9 @@ export namespace Prisma {
     utilizationPercent: number | null
     openingCompliancePct: number | null
     closingCompliancePct: number | null
+    openingsLogged: number | null
+    closingsLogged: number | null
+    expectedInstructorDays: number | null
   }
 
   export type UniversityDailyMetricSumAggregateOutputType = {
@@ -42996,6 +42999,9 @@ export namespace Prisma {
     utilizationPercent: number | null
     openingCompliancePct: number | null
     closingCompliancePct: number | null
+    openingsLogged: number | null
+    closingsLogged: number | null
+    expectedInstructorDays: number | null
   }
 
   export type UniversityDailyMetricMinAggregateOutputType = {
@@ -43010,6 +43016,9 @@ export namespace Prisma {
     utilizationPercent: number | null
     openingCompliancePct: number | null
     closingCompliancePct: number | null
+    openingsLogged: number | null
+    closingsLogged: number | null
+    expectedInstructorDays: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -43026,6 +43035,9 @@ export namespace Prisma {
     utilizationPercent: number | null
     openingCompliancePct: number | null
     closingCompliancePct: number | null
+    openingsLogged: number | null
+    closingsLogged: number | null
+    expectedInstructorDays: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -43043,6 +43055,9 @@ export namespace Prisma {
     utilizationPercent: number
     openingCompliancePct: number
     closingCompliancePct: number
+    openingsLogged: number
+    closingsLogged: number
+    expectedInstructorDays: number
     computedAt: number
     updatedAt: number
     _all: number
@@ -43058,6 +43073,9 @@ export namespace Prisma {
     utilizationPercent?: true
     openingCompliancePct?: true
     closingCompliancePct?: true
+    openingsLogged?: true
+    closingsLogged?: true
+    expectedInstructorDays?: true
   }
 
   export type UniversityDailyMetricSumAggregateInputType = {
@@ -43069,6 +43087,9 @@ export namespace Prisma {
     utilizationPercent?: true
     openingCompliancePct?: true
     closingCompliancePct?: true
+    openingsLogged?: true
+    closingsLogged?: true
+    expectedInstructorDays?: true
   }
 
   export type UniversityDailyMetricMinAggregateInputType = {
@@ -43083,6 +43104,9 @@ export namespace Prisma {
     utilizationPercent?: true
     openingCompliancePct?: true
     closingCompliancePct?: true
+    openingsLogged?: true
+    closingsLogged?: true
+    expectedInstructorDays?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -43099,6 +43123,9 @@ export namespace Prisma {
     utilizationPercent?: true
     openingCompliancePct?: true
     closingCompliancePct?: true
+    openingsLogged?: true
+    closingsLogged?: true
+    expectedInstructorDays?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -43116,6 +43143,9 @@ export namespace Prisma {
     utilizationPercent?: true
     openingCompliancePct?: true
     closingCompliancePct?: true
+    openingsLogged?: true
+    closingsLogged?: true
+    expectedInstructorDays?: true
     computedAt?: true
     updatedAt?: true
     _all?: true
@@ -43220,6 +43250,9 @@ export namespace Prisma {
     utilizationPercent: number | null
     openingCompliancePct: number | null
     closingCompliancePct: number | null
+    openingsLogged: number
+    closingsLogged: number
+    expectedInstructorDays: number
     computedAt: Date
     updatedAt: Date
     _count: UniversityDailyMetricCountAggregateOutputType | null
@@ -43256,6 +43289,9 @@ export namespace Prisma {
     utilizationPercent?: boolean
     openingCompliancePct?: boolean
     closingCompliancePct?: boolean
+    openingsLogged?: boolean
+    closingsLogged?: boolean
+    expectedInstructorDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43274,6 +43310,9 @@ export namespace Prisma {
     utilizationPercent?: boolean
     openingCompliancePct?: boolean
     closingCompliancePct?: boolean
+    openingsLogged?: boolean
+    closingsLogged?: boolean
+    expectedInstructorDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43292,6 +43331,9 @@ export namespace Prisma {
     utilizationPercent?: boolean
     openingCompliancePct?: boolean
     closingCompliancePct?: boolean
+    openingsLogged?: boolean
+    closingsLogged?: boolean
+    expectedInstructorDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43310,11 +43352,14 @@ export namespace Prisma {
     utilizationPercent?: boolean
     openingCompliancePct?: boolean
     closingCompliancePct?: boolean
+    openingsLogged?: boolean
+    closingsLogged?: boolean
+    expectedInstructorDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "minutesByActivityType" | "utilizationPercent" | "openingCompliancePct" | "closingCompliancePct" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
+  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "minutesByActivityType" | "utilizationPercent" | "openingCompliancePct" | "closingCompliancePct" | "openingsLogged" | "closingsLogged" | "expectedInstructorDays" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
   export type UniversityDailyMetricInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
   }
@@ -43343,6 +43388,24 @@ export namespace Prisma {
       utilizationPercent: number | null
       openingCompliancePct: number | null
       closingCompliancePct: number | null
+      /**
+       * The counts those percentages are made of.
+       * 
+       * Stored because a period's compliance is not the average of its days'
+       * compliance. The live engine computes openings over expected instructor-
+       * days — a ratio of sums — while the dashboard averaged the stored daily
+       * percentages, and an unweighted mean of ratios disagrees with a ratio of
+       * sums the moment the denominators differ. Approved leave and part-week
+       * holidays make them differ constantly.
+       * 
+       * The rollup already had these in hand and threw them away.
+       */
+      openingsLogged: number
+      closingsLogged: number
+      /**
+       * Instructor-days expected on this date: the denominator of both figures.
+       */
+      expectedInstructorDays: number
       computedAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["universityDailyMetric"]>
@@ -43781,6 +43844,9 @@ export namespace Prisma {
     readonly utilizationPercent: FieldRef<"UniversityDailyMetric", 'Float'>
     readonly openingCompliancePct: FieldRef<"UniversityDailyMetric", 'Float'>
     readonly closingCompliancePct: FieldRef<"UniversityDailyMetric", 'Float'>
+    readonly openingsLogged: FieldRef<"UniversityDailyMetric", 'Int'>
+    readonly closingsLogged: FieldRef<"UniversityDailyMetric", 'Int'>
+    readonly expectedInstructorDays: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly computedAt: FieldRef<"UniversityDailyMetric", 'DateTime'>
     readonly updatedAt: FieldRef<"UniversityDailyMetric", 'DateTime'>
   }
@@ -51001,6 +51067,9 @@ export namespace Prisma {
     utilizationPercent: 'utilizationPercent',
     openingCompliancePct: 'openingCompliancePct',
     closingCompliancePct: 'closingCompliancePct',
+    openingsLogged: 'openingsLogged',
+    closingsLogged: 'closingsLogged',
+    expectedInstructorDays: 'expectedInstructorDays',
     computedAt: 'computedAt',
     updatedAt: 'updatedAt'
   };
@@ -54394,6 +54463,9 @@ export namespace Prisma {
     utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     openingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     closingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -54412,6 +54484,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrderInput | SortOrder
     openingCompliancePct?: SortOrderInput | SortOrder
     closingCompliancePct?: SortOrderInput | SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     university?: UniversityOrderByWithRelationInput
@@ -54434,6 +54509,9 @@ export namespace Prisma {
     utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     openingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     closingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -54452,6 +54530,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrderInput | SortOrder
     openingCompliancePct?: SortOrderInput | SortOrder
     closingCompliancePct?: SortOrderInput | SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     _count?: UniversityDailyMetricCountOrderByAggregateInput
@@ -54477,6 +54558,9 @@ export namespace Prisma {
     utilizationPercent?: FloatNullableWithAggregatesFilter<"UniversityDailyMetric"> | number | null
     openingCompliancePct?: FloatNullableWithAggregatesFilter<"UniversityDailyMetric"> | number | null
     closingCompliancePct?: FloatNullableWithAggregatesFilter<"UniversityDailyMetric"> | number | null
+    openingsLogged?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
+    closingsLogged?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
+    expectedInstructorDays?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeWithAggregatesFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"UniversityDailyMetric"> | Date | string
   }
@@ -58097,6 +58181,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutUniversityDailyMetricsInput
@@ -58115,6 +58202,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -58131,6 +58221,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutUniversityDailyMetricsNestedInput
@@ -58149,6 +58242,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -58166,6 +58262,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -58182,6 +58281,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -58199,6 +58301,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -61276,6 +61381,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrder
     openingCompliancePct?: SortOrder
     closingCompliancePct?: SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -61289,6 +61397,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrder
     openingCompliancePct?: SortOrder
     closingCompliancePct?: SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
   }
 
   export type UniversityDailyMetricMaxOrderByAggregateInput = {
@@ -61303,6 +61414,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrder
     openingCompliancePct?: SortOrder
     closingCompliancePct?: SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -61319,6 +61433,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrder
     openingCompliancePct?: SortOrder
     closingCompliancePct?: SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -61332,6 +61449,9 @@ export namespace Prisma {
     utilizationPercent?: SortOrder
     openingCompliancePct?: SortOrder
     closingCompliancePct?: SortOrder
+    openingsLogged?: SortOrder
+    closingsLogged?: SortOrder
+    expectedInstructorDays?: SortOrder
   }
 
   export type EnumReportJobStatusFilter<$PrismaModel = never> = {
@@ -68665,6 +68785,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -68681,6 +68804,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -69556,6 +69682,9 @@ export namespace Prisma {
     utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     openingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     closingCompliancePct?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
+    expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
   }
@@ -82510,6 +82639,9 @@ export namespace Prisma {
     utilizationPercent?: number | null
     openingCompliancePct?: number | null
     closingCompliancePct?: number | null
+    openingsLogged?: number
+    closingsLogged?: number
+    expectedInstructorDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -83569,6 +83701,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -83585,6 +83720,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -83601,6 +83739,9 @@ export namespace Prisma {
     utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     openingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
     closingCompliancePct?: NullableFloatFieldUpdateOperationsInput | number | null
+    openingsLogged?: IntFieldUpdateOperationsInput | number
+    closingsLogged?: IntFieldUpdateOperationsInput | number
+    expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

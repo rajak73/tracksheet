@@ -34,6 +34,21 @@ import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+/* Shape is not a calendar.
+ *
+ * `2026-02-31` matches DAY, and the span check below is computed with
+ * `Date.parse`, which gives NaN for it — and every comparison against NaN is
+ * false, so `spanDays > MAX_RANGE_DAYS` was skipped and the cap did not apply.
+ * `toDateOnly` then rolled the date over into March, so the query answered a
+ * different question than the one asked. */
+const isRealDate = (iso: string): boolean => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const probe = new Date(Date.UTC(y, m - 1, d));
+  return (
+    probe.getUTCFullYear() === y && probe.getUTCMonth() === m - 1 && probe.getUTCDate() === d
+  );
+};
+
 /** A month across the whole network is the widest this is meant to serve. */
 const MAX_RANGE_DAYS = 62;
 
@@ -48,7 +63,7 @@ export const GET = withAuth(
     const from = req.nextUrl.searchParams.get("from") ?? "";
     const to = req.nextUrl.searchParams.get("to") ?? "";
 
-    if (!DAY.test(from) || !DAY.test(to) || from > to) {
+    if (!DAY.test(from) || !DAY.test(to) || from > to || !isRealDate(from) || !isRealDate(to)) {
       return NextResponse.json(
         { error: { code: "BAD_RANGE", message: "Give a from and to date, as YYYY-MM-DD." } },
         { status: 400 },
@@ -130,13 +145,24 @@ export const GET = withAuth(
         GROUP BY 1, 2, 3, 4
       `,
       /* Distinct people, separately: it cannot be derived from the groups above
-       * without double-counting anybody who recorded two kinds of work. */
+       * without double-counting anybody who recorded two kinds of work.
+       *
+       * Counted over the SAME population as the head count above, which takes
+       * only active instructors. This did not, so a departed instructor's logs
+       * were counted as somebody recording — and `silent`, which is the
+       * difference between the two, cancelled a departed person's old entries
+       * against an active person's silence. The one number on this dashboard
+       * whose whole job is to say "nobody has written anything" was quietly
+       * under-reporting. */
       prisma.$queryRaw<Recorders[]>`
         SELECT a."universityId" AS "universityId",
                COUNT(DISTINCT a."instructorId") AS "recording"
         FROM "ActivityLog" a
+        JOIN "Instructor" i ON i.id = a."instructorId"
+        JOIN "User" u ON u.id = i."userId"
         WHERE a."workDate" BETWEEN ${toDateOnly(from)}::date AND ${toDateOnly(to)}::date
           AND a.status::text <> ALL(${notHappened}::text[])
+          AND u."isActive" = true
         GROUP BY 1
       `,
     ]);

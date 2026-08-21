@@ -43,11 +43,27 @@ type MetricAgg = {
     productiveMinutes: number | null;
     unutilizedMinutes: number | null;
     missingDataMinutes: number | null;
+    /* Compliance is summed rather than averaged — see `ratioPct`. The stored
+     * daily percentage is still the right figure for a single day, and is not
+     * read here. */
+    openingsLogged: number | null;
+    closingsLogged: number | null;
+    expectedInstructorDays: number | null;
   };
   _max: { activeInstructors: number | null };
-  _avg: { openingCompliancePct: number | null; closingCompliancePct: number | null };
   universityId: string;
 };
+
+/**
+ * A ratio of sums, which is what compliance means over a period.
+ *
+ * Null when nothing was expected — no working days in the window — because
+ * "0% compliance" and "nobody was due in" are different answers.
+ */
+function ratioPct(numerator: number | null | undefined, denominator: number | null | undefined) {
+  if (!denominator) return null;
+  return Math.round(((numerator ?? 0) / denominator) * 100 * 100) / 100;
+}
 
 export const GET = withAuth(
   async ({ req }) => {
@@ -146,10 +162,8 @@ export const GET = withAuth(
         unutilizedHours: toHours(agg?._sum.unutilizedMinutes),
         missingDataHours: toHours(agg?._sum.missingDataMinutes),
         utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
-        openingCompliancePct:
-          agg?._avg.openingCompliancePct == null ? null : round(agg._avg.openingCompliancePct),
-        closingCompliancePct:
-          agg?._avg.closingCompliancePct == null ? null : round(agg._avg.closingCompliancePct),
+        openingCompliancePct: ratioPct(agg?._sum.openingsLogged, agg?._sum.expectedInstructorDays),
+        closingCompliancePct: ratioPct(agg?._sum.closingsLogged, agg?._sum.expectedInstructorDays),
         hoursByActivityType: Object.fromEntries(
           Object.entries(byType).map(([code, minutes]) => [code, round(minutes / 60)]),
         ),
@@ -167,14 +181,23 @@ export const GET = withAuth(
         prisma.universityDailyMetric.groupBy({
           by: ["universityId"],
           where: dateWhere,
+          _max: { activeInstructors: true },
+          /* Summed, not averaged.
+           *
+           * `_avg` of the stored daily percentages is an unweighted mean of
+           * ratios, and the live engine computes a ratio of sums. The two agree
+           * only when every day has the same denominator, which approved leave
+           * and part-week holidays make untrue. Two figures for the same
+           * question, on two screens a click apart. */
           _sum: {
             capacityMinutes: true,
             productiveMinutes: true,
             unutilizedMinutes: true,
             missingDataMinutes: true,
+            openingsLogged: true,
+            closingsLogged: true,
+            expectedInstructorDays: true,
           },
-          _max: { activeInstructors: true },
-          _avg: { openingCompliancePct: true, closingCompliancePct: true },
         }),
         // ── Rollup coverage ─────────────────────────────────────────────────
         // These figures come from a CACHE. If the scheduler has not yet

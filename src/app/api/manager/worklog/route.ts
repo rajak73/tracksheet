@@ -4,6 +4,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
+import { assertValidDate } from "@/server/time/schedule-windows";
 import { daySubjectsFor } from "@/server/instructors/day-subject";
 import { loadUniversityConfig } from "@/server/universities/config";
 
@@ -156,6 +157,12 @@ export const GET = withAuth(async ({ scope, req }) => {
   if (from > to) {
     throw new ApiError(400, "INVALID_PERIOD", "`from` must not be after `to`.");
   }
+  /* Shape is not a calendar. `2026-02-31` passes the regex above; `Date.parse`
+   * then gives NaN, every comparison against NaN is false, and the range cap
+   * below was skipped entirely. The sibling worklog-notes route calls this for
+   * exactly that reason. */
+  assertValidDate(from);
+  assertValidDate(to);
   const spanDays =
     Math.round(
       (Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000,

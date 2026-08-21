@@ -150,6 +150,29 @@ export const POST = withAuth<{ id: string }>(
       );
     }
 
+    /* The instants have to fall on the date they are filed under.
+     *
+     * `workDate` came from `input.date` and the times came from two absolute
+     * instants the caller supplied, and nothing checked that they agreed. The
+     * only client builds those instants in the BROWSER's zone, so a laptop set
+     * to London — or a traveller, or any non-browser caller — could file a slot
+     * under Monday whose times are on Tuesday. Every reader then either shows a
+     * Monday slot at the wrong hour or a Tuesday slot missing from Tuesday.
+     *
+     * Judged in the UNIVERSITY's zone, which is what `workDate` means
+     * everywhere else in this codebase. */
+    const { timezone } = await loadUniversityConfig(instructor.universityId);
+    const startsOn = workDateFor(new Date(input.startTime), timezone);
+    const endsOn = workDateFor(new Date(input.endTime), timezone);
+    if (startsOn !== input.date || endsOn !== input.date) {
+      throw new ApiError(
+        400,
+        "TIMES_NOT_ON_DATE",
+        `Those times fall on ${startsOn === endsOn ? startsOn : `${startsOn} and ${endsOn}`}, ` +
+          `not on ${input.date}.`,
+      );
+    }
+
     const slot = await prisma.scheduleSlot.create({
       data: {
         universityId: instructor.universityId,

@@ -1192,6 +1192,21 @@ model UniversityDailyMetric {
   openingCompliancePct  Float?
   closingCompliancePct  Float?
 
+  /// The counts those percentages are made of.
+  ///
+  /// Stored because a period's compliance is not the average of its days'
+  /// compliance. The live engine computes openings over expected instructor-
+  /// days — a ratio of sums — while the dashboard averaged the stored daily
+  /// percentages, and an unweighted mean of ratios disagrees with a ratio of
+  /// sums the moment the denominators differ. Approved leave and part-week
+  /// holidays make them differ constantly.
+  ///
+  /// The rollup already had these in hand and threw them away.
+  openingsLogged         Int @default(0)
+  closingsLogged         Int @default(0)
+  /// Instructor-days expected on this date: the denominator of both figures.
+  expectedInstructorDays Int @default(0)
+
   computedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

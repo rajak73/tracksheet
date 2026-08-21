@@ -160,35 +160,51 @@ export async function submitWorklog(input: {
    * there is nothing to remove, and leaving one open would ask a manager to
    * approve a day the instructor has since rewritten.
    */
-  const previous = await prisma.worklogSubmission.findMany({
-    where: {
-      instructorId: input.instructorId,
-      workDate: new Date(`${input.workDate}T00:00:00.000Z`),
-      supersededAt: null,
-    },
-    select: { id: true },
-  });
+  /* ── Superseded here, but NOT emptied here ──────────────────────────────
+   *
+   * The previous submissions' activities used to be deleted at this point,
+   * before the new text had been read by anything. A provider outage then
+   * emptied a day that was already correctly recorded — and this module's own
+   * header promises the opposite: "A failed parse leaves a submission that can
+   * be parsed again; it never leaves a blank day." That held for a FIRST
+   * submission and not for a second one.
+   *
+   * The old rows now stand until the new text parses and there is something to
+   * put in their place. `writeActivities` clears them immediately before it
+   * writes, so the day is replaced rather than emptied and then refilled.
+   *
+   * ── One submit at a time, per instructor per day ────────────────────────
+   * This was a read, then a transaction, then a create: three statements with
+   * nothing spanning them, no lock, and no unique constraint behind "one live
+   * submission per instructor per day". Two concurrent submits — a
+   * double-clicked Save, two tabs — both read an empty `previous` and both
+   * inserted, leaving the day with two live submissions and every reader
+   * picking one arbitrarily.
+   *
+   * `pg_advisory_xact_lock` on (instructor, day) serialises exactly that, the
+   * same pattern `logActivity` uses for the same reason. It releases when the
+   * transaction ends. */
+  const workDate = new Date(`${input.workDate}T00:00:00.000Z`);
+  const lockKey = `worklog:${input.instructorId}:${input.workDate}`;
 
-  if (previous.length > 0) {
-    const ids = previous.map((p) => p.id);
-    await prisma.$transaction([
-      prisma.activityLog.deleteMany({ where: { submissionId: { in: ids } } }),
-      prisma.worklogSubmission.updateMany({
-        where: { id: { in: ids } },
-        data: { supersededAt: new Date() },
-      }),
-    ]);
-  }
+  const submission = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
-  const submission = await prisma.worklogSubmission.create({
-    data: {
-      instructorId: input.instructorId,
-      universityId: input.universityId,
-      workDate: new Date(`${input.workDate}T00:00:00.000Z`),
-      rawBullets: bullets,
-      status: "PENDING",
-    },
-    select: { id: true, status: true, workDate: true },
+    await tx.worklogSubmission.updateMany({
+      where: { instructorId: input.instructorId, workDate, supersededAt: null },
+      data: { supersededAt: new Date() },
+    });
+
+    return tx.worklogSubmission.create({
+      data: {
+        instructorId: input.instructorId,
+        universityId: input.universityId,
+        workDate,
+        rawBullets: bullets,
+        status: "PENDING",
+      },
+      select: { id: true, status: true, workDate: true },
+    });
   });
 
   // Deliberately not awaited: the instructor is told their work is saved as
@@ -422,6 +438,24 @@ async function writeActivities(
   const rejected: ParseOutcome["rejected"] = [];
   let written = 0;
 
+  /* Clear the day's SUPERSEDED rows here, not at submit time.
+   *
+   * A resubmission marks the previous submissions superseded and leaves their
+   * activities standing, so a parse that never succeeds cannot empty a day that
+   * was already correctly recorded. The rows go now, immediately before their
+   * replacements are written — the day is replaced rather than emptied and then
+   * hopefully refilled.
+   *
+   * Scoped to this instructor and this date, and only to submissions that are
+   * no longer live, so nothing belonging to a standing submission is touched. */
+  await prisma.activityLog.deleteMany({
+    where: {
+      instructorId: submission.instructorId,
+      workDate: new Date(`${submission.workDate}T00:00:00.000Z`),
+      submission: { is: { supersededAt: { not: null } } },
+    },
+  });
+
   for (const bullet of bullets) {
     if (bullet.problem || !bullet.startLocal || !bullet.endLocal) {
       rejected.push({
@@ -466,6 +500,23 @@ async function writeActivities(
             : "This line could not be recorded. Check its times and try again.",
       });
     }
+  }
+
+  /* Superseded WHILE we were writing?
+   *
+   * `runParse` asks before it starts, but the write itself is a loop of up to
+   * forty separate transactions — a read is not a lock, and a resubmission
+   * landing part-way through deletes only the rows written so far. The rest
+   * were then written after the delete and could never be swept: a later
+   * submission builds its list from submissions that are still live, and this
+   * one is not one of them. The leak was permanent, and the hours stayed in
+   * every total while being invisible to every screen.
+   *
+   * So the question is asked once more at the end, and this submission cleans
+   * up after itself if the answer changed. */
+  if (await isSuperseded(submission.id)) {
+    await prisma.activityLog.deleteMany({ where: { submissionId: submission.id } });
+    return { written: 0, rejected };
   }
 
   return { written, rejected };
@@ -666,14 +717,45 @@ export async function decideSubmission(input: {
       rejections: outcome.rejected,
     },
   });
+  /* What was actually written, not what was approved.
+   *
+   * This said "The activities for {date} have been recorded" whatever the write
+   * returned — including when every line was refused, which the re-parse can do
+   * for reasons that did not exist when the manager read the day: an overlap
+   * with an entry added since, a once-per-day type already used. The instructor
+   * was told their day was recorded and it was not.
+   *
+   * `runParse` has always reported refused lines with the reason for each.
+   * Approval writes through the same function and said nothing. */
   await createNotification({
     userId: submission.instructor.userId,
     universityId: submission.universityId,
     type: "WORKLOG_APPROVED",
     title: "Your worklog was approved.",
-    message: `The activities for ${workDate} have been recorded.`,
+    message:
+      outcome.written > 0
+        ? `The activities for ${workDate} have been recorded.`
+        : `Your manager approved it, but nothing could be recorded for ${workDate}. ` +
+          `See the note below for what each line needs.`,
     dedupeKey: `worklog-decision:${submission.id}`,
   }).catch(() => {});
+
+  if (outcome.rejected.length > 0) {
+    await createNotification({
+      userId: submission.instructor.userId,
+      universityId: submission.universityId,
+      type: "WORKLOG_NOT_RECORDED",
+      title:
+        outcome.rejected.length === 1
+          ? "One line of your worklog was not recorded."
+          : `${outcome.rejected.length} lines of your worklog were not recorded.`,
+      message:
+        `Nothing was invented for them. Your words are kept — write them again for ${workDate} ` +
+        `with the correction each one asks for.\n\n` +
+        outcome.rejected.map((r) => `“${r.rawText}” — ${r.reason}`).join("\n"),
+      dedupeKey: `worklog-unrecorded:${submission.id}`,
+    }).catch(() => {});
+  }
 
   return { approved: true, written: outcome.written };
 }
