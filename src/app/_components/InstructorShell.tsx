@@ -56,7 +56,6 @@ import { apiSend } from "@/app/_lib/api";
  * the client's design puts the title inside the card.
  */
 const TITLES: Array<[string, string | null]> = [
-  ["/instructor/dashboard", "Dashboard"],
   ["/instructor/worklog", null],
   ["/instructor/activity-tracker", "Activity Tracker"],
   ["/instructor/performance", "My Performance"],
@@ -81,7 +80,9 @@ export function InstructorShell({
   const match = TITLES.find(([href]) => pathname.startsWith(href));
   // `undefined` is an unlisted route and falls back; `null` is a page that owns
   // its own heading, and gets nothing here.
-  const title = match ? match[1] : "Dashboard";
+  // An unlisted route shows nothing rather than the name of a screen that no
+  // longer exists.
+  const title = match ? match[1] : null;
   const { profile, setProfile } = useMyProfile();
   const [accountTab, setAccountTab] = useState<"profile" | "password" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);

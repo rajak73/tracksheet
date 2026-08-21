@@ -16,7 +16,7 @@ import { clearMeCache } from "@/app/_lib/api";
 const DESTINATION: Record<string, string> = {
   ADMIN: "/admin/dashboard",
   MANAGER: "/manager/dashboard",
-  INSTRUCTOR: "/instructor/dashboard",
+  INSTRUCTOR: "/instructor/worklog",
 };
 
 export default function LoginPage() {

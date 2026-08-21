@@ -89,11 +89,10 @@ const INSTRUCTOR_NAV: NavItem[] = [
   // and Analytics all still exist and still work — they are reached from the
   // dashboard and the tracker, in context — but a person logging an hour of
   // work should not have to choose between eight destinations first.
-  { href: "/instructor/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
-  // The client's own design for writing up a day and reading back what was
-  // written. Sits next to the dashboard rather than replacing it: the dashboard
-  // is the week at a glance, this is the log.
-  { href: "/instructor/worklog", label: "Work Log History", icon: IconActivity, group: "main" },
+  /* The instructor's home. It replaced the dashboard rather than sitting beside
+   * it — two screens showing one person their own day is one screen too many,
+   * and /instructor/dashboard now redirects here. */
+  { href: "/instructor/worklog", label: "Work Log", icon: IconOverview, group: "main" },
   {
     href: "/instructor/activity-tracker",
     label: "Activity Tracker",

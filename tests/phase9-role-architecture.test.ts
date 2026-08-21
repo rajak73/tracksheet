@@ -58,6 +58,23 @@ describe("one login, three applications", () => {
   });
 });
 
+describe("the instructor's old dashboard address", () => {
+  /* It was the instructor's home and the client's design replaced it. The
+   * address stays answerable because it is in histories and bookmarks — a 404
+   * there reads as the system having broken, not as a screen having moved. */
+  test("redirects an instructor to the work log rather than 404ing", async () => {
+    const res = await n1.request("/instructor/dashboard", { method: "GET" });
+    expect(res.status, "should redirect, not refuse and not render").toBe(307);
+  });
+
+  test("still refuses anyone who is not an instructor", async () => {
+    for (const client of [admin, mgrN]) {
+      const res = await client.request("/instructor/dashboard", { method: "GET" });
+      expect(res.status).toBe(307);
+    }
+  });
+});
+
 describe("page-level route guards", () => {
   const OWN = 200;
   const DENIED = 307; // redirected to /login
@@ -66,15 +83,15 @@ describe("page-level route guards", () => {
     const matrix: Array<[ApiClient, string, number]> = [
       [admin, "/admin/dashboard", OWN],
       [admin, "/manager/dashboard", DENIED],
-      [admin, "/instructor/dashboard", DENIED],
+      [admin, "/instructor/worklog", DENIED],
 
       [mgrN, "/admin/dashboard", DENIED],
       [mgrN, "/manager/dashboard", OWN],
-      [mgrN, "/instructor/dashboard", DENIED],
+      [mgrN, "/instructor/worklog", DENIED],
 
       [n1, "/admin/dashboard", DENIED],
       [n1, "/manager/dashboard", DENIED],
-      [n1, "/instructor/dashboard", OWN],
+      [n1, "/instructor/worklog", OWN],
     ];
 
     for (const [client, path, expected] of matrix) {
@@ -95,7 +112,7 @@ describe("page-level route guards", () => {
       "/manager/activities",
       "/manager/deliverables",
       "/manager/reports",
-      "/instructor/dashboard",
+      "/instructor/worklog",
       "/instructor/activities",
     ]) {
       expect((await anon.request(path, { method: "GET" })).status, path).toBe(307);
@@ -121,7 +138,7 @@ describe("page-level route guards", () => {
     for (const path of ["/manager/dashboard", "/manager/instructors", "/manager/activities", "/manager/deliverables", "/manager/reports"]) {
       expect((await mgrN.request(path, { method: "GET" })).status, path).toBe(200);
     }
-    for (const path of ["/instructor/dashboard", "/instructor/activities"]) {
+    for (const path of ["/instructor/worklog", "/instructor/activities"]) {
       expect((await n1.request(path, { method: "GET" })).status, path).toBe(200);
     }
   });
