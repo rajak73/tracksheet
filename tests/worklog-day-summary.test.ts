@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import {
+  buildInstruction,
   fingerprintOf,
   validateModelGroups,
   type SourceRow,
@@ -20,9 +21,18 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  *   nothing invented    an id not in the source is a rejection
  *   totals match        the total is summed from the source, never read from the reply
  *
- * The integration cases below run with no provider configured, which is
- * deliberate: they prove the report still works when the model cannot be
- * reached, and that the figures are identical when it is not.
+ * ── Why nothing below asserts WHICH reader answered ───────────────────────
+ * These cases used to require `source: "fallback"`, on the reasoning that no
+ * provider was configured under test. That was true by accident rather than by
+ * design — the provider was reachable the whole time, and every call was
+ * failing for an unrelated reason since fixed. The assertion was therefore
+ * testing an outage, and would flip to failing the moment the outage ended.
+ *
+ * So the figures are asserted and the source is not. That is the honest test in
+ * any case: the whole design of this module is that the numbers do not depend
+ * on whether the model answered, and a test that only holds in one of the two
+ * states is not testing that design — it is testing which state we happen to be
+ * in today.
  */
 
 const row = (id: string, minutes: number, quantity: number, text: string, remarks: string | null = null): SourceRow => ({
@@ -152,6 +162,25 @@ describe("a malformed reply is refused, never repaired", () => {
   });
 });
 
+describe("what is sent to the provider", () => {
+  test("the day's lines go, and nothing that says whose they are", () => {
+    const instruction = buildInstruction(DAY);
+    expect(instruction).toContain("took two live classes on binary trees");
+    // Opaque ids, so the reply can be matched back without the request ever
+    // carrying a name, an employee number or a university.
+    expect(instruction).toContain("id=a1");
+    for (const field of ["instructorName", "employeeCode", "universityId", "@"]) {
+      expect(instruction, `${field} must not be sent`).not.toContain(field);
+    }
+  });
+
+  test("the model is told what it must never do, in order", () => {
+    const instruction = buildInstruction(DAY);
+    expect(instruction).toMatch(/EVERY id must appear EXACTLY ONCE/);
+    expect(instruction).toMatch(/NEVER write an id that was not given to you/);
+  });
+});
+
 describe("a summary goes stale when the day changes", () => {
   test("correcting a duration changes the fingerprint", () => {
     const before = fingerprintOf(DAY);
@@ -224,9 +253,12 @@ describe("the report is built without the model", () => {
 
     const day: Summary = res.body.days[DATE];
     expect(day, "the day should have a summary").toBeTruthy();
-    // No provider is configured under test — this is the deterministic path,
-    // which the client requires to work on its own.
-    expect(day.source).toBe("fallback");
+    /* Either reader is a pass. The deterministic one must work on its own — the
+     * client requires the report to survive an outage — and the model one must
+     * produce the same figures. Which of them answered is a fact about the
+     * provider this minute, not about this code. */
+    expect(["ai", "fallback"]).toContain(day.source);
+    expect(day.deliverables.length, "one line per kind of work").toBeGreaterThan(0);
   });
 
   test("every activity's time is accounted for", async () => {

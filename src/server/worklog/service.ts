@@ -35,6 +35,11 @@ import { logActivity } from "@/server/activities/logger";
 import { createNotification } from "@/server/notifications/service";
 import { loadTaxonomy } from "@/server/worklog/taxonomy";
 import { parseBullets, type ParsedBullet } from "@/server/worklog/parse";
+import {
+  MAX_NARRATIVE_CHARS,
+  parseNarrative,
+  type NarrativeWarning,
+} from "@/server/worklog/narrative";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { verifyEntry } from "@/server/worklog/window";
 
@@ -91,31 +96,63 @@ export type SubmissionRow = {
 
 /* ── Step 1: save the text ────────────────────────────────────────────────── */
 
-export async function submitWorklog(input: {
+export type SubmitWorklogInput = {
   instructorId: string;
   universityId: string;
   /** YYYY-MM-DD in the university's zone. */
   workDate: string;
-  bullets: string[];
   /** Injectable so a test can control the clock the rules are checked against. */
   now?: Date;
-}): Promise<SubmissionRow> {
+} & (
+  | { bullets: string[]; narrative?: undefined }
+  /**
+   * The whole day in one piece, in the instructor's own words. The activities
+   * inside it are found when it is read — see `narrative.ts` — rather than by
+   * splitting it here on a delimiter, because the comma that separates two
+   * activities and the comma inside one of them are the same character.
+   */
+  | { narrative: string; bullets?: undefined }
+);
+
+export async function submitWorklog(input: SubmitWorklogInput): Promise<SubmissionRow> {
+  /* Both shapes become a list of raw texts, and the mode records which one it
+   * was. Stored rather than inferred: the read happens in the background, long
+   * after this request has answered, and a paragraph read as a bullet is one
+   * activity where there were five. */
+  const narrative = input.narrative?.trim();
+  const mode = narrative !== undefined ? "NARRATIVE" : "BULLETS";
+
   // Blank lines are what pressing Enter leaves behind. They are not activities
   // and were never meant to be submitted as empty ones.
-  const bullets = input.bullets.map((b) => b.trim()).filter((b) => b !== "");
+  const bullets =
+    narrative !== undefined
+      ? narrative === ""
+        ? []
+        : [narrative]
+      : (input.bullets ?? []).map((b) => b.trim()).filter((b) => b !== "");
 
   if (bullets.length === 0) {
     throw new ApiError(400, "EMPTY_WORKLOG", "Write at least one activity before submitting.");
   }
-  if (bullets.length > MAX_BULLETS) {
-    throw new ApiError(400, "TOO_MANY_BULLETS", `A day may have at most ${MAX_BULLETS} activities.`);
-  }
-  if (bullets.some((b) => b.length > MAX_BULLET_CHARS)) {
-    throw new ApiError(
-      400,
-      "BULLET_TOO_LONG",
-      `Each activity must be under ${MAX_BULLET_CHARS} characters.`,
-    );
+  if (mode === "NARRATIVE") {
+    if (bullets[0]!.length > MAX_NARRATIVE_CHARS) {
+      throw new ApiError(
+        400,
+        "WORKLOG_TOO_LONG",
+        `A day's worklog must be under ${MAX_NARRATIVE_CHARS} characters.`,
+      );
+    }
+  } else {
+    if (bullets.length > MAX_BULLETS) {
+      throw new ApiError(400, "TOO_MANY_BULLETS", `A day may have at most ${MAX_BULLETS} activities.`);
+    }
+    if (bullets.some((b) => b.length > MAX_BULLET_CHARS)) {
+      throw new ApiError(
+        400,
+        "BULLET_TOO_LONG",
+        `Each activity must be under ${MAX_BULLET_CHARS} characters.`,
+      );
+    }
   }
 
   // The day is checked BEFORE the row is written: a submission for the wrong
@@ -201,6 +238,7 @@ export async function submitWorklog(input: {
         universityId: input.universityId,
         workDate,
         rawBullets: bullets,
+        inputMode: mode,
         status: "PENDING",
       },
       select: { id: true, status: true, workDate: true },
@@ -256,6 +294,7 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
       universityId: true,
       workDate: true,
       rawBullets: true,
+      inputMode: true,
       submittedAt: true,
       supersededAt: true,
       instructor: { select: { userId: true } },
@@ -282,13 +321,49 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
     : [];
   const workDate = submission.workDate.toISOString().slice(0, 10);
 
+  /* Visibly running, rather than invisibly abandoned.
+   *
+   * PENDING and PROCESSING answer different questions — "queued" and "being
+   * read" — and the screen says different things for each. It also survives a
+   * restart, which the in-process in-flight set cannot: a submission left
+   * PROCESSING by a killed process is one somebody can see is stuck.
+   *
+   * Best-effort. Failing to mark a parse as started is not a reason to refuse
+   * to start it. */
+  await prisma.worklogSubmission
+    .update({ where: { id: submissionId }, data: { status: "PROCESSING" } })
+    .catch(() => {});
+
   try {
     const taxonomy = await loadTaxonomy();
 
-    let parsed = await parseBullets(bullets, taxonomy);
+    /* A paragraph and a list of lines are read by different modules, and the
+     * difference is exactly one rule: whether one piece of text may hold more
+     * than one activity. Everything after this point — the window verdict, the
+     * writes, the rejections, the notifications — is the same for both, which is
+     * the point of returning the same shape. */
+    const readDay = async () => {
+      if (submission.inputMode !== "NARRATIVE") {
+        const result = await parseBullets(bullets, taxonomy);
+        return result.ok
+          ? { ok: true as const, bullets: result.bullets, warnings: [] as NarrativeWarning[], dropped: [] }
+          : result;
+      }
+      const result = await parseNarrative(bullets.join("\n"), taxonomy);
+      return result.ok
+        ? {
+            ok: true as const,
+            bullets: result.bullets,
+            warnings: result.warnings,
+            dropped: result.dropped ?? [],
+          }
+        : result;
+    };
+
+    let parsed = await readDay();
     for (let attempt = 1; !parsed.ok && attempt < PARSE_ATTEMPTS; attempt++) {
       await new Promise((r) => setTimeout(r, RETRY_BASE_MS * attempt));
-      parsed = await parseBullets(bullets, taxonomy);
+      parsed = await readDay();
     }
 
     if (!parsed.ok) {
@@ -309,6 +384,8 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
             "Your worklog was saved, but it could not be read automatically just yet. " +
             "Your text is safe — try parsing it again in a few minutes.",
           rejections: [],
+          needsReview: false,
+          reviewNotes: [],
         },
       });
       await notifyInstructor(submission.instructor.userId, submission.universityId, workDate, false);
@@ -347,6 +424,9 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
           parseError: null,
           approval: "PENDING",
           exceptionReason: verdict.reason,
+          // Nothing has been recorded yet, so there is nothing to review.
+          needsReview: false,
+          reviewNotes: [],
           // Nothing was attempted, so nothing was refused. A stale list from an
           // earlier attempt would read as "these lines failed" when they have
           // not yet been tried.
@@ -369,6 +449,19 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
       taxonomy,
     );
 
+    /* A span that failed provenance produced no activity, which is exactly what
+     * a rejection is — so it travels with the others rather than in a channel of
+     * its own. Its index sits past the written ones, since it never had a
+     * position among them. */
+    const rejected = [
+      ...outcome.rejected,
+      ...parsed.dropped.map((d, i) => ({
+        index: parsed.bullets.length + i,
+        rawText: d.rawText,
+        reason: d.reason,
+      })),
+    ];
+
     await prisma.worklogSubmission.update({
       where: { id: submissionId },
       data: {
@@ -377,7 +470,13 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
         parseError: null,
         // Written in full, including the empty case: a re-parse that succeeds
         // has to clear what the previous attempt refused.
-        rejections: outcome.rejected,
+        rejections: rejected,
+        /* "Organised, but please look at it." Rewritten every time for the same
+         * reason: a re-read that comes back clean has to clear the last one's
+         * warnings, or the day carries a complaint about a problem it no longer
+         * has. */
+        needsReview: parsed.warnings.length > 0,
+        reviewNotes: parsed.warnings,
       },
     });
     await notifyInstructor(submission.instructor.userId, submission.universityId, workDate, true);
@@ -386,22 +485,39 @@ async function runParseInner(submissionId: string): Promise<ParseOutcome | null>
     // This is the only place these reasons are delivered: the review view shows
     // the day as it was recorded, and what did NOT get recorded is exactly the
     // thing a person needs to be told rather than left to notice.
-    if (outcome.rejected.length > 0) {
+    if (rejected.length > 0) {
       await createNotification({
         userId: submission.instructor.userId,
         universityId: submission.universityId,
         type: "WORKLOG_NOT_RECORDED",
         title:
-          outcome.rejected.length === 1
+          rejected.length === 1
             ? "One line of your worklog was not recorded."
-            : `${outcome.rejected.length} lines of your worklog were not recorded.`,
+            : `${rejected.length} lines of your worklog were not recorded.`,
         message:
           `Nothing was invented for them. Your words are kept — write them again for ${workDate} ` +
           `with the correction each one asks for.\n\n` +
-          outcome.rejected.map((r) => `“${r.rawText}” — ${r.reason}`).join("\n"),
+          rejected.map((r) => `“${r.rawText}” — ${r.reason}`).join("\n"),
         // Keyed on the submission, so re-reading the same one replaces its
         // message instead of stacking a second copy beside it.
         dedupeKey: `worklog-unrecorded:${submission.id}`,
+      }).catch(() => {});
+    }
+
+    /* A warning is not a refusal — the day IS recorded — so it gets its own
+     * message rather than borrowing the one above, which tells people their work
+     * was lost. It still goes to the bell: an instructor who closed the tab
+     * before the read finished has no other way to learn the day wants a look. */
+    if (parsed.warnings.length > 0) {
+      await createNotification({
+        userId: submission.instructor.userId,
+        universityId: submission.universityId,
+        type: "WORKLOG_NEEDS_REVIEW",
+        title: "Your worklog was organised, but please check it.",
+        message:
+          `${workDate} was recorded. Some details need your eye before it is final.\n\n` +
+          parsed.warnings.map((w) => w.message).join("\n"),
+        dedupeKey: `worklog-review:${submission.id}`,
       }).catch(() => {});
     }
 
@@ -617,6 +733,7 @@ export async function decideSubmission(input: {
       universityId: true,
       workDate: true,
       rawBullets: true,
+      inputMode: true,
       approval: true,
       supersededAt: true,
       instructor: { select: { userId: true } },
@@ -670,7 +787,18 @@ export async function decideSubmission(input: {
   // passed, and the taxonomy is the authority at the moment of writing.
   const taxonomy = await loadTaxonomy();
   const bullets = Array.isArray(submission.rawBullets) ? (submission.rawBullets as string[]) : [];
-  const parsed = await parseBullets(bullets, taxonomy);
+  /* Read the way it was written.
+   *
+   * Approval re-reads rather than replaying a stored plan — the taxonomy is the
+   * authority at the moment of writing, and hours may have passed. So it has to
+   * pick the same reader the background parse would have: a paragraph put
+   * through `parseBullets` comes back as ONE activity, and a manager approving a
+   * five-activity day would have written a single row covering the first
+   * clock range in it. */
+  const parsed =
+    submission.inputMode === "NARRATIVE"
+      ? await parseNarrative(bullets.join("\n"), taxonomy)
+      : await parseBullets(bullets, taxonomy);
   if (!parsed.ok) {
     throw new ApiError(
       503,

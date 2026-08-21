@@ -551,11 +551,20 @@ export type WorklogExceptionReason = (typeof WorklogExceptionReason)[keyof typeo
 
 export const WorklogParseStatus: {
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   PARSED: 'PARSED',
   FAILED: 'FAILED'
 };
 
 export type WorklogParseStatus = (typeof WorklogParseStatus)[keyof typeof WorklogParseStatus]
+
+
+export const WorklogInputMode: {
+  BULLETS: 'BULLETS',
+  NARRATIVE: 'NARRATIVE'
+};
+
+export type WorklogInputMode = (typeof WorklogInputMode)[keyof typeof WorklogInputMode]
 
 }
 
@@ -650,6 +659,10 @@ export const WorklogExceptionReason: typeof $Enums.WorklogExceptionReason
 export type WorklogParseStatus = $Enums.WorklogParseStatus
 
 export const WorklogParseStatus: typeof $Enums.WorklogParseStatus
+
+export type WorklogInputMode = $Enums.WorklogInputMode
+
+export const WorklogInputMode: typeof $Enums.WorklogInputMode
 
 /**
  * ##  Prisma Client ʲˢ
@@ -49345,6 +49358,7 @@ export namespace Prisma {
     instructorId: string | null
     universityId: string | null
     workDate: Date | null
+    inputMode: $Enums.WorklogInputMode | null
     status: $Enums.WorklogParseStatus | null
     parseError: string | null
     submittedAt: Date | null
@@ -49367,6 +49381,7 @@ export namespace Prisma {
     instructorId: string | null
     universityId: string | null
     workDate: Date | null
+    inputMode: $Enums.WorklogInputMode | null
     status: $Enums.WorklogParseStatus | null
     parseError: string | null
     submittedAt: Date | null
@@ -49390,6 +49405,7 @@ export namespace Prisma {
     universityId: number
     workDate: number
     rawBullets: number
+    inputMode: number
     status: number
     parseError: number
     rejections: number
@@ -49399,6 +49415,7 @@ export namespace Prisma {
     reviewedAt: number
     escalatedAt: number
     needsReview: number
+    reviewNotes: number
     approval: number
     exceptionReason: number
     decidedById: number
@@ -49415,6 +49432,7 @@ export namespace Prisma {
     instructorId?: true
     universityId?: true
     workDate?: true
+    inputMode?: true
     status?: true
     parseError?: true
     submittedAt?: true
@@ -49437,6 +49455,7 @@ export namespace Prisma {
     instructorId?: true
     universityId?: true
     workDate?: true
+    inputMode?: true
     status?: true
     parseError?: true
     submittedAt?: true
@@ -49460,6 +49479,7 @@ export namespace Prisma {
     universityId?: true
     workDate?: true
     rawBullets?: true
+    inputMode?: true
     status?: true
     parseError?: true
     rejections?: true
@@ -49469,6 +49489,7 @@ export namespace Prisma {
     reviewedAt?: true
     escalatedAt?: true
     needsReview?: true
+    reviewNotes?: true
     approval?: true
     exceptionReason?: true
     decidedById?: true
@@ -49557,6 +49578,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date
     rawBullets: JsonValue
+    inputMode: $Enums.WorklogInputMode
     status: $Enums.WorklogParseStatus
     parseError: string | null
     rejections: JsonValue | null
@@ -49566,6 +49588,7 @@ export namespace Prisma {
     reviewedAt: Date | null
     escalatedAt: Date | null
     needsReview: boolean
+    reviewNotes: JsonValue | null
     approval: $Enums.WorklogApproval
     exceptionReason: $Enums.WorklogExceptionReason | null
     decidedById: string | null
@@ -49598,6 +49621,7 @@ export namespace Prisma {
     universityId?: boolean
     workDate?: boolean
     rawBullets?: boolean
+    inputMode?: boolean
     status?: boolean
     parseError?: boolean
     rejections?: boolean
@@ -49607,6 +49631,7 @@ export namespace Prisma {
     reviewedAt?: boolean
     escalatedAt?: boolean
     needsReview?: boolean
+    reviewNotes?: boolean
     approval?: boolean
     exceptionReason?: boolean
     decidedById?: boolean
@@ -49627,6 +49652,7 @@ export namespace Prisma {
     universityId?: boolean
     workDate?: boolean
     rawBullets?: boolean
+    inputMode?: boolean
     status?: boolean
     parseError?: boolean
     rejections?: boolean
@@ -49636,6 +49662,7 @@ export namespace Prisma {
     reviewedAt?: boolean
     escalatedAt?: boolean
     needsReview?: boolean
+    reviewNotes?: boolean
     approval?: boolean
     exceptionReason?: boolean
     decidedById?: boolean
@@ -49654,6 +49681,7 @@ export namespace Prisma {
     universityId?: boolean
     workDate?: boolean
     rawBullets?: boolean
+    inputMode?: boolean
     status?: boolean
     parseError?: boolean
     rejections?: boolean
@@ -49663,6 +49691,7 @@ export namespace Prisma {
     reviewedAt?: boolean
     escalatedAt?: boolean
     needsReview?: boolean
+    reviewNotes?: boolean
     approval?: boolean
     exceptionReason?: boolean
     decidedById?: boolean
@@ -49681,6 +49710,7 @@ export namespace Prisma {
     universityId?: boolean
     workDate?: boolean
     rawBullets?: boolean
+    inputMode?: boolean
     status?: boolean
     parseError?: boolean
     rejections?: boolean
@@ -49690,6 +49720,7 @@ export namespace Prisma {
     reviewedAt?: boolean
     escalatedAt?: boolean
     needsReview?: boolean
+    reviewNotes?: boolean
     approval?: boolean
     exceptionReason?: boolean
     decidedById?: boolean
@@ -49699,7 +49730,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type WorklogSubmissionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "workDate" | "rawBullets" | "status" | "parseError" | "rejections" | "submittedAt" | "parsedAt" | "supersededAt" | "reviewedAt" | "escalatedAt" | "needsReview" | "approval" | "exceptionReason" | "decidedById" | "decidedAt" | "decisionNote" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogSubmission"]>
+  export type WorklogSubmissionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "workDate" | "rawBullets" | "inputMode" | "status" | "parseError" | "rejections" | "submittedAt" | "parsedAt" | "supersededAt" | "reviewedAt" | "escalatedAt" | "needsReview" | "reviewNotes" | "approval" | "exceptionReason" | "decidedById" | "decidedAt" | "decisionNote" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogSubmission"]>
   export type WorklogSubmissionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -49738,6 +49769,12 @@ export namespace Prisma {
        * The bullets, in order, exactly as typed. Never rewritten by parsing.
        */
       rawBullets: Prisma.JsonValue
+      /**
+       * Which reader this submission needs. Persisted rather than inferred: the
+       * read happens in the background, after the request that knew is gone, and a
+       * paragraph read as bullets is one activity instead of five.
+       */
+      inputMode: $Enums.WorklogInputMode
       status: $Enums.WorklogParseStatus
       /**
        * Why parsing failed, in words an instructor can act on. Never a stack trace.
@@ -49787,7 +49824,23 @@ export namespace Prisma {
        * different histories and a manager is entitled to tell them apart.
        */
       escalatedAt: Date | null
+      /**
+       * The read succeeded, but something about it wants the instructor's eye.
+       * 
+       * Distinct from `rejections`, which says a line produced nothing at all, and
+       * from `parseError`, which says the read failed. This is the middle state the
+       * client asked for: the day was organised, and an activity has no times, or
+       * two of them overlap, or the paragraph mentions a clock time that did not
+       * end up against anything. Nothing is wrong with the record — it is complete
+       * and correct as far as it goes — and a person is the only one who can say
+       * whether it goes far enough.
+       */
       needsReview: boolean
+      /**
+       * Why, in words the instructor can act on: `[{ kind, message }]`. Rewritten
+       * in full on every parse, so a re-read that comes back clean clears them.
+       */
+      reviewNotes: Prisma.JsonValue | null
       /**
        * ── Approval ─────────────────────────────────────────────────────────────
        *    * An instructor records their OWN day, inside their university's hours, and
@@ -50246,6 +50299,7 @@ export namespace Prisma {
     readonly universityId: FieldRef<"WorklogSubmission", 'String'>
     readonly workDate: FieldRef<"WorklogSubmission", 'DateTime'>
     readonly rawBullets: FieldRef<"WorklogSubmission", 'Json'>
+    readonly inputMode: FieldRef<"WorklogSubmission", 'WorklogInputMode'>
     readonly status: FieldRef<"WorklogSubmission", 'WorklogParseStatus'>
     readonly parseError: FieldRef<"WorklogSubmission", 'String'>
     readonly rejections: FieldRef<"WorklogSubmission", 'Json'>
@@ -50255,6 +50309,7 @@ export namespace Prisma {
     readonly reviewedAt: FieldRef<"WorklogSubmission", 'DateTime'>
     readonly escalatedAt: FieldRef<"WorklogSubmission", 'DateTime'>
     readonly needsReview: FieldRef<"WorklogSubmission", 'Boolean'>
+    readonly reviewNotes: FieldRef<"WorklogSubmission", 'Json'>
     readonly approval: FieldRef<"WorklogSubmission", 'WorklogApproval'>
     readonly exceptionReason: FieldRef<"WorklogSubmission", 'WorklogExceptionReason'>
     readonly decidedById: FieldRef<"WorklogSubmission", 'String'>
@@ -52518,6 +52573,7 @@ export namespace Prisma {
     universityId: 'universityId',
     workDate: 'workDate',
     rawBullets: 'rawBullets',
+    inputMode: 'inputMode',
     status: 'status',
     parseError: 'parseError',
     rejections: 'rejections',
@@ -52527,6 +52583,7 @@ export namespace Prisma {
     reviewedAt: 'reviewedAt',
     escalatedAt: 'escalatedAt',
     needsReview: 'needsReview',
+    reviewNotes: 'reviewNotes',
     approval: 'approval',
     exceptionReason: 'exceptionReason',
     decidedById: 'decidedById',
@@ -52934,6 +52991,20 @@ export namespace Prisma {
    * Reference to a field of type 'ImportStatus[]'
    */
   export type ListEnumImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ImportStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogInputMode'
+   */
+  export type EnumWorklogInputModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogInputMode'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogInputMode[]'
+   */
+  export type ListEnumWorklogInputModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogInputMode[]'>
     
 
 
@@ -56358,6 +56429,7 @@ export namespace Prisma {
     universityId?: StringFilter<"WorklogSubmission"> | string
     workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
     rawBullets?: JsonFilter<"WorklogSubmission">
+    inputMode?: EnumWorklogInputModeFilter<"WorklogSubmission"> | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
     parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
     rejections?: JsonNullableFilter<"WorklogSubmission">
@@ -56367,6 +56439,7 @@ export namespace Prisma {
     reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    reviewNotes?: JsonNullableFilter<"WorklogSubmission">
     approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
     exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
     decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
@@ -56386,6 +56459,7 @@ export namespace Prisma {
     universityId?: SortOrder
     workDate?: SortOrder
     rawBullets?: SortOrder
+    inputMode?: SortOrder
     status?: SortOrder
     parseError?: SortOrderInput | SortOrder
     rejections?: SortOrderInput | SortOrder
@@ -56395,6 +56469,7 @@ export namespace Prisma {
     reviewedAt?: SortOrderInput | SortOrder
     escalatedAt?: SortOrderInput | SortOrder
     needsReview?: SortOrder
+    reviewNotes?: SortOrderInput | SortOrder
     approval?: SortOrder
     exceptionReason?: SortOrderInput | SortOrder
     decidedById?: SortOrderInput | SortOrder
@@ -56417,6 +56492,7 @@ export namespace Prisma {
     universityId?: StringFilter<"WorklogSubmission"> | string
     workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
     rawBullets?: JsonFilter<"WorklogSubmission">
+    inputMode?: EnumWorklogInputModeFilter<"WorklogSubmission"> | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
     parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
     rejections?: JsonNullableFilter<"WorklogSubmission">
@@ -56426,6 +56502,7 @@ export namespace Prisma {
     reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    reviewNotes?: JsonNullableFilter<"WorklogSubmission">
     approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
     exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
     decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
@@ -56445,6 +56522,7 @@ export namespace Prisma {
     universityId?: SortOrder
     workDate?: SortOrder
     rawBullets?: SortOrder
+    inputMode?: SortOrder
     status?: SortOrder
     parseError?: SortOrderInput | SortOrder
     rejections?: SortOrderInput | SortOrder
@@ -56454,6 +56532,7 @@ export namespace Prisma {
     reviewedAt?: SortOrderInput | SortOrder
     escalatedAt?: SortOrderInput | SortOrder
     needsReview?: SortOrder
+    reviewNotes?: SortOrderInput | SortOrder
     approval?: SortOrder
     exceptionReason?: SortOrderInput | SortOrder
     decidedById?: SortOrderInput | SortOrder
@@ -56475,6 +56554,7 @@ export namespace Prisma {
     universityId?: StringWithAggregatesFilter<"WorklogSubmission"> | string
     workDate?: DateTimeWithAggregatesFilter<"WorklogSubmission"> | Date | string
     rawBullets?: JsonWithAggregatesFilter<"WorklogSubmission">
+    inputMode?: EnumWorklogInputModeWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
     parseError?: StringNullableWithAggregatesFilter<"WorklogSubmission"> | string | null
     rejections?: JsonNullableWithAggregatesFilter<"WorklogSubmission">
@@ -56484,6 +56564,7 @@ export namespace Prisma {
     reviewedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
     escalatedAt?: DateTimeNullableWithAggregatesFilter<"WorklogSubmission"> | Date | string | null
     needsReview?: BoolWithAggregatesFilter<"WorklogSubmission"> | boolean
+    reviewNotes?: JsonNullableWithAggregatesFilter<"WorklogSubmission">
     approval?: EnumWorklogApprovalWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogApproval
     exceptionReason?: EnumWorklogExceptionReasonNullableWithAggregatesFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
     decidedById?: StringNullableWithAggregatesFilter<"WorklogSubmission"> | string | null
@@ -60253,6 +60334,7 @@ export namespace Prisma {
     id?: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60262,6 +60344,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -60280,6 +60363,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60289,6 +60373,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -60303,6 +60388,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60312,6 +60398,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -60330,6 +60417,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60339,6 +60427,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -60355,6 +60444,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60364,6 +60454,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -60377,6 +60468,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60386,6 +60478,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -60400,6 +60493,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -60409,6 +60503,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -63341,6 +63436,13 @@ export namespace Prisma {
     sortOrder?: SortOrder
   }
 
+  export type EnumWorklogInputModeFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogInputMode | EnumWorklogInputModeFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogInputModeFilter<$PrismaModel> | $Enums.WorklogInputMode
+  }
+
   export type EnumWorklogParseStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
     in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
@@ -63368,6 +63470,7 @@ export namespace Prisma {
     universityId?: SortOrder
     workDate?: SortOrder
     rawBullets?: SortOrder
+    inputMode?: SortOrder
     status?: SortOrder
     parseError?: SortOrder
     rejections?: SortOrder
@@ -63377,6 +63480,7 @@ export namespace Prisma {
     reviewedAt?: SortOrder
     escalatedAt?: SortOrder
     needsReview?: SortOrder
+    reviewNotes?: SortOrder
     approval?: SortOrder
     exceptionReason?: SortOrder
     decidedById?: SortOrder
@@ -63391,6 +63495,7 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     workDate?: SortOrder
+    inputMode?: SortOrder
     status?: SortOrder
     parseError?: SortOrder
     submittedAt?: SortOrder
@@ -63413,6 +63518,7 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     workDate?: SortOrder
+    inputMode?: SortOrder
     status?: SortOrder
     parseError?: SortOrder
     submittedAt?: SortOrder
@@ -63428,6 +63534,16 @@ export namespace Prisma {
     decisionNote?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type EnumWorklogInputModeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogInputMode | EnumWorklogInputModeFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogInputModeWithAggregatesFilter<$PrismaModel> | $Enums.WorklogInputMode
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogInputModeFilter<$PrismaModel>
+    _max?: NestedEnumWorklogInputModeFilter<$PrismaModel>
   }
 
   export type EnumWorklogParseStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -67766,6 +67882,10 @@ export namespace Prisma {
     connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
   }
 
+  export type EnumWorklogInputModeFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogInputMode
+  }
+
   export type EnumWorklogParseStatusFieldUpdateOperationsInput = {
     set?: $Enums.WorklogParseStatus
   }
@@ -68445,6 +68565,13 @@ export namespace Prisma {
     _max?: NestedEnumImportStatusFilter<$PrismaModel>
   }
 
+  export type NestedEnumWorklogInputModeFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogInputMode | EnumWorklogInputModeFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogInputModeFilter<$PrismaModel> | $Enums.WorklogInputMode
+  }
+
   export type NestedEnumWorklogParseStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.WorklogParseStatus | EnumWorklogParseStatusFieldRefInput<$PrismaModel>
     in?: $Enums.WorklogParseStatus[] | ListEnumWorklogParseStatusFieldRefInput<$PrismaModel>
@@ -68464,6 +68591,16 @@ export namespace Prisma {
     in?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
     notIn?: $Enums.WorklogExceptionReason[] | ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> | null
     not?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel> | $Enums.WorklogExceptionReason | null
+  }
+
+  export type NestedEnumWorklogInputModeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogInputMode | EnumWorklogInputModeFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogInputMode[] | ListEnumWorklogInputModeFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogInputModeWithAggregatesFilter<$PrismaModel> | $Enums.WorklogInputMode
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogInputModeFilter<$PrismaModel>
+    _max?: NestedEnumWorklogInputModeFilter<$PrismaModel>
   }
 
   export type NestedEnumWorklogParseStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -68871,6 +69008,7 @@ export namespace Prisma {
     id?: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -68880,6 +69018,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -68897,6 +69036,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -68906,6 +69046,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -69421,6 +69562,7 @@ export namespace Prisma {
     universityId?: StringFilter<"WorklogSubmission"> | string
     workDate?: DateTimeFilter<"WorklogSubmission"> | Date | string
     rawBullets?: JsonFilter<"WorklogSubmission">
+    inputMode?: EnumWorklogInputModeFilter<"WorklogSubmission"> | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFilter<"WorklogSubmission"> | $Enums.WorklogParseStatus
     parseError?: StringNullableFilter<"WorklogSubmission"> | string | null
     rejections?: JsonNullableFilter<"WorklogSubmission">
@@ -69430,6 +69572,7 @@ export namespace Prisma {
     reviewedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     escalatedAt?: DateTimeNullableFilter<"WorklogSubmission"> | Date | string | null
     needsReview?: BoolFilter<"WorklogSubmission"> | boolean
+    reviewNotes?: JsonNullableFilter<"WorklogSubmission">
     approval?: EnumWorklogApprovalFilter<"WorklogSubmission"> | $Enums.WorklogApproval
     exceptionReason?: EnumWorklogExceptionReasonNullableFilter<"WorklogSubmission"> | $Enums.WorklogExceptionReason | null
     decidedById?: StringNullableFilter<"WorklogSubmission"> | string | null
@@ -69965,6 +70108,7 @@ export namespace Prisma {
     id?: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -69974,6 +70118,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -69990,6 +70135,7 @@ export namespace Prisma {
     instructorId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -69999,6 +70145,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -73617,6 +73764,7 @@ export namespace Prisma {
     id?: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -73626,6 +73774,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -73642,6 +73791,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -73651,6 +73801,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -75207,6 +75358,7 @@ export namespace Prisma {
     id?: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -75216,6 +75368,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -75233,6 +75386,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -75242,6 +75396,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -75697,6 +75852,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -75706,6 +75862,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -75723,6 +75880,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -75732,6 +75890,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -84205,6 +84364,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -84214,6 +84374,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedAt?: Date | string | null
@@ -84475,6 +84636,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -84484,6 +84646,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -84501,6 +84664,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -84510,6 +84674,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -84525,6 +84690,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -84534,6 +84700,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -84797,6 +84964,7 @@ export namespace Prisma {
     instructorId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -84806,6 +84974,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -85484,6 +85653,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -85493,6 +85663,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -85509,6 +85680,7 @@ export namespace Prisma {
     instructorId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -85518,6 +85690,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -85533,6 +85706,7 @@ export namespace Prisma {
     instructorId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -85542,6 +85716,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -86723,6 +86898,7 @@ export namespace Prisma {
     universityId: string
     workDate: Date | string
     rawBullets: JsonNullValueInput | InputJsonValue
+    inputMode?: $Enums.WorklogInputMode
     status?: $Enums.WorklogParseStatus
     parseError?: string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -86732,6 +86908,7 @@ export namespace Prisma {
     reviewedAt?: Date | string | null
     escalatedAt?: Date | string | null
     needsReview?: boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: $Enums.WorklogApproval
     exceptionReason?: $Enums.WorklogExceptionReason | null
     decidedById?: string | null
@@ -87305,6 +87482,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -87314,6 +87492,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -87330,6 +87509,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -87339,6 +87519,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87354,6 +87535,7 @@ export namespace Prisma {
     universityId?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     rawBullets?: JsonNullValueInput | InputJsonValue
+    inputMode?: EnumWorklogInputModeFieldUpdateOperationsInput | $Enums.WorklogInputMode
     status?: EnumWorklogParseStatusFieldUpdateOperationsInput | $Enums.WorklogParseStatus
     parseError?: NullableStringFieldUpdateOperationsInput | string | null
     rejections?: NullableJsonNullValueInput | InputJsonValue
@@ -87363,6 +87545,7 @@ export namespace Prisma {
     reviewedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     escalatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     needsReview?: BoolFieldUpdateOperationsInput | boolean
+    reviewNotes?: NullableJsonNullValueInput | InputJsonValue
     approval?: EnumWorklogApprovalFieldUpdateOperationsInput | $Enums.WorklogApproval
     exceptionReason?: NullableEnumWorklogExceptionReasonFieldUpdateOperationsInput | $Enums.WorklogExceptionReason | null
     decidedById?: NullableStringFieldUpdateOperationsInput | string | null

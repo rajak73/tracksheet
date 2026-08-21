@@ -50,9 +50,48 @@ const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
  * `GEMINI_MODEL` still pins one model when a specific one is wanted; setting it
  * disables the fallbacks, because the point of pinning is to get that model.
  */
-const MODEL_CHAIN: string[] = process.env.GEMINI_MODEL
-  ? [process.env.GEMINI_MODEL]
-  : ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3.1-flash-lite"];
+/**
+ * ── Thinking is charged to the ANSWER's budget ────────────────────────────
+ * Measured against this account, not inferred: `gemini-3.6-flash` asked for
+ * `{"ok": true}` with `maxOutputTokens: 64` spends 60 tokens thinking, hits
+ * MAX_TOKENS, and returns `"content": {}` — no text at all. Every caller here
+ * reads that as "malformed or empty response" and falls back, so the whole AI
+ * layer degrades to deterministic text while the provider returns HTTP 200 and
+ * the key is perfectly valid. It is the quietest possible failure: nothing is
+ * logged, nothing errors, the feature is simply never on.
+ *
+ * `thinkingLevel: "low"` is the fix, and it is not only a correctness fix —
+ * the same call goes from 16.8s to 1.5s. These are extraction and
+ * classification jobs against a closed list; they do not need a model to
+ * deliberate, and paying for deliberation in the budget reserved for the answer
+ * is how the answer goes missing.
+ *
+ * It is per model because the right setting is not the same for all of them.
+ * `gemini-3.1-flash-lite` does not think by default (measured: 0 thought
+ * tokens), and SENDING the flag made it start — 24s and a truncated reply. So
+ * the flag goes where it helps and nowhere else. `thinkingBudget: 0`, the other
+ * spelling, is rejected outright by 3.6-flash with a 400.
+ */
+export type ChainEntry = { model: string; thinkingLevel?: "low" | "medium" | "high" };
+
+/** The chain as it will actually be tried. Exported so a test can read it. */
+export const MODEL_CHAIN: ChainEntry[] = process.env.GEMINI_MODEL
+  ? [
+      {
+        model: process.env.GEMINI_MODEL,
+        // Current models think by default and a pinned one is most likely one of
+        // them, so the safe default is the one that leaves room for an answer.
+        // `GEMINI_THINKING_LEVEL=off` is the way out for a model that does not.
+        ...(process.env.GEMINI_THINKING_LEVEL === "off"
+          ? {}
+          : { thinkingLevel: (process.env.GEMINI_THINKING_LEVEL ?? "low") as "low" }),
+      },
+    ]
+  : [
+      { model: "gemini-flash-latest", thinkingLevel: "low" },
+      { model: "gemini-3.6-flash", thinkingLevel: "low" },
+      { model: "gemini-3.1-flash-lite" },
+    ];
 
 /** Statuses that mean "this model is busy", not "this request is wrong". */
 const CAPACITY_STATUSES = new Set([429, 503]);
@@ -110,7 +149,11 @@ export function buildGeminiRequest(condition: AnomalyCondition) {
     generationConfig: {
       // Low temperature: this is phrasing, not creativity.
       temperature: 0.2,
-      maxOutputTokens: 300,
+      /* Headroom, not appetite. Two sentences need nowhere near this; the
+       * budget also has to cover any thinking the model does before writing
+       * them, and a budget spent thinking returns no text at all. See the note
+       * on the model chain. */
+      maxOutputTokens: 800,
       responseMimeType: "application/json",
     },
   };
@@ -163,11 +206,16 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
    */
   const deadline = Date.now() + timeoutMs;
 
-  for (const model of MODEL_CHAIN) {
+  for (const entry of MODEL_CHAIN) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return last;
 
-    last = await attempt(`${baseUrl}/models/${model}:generateContent`, apiKey, body, remaining);
+    last = await attempt(
+      `${baseUrl}/models/${entry.model}:generateContent`,
+      apiKey,
+      requestFor(entry, body),
+      remaining,
+    );
     if (last.ok) return last;
     // Anything that is not a capacity problem will fail the same way on the
     // next model, so stop rather than spending the caller's time on it.
@@ -226,11 +274,65 @@ async function attempt(
   }
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * The exact bytes sent for one model, given what the caller built.
+ *
+ * ── Why this is a named, exported function ────────────────────────────────
+ * The thinking setting belongs to the MODEL and the rest of the payload belongs
+ * to the caller, so something has to join them, and joining them inline inside
+ * the request loop would mean the sent payload was no longer anything you could
+ * read in one place — `buildGeminiRequest` would return one thing and the socket
+ * would carry another. A test in this repo asserts precisely that they match,
+ * and it was right to.
+ *
+ * So the composition is a pure function of (model, built body), and that is
+ * what the test compares against. The property it protects — nothing is added
+ * to a request except by code you can point at — survives intact.
+ *
+ * A caller that set its own `thinkingConfig` keeps it: the spread puts the
+ * caller's `generationConfig` last.
+ */
+export function requestFor(entry: ChainEntry, body: unknown): unknown {
+  if (!entry.thinkingLevel || !isObject(body) || !isObject(body.generationConfig)) return body;
+  return {
+    ...body,
+    generationConfig: {
+      thinkingConfig: { thinkingLevel: entry.thinkingLevel },
+      ...body.generationConfig,
+    },
+  };
+}
+
 /** Pulls the candidate text out of a provider response, or null. */
 function candidateText(body: unknown): string | null {
   const text = (body as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
     ?.candidates?.[0]?.content?.parts?.[0]?.text;
   return typeof text === "string" && text.trim() !== "" ? text : null;
+}
+
+/**
+ * Why a 200 carried no text, in words that name the actual cause.
+ *
+ * "malformed or empty response" covered two completely different situations and
+ * hid the more likely one for months: a model that spends its whole output
+ * budget thinking returns `"content": {}` with `finishReason: MAX_TOKENS`, which
+ * is not malformed at all — it is a budget that was too small. Reading that as
+ * "the model gave a bad answer" sends you looking at prompts and keys, and the
+ * fix is a number.
+ */
+function emptyReason(body: unknown): string {
+  const candidate = (body as { candidates?: Array<{ finishReason?: string }> })?.candidates?.[0];
+  const finish = candidate?.finishReason;
+  if (finish === "MAX_TOKENS") {
+    return "the model used its whole output budget before answering (raise maxOutputTokens, or lower thinkingLevel)";
+  }
+  if (finish === "SAFETY" || finish === "PROHIBITED_CONTENT") {
+    return `the provider withheld the response (${finish})`;
+  }
+  return finish ? `no text in the response (${finish})` : "malformed or empty response";
 }
 
 function parseCandidate(body: unknown): { summary: string; recommendation: string } | null {
@@ -255,7 +357,7 @@ export async function generateNarration(condition: AnomalyCondition): Promise<Ge
   if (!outcome.ok) return outcome;
 
   const parsed = parseCandidate(outcome.body);
-  if (!parsed) return { ok: false, reason: "malformed or empty response" };
+  if (!parsed) return { ok: false, reason: emptyReason(outcome.body) };
 
   return { ok: true, ...parsed };
 }
@@ -303,7 +405,7 @@ export async function generateStructured(
         // Bounded output so a runaway response cannot cost more than the
         // answer is worth.
         temperature: 0.2,
-        maxOutputTokens: opts.maxOutputTokens ?? 700,
+        maxOutputTokens: opts.maxOutputTokens ?? 1_200,
         responseMimeType: "application/json",
       },
     },
@@ -312,6 +414,6 @@ export async function generateStructured(
   if (!outcome.ok) return outcome;
 
   const text = candidateText(outcome.body);
-  if (text === null) return { ok: false, reason: "malformed or empty response" };
+  if (text === null) return { ok: false, reason: emptyReason(outcome.body) };
   return { ok: true, text };
 }

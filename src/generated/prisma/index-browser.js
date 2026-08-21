@@ -618,6 +618,7 @@ exports.Prisma.WorklogSubmissionScalarFieldEnum = {
   universityId: 'universityId',
   workDate: 'workDate',
   rawBullets: 'rawBullets',
+  inputMode: 'inputMode',
   status: 'status',
   parseError: 'parseError',
   rejections: 'rejections',
@@ -627,6 +628,7 @@ exports.Prisma.WorklogSubmissionScalarFieldEnum = {
   reviewedAt: 'reviewedAt',
   escalatedAt: 'escalatedAt',
   needsReview: 'needsReview',
+  reviewNotes: 'reviewNotes',
   approval: 'approval',
   exceptionReason: 'exceptionReason',
   decidedById: 'decidedById',
@@ -800,8 +802,14 @@ exports.ImportStatus = exports.$Enums.ImportStatus = {
   FAILED: 'FAILED'
 };
 
+exports.WorklogInputMode = exports.$Enums.WorklogInputMode = {
+  BULLETS: 'BULLETS',
+  NARRATIVE: 'NARRATIVE'
+};
+
 exports.WorklogParseStatus = exports.$Enums.WorklogParseStatus = {
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   PARSED: 'PARSED',
   FAILED: 'FAILED'
 };

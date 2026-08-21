@@ -31,30 +31,45 @@ import { submitWorklog } from "@/server/worklog/service";
  * write routes (`worklog/notes`, `activities/[activityId]`).
  */
 
-const SubmitWorklog = z.object({
-  /** YYYY-MM-DD in the university's zone. */
-  workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  /* Shape only. The COUNT and LENGTH limits are deliberately not repeated here,
-   * even though this file imports them.
-   *
-   * zod runs before the try/catch below, so a rejection here returns a bare 400
-   * and nothing else. `submitWorklog` enforces the same two limits — and the
-   * empty case — with messages written for the instructor
-   * ("A day may have at most 40 activities."), and because it throws from
-   * inside that try, `reportSubmitFailure` puts them in the notification list.
-   *
-   * That is the only place they land: the instructor's page deliberately has no
-   * error panel, so a refusal that never becomes a notification is a submission
-   * that silently did nothing. Validating twice meant the stricter copy always
-   * won and the copy that could explain itself was unreachable.
-   *
-   * Nothing is lost by dropping them here — `req.json()` has already
-   * materialised the body by the time zod sees it, so these were never a
-   * defence against a large payload. The service also trims blank lines before
-   * counting, which zod cannot do: `["", " "]` is an empty worklog and only
-   * `submitWorklog` knows it. */
-  bullets: z.array(z.string()),
-});
+/* Shape only. The COUNT and LENGTH limits are deliberately not repeated here,
+ * even though this file imports them.
+ *
+ * zod runs before the try/catch below, so a rejection here returns a bare 400
+ * and nothing else. `submitWorklog` enforces the same limits — and the empty
+ * case — with messages written for the instructor ("A day may have at most 40
+ * activities."), and because it throws from inside that try,
+ * `reportSubmitFailure` puts them in the notification list.
+ *
+ * That is the only place they land: the instructor's page deliberately has no
+ * error panel, so a refusal that never becomes a notification is a submission
+ * that silently did nothing. Validating twice meant the stricter copy always won
+ * and the copy that could explain itself was unreachable.
+ *
+ * Nothing is lost by dropping them here — `req.json()` has already materialised
+ * the body by the time zod sees it, so these were never a defence against a
+ * large payload. The service also trims blank lines before counting, which zod
+ * cannot do: `["", " "]` is an empty worklog and only `submitWorklog` knows it.
+ */
+const SubmitWorklog = z
+  .object({
+    /** YYYY-MM-DD in the university's zone. */
+    workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    /** One line per activity, already separated by whoever typed it. */
+    bullets: z.array(z.string()).optional(),
+    /**
+     * The whole day in one piece, in the instructor's own words. Finding the
+     * activities inside it is the reader's job rather than a delimiter's — see
+     * `narrative.ts` for why splitting on punctuation is a different and wrong
+     * answer rather than a cheaper one.
+     */
+    text: z.string().optional(),
+  })
+  /* Exactly one. Refused here rather than settled by a precedence rule, because
+   * a request carrying both is a caller that does not know which day it is
+   * submitting, and picking one for them records something nobody asked for. */
+  .refine((body) => (body.bullets === undefined) !== (body.text === undefined), {
+    message: "Provide either `bullets` or `text`, and not both.",
+  });
 
 /** One place the refusal reasons become something an instructor can re-read. */
 async function reportSubmitFailure(
@@ -120,7 +135,13 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
       instructorId: instructor.id,
       universityId: instructor.universityId,
       workDate: input.workDate,
-      bullets: input.bullets,
+      /* `refine` above guarantees exactly one of these is present, but it does
+       * not narrow the type — so the fallback is written out. It is unreachable,
+       * and if it ever were reached `submitWorklog` refuses an empty day with a
+       * message an instructor can read. */
+      ...(input.text !== undefined
+        ? { narrative: input.text }
+        : { bullets: input.bullets ?? [] }),
     });
   } catch (error) {
     // `submitWorklog` already reports the wrong-day refusal itself, with the
@@ -188,7 +209,9 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
       status: true,
       parseError: true,
       rejections: true,
+      reviewNotes: true,
       rawBullets: true,
+      inputMode: true,
       submittedAt: true,
       parsedAt: true,
       reviewedAt: true,
@@ -219,6 +242,25 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     submissions: submissions.map((s) => ({
       ...s,
       rawBullets: Array.isArray(s.rawBullets) ? (s.rawBullets as string[]) : [],
+      /* The state the screen speaks in, DERIVED here rather than stored.
+       *
+       * "Needs review" is not a fourth thing a submission can be instead of
+       * parsed — it is a parsed submission with something worth looking at. A
+       * column holding it would be a second answer to a question `needsReview`
+       * already answers, and the two would eventually disagree. One value is
+       * computed from the other, in one place, so they cannot. */
+      processingState: processingStateOf(s),
     })),
   });
 });
+
+/** PENDING · PROCESSING · COMPLETED · REVIEW_REQUIRED · FAILED. */
+function processingStateOf(submission: {
+  status: string;
+  needsReview: boolean;
+}): "PENDING" | "PROCESSING" | "COMPLETED" | "REVIEW_REQUIRED" | "FAILED" {
+  if (submission.status === "FAILED") return "FAILED";
+  if (submission.status === "PENDING") return "PENDING";
+  if (submission.status === "PROCESSING") return "PROCESSING";
+  return submission.needsReview ? "REVIEW_REQUIRED" : "COMPLETED";
+}

@@ -3,7 +3,13 @@ import { writeFileSync } from "node:fs";
 import { artifactPath } from "./helpers/artifact";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { AnomalyCondition } from "../src/server/ai/anomalies";
-import { buildGeminiRequest, generateNarration, SUBJECT_TOKEN } from "../src/server/ai/gemini";
+import {
+  buildGeminiRequest,
+  generateNarration,
+  MODEL_CHAIN,
+  requestFor,
+  SUBJECT_TOKEN,
+} from "../src/server/ai/gemini";
 import { narrateCondition, narrateConditionDeterministic } from "../src/server/ai/narrate";
 
 /**
@@ -153,7 +159,30 @@ describe("what actually goes over the wire", () => {
     mode = "ok";
     const c = condition();
     await generateNarration(c);
-    expect(captured[0].body).toEqual(buildGeminiRequest(c));
+
+    /* One model-specific thing is added on the way out — the thinking level,
+     * which belongs to the model rather than to the caller and so cannot be
+     * known by the builder. `requestFor` is that composition, and it is a pure
+     * function, so the property this test exists for is unchanged: the payload
+     * is exactly what two readable functions produce, and nothing is added
+     * anywhere else. */
+    expect(captured[0].body).toEqual(requestFor(MODEL_CHAIN[0]!, buildGeminiRequest(c)));
+  });
+
+  test("a thinking budget is set, or the answer never gets written", () => {
+    /* Measured against the real provider, not assumed: current Flash models
+     * charge thinking to `maxOutputTokens`, and one asked for a short JSON reply
+     * with a small budget spends all of it thinking and returns `"content": {}`
+     * — which every caller here reads as a malformed response and falls back
+     * from. The whole AI layer goes quiet while the provider returns 200 and the
+     * key is perfectly valid. The first model in the chain must never be left in
+     * that state. */
+    const sent = requestFor(MODEL_CHAIN[0]!, buildGeminiRequest(condition())) as {
+      generationConfig: { thinkingConfig?: { thinkingLevel?: string }; maxOutputTokens: number };
+    };
+    expect(sent.generationConfig.thinkingConfig?.thinkingLevel).toBe("low");
+    // And headroom besides, for a model that ignores the level.
+    expect(sent.generationConfig.maxOutputTokens).toBeGreaterThanOrEqual(800);
   });
 });
 

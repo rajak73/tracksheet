@@ -1460,10 +1460,27 @@ enum WorklogExceptionReason {
 enum WorklogParseStatus {
   /// Saved, not yet parsed. The instructor's text is already safe at this point.
   PENDING
+  /// A read is running right now.
+  ///
+  /// Distinct from PENDING because they answer different questions and the
+  /// screen says different things: PENDING is "queued", PROCESSING is
+  /// "analysing your worklog". It also survives a restart, which the in-process
+  /// in-flight set cannot — a submission left PROCESSING by a killed process is
+  /// visibly stuck rather than invisibly abandoned.
+  PROCESSING
+  /// Read, and the activities written. The completed state.
   PARSED
   /// The provider could not be reached, or returned nothing usable. The raw text
   /// is intact and the submission can be parsed again.
   FAILED
+}
+
+/// How the instructor typed the day, which decides how it is read.
+enum WorklogInputMode {
+  /// One line per activity, already separated by the person who wrote it.
+  BULLETS
+  /// A paragraph in their own words, from which the activities are found.
+  NARRATIVE
 }
 
 /// One press of Submit: the bullets exactly as typed, and the clock they start.
@@ -1492,6 +1509,11 @@ model WorklogSubmission {
 
   /// The bullets, in order, exactly as typed. Never rewritten by parsing.
   rawBullets Json
+
+  /// Which reader this submission needs. Persisted rather than inferred: the
+  /// read happens in the background, after the request that knew is gone, and a
+  /// paragraph read as bullets is one activity instead of five.
+  inputMode WorklogInputMode @default(BULLETS)
 
   status     WorklogParseStatus @default(PENDING)
   /// Why parsing failed, in words an instructor can act on. Never a stack trace.
@@ -1535,7 +1557,21 @@ model WorklogSubmission {
   /// escalated, because "flagged and then fixed" and "never flagged" are
   /// different histories and a manager is entitled to tell them apart.
   escalatedAt DateTime?
-  needsReview Boolean   @default(false)
+
+  /// The read succeeded, but something about it wants the instructor's eye.
+  ///
+  /// Distinct from `rejections`, which says a line produced nothing at all, and
+  /// from `parseError`, which says the read failed. This is the middle state the
+  /// client asked for: the day was organised, and an activity has no times, or
+  /// two of them overlap, or the paragraph mentions a clock time that did not
+  /// end up against anything. Nothing is wrong with the record — it is complete
+  /// and correct as far as it goes — and a person is the only one who can say
+  /// whether it goes far enough.
+  needsReview Boolean @default(false)
+
+  /// Why, in words the instructor can act on: `[{ kind, message }]`. Rewritten
+  /// in full on every parse, so a re-read that comes back clean clears them.
+  reviewNotes Json?
 
   /**
    * ── Approval ─────────────────────────────────────────────────────────────
