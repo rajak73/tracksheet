@@ -48,15 +48,44 @@ export function isStudentFacingCategory(activityTypeCode: string): boolean {
 }
 
 /**
- * The one rule, in one place: a deliverable answers if there is one, otherwise
- * the category does. Both sheets, the dashboard and the client's tracker read
- * Working Hours through this, so they cannot disagree.
+ * The one rule, in one place: everything an instructor records is Working Hours.
+ *
+ * ── What this replaced, and why ───────────────────────────────────────────
+ * This used to read `deliverableIsCountable ?? isStudentFacingCategory(code)`:
+ * only time spent WITH STUDENTS counted, so preparation, meetings, reporting
+ * and admin were real work that the headline figure left out.
+ *
+ * The client changed the definition. An instructor writes up what they did and
+ * says how long it took, and all of it is their working time — there is no
+ * longer a judgement to make about which of their own hours count. The new
+ * entry form makes the same point structurally: it asks for hours rather than a
+ * clock range, so there is no countability question left to answer.
+ *
+ * ── What follows from it ──────────────────────────────────────────────────
+ * Working Hours and Recorded hours now coincide for anything that happened. The
+ * two names are kept apart because they still answer different questions — one
+ * is what the client's sheet prints, the other is the denominator utilization is
+ * measured against — and because separating them again is a change to this
+ * function rather than a change to eleven callers.
+ *
+ * ── What did NOT change ───────────────────────────────────────────────────
+ * An absence is still not work. `MISSED` and `EXCUSED` are excluded before this
+ * is ever asked — see `didHappen` — so a lecture nobody gave counts for nothing
+ * however the rule above is written.
+ *
+ * `isStudentFacingCategory` is kept: the distinction is still real and is still
+ * shown, on the instructor's performance screen, as which categories put them in
+ * front of students. It is no longer what decides the total.
  */
 export function countsAsWorkingHours(
+  // Both are unused now and both stay in the signature: every caller passes
+  // them, and restoring the old rule should be an edit to this body alone.
   activityTypeCode: string,
   deliverableIsCountable: boolean | null | undefined,
 ): boolean {
-  return deliverableIsCountable ?? isStudentFacingCategory(activityTypeCode);
+  void activityTypeCode;
+  void deliverableIsCountable;
+  return true;
 }
 
 /**

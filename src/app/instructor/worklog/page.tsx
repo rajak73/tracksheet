@@ -25,9 +25,9 @@
  * office day that did.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { todayISO } from "@/app/_lib/format";
+import { formatHours, todayISO } from "@/app/_lib/format";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -83,8 +83,70 @@ function weekStart(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Hours as the design prints them: a whole number where it is one. */
-const hours = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+/**
+ * Hours as somebody may type them.
+ *
+ * The field asks for a number, and people write time the way they say it. All
+ * of these mean the same eight and a half hours: `8.5`, `8h 30m`, `8:30`,
+ * `8h30`. Refusing three of the four would be pedantry — the field's job is to
+ * find out how long something took.
+ */
+export function parseHours(raw: string): number | null {
+  const text = raw.trim().toLowerCase();
+  if (!text) return null;
+
+  // `8:30`, `8h 30m`, `8h30`, `8 h 30`
+  const split = text.match(/^(\d+)\s*(?::|h)\s*(\d{1,2})\s*m?$/);
+  if (split) {
+    const h = Number(split[1]);
+    const m = Number(split[2]);
+    if (m > 59) return null;
+    return h + m / 60;
+  }
+
+  // `8h`
+  const whole = text.match(/^(\d+(?:\.\d+)?)\s*h?$/);
+  if (whole) return Number(whole[1]);
+
+  return null;
+}
+
+/**
+ * One row of the table is one DAY, not one entry.
+ *
+ * An instructor writes up a day in as many lines as the day had, and the
+ * client's sheet has one line per day: the deliverables read across it
+ * separated by commas, and the hours are the day's total. Two rows for one
+ * date would ask the reader to add them up themselves.
+ */
+type Group = {
+  key: string;
+  label: string;
+  entries: Row[];
+};
+
+/** The values a day's row prints, made from its entries in order. */
+function summarise(entries: Row[]) {
+  const list = (values: Array<string | null | undefined>) => {
+    const seen = new Set<string>();
+    for (const v of values) {
+      const t = (v ?? "").trim();
+      if (t) seen.add(t);
+    }
+    return seen.size ? [...seen].join(", ") : "—";
+  };
+
+  return {
+    // Comma-separated, in the order they were written. An instructor who
+    // already wrote commas into one line keeps them exactly as typed.
+    deliverable: list(entries.map((e) => e.rawText ?? e.deliverableType?.label)),
+    // Parallel to the deliverables, so the two columns still read across.
+    quantity: entries.map((e) => e.quantity ?? 0).join(", "),
+    // Every hour recorded on the day. See the note on the column.
+    hours: entries.reduce((n, e) => n + e.durationHours, 0),
+    remarks: list(entries.map((e) => e.remarks)),
+  };
+}
 
 const COLUMNS = [
   "Date",
@@ -107,6 +169,8 @@ export default function WorkLogHistoryPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [bannerOpen, setBannerOpen] = useState(true);
+  /** The day whose individual entries are open, when it was written in several. */
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -159,14 +223,25 @@ export default function WorkLogHistoryPage() {
   const today = todayISO();
   const todaysRows = rows.filter((r) => r.workDate.slice(0, 10) === today);
 
-  const grouped = useMemo(() => {
-    if (view === "date") return null;
-    const byWeek = new Map<string, Row[]>();
+  /* One row per DAY in Date Wise, per WEEK in Weekly.
+   *
+   * The client's sheet has a line per day with the deliverables read across it,
+   * not a line per deliverable — two rows carrying one date would ask the
+   * reader to add the hours up themselves. */
+  const groups = useMemo<Group[]>(() => {
+    const byKey = new Map<string, Row[]>();
     for (const row of rows) {
-      const key = weekStart(row.workDate.slice(0, 10));
-      byWeek.set(key, [...(byWeek.get(key) ?? []), row]);
+      const date = row.workDate.slice(0, 10);
+      const key = view === "date" ? date : weekStart(date);
+      byKey.set(key, [...(byKey.get(key) ?? []), row]);
     }
-    return [...byWeek.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    return [...byKey.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, entries]) => ({
+        key,
+        label: view === "date" ? longDate(key) : `Week of ${longDate(key)}`,
+        entries,
+      }));
   }, [rows, view]);
 
   function broadCategoryOf(row: Row): string {
@@ -190,7 +265,9 @@ export default function WorkLogHistoryPage() {
       date: row.workDate.slice(0, 10),
       deliverable: row.rawText ?? row.deliverableType?.label ?? "",
       quantity: String(row.quantity ?? ""),
-      workingHours: String(row.durationHours),
+      // Loaded back the way the table prints it, so an edit does not silently
+      // turn "8h 30m" into "8.5" in front of the person correcting it.
+      workingHours: formatHours(row.durationHours).replace(/^0/, ""),
       remarks: row.remarks ?? "",
     });
     setFormError(null);
@@ -199,12 +276,15 @@ export default function WorkLogHistoryPage() {
 
   async function submit() {
     if (!instructorId) return;
-    const workingHours = Number(draft.workingHours);
+    const workingHours = parseHours(draft.workingHours);
     const quantity = draft.quantity.trim() === "" ? 0 : Number(draft.quantity);
 
     if (!draft.deliverable.trim()) return setFormError("Enter what you worked on.");
-    if (!Number.isFinite(workingHours) || workingHours <= 0) {
-      return setFormError("Working hours must be a number greater than zero.");
+    if (workingHours === null || workingHours <= 0) {
+      return setFormError("Enter how long it took — 8, 8.5, or 8h 30m.");
+    }
+    if (workingHours > 24) {
+      return setFormError("A single entry cannot be longer than a day.");
     }
     if (!Number.isInteger(quantity) || quantity < 0) {
       return setFormError("Deliverable quantity must be a whole number.");
@@ -425,66 +505,116 @@ export default function WorkLogHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {(view === "date" ? [["", rows] as const] : (grouped ?? [])).flatMap(
-                  ([weekKey, weekRows]) => [
-                    ...(view === "week"
-                      ? [
-                          <tr key={`w-${weekKey}`} className="bg-sunken/60">
-                            <td
-                              colSpan={COLUMNS.length}
-                              className="border-b border-line px-4 py-2.5 text-sm font-semibold text-content"
-                            >
-                              Week of {longDate(weekKey)} — {weekRows.length}{" "}
-                              {weekRows.length === 1 ? "entry" : "entries"} ·{" "}
-                              {hours(weekRows.reduce((n, r) => n + r.durationHours, 0))} h
-                            </td>
-                          </tr>,
-                        ]
-                      : []),
-                    ...weekRows.map((row) => (
-                      <tr key={row.id} className="border-b border-line-subtle last:border-0">
-                        <td className="px-4 py-4 text-content">
-                          {longDate(row.workDate.slice(0, 10))}
-                        </td>
-                        <td className="px-4 py-4 text-content">{row.instructorName}</td>
+                {groups.map((group) => {
+                  const cells = summarise(group.entries);
+                  const many = group.entries.length > 1;
+                  const isOpen = expanded === group.key;
+                  const first = group.entries[0]!;
+                  const subjects = [
+                    ...new Set(group.entries.map((e) => broadCategoryOf(e))),
+                  ].join(", ");
+
+                  return (
+                    <Fragment key={group.key}>
+                      <tr className="border-b border-line-subtle">
+                        <td className="px-4 py-4 text-content">{group.label}</td>
+                        <td className="px-4 py-4 text-content">{first.instructorName}</td>
                         <td className="tabular px-4 py-4 text-content">
-                          {row.employeeCode ?? "—"}
+                          {first.employeeCode ?? "—"}
                         </td>
-                        <td className="px-4 py-4 text-content">{broadCategoryOf(row)}</td>
-                        <td className="px-4 py-4 text-content">
-                          {row.rawText ?? row.deliverableType?.label ?? "—"}
+                        <td className="px-4 py-4 text-content">{subjects}</td>
+                        <td className="px-4 py-4 text-content">{cells.deliverable}</td>
+                        <td className="tabular px-4 py-4 text-content">{cells.quantity}</td>
+                        <td className="tabular px-4 py-4 font-medium text-content">
+                          {formatHours(cells.hours)}
                         </td>
-                        <td className="tabular px-4 py-4 text-content">{row.quantity ?? "—"}</td>
-                        <td className="tabular px-4 py-4 text-content">
-                          {hours(row.durationHours)}
-                        </td>
-                        <td className="px-4 py-4 text-content">{row.remarks ?? "—"}</td>
+                        <td className="px-4 py-4 text-content">{cells.remarks}</td>
                         <td className="px-4 py-4">
-                          <span className="inline-flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(row)}
-                              aria-label={`Edit the entry from ${longDate(row.workDate.slice(0, 10))}`}
-                              title="Edit"
-                              className="inline-flex size-9 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
-                            >
-                              <Pencil />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void remove(row)}
-                              aria-label={`Remove the entry from ${longDate(row.workDate.slice(0, 10))}`}
-                              title="Remove"
-                              className="inline-flex size-9 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
-                            >
-                              <Bin />
-                            </button>
+                          <span className="inline-flex items-center gap-2">
+                            {many ? (
+                              /* A day written up in several lines. The row shows
+                                 the day; correcting one line means opening it. */
+                              <button
+                                type="button"
+                                onClick={() => setExpanded(isOpen ? null : group.key)}
+                                aria-expanded={isOpen}
+                                aria-label={`${isOpen ? "Hide" : "Show"} the ${group.entries.length} entries on ${group.label}`}
+                                className="inline-flex h-9 items-center gap-1.5 rounded-control border border-line px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-hovered hover:text-content"
+                              >
+                                {group.entries.length} entries
+                                <Chevron open={isOpen} />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(first)}
+                                  aria-label={`Edit the entry from ${group.label}`}
+                                  title="Edit"
+                                  className="inline-flex size-9 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
+                                >
+                                  <Pencil />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void remove(first)}
+                                  aria-label={`Remove the entry from ${group.label}`}
+                                  title="Remove"
+                                  className="inline-flex size-9 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
+                                >
+                                  <Bin />
+                                </button>
+                              </>
+                            )}
                           </span>
                         </td>
                       </tr>
-                    )),
-                  ],
-                )}
+
+                      {many && isOpen
+                        ? group.entries.map((e) => (
+                            <tr key={e.id} className="border-b border-line-subtle bg-sunken/50">
+                              <td className="px-4 py-3 text-sm text-muted">
+                                {view === "week" ? longDate(e.workDate.slice(0, 10)) : ""}
+                              </td>
+                              <td colSpan={3} />
+                              <td className="px-4 py-3 text-sm text-content">
+                                {e.rawText ?? e.deliverableType?.label ?? "—"}
+                              </td>
+                              <td className="tabular px-4 py-3 text-sm text-content">
+                                {e.quantity ?? "—"}
+                              </td>
+                              <td className="tabular px-4 py-3 text-sm text-content">
+                                {formatHours(e.durationHours)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-content">{e.remarks ?? "—"}</td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(e)}
+                                    aria-label={`Edit "${e.rawText ?? "this entry"}"`}
+                                    title="Edit"
+                                    className="inline-flex size-8 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
+                                  >
+                                    <Pencil />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void remove(e)}
+                                    aria-label={`Remove "${e.rawText ?? "this entry"}"`}
+                                    title="Remove"
+                                    className="inline-flex size-8 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
+                                  >
+                                    <Bin />
+                                  </button>
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -571,9 +701,8 @@ export default function WorkLogHistoryPage() {
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">Working Hours</span>
             <input
-              type="number"
-              min={0}
-              step={0.25}
+              type="text"
+              inputMode="decimal"
               value={draft.workingHours}
               onChange={(e) => setDraft({ ...draft, workingHours: e.target.value })}
               placeholder="Enter working hours (e.g., 8)"
@@ -745,6 +874,18 @@ function Send() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
       <path d="m17 3-7 14-2-6-6-2 15-6Z" {...stroke} />
+    </svg>
+  );
+}
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden
+      className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+    >
+      <path d="M5 7.5 10 12.5 15 7.5" {...stroke} />
     </svg>
   );
 }

@@ -5,7 +5,17 @@ import { countsAsWorking, didHappen } from "@/domain/working-hours";
 /**
  * Every reader of Working Hours must produce the same number.
  *
- * ── What went wrong ───────────────────────────────────────────────────────
+ * ── The rule ──────────────────────────────────────────────────────────────
+ * Everything an instructor records is Working Hours. It used to count only time
+ * spent with students; the client changed that, and because the rule has one
+ * home the change was one function body — every test below except the by-hand
+ * total went on passing, because they assert that readers AGREE rather than
+ * what the rule happens to be.
+ *
+ * An absence is still not work: MISSED and EXCUSED are excluded before the
+ * question is asked.
+ *
+ * ── What went wrong before ────────────────────────────────────────────────
  * The rule lived inside `rollUp`, and the readers that did not go through
  * `rollUp` did not have it. The week sheet's column — labelled, in the file,
  * "Working Hours" — summed every row it was given: a class nobody gave counted,
@@ -64,9 +74,22 @@ describe("the sheets and the report agree", () => {
     expect(sum(WEEK.filter(countsAsWorking))).toBeCloseTo(rollUp(WEEK).hours, 10);
   });
 
-  test("and that total is the student-facing hours, by hand", () => {
-    // 2 (taught) + 1.5 (taught, category fallback) + 1 (mentoring, late but held)
-    expect(rollUp(WEEK).hours).toBeCloseTo(4.5, 10);
+  test("and that total is every hour that happened, by hand", () => {
+    /* The client redefined Working Hours: an instructor writes up what they did
+     * and says how long it took, and all of it is their working time. It used
+     * to count only student-facing hours and this case asserted 4.5.
+     *
+     * 2 taught + 1.5 taught + 1 assessment + 3 meeting + 0.5 admin + 1 mentoring.
+     * The six hours of MISSED and EXCUSED below are still excluded — an absence
+     * is not work, and that rule did not change. */
+    expect(rollUp(WEEK).hours).toBeCloseTo(9, 10);
+  });
+
+  test("work that is not student-facing now counts", () => {
+    // The whole point of the change: preparation, meetings and admin are real
+    // work, and the headline figure used to leave them out.
+    const meetingOnly = [entry("MEETING", 3), entry("ADMIN", 0.5)];
+    expect(rollUp(meetingOnly).hours).toBeCloseTo(3.5, 10);
   });
 
   test("an absence contributes nothing, however many hours it claims", () => {
