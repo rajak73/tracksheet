@@ -52,6 +52,7 @@ import { apiSend } from "@/app/_lib/api";
  */
 const TITLES: Array<[string, string]> = [
   ["/instructor/dashboard", "Dashboard"],
+  ["/instructor/worklog", "Work Log History"],
   ["/instructor/activity-tracker", "Activity Tracker"],
   ["/instructor/performance", "My Performance"],
   ["/instructor/activities", "My Activity"],

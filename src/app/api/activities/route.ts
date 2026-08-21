@@ -63,6 +63,11 @@ export const GET = withAuth(async ({ scope, req }) => {
             { instructor: { user: { name: { contains: search, mode: "insensitive" as const } } } },
             { instructor: { employeeCode: { contains: search, mode: "insensitive" as const } } },
             { remarks: { contains: search, mode: "insensitive" as const } },
+            // The instructor's own words for what they produced. The worklog
+            // screen offers "search by deliverable, remarks", and the
+            // deliverable IS this column — without it that search only ever
+            // matched half of what it offered.
+            { rawText: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),

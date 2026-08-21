@@ -90,6 +90,10 @@ const INSTRUCTOR_NAV: NavItem[] = [
   // dashboard and the tracker, in context — but a person logging an hour of
   // work should not have to choose between eight destinations first.
   { href: "/instructor/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
+  // The client's own design for writing up a day and reading back what was
+  // written. Sits next to the dashboard rather than replacing it: the dashboard
+  // is the week at a glance, this is the log.
+  { href: "/instructor/worklog", label: "Work Log History", icon: IconActivity, group: "main" },
   {
     href: "/instructor/activity-tracker",
     label: "Activity Tracker",
