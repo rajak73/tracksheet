@@ -211,6 +211,8 @@ export const GET = withAuth(async ({ scope, req }) => {
     select: {
       id: true,
       employeeCode: true,
+      // The assigned Broad Category, which is what the sheet's column prints.
+      category: { select: { code: true, label: true } },
       universityId: true,
       // The photo, so a manager scanning twenty rows recognises a face before
       // they read a name — which is how people actually find somebody in a list.
@@ -373,10 +375,18 @@ export const GET = withAuth(async ({ scope, req }) => {
         activityCount,
         status,
         days,
-        /* The Broad Category the client's sheet prints, per office day. A day
-         * with no class of its own carries the last one that had — see
-         * `daySubjectsFor`. Keyed by date so a sheet showing days, weeks or
-         * months can read whichever it needs. */
+        /* The Broad Category the client's sheet prints: the one assigned to
+         * this person, preserved exactly.
+         *
+         * It used to be `subjectByDate` — what each office day was judged to be
+         * about, inherited from the last day that named a subject. The client's
+         * rule is now that this column is supplied and that nobody may "guess
+         * the employee's broad category from their activities", which is
+         * precisely what that inheritance did. */
+        category: instructor.category,
+        /* Still sent, and still per office day, because the day view shows what
+         * each day was ABOUT beneath the entries — a different question from
+         * who the person is, and one the client did not change. */
         subjectByDate: Object.fromEntries(daySubjects.get(instructor.id) ?? []),
         notes: notesByInstructor.get(instructor.id) ?? {},
         activities: mine.map((log) => ({

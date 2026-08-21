@@ -212,10 +212,13 @@ function normaliseClock(value: unknown): string | null {
   return `${h!.padStart(2, "0")}:${m}`;
 }
 
-const minutesOf = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number);
+const minutesOf = (clock: string) => {
+  const [h, m] = clock.split(":").map(Number);
   return h! * 60 + m!;
 };
+
+const hhmm = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 const wordsOf = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 
@@ -442,35 +445,93 @@ export function validateActivities(
   }
 
   /* ── Overlap ───────────────────────────────────────────────────────────
-   * Two activities in the same minutes cannot both have happened, so their
-   * durations must not both be counted. The later one is marked instead: its
-   * words are kept, its hours are not, and the instructor is told which two
-   * disagree. `logActivity` would refuse it at the write in any case; doing it
-   * here means the reason names both times instead of one. */
+   * Two activities cannot both hold the same minutes, and the client's rule for
+   * what to do about it is precise: do not double-count the overlapping period,
+   * and do not omit the activity either.
+   *
+   * So the later one is TRIMMED to the part nobody else has claimed, rather than
+   * dropped. "Lecture 9:00–11:00, assignment review 10:30–11:30" becomes two
+   * hours of lecture and a half hour of review: the day holds 2h 30m, which is
+   * the length of the day that actually happened — not 3h, which counts half an
+   * hour twice, and not 2h, which is what dropping the review produced and what
+   * this code used to do.
+   *
+   * Trimming is not inventing. It keeps only the minutes the instructor's own
+   * account leaves uncontested, which is exactly the client's "use only the
+   * clearly supported duration", and the adjustment is stated rather than made
+   * quietly. An activity swallowed whole by another keeps its words and loses
+   * its hours, because there is no uncontested minute left to give it.
+   *
+   * It also keeps the write honest: `logActivity` refuses overlapping rows, so
+   * an untrimmed pair would have had its second half rejected at the database
+   * and the activity would have vanished after all.
+   */
   const timed = kept
     .filter((b) => b.startLocal && b.endLocal)
     .sort((a, b) => minutesOf(a.startLocal!) - minutesOf(b.startLocal!));
-  for (let i = 1; i < timed.length; i++) {
-    const previous = timed[i - 1]!;
-    const current = timed[i]!;
-    if (minutesOf(current.startLocal!) < minutesOf(previous.endLocal!)) {
+
+  /* `problem` is deliberately NOT set on a trimmed activity.
+   *
+   * `writeActivities` treats any problem as "this line produced nothing" and
+   * rejects the row. Marking a trimmed activity with one would delete the very
+   * thing the trim exists to preserve — the activity would be adjusted, then
+   * thrown away, and the client's "do not omit any meaningful activity" would be
+   * broken by the code meant to honour it. So an adjustment is reported to the
+   * instructor as a warning and the row is written with its corrected times. */
+  let claimedUntil = -1;
+  const adjustments: string[] = [];
+
+  for (const current of timed) {
+    const start = minutesOf(current.startLocal!);
+    const end = minutesOf(current.endLocal!);
+
+    if (start >= claimedUntil) {
+      claimedUntil = Math.max(claimedUntil, end);
+      continue;
+    }
+
+    if (end <= claimedUntil) {
+      // Wholly inside time already recorded. There is no uncontested minute
+      // left to give it, so it keeps its words and loses its hours.
       current.problem =
-        `This overlaps ${previous.startLocal}–${previous.endLocal}. ` +
-        "Two activities cannot occupy the same minutes, so this one was not recorded.";
+        `This runs from ${hhmm(start)} to ${hhmm(end)}, entirely inside time already ` +
+        "recorded, so it was not counted a second time.";
       current.durationMinutes = null;
       current.startLocal = null;
       current.endLocal = null;
-      warnings.push({
-        kind: "overlap",
-        message:
-          `Some activities overlap in time — ${previous.startLocal}–${previous.endLocal} ` +
-          "and the one after it. Please review the worklog before finalising.",
-      });
+      adjustments.push(
+        `${hhmm(start)}–${hhmm(end)} is inside time already recorded and was not counted again.`,
+      );
+      continue;
     }
+
+    const wrote = hhmm(start);
+    current.startLocal = hhmm(claimedUntil);
+    current.durationMinutes = end - claimedUntil;
+    adjustments.push(
+      `${wrote}–${hhmm(end)} overlaps the activity before it; counted from ${current.startLocal}.`,
+    );
+    claimedUntil = end;
   }
 
-  const untimed = kept.filter((b) => b.durationMinutes === null && b.problem !== null);
-  if (untimed.length > 0 && !untimed.every((b) => b.problem?.startsWith("This overlaps"))) {
+  if (adjustments.length > 0) {
+    warnings.push({
+      kind: "overlap",
+      message:
+        "Some activities overlap in time. The overlapping minutes were counted once, not " +
+        `twice — ${adjustments.join(" ")} Please review the worklog before finalising.`,
+    });
+  }
+
+  /* Activities the instructor gave no times for at all. An activity swallowed
+   * whole by another is excluded: it HAS times, they were simply already
+   * counted, and the overlap warning above has already said so. Telling somebody
+   * to "add the times" to a line that has them would send them looking for a
+   * mistake they did not make. */
+  const untimed = kept.filter(
+    (b) => b.durationMinutes === null && b.problem !== null && !b.problem.startsWith("This runs from"),
+  );
+  if (untimed.length > 0) {
     warnings.push({
       kind: "no_duration",
       message:

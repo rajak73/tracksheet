@@ -23,10 +23,10 @@ import {
   TR,
 } from "@/app/_components/ui";
 import Link from "next/link";
-import { apiGet, useLoad } from "@/app/_lib/api";
+import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { ManagerAssign, useManagerCache } from "@/app/_components/ManagerAssign";
-import { InstructorStream } from "@/app/_components/InstructorStream";
+import { InstructorCategoryPicker } from "@/app/_components/InstructorStream";
 
 type Instructor = {
   id: string;
@@ -36,7 +36,10 @@ type Instructor = {
   university: { name: string; timezone: string };
   manager: { id: string; employeeCode: string | null; name: string } | null;
   /** What they teach — the column the client's monthly sheet prints. */
+  /** Assigned to them — what the client's report prints. */
   category: { code: string; label: string } | null;
+  /** Counted from their entries. Evidence for whoever assigns the above. */
+  stream: { code: string; label: string } | null;
 };
 
 type InstructorsResponse = {
@@ -82,6 +85,20 @@ export default function AdminInstructorsPage() {
     [],
   );
   const universities = useLoad(universitiesLoad, "universities-for-create");
+
+  /* The categories somebody may assign, from the same table the write is
+   * checked against — so the list offered and the list accepted are one list. */
+  const categories = useLoad(
+    useCallback(
+      () =>
+        apiGet<{ categories: Array<{ code: string; label: string }> }>(
+          "/api/instructor-categories",
+          "Could not load the broad categories.",
+        ).then((r) => r.categories),
+      [],
+    ),
+    "instructor-categories",
+  );
   const [creating, setCreating] = useState(false);
   const rows = data?.instructors ?? [];
 
@@ -173,9 +190,24 @@ export default function AdminInstructorsPage() {
                         <TD>{i.user.email}</TD>
                         <TD>{i.employeeCode ?? "—"}</TD>
                         <TD>
-                          {/* Read-only: counted from their entries, not filed
-                              by anyone. See `InstructorStream`. */}
-                          <InstructorStream stream={i.category ?? null} />
+                          {/* Editable again, on the client's instruction: the
+                              Broad Category on their report is supplied and
+                              must be preserved, so somebody has to be able to
+                              supply it. See `InstructorStream`. */}
+                          <InstructorCategoryPicker
+                            value={i.category ?? null}
+                            stream={i.stream ?? null}
+                            options={categories.data ?? []}
+                            onSave={async (code) => {
+                              await apiSend(
+                                `/api/instructors/${i.id}`,
+                                "PATCH",
+                                { categoryCode: code },
+                                "Could not save that broad category.",
+                              );
+                              reload();
+                            }}
+                          />
                         </TD>
                         <TD>{i.university.name}</TD>
                         <TD>

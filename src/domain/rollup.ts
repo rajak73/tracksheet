@@ -9,6 +9,7 @@
  */
 
 import { countsAsWorkingHours, didHappen } from "@/domain/working-hours";
+import { activityFor } from "@/domain/worklog-vocabulary";
 
 /**
  * The least an entry has to be for this to add it up.
@@ -31,7 +32,11 @@ export type RollupActivity = {
    */
   status?: string;
   activityType: { code: string; label: string };
-  deliverableType?: { isCountable: boolean } | null;
+  /* `code` as well as `isCountable`: countability decides whether the line is
+   * Working Hours, and the code decides what the client's report CALLS it.
+   * Optional, so a payload that predates the naming map still rolls up — it
+   * simply falls back to the category's name. */
+  deliverableType?: { code?: string; isCountable: boolean } | null;
   broadCategory?: { label: string } | null;
   quantity?: number;
 };
@@ -99,7 +104,18 @@ export function rollUp(activities: RollupActivity[]): Rollup {
      * same list, one place. */
     if (!didHappen(a)) continue;
 
-    const label = a.activityType.label;
+    /* The CLIENT'S name for this work, not the taxonomy's.
+     *
+     * It used to be `a.activityType.label` — "Teaching", "Meetings", "Student
+     * Query Resolution" — which is the schema's vocabulary appearing in the
+     * client's report. Their list names the same work differently and to the
+     * character: a lecture is a Live Class, a doubt session is Doubt Clearing.
+     *
+     * Mapping here rather than at each of the three screens this feeds is the
+     * point: the instructor's sheet, the manager's sheet and the manager's CSV
+     * all read this function, so one map keeps all three saying the same words
+     * as the monthly tracker and the day summary. */
+    const label = activityFor(a.deliverableType?.code, a.activityType.code).name;
     // A deliverable decides when there is one; otherwise the category does.
     // See `countsAsWorkingHours` — an entry with no deliverable used to be
     // read as "does not count", which silently dropped real teaching hours.

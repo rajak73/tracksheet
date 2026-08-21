@@ -101,6 +101,16 @@ export const GET = withAuth(async ({ scope, req }) => {
           select: {
             id: true,
             employeeCode: true,
+            /* The instructor's OWN Broad Category, as assigned to them.
+             *
+             * Not the same thing as `broadCategory` on the row above, which is
+             * the subject read out of that one activity's wording. The client's
+             * rule for the report column is to print the category they supplied
+             * and never to guess one from the work, so the report needs the
+             * assigned value — and it travels here, beside the name and employee
+             * code it belongs to, rather than in a second request that could
+             * answer about somebody else. */
+            category: { select: { code: true, label: true } },
             user: { select: { name: true } },
             manager: { select: { id: true, user: { select: { name: true } } } },
             university: { select: { id: true, name: true, code: true, timezone: true } },
@@ -131,6 +141,9 @@ export const GET = withAuth(async ({ scope, req }) => {
       instructorId: a.instructor.id,
       instructorName: a.instructor.user.name,
       employeeCode: a.instructor.employeeCode,
+      // Null when nobody has assigned one. The report prints "Not Provided"
+      // rather than filling it in from the day's activities.
+      instructorCategory: a.instructor.category,
       // Explicitly null rather than omitted: "nobody leads this person yet" is
       // a state the explorer should show, not hide.
       manager: a.instructor.manager

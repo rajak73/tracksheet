@@ -192,11 +192,18 @@ describe("weekly cells carry the sheet's columns", () => {
      * `DeliverableLog` alone; the activities were invisible to it. */
     expect(cell.deliverables).toHaveLength(2);
 
-    type Line = { title: string; quantity: number; hours: number; countable: boolean };
+    type Line = { title: string; quantity: number; hours: number; minutes: number; countable: boolean };
     const lines = cell.deliverables as Line[];
+    /* "Live Class", not "Lecture".
+     *
+     * The title is the client's name for the work now, not the taxonomy's —
+     * their list calls a lecture a Live Class, and the same map is used by the
+     * instructor's report, the manager's sheet and this grid so all three say
+     * one thing. The taxonomy code underneath is unchanged. */
     const teaching = lines.find((d) => d.countable)!;
-    expect(teaching.title).toBe("Lecture");
+    expect(teaching.title).toBe("Live Class");
     expect(teaching.hours).toBe(40);
+    expect(teaching.minutes, "exact minutes, which is what \"40h\" is written from").toBe(2400);
     expect(teaching.quantity).toBe(10);
 
     // Not countable: a planned deliverable carries no `isCountable`, so its

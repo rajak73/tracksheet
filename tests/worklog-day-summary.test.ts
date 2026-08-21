@@ -3,8 +3,10 @@ import {
   buildInstruction,
   fingerprintOf,
   validateModelGroups,
+  workedMinutes,
   type SourceRow,
 } from "@/server/worklog/day-summary";
+import { ACTIVITIES, activityFor } from "@/domain/worklog-vocabulary";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 
 /**
@@ -35,13 +37,36 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * in today.
  */
 
-const row = (id: string, minutes: number, quantity: number, text: string, remarks: string | null = null): SourceRow => ({
-  id,
-  minutes,
-  quantity,
-  text,
-  remarks,
-});
+/**
+ * A source line, laid on the day end to end unless a position is given.
+ *
+ * The clock positions matter now: Working Hours is the measure of the union of
+ * these intervals, not their sum, so where a line sits decides what the day
+ * totals. Laying them consecutively by default keeps every case that is not
+ * about overlap reading exactly as it did.
+ */
+let nextStart = 9 * 60;
+const row = (
+  id: string,
+  minutes: number,
+  quantity: number,
+  text: string,
+  remarks: string | null = null,
+  at?: number,
+): SourceRow => {
+  const startMinute = at ?? nextStart;
+  nextStart = Math.max(nextStart, startMinute + minutes);
+  return {
+    id,
+    minutes,
+    quantity,
+    text,
+    remarks,
+    startMinute,
+    endMinute: startMinute + minutes,
+    activity: activityFor(null, "OTHER"),
+  };
+};
 
 /** The day from the client's own example. */
 const DAY: SourceRow[] = [
@@ -53,12 +78,12 @@ const DAY: SourceRow[] = [
 
 const valid = {
   groups: [
-    { name: "Live Classes", quantityLabel: "Classes", sourceIds: ["a1"] },
-    { name: "Lesson Preparation", quantityLabel: "Lesson Plan", sourceIds: ["a2"] },
-    { name: "Doubt Sessions", quantityLabel: "Doubt Sessions", sourceIds: ["a3"] },
-    { name: "Assignment Evaluation", quantityLabel: "Assignments", sourceIds: ["a4"] },
+    { name: "Live Class", sourceIds: ["a1"] },
+    { name: "Lesson Preparation", sourceIds: ["a2"] },
+    { name: "Doubt Clearing", sourceIds: ["a3"] },
+    { name: "Assignment Evaluation", sourceIds: ["a4"] },
   ],
-  remarks: ["Next week's preparation completed", "Binary trees covered"],
+  remark: "Binary trees covered and next week's preparation completed",
 };
 
 describe("nothing is dropped", () => {
@@ -81,11 +106,11 @@ describe("nothing is dropped", () => {
   test("combining two similar activities is allowed", () => {
     const combined = {
       groups: [
-        { name: "Live Classes", quantityLabel: "Classes", sourceIds: ["a1", "a3"] },
-        { name: "Lesson Preparation", quantityLabel: "Lesson Plans", sourceIds: ["a2"] },
-        { name: "Assignment Evaluation", quantityLabel: "Assignments", sourceIds: ["a4"] },
+        { name: "Live Class", sourceIds: ["a1", "a3"] },
+        { name: "Lesson Preparation", sourceIds: ["a2"] },
+        { name: "Assignment Evaluation", sourceIds: ["a4"] },
       ],
-      remarks: [],
+      remark: "",
     };
     expect(validateModelGroups(DAY, combined).ok).toBe(true);
   });
@@ -94,8 +119,8 @@ describe("nothing is dropped", () => {
 describe("nothing is invented", () => {
   test("an activity the day did not contain is refused", () => {
     const invented = {
-      groups: [...valid.groups, { name: "Research Work", quantityLabel: "Papers", sourceIds: ["a9"] }],
-      remarks: [],
+      groups: [...valid.groups, { name: "Documentation", sourceIds: ["a9"] }],
+      remark: "",
     };
     const result = validateModelGroups(DAY, invented);
     expect(result.ok).toBe(false);
@@ -105,11 +130,8 @@ describe("nothing is invented", () => {
   test("counting one line under two names is refused", () => {
     // It would double that line's hours, which is the same harm as dropping it.
     const doubled = {
-      groups: [
-        ...valid.groups,
-        { name: "Mentoring", quantityLabel: "Sessions", sourceIds: ["a1"] },
-      ],
-      remarks: [],
+      groups: [...valid.groups, { name: "Student Mentoring", sourceIds: ["a1"] }],
+      remark: "",
     };
     const result = validateModelGroups(DAY, doubled);
     expect(result.ok).toBe(false);
@@ -119,7 +141,7 @@ describe("nothing is invented", () => {
   test("a remark carrying a number the day never mentioned is refused", () => {
     const result = validateModelGroups(DAY, {
       ...valid,
-      remarks: ["Covered 47 assignments"],
+      remark: "Covered 47 assignments",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toMatch(/unsupported number/i);
@@ -128,20 +150,41 @@ describe("nothing is invented", () => {
   test("a remark reusing a number from the day is fine", () => {
     expect(
       validateModelGroups([row("a1", 60, 2, "took 2 classes", "2 classes went well")], {
-        groups: [{ name: "Live Classes", quantityLabel: "Classes", sourceIds: ["a1"] }],
-        remarks: ["2 classes went well"],
+        groups: [{ name: "Live Class", sourceIds: ["a1"] }],
+        remark: "2 classes went well",
       }).ok,
     ).toBe(true);
   });
 
-  test("markup is refused wherever it appears", () => {
-    for (const bad of [
-      { groups: [{ name: "<b>Classes</b>", quantityLabel: "Classes", sourceIds: DAY.map((r) => r.id) }], remarks: [] },
-      { groups: [{ name: "Classes", quantityLabel: "<i>x</i>", sourceIds: DAY.map((r) => r.id) }], remarks: [] },
-      { groups: [{ name: "Classes", quantityLabel: "Classes", sourceIds: DAY.map((r) => r.id) }], remarks: ["see http://example.com"] },
-    ]) {
-      expect(validateModelGroups(DAY, bad).ok, JSON.stringify(bad).slice(0, 60)).toBe(false);
+  test("a name outside the client's list is refused", () => {
+    /* The whole point of the closed list. "Live Classes" is a perfectly
+       sensible thing to call it and it is not what the client's sheet says —
+       and the sheet GROUPS by this column, so a plural today and a singular
+       tomorrow is two rows where there should be one. */
+    for (const name of ["Live Classes", "Doubt Session", "Research Work", "Teaching", "Mentoring"]) {
+      const result = validateModelGroups(DAY, {
+        groups: [{ name, sourceIds: DAY.map((r) => r.id) }],
+        remark: "",
+      });
+      expect(result.ok, name).toBe(false);
+      if (!result.ok) expect(result.reason).toMatch(/not one of the report's activity names/i);
     }
+  });
+
+  test("every name the client listed is accepted", () => {
+    for (const activity of ACTIVITIES) {
+      const result = validateModelGroups(DAY, {
+        groups: [{ name: activity.name, sourceIds: DAY.map((r) => r.id) }],
+        remark: "",
+      });
+      expect(result.ok, activity.name).toBe(true);
+    }
+  });
+
+  test("markup cannot reach the remark", () => {
+    const result = validateModelGroups(DAY, { ...valid, remark: "see http://example.com" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/markup/i);
   });
 });
 
@@ -152,13 +195,21 @@ describe("a malformed reply is refused, never repaired", () => {
       "a sentence about the day",
       {},
       { groups: [] },
-      { groups: valid.groups },
-      { groups: [{ name: "", quantityLabel: "x", sourceIds: ["a1"] }], remarks: [] },
-      { groups: [{ name: "Classes", quantityLabel: "x", sourceIds: [] }], remarks: [] },
-      { groups: [{ name: "Classes", quantityLabel: "x", sourceIds: [7] }], remarks: [] },
+      { groups: [{ name: "", sourceIds: ["a1"] }], remark: "" },
+      { groups: [{ name: "Live Class", sourceIds: [] }], remark: "" },
+      { groups: [{ name: "Live Class", sourceIds: [7] }], remark: "" },
+      // A remark that is not a sentence at all.
+      { groups: valid.groups, remark: { text: "hello" } },
     ]) {
       expect(validateModelGroups(DAY, bad).ok, JSON.stringify(bad)).toBe(false);
     }
+  });
+
+  test("a day with nothing worth remarking on is not malformed", () => {
+    // An empty Remarks cell is honest. Refusing the reply would throw away a
+    // correct grouping to punish an absent sentence.
+    expect(validateModelGroups(DAY, { groups: valid.groups }).ok).toBe(true);
+    expect(validateModelGroups(DAY, { groups: valid.groups, remark: "" }).ok).toBe(true);
   });
 });
 
@@ -184,7 +235,10 @@ describe("what is sent to the provider", () => {
 describe("a summary goes stale when the day changes", () => {
   test("correcting a duration changes the fingerprint", () => {
     const before = fingerprintOf(DAY);
-    const after = fingerprintOf([row("a1", 150, 2, "took two live classes on binary trees"), ...DAY.slice(1)]);
+    const after = fingerprintOf([
+      row("a1", 150, 2, "took two live classes on binary trees", null, 9 * 60),
+      ...DAY.slice(1),
+    ]);
     expect(after).not.toBe(before);
   });
 
@@ -193,7 +247,58 @@ describe("a summary goes stale when the day changes", () => {
   });
 });
 
-/* ── The endpoint, with no model configured ────────────────────────────── */
+describe("Working Hours is measured, never summed", () => {
+  const at = (id: string, startMinute: number, minutes: number): SourceRow =>
+    row(id, minutes, 1, `work ${id}`, null, startMinute);
+
+  test("a day laid end to end totals its parts", () => {
+    // 09:00-11:00, 11:00-11:45, 13:00-14:00 — a gap in the middle, and the gap
+    // is not work.
+    const rows = [at("a", 540, 120), at("b", 660, 45), at("c", 780, 60)];
+    expect(workedMinutes(rows)).toEqual({ total: 225, overlapped: 0 });
+  });
+
+  test("an idle gap is never counted", () => {
+    // Class ends 11:00, doubts start 11:15. The client's own example: those
+    // fifteen minutes are not Working Hours.
+    const rows = [at("a", 540, 120), at("b", 675, 45)];
+    expect(workedMinutes(rows).total, "2h + 45m, and not the quarter hour between").toBe(165);
+  });
+
+  test("overlapping time is counted once, not twice", () => {
+    // 09:00-11:00 and 10:30-11:30. Two and a half hours of day, not three.
+    const rows = [at("a", 540, 120), at("b", 630, 60)];
+    expect(workedMinutes(rows)).toEqual({ total: 150, overlapped: 30 });
+  });
+
+  test("an activity wholly inside another adds nothing", () => {
+    const rows = [at("a", 540, 180), at("b", 600, 30)];
+    expect(workedMinutes(rows)).toEqual({ total: 180, overlapped: 30 });
+  });
+
+  test("three overlapping activities do not treble anything", () => {
+    const rows = [at("a", 540, 120), at("b", 600, 120), at("c", 660, 120)];
+    // 09:00 through 13:00 is four hours; the three sum to six.
+    expect(workedMinutes(rows)).toEqual({ total: 240, overlapped: 120 });
+  });
+
+  test("touching activities join without inventing a minute", () => {
+    const rows = [at("a", 540, 60), at("b", 600, 60)];
+    expect(workedMinutes(rows)).toEqual({ total: 120, overlapped: 0 });
+  });
+
+  test("a day is never padded towards eight hours", () => {
+    const rows = [at("a", 540, 45)];
+    expect(workedMinutes(rows).total, "45 minutes is a 45-minute day").toBe(45);
+  });
+
+  test("the order the rows arrive in does not change the measure", () => {
+    const rows = [at("a", 540, 120), at("b", 630, 60), at("c", 780, 30)];
+    expect(workedMinutes([...rows].reverse())).toEqual(workedMinutes(rows));
+  });
+});
+
+/* ── The endpoint ──────────────────────────────────────────────────────── */
 
 const RUN = Math.random()
   .toString(36)
@@ -207,8 +312,9 @@ const DATE = "2026-03-10";
 type Summary = {
   date: string;
   deliverables: Array<{ name: string; durationMinutes: number; quantity: number; quantityLabel: string }>;
-  remarks: string[];
+  remark: string;
   totalMinutes: number;
+  overlapMinutes: number;
   source: "ai" | "fallback";
 };
 
@@ -265,10 +371,27 @@ describe("the report is built without the model", () => {
     const day: Summary = (await summaryFor(instructor, myId)).body.days[DATE];
     // 120 + 90 + 45 + 120
     expect(day.totalMinutes, "06h 15m, to the minute").toBe(375);
+    expect(day.overlapMinutes, "entries are laid end to end, so none is claimed twice").toBe(0);
     expect(
       day.deliverables.reduce((n, d) => n + d.durationMinutes, 0),
-      "the lines must add up to the total, or time went missing",
+      "with no overlap the lines must add up to the total, or time went missing",
     ).toBe(day.totalMinutes);
+  });
+
+  test("every line is named in the words the client's sheet uses", async () => {
+    const day: Summary = (await summaryFor(instructor, myId)).body.days[DATE];
+    const allowed = new Set(ACTIVITIES.map((a) => a.name));
+    for (const line of day.deliverables) {
+      expect(allowed.has(line.name), `"${line.name}" is not one of the client's names`).toBe(true);
+    }
+  });
+
+  test("the quantity unit belongs to the activity, not to the number", async () => {
+    const day: Summary = (await summaryFor(instructor, myId)).body.days[DATE];
+    for (const line of day.deliverables) {
+      const activity = ACTIVITIES.find((a) => a.name === line.name)!;
+      expect([activity.unit, activity.units]).toContain(line.quantityLabel);
+    }
   });
 
   test("quantities come from the record, not from anywhere else", async () => {

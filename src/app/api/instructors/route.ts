@@ -64,12 +64,17 @@ export const GET = withAuth(async ({ scope, req }) => {
         universityId: true,
         employeeCode: true,
         managerId: true,
-        /* `category` is deliberately NOT selected any more.
+        /* `category` is selected again, on the client's instruction.
          *
-         * What an instructor teaches is no longer a field an admin fills in —
-         * it is read from their own entries, below. The column still exists and
-         * is null for everybody, so selecting it would return a permanent blank
-         * that looks like a broken derivation. */
+         * It stopped being selected when the stream was derived from somebody's
+         * entries instead of assigned. The client's rule now is that the Broad
+         * Category on the report is supplied and must be preserved exactly, so
+         * the assigned value is what the report needs — and a directory that
+         * cannot show it is a directory nobody can use to fix it.
+         *
+         * The derived stream still comes back too, under its own name. Two
+         * different questions, never again under one key. */
+        category: { select: { code: true, label: true } },
         manager: { select: { id: true, employeeCode: true, user: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, isActive: true } },
         university: { select: { id: true, name: true, slug: true, timezone: true } },
@@ -80,10 +85,15 @@ export const GET = withAuth(async ({ scope, req }) => {
 
   /* Their stream, counted from what they actually taught.
    *
+   * Beside their assigned `category`, not instead of it. The stream answers
+   * "what has this person actually been teaching lately", which is a useful
+   * thing for an admin deciding what to assign — and it is emphatically NOT the
+   * report's Broad Category any more, which the client requires to be the value
+   * somebody supplied.
+   *
    * One grouped query for the whole page rather than one per row — the
    * directory renders everybody at once. An instructor with no subject-carrying
-   * work is absent from the map and comes back as null, which the directory
-   * renders as "Not yet determined". */
+   * work is absent from the map and comes back as null. */
   const streams = await streamsFor(instructors.map((i) => i.id));
 
   return NextResponse.json({
@@ -92,7 +102,8 @@ export const GET = withAuth(async ({ scope, req }) => {
     // state to render, not an absence to hide.
     instructors: instructors.map(({ manager, ...rest }) => ({
       ...rest,
-      category: streams.get(rest.id) ?? null,
+      // `category` is the assigned one, straight from the row above.
+      stream: streams.get(rest.id) ?? null,
       manager: manager
         ? { id: manager.id, employeeCode: manager.employeeCode, name: manager.user.name }
         : null,

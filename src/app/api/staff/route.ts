@@ -96,8 +96,10 @@ export const GET = withAuth(
             select: {
               id: true,
               employeeCode: true,
-              // `category` is derived from their entries, not stored — added
-              // to each row below.
+              // The Broad Category ASSIGNED to them — what the client's report
+              // prints. The derived stream is added to each row below, under
+              // its own name, as evidence rather than as the answer.
+              category: { select: { code: true, label: true } },
             },
           },
           managerProfile: {
@@ -142,7 +144,8 @@ export const GET = withAuth(
       // Present only for instructors — the tracker is instructor-scoped, so a
       // manager row has nothing to link to.
       instructorId: u.instructorProfile?.id ?? null,
-      category: u.instructorProfile ? (streams.get(u.instructorProfile.id) ?? null) : null,
+      category: u.instructorProfile?.category ?? null,
+      stream: u.instructorProfile ? (streams.get(u.instructorProfile.id) ?? null) : null,
       managerId: u.managerProfile?.id ?? null,
       /** Null for an instructor. Zero is a real answer for a manager. */
       rosterSize: u.managerProfile?._count.instructors ?? null,

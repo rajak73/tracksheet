@@ -132,23 +132,86 @@ describe("when there is nothing to read", () => {
   });
 });
 
-describe("nobody can file it by hand any more", () => {
-  test("the directory serves the derived value", async () => {
+describe("the report prints what was assigned, not what was taught", () => {
+  /**
+   * ── This replaces the opposite requirement, on the client's instruction ──
+   * These cases used to assert that nobody could file a Broad Category by hand
+   * and that the client's sheet followed the work somebody actually did. That
+   * was built to the client's position at the time.
+   *
+   * Their rule now is the reverse, in their own words: the Broad Category is
+   * "supplied", it must be "preserved exactly", and nobody may "guess the
+   * employee's broad category from their activities".
+   *
+   * The derived stream is not deleted — it still answers, under its own name,
+   * and the cases above still cover it. It simply no longer decides the column.
+   */
+
+  test("the derived stream and the assigned category are different answers", async () => {
     const id = await newInstructor("directory");
     await entry(id, "MATH", 5);
 
     const res = await admin.get(`/api/instructors/${id}`);
     expect(res.status).toBe(200);
-    expect(res.body.instructor.category).toMatchObject({ code: "MATH" });
+    // Nobody has assigned one, and eight hours of Mathematics does not assign
+    // one on their behalf.
+    expect(res.body.instructor.category ?? null).toBeNull();
+    expect(
+      res.body.instructor.stream,
+      "what they have been teaching is still known, under its own name",
+    ).toMatchObject({ code: "MATH" });
   });
 
-  test("the client's monthly sheet shows the derived stream too", async () => {
-    /* The tracker is the client's own report. It read `Instructor.category` —
-     * the field an admin used to fill in — so when the picker was removed this
-     * column would have gone blank on the one screen that matters most, which
-     * is the opposite of what was asked for. */
+  test("an admin can assign it, and it is preserved exactly", async () => {
+    const id = await newInstructor("assign");
+    await entry(id, "MATH", 5);
+
+    const res = await admin.patch(`/api/instructors/${id}`, { categoryCode: "ENGLISH" });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.instructor.category).toMatchObject({ code: "ENGLISH" });
+
+    const after = await admin.get(`/api/instructors/${id}`);
+    expect(
+      after.body.instructor.category,
+      "English, though every hour they logged was Mathematics",
+    ).toMatchObject({ code: "ENGLISH" });
+    expect(
+      after.body.instructor.stream,
+      "and the derived stream still says what they actually taught",
+    ).toMatchObject({ code: "MATH" });
+  });
+
+  test("assigning null clears it rather than reverting to a guess", async () => {
+    const id = await newInstructor("clear");
+    await entry(id, "MATH", 5);
+    await admin.patch(`/api/instructors/${id}`, { categoryCode: "ENGLISH" });
+
+    const res = await admin.patch(`/api/instructors/${id}`, { categoryCode: null });
+    expect(res.status).toBe(200);
+
+    const stored = await prisma.instructor.findUniqueOrThrow({
+      where: { id },
+      select: { categoryId: true },
+    });
+    expect(stored.categoryId, "'not decided yet' is a real answer").toBeNull();
+  });
+
+  test("a category nobody defined is refused, not stored", async () => {
+    const id = await newInstructor("bogus");
+    const res = await admin.patch(`/api/instructors/${id}`, { categoryCode: "ASTROPHYSICS" });
+    expect(res.status).toBe(400);
+
+    const stored = await prisma.instructor.findUniqueOrThrow({
+      where: { id },
+      select: { categoryId: true },
+    });
+    expect(stored.categoryId).toBeNull();
+  });
+
+  test("the client's monthly sheet prints the assigned category", async () => {
     const id = await newInstructor("tracker");
     await entry(id, "PHYSICS", 6);
+    await admin.patch(`/api/instructors/${id}`, { categoryCode: "TECH" });
 
     const today = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
@@ -161,32 +224,23 @@ describe("nobody can file it by hand any more", () => {
     expect(row, "the instructor should appear in the tracker").toBeTruthy();
     expect(
       row.broadCategory,
-      "Broad Category on the client's sheet must follow what they taught",
-    ).toMatchObject({ code: "PHYSICS" });
+      "the sheet prints what was supplied, not the Physics they logged",
+    ).toMatchObject({ code: "TECH" });
   });
 
-  test("an admin sending categoryCode does not change it", async () => {
-    const id = await newInstructor("nowrite");
-    await entry(id, "MATH", 5);
+  test("the sheet leaves it unset rather than filling it in from the work", async () => {
+    const id = await newInstructor("unassigned");
+    await entry(id, "PHYSICS", 6);
 
-    // The field is gone from the input schema, so zod strips it. What matters
-    // is the state afterwards: still Mathematics, read from the entries.
-    const res = await admin.patch(`/api/instructors/${id}`, {
-      name: `Renamed ${RUN}`,
-      categoryCode: "ENGLISH",
-    });
-    expect([200, 400]).toContain(res.status);
-
-    const after = await admin.get(`/api/instructors/${id}`);
+    const today = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+    const res = await admin.get(`/api/universities/${northId}/tracker?from=${from}&to=${today}`);
+    const row = res.body.tracker.rows.find(
+      (r: { instructorId: string }) => r.instructorId === id,
+    );
     expect(
-      after.body.instructor.category,
-      "an admin must not be able to override what the entries say",
-    ).toMatchObject({ code: "MATH" });
-
-    const stored = await prisma.instructor.findUniqueOrThrow({
-      where: { id },
-      select: { categoryId: true },
-    });
-    expect(stored.categoryId, "nothing should have been written to the filed column").toBeNull();
+      row.broadCategory,
+      "six hours of Physics must not become an assignment nobody made",
+    ).toBeNull();
   });
 });

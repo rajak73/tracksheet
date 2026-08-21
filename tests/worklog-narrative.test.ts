@@ -194,36 +194,92 @@ describe("time that was never written is never invented", () => {
   });
 });
 
-describe("overlapping time is flagged, never counted twice", () => {
+describe("overlapping time is counted once, and never omitted", () => {
+  /**
+   * The client's rule, in their words: "do not double-count the overlapping
+   * period", and separately, "do not omit any meaningful activity".
+   *
+   * Both at once means the later activity is TRIMMED to the part nobody else
+   * claimed, not dropped. Two hours of lecture and half an hour of review is a
+   * two-and-a-half hour day — not three, which counts half an hour twice, and
+   * not two, which is what dropping the review would produce.
+   */
   const text = "Lecture 9:00 AM to 11:00 AM, assignment review 10:30 AM to 11:30 AM.";
   const read = [
     { text: "Lecture 9:00 AM to 11:00 AM", categoryCode: "TEACHING", deliverableCode: null, startLocal: "09:00", endLocal: "11:00", quantity: null, subjectCode: null, remark: null },
     { text: "assignment review 10:30 AM to 11:30 AM", categoryCode: "ASSESSMENT", deliverableCode: null, startLocal: "10:30", endLocal: "11:30", quantity: null, subjectCode: null, remark: null },
   ];
 
-  test("the day holds two hours, not three", () => {
+  test("the day holds two and a half hours", () => {
     const result = validateActivities(text, read, taxonomy);
-    expect(minutesOf(result)).toBe(120);
+    expect(minutesOf(result), "not 180, which counts 30 minutes twice").toBe(150);
   });
 
-  test("the instructor is told which two disagree", () => {
+  test("the overlapping activity is kept, trimmed to what is left of it", () => {
+    const result = validateActivities(text, read, taxonomy);
+    expect(result.bullets).toHaveLength(2);
+    expect(result.bullets[1]!.startLocal, "counted from where the lecture ended").toBe("11:00");
+    expect(result.bullets[1]!.endLocal).toBe("11:30");
+    expect(result.bullets[1]!.durationMinutes).toBe(30);
+  });
+
+  test("a trimmed activity is still recorded, not refused", () => {
+    /* `problem` is what `writeActivities` reads to mean "this line produced
+       nothing". Setting it here would adjust the activity and then throw it
+       away, which is the omission the trim exists to prevent. */
+    const result = validateActivities(text, read, taxonomy);
+    expect(result.bullets[1]!.problem).toBeNull();
+  });
+
+  test("the instructor is told exactly what was adjusted", () => {
     const result = validateActivities(text, read, taxonomy);
     const overlap = result.warnings.find((w) => w.kind === "overlap");
-    expect(overlap?.message).toMatch(/overlap/i);
-    expect(result.bullets[1]!.problem).toMatch(/09:00–11:00/);
+    expect(overlap?.message).toMatch(/counted once, not twice/i);
+    expect(overlap?.message).toMatch(/10:30/);
+    expect(overlap?.message).toMatch(/counted from 11:00/);
   });
 
   test("the overlapping words are still kept", () => {
-    // Refused for its hours, not erased. The instructor can see what they wrote.
     const result = validateActivities(text, read, taxonomy);
     expect(result.bullets[1]!.rawText).toContain("assignment review");
   });
 
+  test("an activity wholly inside another keeps its words and loses its hours", () => {
+    // There is no uncontested minute left to give it, so inventing one would be
+    // the only way to give it a duration.
+    const inner = "Lecture 9:00 AM to 12:00 PM, quick assignment review 10:00 AM to 10:30 AM.";
+    const result = validateActivities(
+      inner,
+      [
+        { ...read[0]!, text: "Lecture 9:00 AM to 12:00 PM", endLocal: "12:00" },
+        { ...read[1]!, text: "quick assignment review 10:00 AM to 10:30 AM", startLocal: "10:00", endLocal: "10:30" },
+      ],
+      taxonomy,
+    );
+    expect(minutesOf(result), "three hours, and not a minute more").toBe(180);
+    expect(result.bullets).toHaveLength(2);
+    expect(result.bullets[1]!.durationMinutes).toBeNull();
+    expect(result.bullets[1]!.rawText).toContain("quick assignment review");
+  });
+
   test("an overlap does not also masquerade as a missing activity", () => {
-    // Clearing the refused activity's times must not make them look unaccounted
-    // for — one problem, one warning.
+    // One problem, one warning. Coverage is read before the trim for exactly
+    // this reason.
     const kinds = validateActivities(text, read, taxonomy).warnings.map((w) => w.kind);
     expect(kinds).toEqual(["overlap"]);
+  });
+
+  test("a contained activity is not told to add times it already gave", () => {
+    const inner = "Lecture 9:00 AM to 12:00 PM, quick assignment review 10:00 AM to 10:30 AM.";
+    const kinds = validateActivities(
+      inner,
+      [
+        { ...read[0]!, text: "Lecture 9:00 AM to 12:00 PM", endLocal: "12:00" },
+        { ...read[1]!, text: "quick assignment review 10:00 AM to 10:30 AM", startLocal: "10:00", endLocal: "10:30" },
+      ],
+      taxonomy,
+    ).warnings.map((w) => w.kind);
+    expect(kinds, "an overlap warning, not a no-duration one").toEqual(["overlap"]);
   });
 });
 

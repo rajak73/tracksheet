@@ -34,11 +34,25 @@ import { Fragment, useState } from "react";
 import { Badge, Button, Card, EmptyState, StatusPill } from "@/app/_components/ui";
 import { Dialog } from "@/app/_components/interactive";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
+import {
+  broadCategoryCell,
+  compactDuration,
+  countableLines,
+  deliverableCell,
+  quantityCell,
+  remarksCell,
+  reportLines,
+  workedMinutesIn,
+  workingHours as workingHoursCell,
+} from "@/domain/worklog-report";
 
 export type TrackerDeliverable = {
+  /** One of the client's activity names — see `worklog-vocabulary`. */
   title: string;
   quantity: number;
   hours: number;
+  /** Exact minutes, which is what "1h 45m" is written from. */
+  minutes: number;
   /** Whether a count of this means anything — prep and meetings have no unit. */
   countable: boolean;
 };
@@ -246,18 +260,6 @@ const WEEK_FIELDS = [
   { key: "remarks", label: "Remarks", align: "text-left" },
 ] as const;
 
-/**
- * "12 Lectures" from "Lecture", without pretending to know English grammar.
- *
- * A plain trailing "s" is deliberate: the labels come from a fixed taxonomy of
- * noun phrases, and a clever pluraliser would eventually turn one of them into
- * something the client does not recognise in their own report. Anything already
- * ending in "s" is left alone.
- */
-function plural(label: string, quantity: number): string {
-  if (quantity === 1 || label.endsWith("s")) return label;
-  return `${label}s`;
-}
 
 /**
  * One week for one instructor, as FOUR real table cells.
@@ -291,33 +293,47 @@ function WeekColumns({
 
   /* Heaviest first. The cell is read left to right and the biggest commitment
    * is the one that should not need a second glance. */
-  const deliverables = [...(cell?.deliverables ?? [])].sort((a, b) => b.hours - a.hours);
+  /* Heaviest first, and ties broken by name — the same order `deliverableCell`
+   * uses, so the rendered cell and the exported one list them identically. */
+  const deliverables = [...(cell?.deliverables ?? [])].sort(
+    (a, b) => b.minutes - a.minutes || a.title.localeCompare(b.title),
+  );
 
   /* Working Hours is the time spent WITH STUDENTS — classes, labs, mentoring,
    * doubt sessions, evaluations, workshops. Preparation, meetings, reporting
    * and admin keep their hours in the column to the left, because they
-   * happened, but they are not what this figure measures. */
-  const studentHours = workingHours(cell);
+   * happened, but they are not what this figure measures.
+   *
+   * In minutes, because that is what the client's "05h 15m" is written from
+   * and what the CSV export uses. */
+  const studentMinutes = workedMinutesIn(cell?.deliverables ?? []);
 
   return (
     <>
-      {/* ── "Live Classes – 24h; Lesson Prep – 8h; …" ─────────────────────
-       * Every deliverable with its hours, in one cell, the way the client's
-       * sheet is written. It used to show the first title and "+3", which meant
+      {/* ── "Live Class - 2h, Lesson Preparation - 45m, …" ────────────────
+       * Every deliverable with its own duration, in one cell, in the client's
+       * own format: their name for the work, a hyphen, a compact duration, and
+       * commas between. It used to show the first title and "+3", which meant
        * the column named one thing and hid the rest — and the hidden ones are
        * often the point ("where did the other twelve hours go?"). It wraps
        * rather than truncating, because this cell IS the report.
+       *
+       * Rendered span by span rather than as one string so a line that is not
+       * counted in Working Hours can be muted and say why. The strings are
+       * still built by the same functions the CSV uses, so the two agree
+       * character for character — `deliverableCell` below is what the export
+       * writes for this same cell.
        */}
       <td className={`border-b border-l-2 border-line px-3 py-3 align-top ${bg}`}>
         {deliverables.length === 0 ? (
           <span className="text-xs text-subtle">—</span>
         ) : (
-          <span className="block text-sm text-content">
+          <span className="block text-sm text-content" title={deliverableCell(reportLines(deliverables))}>
             {deliverables.map((d, i) => (
               <span key={`${d.title}:${d.countable}`} className={d.countable ? undefined : "text-muted"}>
-                {i > 0 ? "; " : ""}
+                {i > 0 ? ", " : ""}
                 <span title={d.countable ? undefined : "Not counted in Working Hours"}>
-                  {d.title} – {formatHours(d.hours)}
+                  {d.title} - {compactDuration(d.minutes)}
                 </span>
               </span>
             ))}
@@ -331,24 +347,21 @@ function WeekColumns({
        * sheet does.
        */}
       <td className={`border-b border-l border-line px-3 py-3 align-top ${bg}`}>
-        {deliverables.length === 0 ? (
-          <span className="text-xs text-subtle">—</span>
-        ) : (
-          <span className="block text-sm text-content">
-            {/* Only what a count means something for. Preparation, meetings,
-                reporting and admin keep their HOURS in the column to the left —
-                they are real work — but "6 lesson preps" is not a number, and
-                the client's own sheet leaves them out of this column. */}
-            {deliverables
-              .filter((d) => d.countable && d.quantity > 0)
-              .map((d) => `${d.quantity} ${plural(d.title, d.quantity)}`)
-              .join(", ")}
-          </span>
-        )}
+        <span className="block text-sm text-content">
+          {/* Only what a count means something for. Preparation, meetings,
+              reporting and admin keep their HOURS in the column to the left —
+              they are real work — but "6 lesson preps" is not a number, and
+              the client's own sheet leaves them out of this column.
+              The unit comes from the activity rather than from pluralising its
+              name, which is what produced "1 Doubt Clearings". */}
+          {quantityCell(countableLines(cell?.deliverables ?? []))}
+        </span>
       </td>
       <td className={`tabular border-b border-l border-line px-3 py-3 text-right align-top ${bg}`}>
-        {studentHours > 0 ? (
-          <span className="font-medium text-content">{formatHours(studentHours)}</span>
+        {studentMinutes > 0 ? (
+          // "05h 15m" — the client specified the format to the character, and
+          // the CSV writes it with this same function.
+          <span className="font-medium text-content">{workingHoursCell(studentMinutes)}</span>
         ) : (
           <span className="text-xs text-subtle">—</span>
         )}
@@ -366,7 +379,7 @@ function WeekColumns({
               className="block text-left text-sm text-content underline-offset-2 hover:underline"
               title="View all remarks"
             >
-              {remarks.join(", ")}
+              {remarksCell(remarks)}
             </button>
             <Dialog open={open} onClose={() => setOpen(false)} title={`Remarks — ${who}`}>
               <p className="mb-3 text-xs text-muted">{week}</p>
@@ -617,10 +630,14 @@ export function TrackerGrid({
                    * derived value claimed somebody had decided.
                    */}
                   <span className="flex flex-wrap items-center gap-1">
+                    {/* One function writes this column everywhere — here, in
+                        this grid's CSV, on the manager's sheet and on the
+                        instructor's own report — so the four cannot disagree
+                        about what Broad Category means or how it is spelled. */}
                     {row.broadCategory ? (
-                      <Badge tone="neutral">Instructor – {row.broadCategory.label}</Badge>
+                      <Badge tone="neutral">{broadCategoryCell(row.broadCategory)}</Badge>
                     ) : (
-                      <span className="text-xs text-subtle">Not set</span>
+                      <span className="text-xs text-subtle">{broadCategoryCell(null)}</span>
                     )}
                     {!row.isActive ? <StatusPill status="FORMER" /> : null}
                   </span>

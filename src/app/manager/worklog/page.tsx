@@ -24,6 +24,14 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
+  broadCategoryCell,
+  deliverableCell,
+  quantityCell,
+  remarksCell,
+  suppliedOr,
+  workingHours as workingHoursCell,
+} from "@/domain/worklog-report";
+import {
   Button,
   ButtonLink,
   Card,
@@ -47,7 +55,7 @@ import {
   type SheetSort,
 } from "@/app/_components/ManagerSheet";
 import { rollUp } from "@/domain/rollup";
-import { formatDuration, type Activity } from "@/app/_components/workload";
+import { type Activity } from "@/app/_components/workload";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 
@@ -55,6 +63,8 @@ type Row = {
   instructorId: string;
   name: string;
   employeeCode: string | null;
+  /** The Broad Category assigned to them. What the sheet's column prints. */
+  category: { code: string; label: string } | null;
   notes: Record<string, string>;
   /** What each office day was about, decided server-side — see `ManagerSheet`. */
   subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
@@ -211,6 +221,8 @@ export default function ManagerWorklogPage() {
         instructorId: r.instructorId,
         name: r.name,
         employeeCode: r.employeeCode,
+        // The assigned Broad Category. The column prints this and nothing else.
+        category: r.category ?? null,
         notes: r.notes ?? {},
         subjectByDate: r.subjectByDate ?? {},
         activitiesByDate: r.activities
@@ -272,30 +284,32 @@ export default function ManagerWorklogPage() {
       for (const period of periods) {
         const acts = period.dates.flatMap((d) => person.activitiesByDate[d] ?? []);
         const { lines, hours, remarks } = rollUp(acts);
-        /* The same day answers the sheet prints, not a second derivation. The
-         * export used `rollUp(...).subjects`, which reads only the entries in
-         * the window — so a month of meetings exported a blank Broad Category
-         * while the screen beside it showed the carried subject. */
-        const subjects = [
-          ...new Set(
-            period.dates
-              .map((d) => person.subjectByDate?.[d]?.label)
-              .filter((label): label is string => Boolean(label)),
-          ),
-        ];
+        /* No subject derivation here any more.
+         *
+         * This used to collect the distinct subjects the period's days were
+         * judged to be about, so that the export matched the screen. Both now
+         * print the category assigned to the person, which the client requires
+         * to be preserved rather than guessed — so there is nothing to derive
+         * and nothing for the two to disagree about. */
         const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
+        /* Written by the same functions the sheet on screen uses, so the
+         * export and the screenshot cannot say different things — and by the
+         * same ones the instructor's own report and the monthly tracker use, so
+         * neither can the three reports. */
+        const cells = lines.map((l) => ({
+          name: l.label,
+          minutes: Math.round(l.hours * 60),
+          quantity: l.quantity,
+        }));
         rows.push([
-          person.name,
-          person.employeeCode ?? "",
+          suppliedOr(person.name),
+          suppliedOr(person.employeeCode),
           `${period.label} (${period.sublabel})`,
-          subjects.join(", "),
-          lines.map((l) => `${l.label} – ${formatDuration(l.hours)}`).join("; "),
-          lines
-            .filter((l) => l.countable && l.quantity > 0)
-            .map((l) => `${l.quantity} ${l.label}`)
-            .join(", "),
-          formatDuration(hours),
-          note || remarks.join(", "),
+          broadCategoryCell(person.category),
+          deliverableCell(cells),
+          quantityCell(cells.filter((_, i) => lines[i]!.countable)),
+          workingHoursCell(Math.round(hours * 60)),
+          note || remarksCell(remarks),
         ]);
       }
     }

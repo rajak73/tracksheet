@@ -22,6 +22,7 @@
  */
 
 import { categoryColor } from "@/app/_components/charts";
+import { broadCategoryCell, suppliedOr } from "@/domain/worklog-report";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { rollUp } from "@/domain/rollup";
 
@@ -48,6 +49,9 @@ export type ManagerPerson = {
    * this sheet asked for. Absent dates are non-office days; a null value is a
    * day with nothing to inherit.
    */
+  /** The Broad Category assigned to this person. What the column prints. */
+  category: { code: string; label: string } | null;
+  /** What each office day was about. Shown in the day view, never in the column. */
   subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
   /** Their own remark per day, keyed by date. */
   notes: Record<string, string>;
@@ -199,23 +203,6 @@ export function ManagerSheet({
 
         <tbody>
           {people.map((person) => {
-            /* Their subjects across the whole range: the column describes the
-             * person here, where each cell already describes its own period.
-             *
-             * Read from `subjectByDate`, not from the entries. A day of
-             * meetings names no subject — the parser correctly records none —
-             * and the day inherits from the last office day that taught one. A
-             * sheet built only from the entries in view cannot know that,
-             * because the day it inherits from is often outside the window. */
-            const subjects = [
-              ...new Set(
-                periods
-                  .flatMap((p) => p.dates)
-                  .map((d) => person.subjectByDate?.[d]?.label)
-                  .filter((label): label is string => Boolean(label)),
-              ),
-            ];
-
             return (
               <tr key={person.instructorId} className="group transition-colors hover:bg-hovered">
                 <th
@@ -227,19 +214,21 @@ export function ManagerSheet({
                 <td
                   className={`${IDENTITY.code} tabular sticky left-[224px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
-                  {person.employeeCode ?? "—"}
+                  {suppliedOr(person.employeeCode)}
                 </td>
                 <td
                   className={`${IDENTITY.category} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top transition-colors group-hover:bg-hovered`}
                 >
-                  {subjects.length > 0 ? (
-                    <span className="text-content">{subjects.join(", ")}</span>
-                  ) : (
-                    /* Not an em dash: this is a value the system will supply
-                       once they have taught something, not one that does not
-                       apply. */
-                    <span className="text-subtle">Not yet determined</span>
-                  )}
+                  {/* The category assigned to this person, written by the one
+                      function that writes it everywhere. It used to be the
+                      distinct subjects their days were judged to be about,
+                      which is the guess the client's rule now forbids in this
+                      column. "Not Provided" where nobody has assigned one — an
+                      empty cell that says so, rather than one filled in from a
+                      lecture. */}
+                  <span className={person.category ? "text-content" : "text-subtle"}>
+                    {broadCategoryCell(person.category)}
+                  </span>
                 </td>
 
                 {periods.map((period) => (

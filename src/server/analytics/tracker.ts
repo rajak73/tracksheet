@@ -32,6 +32,18 @@
  * without deactivated staff cluttering a current-week view they had no part in.
  */
 
+import { activityFor } from "@/domain/worklog-vocabulary";
+import {
+  broadCategoryCell,
+  countableLines,
+  deliverableCell,
+  quantityCell,
+  remarksCell,
+  reportLines,
+  suppliedOr,
+  workedMinutesIn,
+  workingHours as workingHoursCell,
+} from "@/domain/worklog-report";
 import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
 import { prisma } from "@/server/db";
 import { computeAnalytics, type InstructorBreakdown } from "@/server/analytics/engine";
@@ -39,7 +51,6 @@ import { csvCell } from "@/server/reports/generator";
 import type { UniversityConfig } from "@/server/universities/config";
 import { computeDayWindows } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
-import { streamsFor } from "@/server/instructors/stream";
 
 export type TrackerWeek = {
   /** 1-based, as the sheet numbers them. */
@@ -62,6 +73,16 @@ export type TrackerDeliverable = {
   hours: number;
   /** Whether a count of this means anything — see `DeliverableType`. */
   countable: boolean;
+  /* Exact minutes, alongside the rounded hours.
+   *
+   * `hours` is what the grid's numeric columns and every existing consumer
+   * read; `minutes` is what the client's "1h 45m" is written from. Two fields
+   * rather than one because rounding hours to two places and multiplying back
+   * loses up to half a minute an entry, and the Deliverable cell is the column
+   * somebody reconciles against a timetable. */
+  minutes: number;
+  /** When the earliest of these started. Absent for planned-deliverable work. */
+  firstAt?: number;
 };
 
 export type TrackerCell = {
@@ -245,27 +266,28 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
 
   for (const row of tracker.rows) {
     const cells: Array<string | number | null> = [
-      row.instructorName,
-      row.employeeCode,
-      // What they TEACH, matching the column on screen. The derived activity
-      // category used to go here, so the exported sheet and the rendered one
-      // disagreed about what "Broad Category" meant.
-      row.broadCategory ? `Instructor – ${row.broadCategory.label}` : "",
+      // Preserved exactly, or said to be missing. Never blank, never guessed.
+      suppliedOr(row.instructorName),
+      suppliedOr(row.employeeCode),
+      // The category assigned to them, matching the column on screen. Written
+      // by the one function that writes it everywhere, so the exported sheet
+      // and the rendered one cannot disagree about what this column means.
+      broadCategoryCell(row.broadCategory),
       row.isActive ? "Active" : "Former",
     ];
     for (const week of tracker.weeks) {
       const cell = row.cells[week.index];
-      const deliverables = [...(cell?.deliverables ?? [])].sort((a, b) => b.hours - a.hours);
+      /* Literally the same functions the grid calls. The promise that "a
+       * screenshot and the CSV agree" used to rest on two copies of a format
+       * staying in step by hand; now there is one copy and nothing to keep in
+       * step. */
+      const lines = reportLines(cell?.deliverables ?? []);
       cells.push(
-        // Same strings the grid shows, so a screenshot and the CSV agree.
-        deliverables.map((d) => `${d.title} – ${d.hours}h`).join("; "),
-        deliverables
-          .filter((d) => d.countable && d.quantity > 0)
-          .map((d) => `${d.quantity} ${d.quantity === 1 || d.title.endsWith("s") ? d.title : `${d.title}s`}`)
-          .join(", "),
-        // Working Hours as the report means it: the time spent with students.
-        round(deliverables.reduce((n, d) => n + (d.countable ? d.hours : 0), 0)),
-        cell?.remarks.join(", ") ?? "",
+        deliverableCell(lines),
+        quantityCell(countableLines(cell?.deliverables ?? [])),
+        // "05h 15m" — the client specified the format to the character.
+        workingHoursCell(workedMinutesIn(cell?.deliverables ?? [])),
+        remarksCell(cell?.remarks ?? []),
       );
     }
     lines.push(cells.map(csvCell).join(","));
@@ -418,7 +440,7 @@ export async function buildTracker(args: {
       endTime: true,
       remarks: true,
       activityType: { select: { code: true, label: true } },
-      deliverableType: { select: { label: true, isCountable: true } },
+      deliverableType: { select: { code: true, label: true, isCountable: true } },
     },
   });
 
@@ -498,11 +520,12 @@ export async function buildTracker(args: {
      * reads. The hours are still reported, on their own muted line. */
     let entry = cell.deliverables.find((d) => d.title === log.deliverable.title && !d.countable);
     if (!entry) {
-      entry = { title: log.deliverable.title, quantity: 0, hours: 0, countable: false };
+      entry = { title: log.deliverable.title, quantity: 0, hours: 0, minutes: 0, countable: false };
       cell.deliverables.push(entry);
     }
     entry.quantity += log.quantityCompleted;
     entry.hours = round(entry.hours + log.hoursSpent);
+    entry.minutes += Math.round(log.hoursSpent * 60);
 
     cell.deliverableHours = round(cell.deliverableHours + log.hoursSpent);
     row.totals.deliverableHours = round(row.totals.deliverableHours + log.hoursSpent);
@@ -554,7 +577,17 @@ export async function buildTracker(args: {
      * by day, by week and by month. Splitting the entry keeps each hour with
      * its own deliverable's answer.
      */
-    const title = log.activityType.label;
+    /* The title is the CLIENT'S name for this work, not the taxonomy's.
+     *
+     * It used to be `log.activityType.label` — "Teaching", "Meetings" — which
+     * grouped at the right coarseness but printed the schema's vocabulary in
+     * the client's report. Their list names the same work differently and more
+     * precisely: a lecture is a Live Class, a doubt session is Doubt Clearing,
+     * a department meeting is not a Faculty Meeting. Mapping through the
+     * vocabulary also makes this sheet and the instructor's own screen use one
+     * set of words, which is the only reason a closed list is worth having. */
+    const activity = activityFor(log.deliverableType?.code, log.activityType.code);
+    const title = activity.name;
     const countable = countsAsWorkingHours(
       log.activityType.code,
       log.deliverableType ? log.deliverableType.isCountable : null,
@@ -562,10 +595,22 @@ export async function buildTracker(args: {
 
     let entry = cell.deliverables.find((d) => d.title === title && d.countable === countable);
     if (!entry) {
-      entry = { title, quantity: 0, hours: 0, countable };
+      entry = { title, quantity: 0, hours: 0, minutes: 0, countable, firstAt: undefined };
       cell.deliverables.push(entry);
     }
     entry.hours = round(entry.hours + hours);
+    /* Minutes as well as hours, and from the clock rather than from the rounded
+     * hours: the Deliverable cell prints "1h 45m", and deriving that from an
+     * hours figure already rounded to two places drifts by up to half a minute
+     * per entry — which a week's worth of entries turns into a visible error in
+     * a column somebody reconciles. */
+    entry.minutes += Math.round((log.endTime.getTime() - log.startTime.getTime()) / 60_000);
+    /* When the earliest of these started, so the cell reads in the order the
+     * week happened — which is the order the client's own example is written
+     * in. Ordinal rather than wall-clock: a week cell merges several days, and
+     * what matters is which came first, not what the clock said. */
+    const startedAt = log.startTime.getTime();
+    entry.firstAt = entry.firstAt === undefined ? startedAt : Math.min(entry.firstAt, startedAt);
 
     /* Quantity counts ONLY what a count means something for, at every level.
      * The per-entry figure already did; the cell and row totals did not, so the
@@ -598,18 +643,29 @@ export async function buildTracker(args: {
    * property of the person, so it does not vary by week and does not belong in
    * the per-week engine pass.
    */
-  /* Counted from their own entries, not read off the person.
+  /* Read off the person, not counted from their entries.
    *
-   * This selected `Instructor.category` — the stream an admin filed through a
-   * dropdown. That field is no longer written by anybody: the client's position
-   * is that a stream should follow the work somebody actually did, so it is
-   * derived now. Left as it was, this column would have gone blank on the
-   * client's own monthly sheet the moment the picker was removed, which is the
-   * opposite of what was asked for. */
-  const streams = await streamsFor([...rows.keys()]);
-  for (const [instructorId, stream] of streams) {
-    const row = rows.get(instructorId);
-    if (row) row.broadCategory = stream;
+   * ── This reverses an earlier decision, on the client's instruction ──────
+   * It used to call `streamsFor`, deriving the column from the dominant subject
+   * of the work somebody actually did over ninety days. That was built to a
+   * requirement that a stream should follow the work rather than be picked from
+   * a dropdown.
+   *
+   * The client's rule is now the opposite one, in their own words: "preserve it
+   * exactly", and "do not guess the employee's broad category from their
+   * activities". So the column is the category assigned to the person, and
+   * "Not Provided" where nobody has assigned one.
+   *
+   * `streamsFor` is left in place and still answers — it is read elsewhere, and
+   * a derived stream is a useful thing to know. It just no longer decides the
+   * column the client's sheet is grouped by. */
+  const assigned = await prisma.instructor.findMany({
+    where: { id: { in: [...rows.keys()] } },
+    select: { id: true, category: { select: { code: true, label: true } } },
+  });
+  for (const instructor of assigned) {
+    const row = rows.get(instructor.id);
+    if (row) row.broadCategory = instructor.category;
   }
 
   // Former staff appear only where they actually have something to report.

@@ -28,10 +28,30 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { formatCompactDuration, formatHours, todayISO } from "@/app/_lib/format";
+import { activityNamed, quantityPhrase } from "@/domain/worklog-vocabulary";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
+/** Rows on a page of the report. A ROW is a day, a week or a month. */
 const PAGE_SIZE = 10;
+
+/**
+ * Entries fetched for the window before the report is built from them.
+ *
+ * ── Why the report cannot be paginated by entry ───────────────────────────
+ * It was, and the client's "one row per Employee + Date" quietly failed. The
+ * table asks for ten ACTIVITIES at a time and then groups them into days, so a
+ * day written in eleven entries straddled a page boundary and produced a group
+ * on each — and because every printed figure comes from the day SUMMARY rather
+ * than from the entries on the page, both rows showed the whole day's
+ * deliverables, quantity and hours. A busy day was reportable twice at full
+ * value, and reconciling the column would have found the hours doubled.
+ *
+ * So the window's entries are fetched together and the DAYS are paginated. The
+ * window is already bounded by the date filters above it — a month of one
+ * person's work — and the API's own ceiling is 200, which is what this is.
+ */
+const ENTRY_FETCH_LIMIT = 200;
 
 type Row = {
   id: string;
@@ -42,11 +62,12 @@ type Row = {
   rawText: string | null;
   instructorName: string;
   employeeCode: string | null;
+  /** The subject read out of THIS entry's wording. Not the report column. */
   broadCategory: { code: string; label: string } | null;
+  /** The category assigned to the person. This IS the report column. */
+  instructorCategory: { code: string; label: string } | null;
   deliverableType: { code: string; label: string } | null;
 };
-
-type DaySubject = { code: string; label: string; carriedFrom: string | null } | null;
 
 type Draft = {
   date: string;
@@ -65,6 +86,15 @@ const emptyDraft = (): Draft => ({
 });
 
 const firstOfMonth = () => `${todayISO().slice(0, 7)}-01`;
+
+/**
+ * What a cell says when the value was never supplied.
+ *
+ * The client asked for this exact string rather than a blank or a dash: a blank
+ * reads as an oversight in the report and a dash reads as zero, while "Not
+ * Provided" says the one true thing — nobody has told us.
+ */
+const NOT_PROVIDED = "Not Provided";
 
 /**
  * What the screen says while a paragraph is being read, and afterwards.
@@ -187,12 +217,17 @@ type DaySummary = {
   date: string;
   deliverables: Array<{
     name: string;
+    /** Minutes past midnight of the earliest of these. Orders the cell. */
+    firstAt: number;
     durationMinutes: number;
     quantity: number;
     quantityLabel: string;
   }>;
-  remarks: string[];
+  /** One sentence about the day. The client's Remarks column. */
+  remark: string;
+  /** The measure of the day's worked intervals — overlap counted once. */
   totalMinutes: number;
+  overlapMinutes: number;
   source: "ai" | "fallback";
 };
 
@@ -206,8 +241,12 @@ type DaySummary = {
  * trips for one set of facts.
  */
 function present(dates: string[], summaries: Record<string, DaySummary | undefined>) {
-  const merged = new Map<string, { name: string; minutes: number; quantity: number; label: string }>();
-  const remarks = new Set<string>();
+  const merged = new Map<
+    string,
+    { name: string; minutes: number; quantity: number; label: string; firstAt: number }
+  >();
+  const remarks: string[] = [];
+  const seenRemarks = new Set<string>();
   let totalMinutes = 0;
   let anyFallback = false;
   let found = false;
@@ -218,26 +257,36 @@ function present(dates: string[], summaries: Record<string, DaySummary | undefin
     found = true;
     if (day.source === "fallback") anyFallback = true;
     totalMinutes += day.totalMinutes;
-    for (const r of day.remarks) remarks.add(r);
+    const remark = day.remark?.trim();
+    if (remark && !seenRemarks.has(remark)) {
+      seenRemarks.add(remark);
+      remarks.push(remark);
+    }
 
     for (const d of day.deliverables) {
       const at = merged.get(d.name);
       if (at) {
         at.minutes += d.durationMinutes;
         at.quantity += d.quantity;
+        at.firstAt = Math.min(at.firstAt, d.firstAt);
       } else {
         merged.set(d.name, {
           name: d.name,
           minutes: d.durationMinutes,
           quantity: d.quantity,
           label: d.quantityLabel,
+          firstAt: d.firstAt,
         });
       }
     }
   }
 
-  // Heaviest first: the biggest commitment should not need a second glance.
-  const lines = [...merged.values()].sort((a, z) => z.minutes - a.minutes);
+  /* In the order the day happened, which is how the client's own example is
+   * written. Ties fall back to the heaviest, and to the name after that, so two
+   * exports of the same period are diffable. */
+  const lines = [...merged.values()].sort(
+    (a, z) => a.firstAt - z.firstAt || z.minutes - a.minutes || a.name.localeCompare(z.name),
+  );
 
   return {
     found,
@@ -247,14 +296,22 @@ function present(dates: string[], summaries: Record<string, DaySummary | undefin
     deliverable: lines.length
       ? lines.map((l) => `${l.name} - ${formatCompactDuration(l.minutes)}`).join(", ")
       : "—",
-    // "2 Classes, 1 Lesson Plan" — parallel to the line above, same order.
+    /* "2 Classes, 1 Lesson Plan" — parallel to the line above, same order.
+     *
+     * The unit is re-derived from the MERGED count rather than reused from the
+     * day, because a week that merges one class with one more has two of them
+     * and "2 Class" is not what the client's sheet says. Same function the
+     * server uses for a single day, so the two cannot mean different things. */
     quantity: lines.some((l) => l.quantity > 0)
       ? lines
           .filter((l) => l.quantity > 0)
-          .map((l) => `${l.quantity} ${l.label}`)
+          .map((l) => {
+            const activity = activityNamed(l.name);
+            return activity ? quantityPhrase(activity, l.quantity) : `${l.quantity} ${l.label}`;
+          })
           .join(", ")
       : "—",
-    remarks: remarks.size ? [...remarks].join(", ") : "—",
+    remarks: remarks.length ? remarks.join(" ") : "—",
   };
 }
 
@@ -312,7 +369,10 @@ export default function WorkLogHistoryPage() {
   );
   const instructorId = me.data?.user.instructorId ?? null;
 
-  const query = `from=${from}&to=${to}&page=${page}&limit=${PAGE_SIZE}${
+  /* No `page` here, deliberately — see `ENTRY_FETCH_LIMIT`. The window's
+   * entries come back together and the report paginates the days it groups them
+   * into, so a day can never appear on two pages at once. */
+  const query = `from=${from}&to=${to}&limit=${ENTRY_FETCH_LIMIT}${
     search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""
   }`;
 
@@ -328,17 +388,16 @@ export default function WorkLogHistoryPage() {
     `worklogs:${query}`,
   );
 
-  const subjects = useLoad(
-    useCallback(async () => {
-      if (!instructorId) return {} as Record<string, DaySubject>;
-      const res = await apiGet<{ subjectByDate: Record<string, DaySubject> }>(
-        `/api/instructors/${instructorId}/day-subjects?from=${from}&to=${to}`,
-        "Could not load what your days were about.",
-      );
-      return res.subjectByDate;
-    }, [instructorId, from, to]),
-    `worklog-subjects:${instructorId ?? "-"}:${from}:${to}`,
-  );
+  /* The day-subject fetch that used to live here is gone.
+   *
+   * It answered "what was this day about", which is what the Broad Category
+   * column used before the client's rule changed to "print the category we
+   * supplied, and never guess one from the work". Nothing on this page reads it
+   * any more, so it is one request per view that nobody was going to look at.
+   *
+   * The endpoint and the rule behind it are untouched — `/api/instructors/:id/
+   * day-subjects` still answers, and the per-entry subject is still read and
+   * stored. This screen simply stopped asking. */
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
 
@@ -390,12 +449,27 @@ export default function WorkLogHistoryPage() {
       }));
   }, [rows, view]);
 
+  /**
+   * The client's Broad Category column.
+   *
+   * ── This deliberately ignores what the day was about ──────────────────
+   * It used to read the subject the model judged from each entry's wording,
+   * falling back to whatever the last office day was about. The client's rule
+   * is now the opposite one, in their words: preserve the category supplied,
+   * and "do not guess the employee's broad category from their activities".
+   *
+   * So the column prints the category assigned to the person — the value that
+   * was supplied — and "Not Provided" when nobody has assigned one. An empty
+   * cell that says so is the honest answer; a subject inferred from a lecture
+   * would be a guess sitting in the column the whole sheet is grouped by.
+   *
+   * The per-entry subject is still read and still stored. It answers a
+   * different question, on a different screen; it just no longer answers this
+   * one.
+   */
   function broadCategoryOf(row: Row): string {
-    return (
-      row.broadCategory?.label ??
-      subjects.data?.[row.workDate.slice(0, 10)]?.label ??
-      "Not yet determined"
-    );
+    const assigned = row.instructorCategory?.label;
+    return assigned ? `Instructor - ${assigned}` : NOT_PROVIDED;
   }
 
   function openNew() {
@@ -504,7 +578,6 @@ export default function WorkLogHistoryPage() {
     setSaving(false);
     setReading((current) => (current?.phase === "reading" ? { phase: "slow" } : current));
     logs.reload();
-    subjects.reload();
     summaries.reload();
   }
 
@@ -568,8 +641,7 @@ export default function WorkLogHistoryPage() {
       setOpen(false);
       setBannerOpen(true);
       logs.reload();
-      subjects.reload();
-      summaries.reload();
+        summaries.reload();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -588,8 +660,7 @@ export default function WorkLogHistoryPage() {
       );
       toast("success", "Entry removed.");
       logs.reload();
-      subjects.reload();
-      summaries.reload();
+        summaries.reload();
     } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");
     }
@@ -598,10 +669,19 @@ export default function WorkLogHistoryPage() {
   /** The paragraph box, rather than the four fields. Never while editing a row. */
   const writingItOut = entryMode === "write" && !editing;
 
-  const total = logs.data?.total ?? rows.length;
+  /* Counted in ROWS, which is what the table shows and what the client's sheet
+   * means by a row: one per date, week or month. It used to count entries,
+   * which meant "Showing 1 to 10 of 34 entries" under a table of four days. */
+  const total = groups.length;
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const firstShown = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const lastShown = Math.min(page * PAGE_SIZE, total);
+  const visibleGroups = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* The window held more entries than were fetched, so some days are missing
+   * from the report entirely. Said out loud rather than left to be noticed: a
+   * silently short report is the one failure mode a reader cannot detect. */
+  const truncated = (logs.data?.total ?? 0) > rows.length;
 
   return (
     <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-8">
@@ -769,24 +849,29 @@ export default function WorkLogHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {groups.map((group) => {
+                {visibleGroups.map((group) => {
                   const cells = present(group.dates, summaries.data ?? {});
                   const many = group.entries.length > 1;
                   const isOpen = expanded === group.key;
                   const first = group.entries[0]!;
-                  const subjects = [
-                    ...new Set(group.entries.map((e) => broadCategoryOf(e))),
-                  ].join(", ");
+                  /* One value per person, so the row asks the first entry and
+                     is done. It used to collect the distinct subjects across a
+                     day's entries, which was right when the column described
+                     the work and is meaningless now that it describes who did
+                     it. */
+                  const broadCategory = broadCategoryOf(first);
 
                   return (
                     <Fragment key={group.key}>
                       <tr className="border-b border-line-subtle">
                         <td className="px-4 py-4 text-content">{group.label}</td>
-                        <td className="px-4 py-4 text-content">{first.instructorName}</td>
-                        <td className="tabular px-4 py-4 text-content">
-                          {first.employeeCode ?? "—"}
+                        <td className="px-4 py-4 text-content">
+                          {first.instructorName?.trim() || NOT_PROVIDED}
                         </td>
-                        <td className="px-4 py-4 text-content">{subjects}</td>
+                        <td className="tabular px-4 py-4 text-content">
+                          {first.employeeCode?.trim() || NOT_PROVIDED}
+                        </td>
+                        <td className="px-4 py-4 text-content">{broadCategory}</td>
                         <td className="px-4 py-4 text-content">{cells.deliverable}</td>
                         <td className="tabular px-4 py-4 text-content">{cells.quantity}</td>
                         <td className="tabular px-4 py-4 font-medium text-content">
@@ -888,10 +973,17 @@ export default function WorkLogHistoryPage() {
       </div>
 
       {/* ── Count and pager ───────────────────────────────────────────── */}
+      {truncated ? (
+        <p className="mt-4 rounded-control border border-warning/30 bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-text">
+          This range holds more entries than can be shown at once. Narrow the dates to see all of
+          it — some days are missing from the table below.
+        </p>
+      ) : null}
+
       {rows.length > 0 ? (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted">
-            Showing {firstShown} to {lastShown} of {total} entries
+            Showing {firstShown} to {lastShown} of {total} rows
           </p>
           <Pager page={page} lastPage={lastPage} onPage={setPage} />
         </div>
