@@ -4,6 +4,8 @@ import { assertCanManageInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
+import { workDateFor } from "@/server/time/workday";
+import { recomputeDay } from "@/server/analytics/rollup";
 
 /**
  * Revokes a leave request.
@@ -30,8 +32,17 @@ export const DELETE = withAuth<{ id: string; leaveId: string }>(
        roster, not a read of the tenant. */
     assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
-    // Scoped by instructorId in the predicate, so a leave id belonging to
-    // another instructor cannot be removed even by guessing it.
+    /* Read before deleting, because the days it covered have to be
+     * re-summarised afterwards and the row is the only place they are recorded.
+     * Scoped by instructorId in the predicate for the same reason the delete is:
+     * a leave id belonging to another instructor must not be reachable even by
+     * guessing it. */
+    const leave = await prisma.leaveRequest.findFirst({
+      where: { id: params.leaveId, instructorId: instructor.id },
+      select: { startDate: true, endDate: true, status: true },
+    });
+    if (!leave) throw new ApiError(404, "NOT_FOUND", "Leave request not found");
+
     const result = await prisma.leaveRequest.deleteMany({
       where: { id: params.leaveId, instructorId: instructor.id },
     });
@@ -44,6 +55,18 @@ export const DELETE = withAuth<{ id: string; leaveId: string }>(
       universityId: instructor.universityId,
       metadata: { instructorId: instructor.id },
     });
+
+    /* APPROVED leave removes days from capacity, so revoking it puts them back
+     * — and the stored metrics for those days are now wrong. The scheduler only
+     * recomputes a short trailing window, so leave revoked on anything older
+     * than that would have stayed wrong forever. See `recomputeDay`. */
+    if (leave.status === "APPROVED") {
+      await recomputeDay(
+        instructor.universityId,
+        workDateFor(leave.startDate, "UTC"),
+        workDateFor(leave.endDate, "UTC"),
+      );
+    }
 
     return NextResponse.json({ ok: true });
   },

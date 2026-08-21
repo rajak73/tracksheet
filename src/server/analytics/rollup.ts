@@ -60,6 +60,39 @@ export function isoWeekBounds(date: string): { start: string; end: string } {
  * duplicates. That matters because a late-submitted activity log changes a day
  * that was already summarised.
  */
+/**
+ * Recompute one day's stored metrics, right after something changed it.
+ *
+ * ── Why a mutation has to ask for this ────────────────────────────────────
+ * The metric tables are a cache with no way to tell that its source moved.
+ * `computedAt` records when a row was last written, not whether the activities
+ * beneath it have changed since, and the scheduler only ever recomputes a short
+ * trailing window — three days by default.
+ *
+ * So editing an activity, deleting one, or revoking approved leave on any day
+ * older than that window left the stored figures permanently wrong, with
+ * nothing in the data to show it. The admin dashboard reads those rows; the
+ * live engine does not, so the two silently diverged and only the dashboard was
+ * wrong.
+ *
+ * Deliberately not fatal to the caller. The mutation has already happened and
+ * succeeded; a failure to re-summarise it is a stale cache, not a failed edit,
+ * and the next scheduled or manual rollup over that period corrects it. Turning
+ * a successful edit into a 500 because a cache refresh failed would be the
+ * worse trade.
+ */
+export async function recomputeDay(
+  universityId: string,
+  from: string,
+  to: string = from,
+): Promise<void> {
+  try {
+    await rollupUniversityDaily(universityId, from, to);
+  } catch {
+    /* Stale, not broken — see above. */
+  }
+}
+
 export async function rollupUniversityDaily(
   universityId: string,
   from: string,

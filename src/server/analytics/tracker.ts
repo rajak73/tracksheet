@@ -362,8 +362,25 @@ export async function buildTracker(args: {
    *                     evidence actually is.
    *
    * Reading only the first left every cell of the client's monthly sheet empty,
-   * because nothing in the current product writes to it. They are merged by
-   * title, so a deliverable recorded both ways counts once.
+   * because nothing in the current product writes to it.
+   *
+   * ── They are NOT merged, and cannot be ────────────────────────────────
+   * This used to claim they were "merged by title, so a deliverable recorded
+   * both ways counts once". They are not. The two lookups key on different
+   * things and always will: a DeliverableLog entry is named by the
+   * MANAGER'S FREE-TEXT TITLE ("Chapter 3 quiz"), an ActivityLog entry by the
+   * TAXONOMY'S LABEL for the type it was classified under ("Evaluation"). A
+   * title is never a label, so the merge never fired once.
+   *
+   * There is no shared identifier to merge on — a Deliverable carries no
+   * activity type — so this is stated rather than fixed. The residual risk is
+   * one piece of work appearing as two lines when it is recorded both ways, and
+   * it is small in practice because the DeliverableLog route is the older
+   * mechanism and the worklog does not write to it. Anything that starts
+   * writing to both needs a real key before this comment can change.
+   *
+   * The two are at least distinguishable: DeliverableLog entries are always
+   * `countable: false`, so they can never reach Working Hours from here.
    */
   const activityDeliverables = await prisma.activityLog.findMany({
     where: {

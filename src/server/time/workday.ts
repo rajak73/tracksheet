@@ -88,6 +88,22 @@ export function workDateFor(instant: Date, timeZone: string): string {
  * Converts a `YYYY-MM-DD` + minutes-since-local-midnight into a UTC instant,
  * resolving the zone's offset for that specific date (so DST is handled rather
  * than assumed away).
+ *
+ * ── A wall-clock time that does not exist ─────────────────────────────────
+ * On the morning the clocks go forward, an hour is skipped: at America/New_York
+ * on 2026-03-08 there is no 02:30. Asked for one, this resolves it onto the
+ * pre-transition offset, which lands on the same instant as 01:30.
+ *
+ * That is deliberate, and it is what most date libraries do — the alternatives
+ * are throwing, which turns a configuration edge case into a failed request, or
+ * shifting forward, which silently moves an appointment an hour later than it
+ * was written. Verified rather than assumed: both transitions round-trip
+ * correctly for every hour that DOES exist, and a spring-forward day measures
+ * 23 hours while a fall-back day measures 25.
+ *
+ * It has no effect on this product's working windows, which run 09:00 to 18:00.
+ * It would matter to a university configured to open inside the skipped hour,
+ * and that is the case to revisit if one ever is.
  */
 export function zonedToUtc(workDate: string, minutesSinceMidnight: number, timeZone: string): Date {
   const [y, m, d] = workDate.split("-").map(Number);

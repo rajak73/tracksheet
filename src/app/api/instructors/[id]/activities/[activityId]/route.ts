@@ -7,6 +7,8 @@ import { updateActivity } from "@/server/activities/logger";
 import { logAudit } from "@/server/audit/logger";
 import { markReviewed } from "@/server/worklog/service";
 import { createNotification } from "@/server/notifications/service";
+import { workDateFor } from "@/server/time/workday";
+import { recomputeDay } from "@/server/analytics/rollup";
 
 /**
  * Correcting or removing one recorded activity.
@@ -212,6 +214,9 @@ export const PATCH = withAuth<Params>(async ({ scope, params, req, principal }) 
     },
   });
 
+  // The stored metrics for that day are now out of date. See `recomputeDay`.
+  await recomputeDay(activity.universityId, workDateFor(activity.workDate, "UTC"));
+
   return NextResponse.json({ activity: updated });
 });
 
@@ -247,6 +252,9 @@ export const DELETE = withAuth<Params>(async ({ scope, params, principal }) => {
       },
     },
   });
+
+  // The stored metrics for that day are now out of date. See `recomputeDay`.
+  await recomputeDay(activity.universityId, workDateFor(activity.workDate, "UTC"));
 
   return NextResponse.json({ ok: true });
 });
