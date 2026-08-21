@@ -79,12 +79,20 @@ async function report(db: PrismaClient, url: string) {
   /* Reference data is the one thing whose ABSENCE breaks everything: with no
    * activity types, recording anything fails and every report is empty. So it
    * gets its own line rather than being read off the table above. */
+  // Counted from the canonical definitions, not repeated here — this line said
+  // "4 categories" and would have gone on saying it after the list grew.
+  const { ACTIVITY_TYPE_COUNT, DELIVERABLE_TYPE_COUNT, INSTRUCTOR_CATEGORY_COUNT } = await import(
+    "../prisma/reference-data.js"
+  );
   const ok =
-    counts.activityType === 16 && counts.deliverableType === 44 && counts.instructorCategory === 4;
+    counts.activityType === ACTIVITY_TYPE_COUNT &&
+    counts.deliverableType === DELIVERABLE_TYPE_COUNT &&
+    counts.instructorCategory === INSTRUCTOR_CATEGORY_COUNT;
   console.log(
     `\nReference data: ${ok ? "complete" : "INCOMPLETE — run `npm run db:reference-data`"}` +
-      `  (${counts.activityType}/16 activity types, ${counts.deliverableType}/44 deliverables, ` +
-      `${counts.instructorCategory}/4 categories)`,
+      `  (${counts.activityType}/${ACTIVITY_TYPE_COUNT} activity types, ` +
+      `${counts.deliverableType}/${DELIVERABLE_TYPE_COUNT} deliverables, ` +
+      `${counts.instructorCategory}/${INSTRUCTOR_CATEGORY_COUNT} categories)`,
   );
 
   if (counts.user === 0) {

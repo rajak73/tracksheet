@@ -288,10 +288,31 @@ export type InstructorCategoryDefinition = { code: string; label: string };
  * a category too.
  */
 export const INSTRUCTOR_CATEGORIES: InstructorCategoryDefinition[] = [
+  /* ── The first four are the client's own, verbatim ──────────────────────
+   * See the note above: TECH, ENGLISH, APTITUDE and MATH are the exact values
+   * in their instructor roster, so an import or a reconciliation never has to
+   * translate between two spellings.
+   *
+   * ── The last three were added for the SUBJECT decision ──────────────────
+   * This list does two jobs. It is the stream a person belongs to, and it is
+   * the set the parser picks from when it reads what a line was about. The
+   * client asked for Physics, Chemistry and Others so a lecture on those is
+   * classified rather than left blank.
+   *
+   * Worth knowing when reconciling: a derived stream can now read "Physics",
+   * which their own roster column has no value for. The first four still cover
+   * every instructor they sent us.
+   *
+   * OTHERS is for a line that DOES name a subject, just not one of the six. It
+   * is not the answer for a line that names no subject at all — that stays
+   * null, and the day inherits from the previous office day instead. */
   { code: "TECH", label: "Technical" },
+  { code: "MATH", label: "Mathematics" },
   { code: "ENGLISH", label: "English" },
   { code: "APTITUDE", label: "Aptitude" },
-  { code: "MATH", label: "Mathematics" },
+  { code: "PHYSICS", label: "Physics" },
+  { code: "CHEMISTRY", label: "Chemistry" },
+  { code: "OTHERS", label: "Others" },
 ];
 
 export const INSTRUCTOR_CATEGORY_CODES = INSTRUCTOR_CATEGORIES.map((c) => c.code);

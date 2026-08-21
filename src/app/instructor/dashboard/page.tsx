@@ -46,6 +46,9 @@ import { pingNotifications } from "@/app/_components/NotificationBell";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
 import { formatDayAs, formatDayLong, formatDayShort } from "@/app/_lib/format";
 
+/** One office day's subject, possibly inherited. See `/api/instructors/[id]/day-subjects`. */
+type DaySubject = { code: string; label: string; carriedFrom: string | null } | null;
+
 /* ── Dates, in the tenant's zone ──────────────────────────────────────────── */
 
 /** Today's calendar date as the university reads it. */
@@ -290,6 +293,23 @@ export default function InstructorDashboardPage() {
     return res.notes;
   }, [context, from, to]);
   const dayNotes = useLoad(loadNotes, `instructor-notes:${from ?? "-"}:${to ?? "-"}`);
+
+  /* What each office day was ABOUT — the sheet's Broad Category column.
+   *
+   * Read from the server rather than derived from the activities on screen: a
+   * day with no class of its own inherits the last office day that named a
+   * subject, and that day is usually before this window. The manager's sheet
+   * gets the same answer from the same function, so the two cannot disagree
+   * about the same day. */
+  const loadSubjects = useCallback(async () => {
+    if (!context || !from || !to) return {} as Record<string, DaySubject>;
+    const res = await apiGet<{ subjectByDate: Record<string, DaySubject> }>(
+      `/api/instructors/${context.instructorId}/day-subjects?from=${from}&to=${to}`,
+      "Could not load what your days were about.",
+    );
+    return res.subjectByDate;
+  }, [context, from, to]);
+  const daySubjects = useLoad(loadSubjects, `instructor-subjects:${from ?? "-"}:${to ?? "-"}`);
 
   const saveNote = async (date: string, note: string) => {
     if (!context) return;
@@ -600,6 +620,7 @@ export default function InstructorDashboardPage() {
           <InstructorSheet
             periods={sheetPeriods}
             activitiesByDate={byDate}
+            subjectByDate={daySubjects.data ?? {}}
             notes={dayNotes.data ?? {}}
             busy={saving}
             onAdd={() => openEntry()}

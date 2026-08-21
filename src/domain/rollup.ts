@@ -51,7 +51,6 @@ export type Rollup = {
   lines: RollupLine[];
   /** Time spent WITH STUDENTS. Preparation, meetings and admin are excluded. */
   hours: number;
-  subjects: string[];
   remarks: string[];
 };
 
@@ -126,11 +125,18 @@ export function rollUp(activities: RollupActivity[]): Rollup {
     // same figure as adding up the countable activities one by one — which is
     // what makes it independent of the grouping.
     hours: lines.reduce((n, l) => n + (l.countable ? l.hours : 0), 0),
-    /* What they actually taught, read from the entries themselves. Nothing is
-     * inherited from a setting on the person, so this describes the period
-     * rather than describing the instructor. A period whose lines name no
-     * subject — a day of meetings — is left blank rather than borrowed. */
-    subjects: distinct(activities.map((a) => a.broadCategory?.label)),
+    /* `subjects` used to be returned here — the distinct subject labels of the
+     * entries in this period.
+     *
+     * It moved to the server, to `daySubjectsFor`, because of a rule this
+     * function cannot honour: a day with no class of its own takes the subject
+     * of the last office day that had one, and that day is usually outside the
+     * period being rolled up. Derived from the entries in view, a month of
+     * meetings answered "blank" while the sheet beside it showed the carried
+     * subject.
+     *
+     * Removed rather than left in place: a caller reaching for the easy one
+     * here would silently get the un-carried answer. */
     remarks: distinct(activities.map((a) => a.remarks)),
   };
 }

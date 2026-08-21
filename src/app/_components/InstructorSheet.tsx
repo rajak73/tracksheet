@@ -83,6 +83,7 @@ const plural = (label: string, n: number) => (n === 1 || label.endsWith("s") ? l
 export function InstructorSheet({
   periods,
   activitiesByDate,
+  subjectByDate,
   notes,
   busy,
   onAdd,
@@ -91,6 +92,15 @@ export function InstructorSheet({
   /** Newest first. */
   periods: SheetPeriod[];
   activitiesByDate: Record<string, Activity[]>;
+  /**
+   * What each office day was about, from the server.
+   *
+   * Not derived here: a day with no class of its own inherits the subject of
+   * the last office day that had one, which is usually before this window. The
+   * manager's sheet reads the same answer from the same function, so the two
+   * cannot disagree about the same day.
+   */
+  subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
   /** The instructor's own note per day, keyed by date. */
   notes: Record<string, string>;
   busy: boolean;
@@ -131,7 +141,16 @@ export function InstructorSheet({
             const rows = period.dates
               .flatMap((d) => activitiesByDate[d] ?? [])
               .sort((a, b) => a.startTime.localeCompare(b.startTime));
-            const { lines, hours, subjects, remarks } = rollUp(rows);
+            const { lines, hours, remarks } = rollUp(rows);
+            // The period's subjects, from the day answers rather than from the
+            // entries — see the note on `subjectByDate`.
+            const subjects = [
+              ...new Set(
+                period.dates
+                  .map((d) => subjectByDate?.[d]?.label)
+                  .filter((label): label is string => Boolean(label)),
+              ),
+            ];
             return (
               <PeriodRow
                 key={period.label}
@@ -230,8 +249,11 @@ function PeriodRow({
                   {subjects.join(", ")}
                 </span>
               ) : (
-                <span className="text-subtle" title="No subject was named, and none is set for you">
-                  —
+                <span
+                  className="text-subtle"
+                  title="Read from the classes you record. A day with no class takes the subject of your last teaching day."
+                >
+                  Not yet determined
                 </span>
               )}
             </td>

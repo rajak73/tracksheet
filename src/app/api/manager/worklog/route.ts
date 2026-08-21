@@ -4,6 +4,8 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
+import { daySubjectsFor } from "@/server/instructors/day-subject";
+import { loadUniversityConfig } from "@/server/universities/config";
 
 /**
  * A manager's worklog: who on their roster recorded what, day by day.
@@ -234,6 +236,17 @@ export const GET = withAuth(async ({ scope, req }) => {
   // per-day capacity and productive hours every view below needs.
   const analytics = await computeAnalytics({ universityId, from, to });
 
+  /* What each office day was ABOUT, with a quiet day inheriting from the last
+   * one that named a subject. Computed on the server because the inheritance
+   * reaches back before the window the sheet asked for, and the browser only
+   * has the window. */
+  const daySubjects = await daySubjectsFor(
+    roster.map((i) => i.id),
+    from,
+    to,
+    await loadUniversityConfig(universityId),
+  );
+
   // The activities themselves, for the day view's timeline. Bounded by the same
   // range and the same roster, so this cannot become a way to read the tenant.
   const logs = await prisma.activityLog.findMany({
@@ -353,6 +366,11 @@ export const GET = withAuth(async ({ scope, req }) => {
         activityCount,
         status,
         days,
+        /* The Broad Category the client's sheet prints, per office day. A day
+         * with no class of its own carries the last one that had — see
+         * `daySubjectsFor`. Keyed by date so a sheet showing days, weeks or
+         * months can read whichever it needs. */
+        subjectByDate: Object.fromEntries(daySubjects.get(instructor.id) ?? []),
         notes: notesByInstructor.get(instructor.id) ?? {},
         activities: mine.map((log) => ({
           id: log.id,

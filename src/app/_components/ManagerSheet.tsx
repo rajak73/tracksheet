@@ -40,6 +40,15 @@ export type ManagerPerson = {
   name: string;
   employeeCode: string | null;
   activitiesByDate: Record<string, Activity[]>;
+  /**
+   * What each OFFICE DAY was about, decided on the server.
+   *
+   * Not derivable here: a day with no class of its own inherits the subject of
+   * the last office day that had one, and that day is often before the window
+   * this sheet asked for. Absent dates are non-office days; a null value is a
+   * day with nothing to inherit.
+   */
+  subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
   /** Their own remark per day, keyed by date. */
   notes: Record<string, string>;
 };
@@ -190,12 +199,22 @@ export function ManagerSheet({
 
         <tbody>
           {people.map((person) => {
-            // Their subjects across the whole range: the column describes the
-            // person here, where each cell already describes its own period.
-            const all = periods.flatMap((p) =>
-              p.dates.flatMap((d) => person.activitiesByDate[d] ?? []),
-            );
-            const subjects = rollUp(all).subjects;
+            /* Their subjects across the whole range: the column describes the
+             * person here, where each cell already describes its own period.
+             *
+             * Read from `subjectByDate`, not from the entries. A day of
+             * meetings names no subject — the parser correctly records none —
+             * and the day inherits from the last office day that taught one. A
+             * sheet built only from the entries in view cannot know that,
+             * because the day it inherits from is often outside the window. */
+            const subjects = [
+              ...new Set(
+                periods
+                  .flatMap((p) => p.dates)
+                  .map((d) => person.subjectByDate?.[d]?.label)
+                  .filter((label): label is string => Boolean(label)),
+              ),
+            ];
 
             return (
               <tr key={person.instructorId} className="group transition-colors hover:bg-hovered">
@@ -216,7 +235,10 @@ export function ManagerSheet({
                   {subjects.length > 0 ? (
                     <span className="text-content">{subjects.join(", ")}</span>
                   ) : (
-                    <span className="text-subtle">—</span>
+                    /* Not an em dash: this is a value the system will supply
+                       once they have taught something, not one that does not
+                       apply. */
+                    <span className="text-subtle">Not yet determined</span>
                   )}
                 </td>
 

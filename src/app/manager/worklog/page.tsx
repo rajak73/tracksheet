@@ -56,6 +56,8 @@ type Row = {
   name: string;
   employeeCode: string | null;
   notes: Record<string, string>;
+  /** What each office day was about, decided server-side — see `ManagerSheet`. */
+  subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
   activities: Array<Activity & { date: string }>;
 };
 
@@ -210,6 +212,7 @@ export default function ManagerWorklogPage() {
         name: r.name,
         employeeCode: r.employeeCode,
         notes: r.notes ?? {},
+        subjectByDate: r.subjectByDate ?? {},
         activitiesByDate: r.activities
           // The category filter narrows ENTRIES rather than people, so it is
           // applied here: an instructor with nothing matching still appears,
@@ -268,7 +271,18 @@ export default function ManagerWorklogPage() {
     for (const person of people) {
       for (const period of periods) {
         const acts = period.dates.flatMap((d) => person.activitiesByDate[d] ?? []);
-        const { lines, hours, subjects, remarks } = rollUp(acts);
+        const { lines, hours, remarks } = rollUp(acts);
+        /* The same day answers the sheet prints, not a second derivation. The
+         * export used `rollUp(...).subjects`, which reads only the entries in
+         * the window — so a month of meetings exported a blank Broad Category
+         * while the screen beside it showed the carried subject. */
+        const subjects = [
+          ...new Set(
+            period.dates
+              .map((d) => person.subjectByDate?.[d]?.label)
+              .filter((label): label is string => Boolean(label)),
+          ),
+        ];
         const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
         rows.push([
           person.name,
