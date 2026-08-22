@@ -261,7 +261,7 @@ const IDENTITY = {
   category: "w-[160px] min-w-[160px]",
 } as const;
 
-/** The four fields the client's sheet repeats under every week. */
+/** The five fields the client's sheet repeats under every week. */
 /* Named exactly as the client's own sheet names them — this grid IS that sheet,
  * and a column called "Qty" here against "Deliverable Quantity" there is how a
  * report review turns into an argument about whether they are the same number.
@@ -283,9 +283,9 @@ const WEEK_FIELDS = [
 
 
 /**
- * One week for one instructor, as FOUR real table cells.
+ * One week for one instructor, as FIVE real table cells.
  *
- * Four `<td>`s rather than one stacked block: the grouped header above names
+ * Five `<td>`s rather than one stacked block: the grouped header above names
  * each field once, so the body can stay quiet and the eye can run down a single
  * column comparing quantities. There is ONE hours cell and it holds Working
  * Hours. It used to have a "Deliverable Hours" companion — hours booked
@@ -566,7 +566,7 @@ export function TrackerGrid({
       {/* The grid scrolls inside its own container so the page body never
           scrolls sideways — the three identity columns stay pinned within it.
 
-          The header is TWO rows: each week spans its four fields with
+          The header is TWO rows: each week spans its five fields with
           colSpan, and the fields are named underneath. That is the sheet the
           client actually works from, and a single stacked cell per week — the
           shape this replaced — cannot express "which column am I reading". */}
@@ -624,7 +624,7 @@ export function TrackerGrid({
                 </th>
               ))}
             </tr>
-            {/* Row 2 — the four fields, repeated under every week. */}
+            {/* Row 2 — the five fields, repeated under every week. */}
             <tr>
               {tracker.weeks.map((week) =>
                 WEEK_FIELDS.map((field, i) => (
