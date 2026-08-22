@@ -65,7 +65,18 @@ const CASES: Array<{ label: string; expect: string; text: string }> = [
       "Also sat through the department meeting 2:15 to 3.",
   },
   {
-    label: "7. One activity only",
+    label: "7. The four taxonomy decisions, in one day",
+    expect:
+      "Lab Evaluation (Assessment) — NOT 20 of anything; Meeting (Other) for the " +
+      "student meeting; Department Duties not Documentation; Data Analysis not Experiment",
+    text:
+      "Graded the lab practicals for 20 students 9 to 10, " +
+      "had the project review meeting with the final year team 10 to 10:30, " +
+      "spent the afternoon on the invigilation roster 2 to 3, " +
+      "then analysed the experiment data 3 to 4.",
+  },
+  {
+    label: "8. One activity only",
     expect: "one activity — a paragraph is not always several",
     text: "Took a DBMS lecture on normalisation for section B from 10 AM to 11:30 AM.",
   },
@@ -109,12 +120,17 @@ async function main() {
         bullet.startLocal && bullet.endLocal
           ? `${bullet.startLocal}–${bullet.endLocal}`
           : "  no time  ";
-      const { deliverableFor } = await import("../src/domain/worklog-taxonomy");
-      const label = deliverableFor(bullet.deliverableCode, bullet.categoryCode).name;
+      const { deliverableFor, quantityPhrase } = await import("../src/domain/worklog-taxonomy");
+      const chosen = deliverableFor(bullet.deliverableCode, bullet.categoryCode);
+      const label = chosen.name;
+      /* What the report's quantity column would actually print. A deliverable
+       * that is never counted has no entry there at all, which is different
+       * from an unknown count and must not be shown as one. */
+      const counted = quantityPhrase(chosen, bullet.quantity) ?? "— (hours only)";
 
       console.log(
         `  ${clock}  ${String(bullet.durationMinutes ?? "—").padStart(4)}m  ` +
-          `x${String(bullet.quantity ?? "?").padEnd(3)} ${label.padEnd(28)} ` +
+          `${counted.padEnd(22)} ${label.padEnd(28)} ` +
           `${bullet.subjectCode ?? "—"}`,
       );
       console.log(`      from: “${bullet.rawText}”`);

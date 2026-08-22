@@ -40,6 +40,7 @@ import {
   quantityCell,
   remarksCell,
   reportLines,
+  subjectsCell,
   suppliedOr,
   workedMinutesIn,
   workingHours as workingHoursCell,
@@ -97,6 +98,14 @@ export type TrackerCell = {
   totalWorkingHours: number;
   /** Engine hours per ActivityType code — the Broad Category split. */
   hoursByCategory: Record<string, number>;
+  /**
+   * Every distinct subject this week actually touched, read per entry.
+   *
+   * Per WEEK, not per instructor: a person filed under Technical can spend one
+   * week on Maths, and that is the fact this answers. Their assigned category
+   * is a sticky column and does not move.
+   */
+  subjects: string[];
   /** Individual remarks, newest last. Never concatenated into one blob. */
   remarks: string[];
 };
@@ -250,7 +259,7 @@ function dominantCategory(hours: Record<string, number>): string | null {
  * between the two exports.
  */
 export function formatTrackerAsCsv(tracker: TrackerResult): string {
-  const head1 = ["Employee Name", "Employee ID", "Broad Category", "Status"];
+  const head1 = ["Employee Name", "Employee ID", "Instructor Category", "Status"];
   const head2 = ["", "", "", ""];
 
   for (const week of tracker.weeks) {
@@ -262,8 +271,8 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
      * and having it beside Working Hours invited exactly the subtraction the
      * two are not related by. The export and the screen now have the same
      * columns, so a screenshot and a spreadsheet cannot disagree. */
-    head1.push(`Week ${week.index} [${span}]`, "", "", "");
-    head2.push("Deliverable", "Deliverable Quantity", "Working Hours", "Remarks");
+    head1.push(`Week ${week.index} [${span}]`, "", "", "", "");
+    head2.push("Subjects Covered", "Deliverable", "Deliverable Quantity", "Working Hours", "Remarks");
   }
 
   const lines = [head1.map(csvCell).join(","), head2.map(csvCell).join(",")];
@@ -287,6 +296,7 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
        * step. */
       const lines = reportLines(cell?.deliverables ?? []);
       cells.push(
+        subjectsCell(cell?.subjects ?? []),
         deliverableCell(lines),
         quantityCell(countableLines(cell?.deliverables ?? [])),
         // "05h 15m" — the client specified the format to the character.
@@ -458,6 +468,8 @@ function addQuantity(total: number | null, add: number | null): number | null {
       remarks: true,
       activityType: { select: { code: true, label: true } },
       deliverableType: { select: { code: true, label: true, isCountable: true } },
+      // The subject the model read out of this entry's own sentence.
+      broadCategory: { select: { label: true } },
     },
   });
 
@@ -500,6 +512,7 @@ function addQuantity(total: number | null, add: number | null): number | null {
         deliverableHours: 0,
         totalWorkingHours: 0,
         hoursByCategory: {},
+        subjects: [],
         remarks: [],
       });
       cell.totalWorkingHours = b.productiveHours;
@@ -528,6 +541,7 @@ function addQuantity(total: number | null, add: number | null): number | null {
       deliverableHours: 0,
       totalWorkingHours: 0,
       hoursByCategory: {},
+      subjects: [],
       remarks: [],
     });
 
@@ -568,6 +582,7 @@ function addQuantity(total: number | null, add: number | null): number | null {
       deliverableHours: 0,
       totalWorkingHours: 0,
       hoursByCategory: {},
+      subjects: [],
       remarks: [],
     });
 
@@ -658,6 +673,9 @@ function addQuantity(total: number | null, add: number | null): number | null {
     // same remark four times in one cell.
     const remark = log.remarks?.trim();
     if (remark && !cell.remarks.includes(remark)) cell.remarks.push(remark);
+
+    const subject = log.broadCategory?.label;
+    if (subject && !cell.subjects.includes(subject)) cell.subjects.push(subject);
 
     if (countable) row.totals.quantity = addQuantity(row.totals.quantity, log.quantity);
     if (log.deliverableType) {

@@ -43,6 +43,7 @@ import {
   quantityCell,
   remarksCell,
   reportLines,
+  subjectsCell,
   workedMinutesIn,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
@@ -75,6 +76,8 @@ export type TrackerCell = {
   deliverableHours: number;
   totalWorkingHours: number;
   hoursByCategory: Record<string, number>;
+  /** Distinct subjects this week touched. Mirrors the server. */
+  subjects: string[];
   remarks: string[];
 };
 
@@ -267,6 +270,11 @@ const IDENTITY = {
  * Evaluations" rather than a bare figure; right-aligning prose puts its ragged
  * edge against the numbers beside it. */
 const WEEK_FIELDS = [
+  /* Subjects Covered lives INSIDE the week group, not among the sticky columns.
+   * It varies week to week for the same person — a Technical instructor can
+   * spend one week on Maths — so it belongs with the period's own data. The
+   * sticky column beside their name is what they ARE, and does not move. */
+  { key: "subjects", label: "Subjects Covered", align: "text-left" },
   { key: "deliverable", label: "Deliverable", align: "text-left" },
   { key: "quantity", label: "Deliverable Quantity", align: "text-left" },
   { key: "hours", label: "# Working Hours", align: "text-right" },
@@ -338,6 +346,9 @@ function WeekColumns({
        * writes for this same cell.
        */}
       <td className={`border-b border-l-2 border-line px-3 py-3 align-top ${bg}`}>
+        <span className="block text-sm text-content">{subjectsCell(cell?.subjects ?? [])}</span>
+      </td>
+      <td className={`border-b border-l border-line px-3 py-3 align-top ${bg}`}>
         {deliverables.length === 0 ? (
           <span className="text-xs text-subtle">—</span>
         ) : (
@@ -563,7 +574,7 @@ export function TrackerGrid({
                 rowSpan={2}
                 className={`${IDENTITY.category} sticky left-[352px] z-30 border-b border-r border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
               >
-                Broad Category
+                Instructor Category
               </th>
               {tracker.weeks.map((week) => (
                 <th

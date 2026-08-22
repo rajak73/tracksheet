@@ -28,6 +28,7 @@ import {
   deliverableCell,
   quantityCell,
   remarksCell,
+  subjectsCell,
   suppliedOr,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
@@ -273,7 +274,8 @@ export default function ManagerWorklogPage() {
         "Employee Name",
         "Employee ID",
         "Period",
-        "Broad Category",
+        "Instructor Category",
+        "Subjects Covered",
         "Deliverable",
         "Deliverable Quantity",
         "Working Hours",
@@ -306,6 +308,8 @@ export default function ManagerWorklogPage() {
           suppliedOr(person.employeeCode),
           `${period.label} (${period.sublabel})`,
           broadCategoryCell(person.category),
+          // What the period actually touched, from the entries themselves.
+          subjectsCell(acts.map((a) => a.broadCategory?.label)),
           deliverableCell(cells),
           quantityCell(cells.filter((_, i) => lines[i]!.countable)),
           workingHoursCell(Math.round(hours * 60)),

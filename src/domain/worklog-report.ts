@@ -179,6 +179,39 @@ export function broadCategoryCell(assigned: { label: string } | null | undefined
   return label ? `Instructor - ${label}` : NOT_PROVIDED;
 }
 
+/**
+ * The Subjects Covered column: what they actually worked on in this period.
+ *
+ * ── A different question from Instructor Category ─────────────────────────
+ * These two were one column, and the two readings of it contradicted each
+ * other so directly that each spec forbade the other. They are separate fields
+ * now, and neither is a fallback for the other:
+ *
+ *   Instructor Category   what this person IS. Assigned, fixed, never inferred,
+ *                         "Not Provided" when nobody has assigned it. See
+ *                         `broadCategoryCell`.
+ *   Subjects Covered      what this person DID in this period. Read per entry
+ *                         from `ActivityLog.broadCategoryId`, which the model
+ *                         judged from the sentence, and comma-separated because
+ *                         a day can hold a Tech class and a Maths one.
+ *
+ * Empty is a real answer and is not a failure: a day of meetings and admin
+ * names no subject at all, and the model is instructed to return null rather
+ * than reach for one. An em dash says that; "Not Provided" would wrongly
+ * suggest somebody forgot to fill something in.
+ */
+export function subjectsCell(labels: ReadonlyArray<string | null | undefined>): string {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const label of labels) {
+    const text = label?.trim();
+    if (!text || seen.has(text.toLowerCase())) continue;
+    seen.add(text.toLowerCase());
+    kept.push(text);
+  }
+  return kept.length ? kept.join(", ") : NOTHING;
+}
+
 /** Employee Name and Employee ID: preserved exactly, or said to be missing. */
 export function suppliedOr(value: string | null | undefined): string {
   const text = value?.trim();

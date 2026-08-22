@@ -228,6 +228,69 @@ They are never added together and never reconciled. The Deliverable column on
 the sheet deliberately does not sum to Working Hours, and the muted lines are
 what says so.
 
+## The report taxonomy
+
+The client's report is written in a closed vocabulary of **8 categories and 25
+deliverables**, defined once in
+[`src/domain/worklog-taxonomy.ts`](src/domain/worklog-taxonomy.ts). That one
+list is simultaneously the vocabulary offered to the model, the allow-list its
+reply is checked against, and the names the report prints — because three lists
+that must agree are three lists that eventually will not, in a column the
+client reconciles by hand.
+
+It is **not** the database taxonomy. `ActivityType` and `DeliverableType` hold
+11 categories and 44 deliverables, they carry foreign keys and rollups, and
+they are not changing. Each report deliverable names the stored codes it prints
+for, so every row traces back to what was actually recorded.
+
+### Counting is a property of the deliverable
+
+The unit decides what an unstated quantity means, and nothing else does:
+
+| mode | examples | unstated count becomes |
+|---|---|---|
+| `occurrence` | Live Class, Department Meeting, Workshop Attended | **1** — the entry *is* one of them |
+| `items` | Assignment Evaluation, Exam Evaluation, Lab Evaluation, Experiment | **`?`** — never 1, never 0 |
+| `none` | Literature Review, Data Analysis, Reporting, Documentation, Department Duties | no entry in the column at all |
+
+`ActivityLog.quantity` is nullable for this reason. Null is the client's `?`,
+not missing data to be defaulted away, and deliberately not zero — zero is a
+count, and "none" and "unknown" are answers a manager acts on differently.
+
+### Instructor Category and Subjects Covered are two different fields
+
+They were one column, and the two readings of it contradicted each other so
+directly that each spec forbade the other. Never collapse them again:
+
+| field | answers | source | absent reads as |
+|---|---|---|---|
+| **Instructor Category** | what this person **is** | `Instructor.categoryId`, assigned by an admin, never inferred | `Not Provided` |
+| **Subjects Covered** | what they **did** this period | `ActivityLog.broadCategoryId`, judged per entry by the model | `—` |
+
+On the instructor view and the manager Day/Week sheets both appear as columns.
+On the manager month spreadsheet Instructor Category is a sticky left column —
+one fixed value per person — while Subjects Covered sits inside each week's
+group, because it varies week to week for the same instructor.
+
+### Four names added after the taxonomy shipped
+
+Each replaced a mapping that was quietly wrong, and each is recorded here
+because the wrongness was invisible in the report rather than obvious:
+
+- **Lab Evaluation** — printed as *Exam Evaluation → N Scripts*, which put lab
+  marking into the exam-script total. Worse, a lab evaluation with no count
+  read as a *Practical / Lab Session*, so the same work moved between
+  Assessment and Teaching depending on whether a number was written.
+- **Meeting (Other)** — every meeting was a *Department Meeting*, so a
+  one-to-one with a student inflated a governance count.
+- **Department Duties** — invigilation rosters, admissions and accreditation
+  all printed as *Documentation*, none of which is a document being written.
+- **Data Analysis** — analysing data landed on *Experiment*, which is
+  item-counted, so it demanded a count of experiments nobody ran.
+
+`npm run worklog:sample` puts the sentences behind each of these through the
+real model and prints what comes back.
+
 ## Pagination
 
 Six list-returning endpoints are server-side paginated: Universities,

@@ -25,6 +25,7 @@ import { categoryColor } from "@/app/_components/charts";
 import {
   broadCategoryCell,
   compactDuration,
+  subjectsCell,
   countableLines,
   quantityCell,
   suppliedOr,
@@ -77,6 +78,7 @@ const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
   category: "w-[168px] min-w-[168px]",
+  subjects: "w-[160px] min-w-[160px]",
 };
 
 const HEAD = "bg-sunken text-xs font-semibold leading-snug text-muted";
@@ -143,7 +145,14 @@ export function ManagerSheet({
               rowSpan={2}
               className={`${HEAD} ${IDENTITY.category} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
             >
-              Broad Category
+              Instructor Category
+            </th>
+            <th
+              scope="col"
+              rowSpan={2}
+              className={`${HEAD} ${IDENTITY.subjects} sticky left-[520px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+            >
+              Subjects Covered
             </th>
 
             {periods.map((p) => (
@@ -235,6 +244,20 @@ export function ManagerSheet({
                   <span className={person.category ? "text-content" : "text-subtle"}>
                     {broadCategoryCell(person.category)}
                   </span>
+                </td>
+                <td
+                  className={`${IDENTITY.subjects} sticky left-[520px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
+                >
+                  {/* What they actually worked on across the range shown — read
+                      from the entries, not from the column beside it. A person
+                      filed under Technical who spent the week on Maths shows
+                      both facts, in the two places they belong. */}
+                  {subjectsCell(
+                    periods
+                      .flatMap((p) => p.dates)
+                      .flatMap((d) => person.activitiesByDate[d] ?? [])
+                      .map((a) => a.broadCategory?.label),
+                  )}
                 </td>
 
                 {periods.map((period) => (

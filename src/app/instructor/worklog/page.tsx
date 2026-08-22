@@ -29,7 +29,7 @@ import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { formatCompactDuration, formatHours, todayISO } from "@/app/_lib/format";
 import { sumQuantities } from "@/domain/worklog-taxonomy";
-import { quantityCell } from "@/domain/worklog-report";
+import { broadCategoryCell, quantityCell, subjectsCell } from "@/domain/worklog-report";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -317,7 +317,10 @@ const COLUMNS = [
   "Date",
   "Employee Name",
   "Employee ID",
-  "Broad Category",
+  /* Two columns, not one. What this person IS, and what they DID — see
+   * `subjectsCell`. Collapsing them is what produced the contradiction. */
+  "Instructor Category",
+  "Subjects Covered",
   "Deliverable",
   "Deliverable Quantity",
   "Working Hours",
@@ -466,8 +469,7 @@ export default function WorkLogHistoryPage() {
    * one.
    */
   function broadCategoryOf(row: Row): string {
-    const assigned = row.instructorCategory?.label;
-    return assigned ? `Instructor - ${assigned}` : NOT_PROVIDED;
+    return broadCategoryCell(row.instructorCategory);
   }
 
   function openNew() {
@@ -857,7 +859,13 @@ export default function WorkLogHistoryPage() {
                      day's entries, which was right when the column described
                      the work and is meaningless now that it describes who did
                      it. */
-                  const broadCategory = broadCategoryOf(first);
+                  const instructorCategory = broadCategoryOf(first);
+                  /* Every subject the period actually touched, read from the
+                     entries themselves. Varies by row; the column to its left
+                     does not. */
+                  const subjects = subjectsCell(
+                    group.entries.map((e) => e.broadCategory?.label),
+                  );
 
                   return (
                     <Fragment key={group.key}>
@@ -869,7 +877,8 @@ export default function WorkLogHistoryPage() {
                         <td className="tabular px-4 py-4 text-content">
                           {first.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
-                        <td className="px-4 py-4 text-content">{broadCategory}</td>
+                        <td className="px-4 py-4 text-content">{instructorCategory}</td>
+                        <td className="px-4 py-4 text-content">{subjects}</td>
                         <td className="px-4 py-4 text-content">{cells.deliverable}</td>
                         <td className="tabular px-4 py-4 text-content">{cells.quantity}</td>
                         <td className="tabular px-4 py-4 font-medium text-content">
@@ -925,7 +934,7 @@ export default function WorkLogHistoryPage() {
                               <td className="px-4 py-3 text-sm text-muted">
                                 {view === "week" ? longDate(e.workDate.slice(0, 10)) : ""}
                               </td>
-                              <td colSpan={3} />
+                              <td colSpan={4} />
                               <td className="px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>

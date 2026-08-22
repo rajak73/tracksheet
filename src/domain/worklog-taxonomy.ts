@@ -147,9 +147,28 @@ export const DELIVERABLES: readonly Deliverable[] = [
     counting: "items",
     unit: "Script",
     units: "Scripts",
-    // A quiz and a lab evaluation are both marking a formal assessment; the
-    // client's list has one name for that and this is it.
-    codes: ["EXAM_EVALUATION", "QUIZ_EVALUATION", "LAB_EVALUATION"],
+    codes: ["EXAM_EVALUATION", "QUIZ_EVALUATION"],
+  },
+  {
+    /* Its own name, not Exam Evaluation's.
+     *
+     * It used to print as "Exam Evaluation → N Scripts", which put lab marking
+     * into the exam-script total and made that total stop meaning exam season.
+     * And because a lab evaluation with no count read as a Practical / Lab
+     * Session instead, the SAME work landed in Assessment or in Teaching
+     * depending on whether the instructor happened to write a number — a
+     * category that moved with the phrasing. */
+    name: "Lab Evaluation",
+    dbCategory: "ASSESSMENT",
+    category: "Assessment",
+    counting: "items",
+    /* Items evaluated — reports, records, submissions. Deliberately NOT
+     * students: "graded the lab practicals for 20 students" is one number
+     * counting a different thing, and reading it as twenty items evaluated is
+     * the unit substitution this exists to prevent. */
+    unit: "Lab Evaluation",
+    units: "Lab Evaluations",
+    codes: ["LAB_EVALUATION"],
   },
   {
     name: "Question Paper Preparation",
@@ -202,9 +221,23 @@ export const DELIVERABLES: readonly Deliverable[] = [
     counting: "none",
     unit: "",
     units: "",
-    // Analysis has no unit of its own on the client's list, and inventing an
-    // experiment count for it would be worse than reporting the hours alone.
-    codes: ["LITERATURE_REVIEW", "RESEARCH_ANALYSIS", "DATA_ANALYSIS"],
+    // Reading and reviewing existing sources. Nothing else.
+    codes: ["LITERATURE_REVIEW"],
+  },
+  {
+    /* The step between reading and writing, which had no name.
+     *
+     * Analysing data was landing on Experiment — which is item-counted, so it
+     * demanded a count of experiments nobody ran and printed "? Experiments"
+     * against somebody who ran none. Hours only, for the same reason Literature
+     * Review is: "how many analyses" is not a number anybody records. */
+    name: "Data Analysis",
+    dbCategory: "RESEARCH",
+    category: "Research",
+    counting: "none",
+    unit: "",
+    units: "",
+    codes: ["RESEARCH_ANALYSIS", "DATA_ANALYSIS"],
   },
   {
     name: "Experiment",
@@ -264,9 +297,27 @@ export const DELIVERABLES: readonly Deliverable[] = [
     counting: "occurrence",
     unit: "Department Meeting",
     units: "Department Meetings",
-    // The client's list has one meeting. A faculty, student or project meeting
-    // is still a meeting, and there is no honest second name available here.
-    codes: ["DEPARTMENT_MEETING", "FACULTY_MEETING", "STUDENT_MEETING", "PROJECT_MEETING"],
+    /* Governance only: faculty, department, and project meetings between
+     * STAFF. Anything with a student in it goes to Meeting (Other) below, so
+     * that "N Department Meetings" means what a manager reads it to mean. */
+    codes: ["DEPARTMENT_MEETING", "FACULTY_MEETING"],
+  },
+  {
+    /* Every meeting that is not governance.
+     *
+     * A progress check-in, a one-on-one, a project review with the students
+     * present. These used to fall into Department Meeting because the word
+     * "meeting" was in the sentence, inflating a governance count with
+     * student-facing time. Same treatment as Department Meeting — one entry is
+     * one meeting — because it is the same kind of thing, only not the same
+     * audience. */
+    name: "Meeting (Other)",
+    dbCategory: "MEETING",
+    category: "Administrative",
+    counting: "occurrence",
+    unit: "Meeting",
+    units: "Meetings",
+    codes: ["STUDENT_MEETING", "PROJECT_MEETING"],
   },
   {
     name: "Reporting",
@@ -284,7 +335,25 @@ export const DELIVERABLES: readonly Deliverable[] = [
     counting: "none",
     unit: "",
     units: "",
-    codes: ["DOCUMENTATION", "RECORD_MAINTENANCE", "DEPARTMENT_WORK"],
+    // Documentation is writing a document. Nothing else.
+    codes: ["DOCUMENTATION", "RECORD_MAINTENANCE"],
+  },
+  {
+    /* Departmental administration that produces no document.
+     *
+     * Invigilation rosters, admissions paperwork, accreditation files,
+     * timetabling, committee work. All of it printed as "Documentation", which
+     * is stable and wrong: none of them is a document being written, and in
+     * some months this is the largest block outside teaching.
+     *
+     * Hours only. "How many admissions paperworks" is not a question. */
+    name: "Department Duties",
+    dbCategory: "ADMINISTRATIVE",
+    category: "Administrative",
+    counting: "none",
+    unit: "",
+    units: "",
+    codes: ["DEPARTMENT_WORK"],
   },
 
   /* ── Training / Development ───────────────────────────────────────────── */
