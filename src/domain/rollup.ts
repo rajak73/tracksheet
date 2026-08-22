@@ -60,7 +60,12 @@ export type RollupLine = {
   quantity: number | null;
   /** Exact minutes, which is what the client's "1h 45m" is written from. */
   minutes: number;
-  /** Earliest start under this line, as minutes past midnight. */
+  /**
+   * Earliest start under this line, as an epoch millisecond.
+   *
+   * An ordinal for sorting, never a wall-clock reading — see where it is set.
+   * Only ever compared against other values from the same period.
+   */
   firstAt?: number;
   /** Whether this counts toward Working Hours and the quantity column. */
   countable: boolean;
@@ -144,9 +149,19 @@ export function rollUp(activities: RollupActivity[]): Rollup {
     line.hours += a.durationHours;
     line.minutes += Math.round(a.durationHours * 60);
     if (a.startTime) {
-      const at = new Date(a.startTime);
-      const minute = at.getHours() * 60 + at.getMinutes();
-      line.firstAt = line.firstAt === undefined ? minute : Math.min(line.firstAt, minute);
+      /* The INSTANT, not a wall clock.
+       *
+       * This was `getHours() * 60 + getMinutes()`, which reads the machine's own
+       * timezone — the one thing nothing in this codebase is allowed to depend
+       * on. A server in UTC and a laptop in IST would order the same day's
+       * entries differently, and entries either side of local midnight would
+       * order wrongly on both.
+       *
+       * `firstAt` exists only to sort, and it is only ever compared against
+       * other `firstAt` values from the same period, so an ordinal is all it
+       * has to be. An epoch millisecond is the same ordinal everywhere. */
+      const at = new Date(a.startTime).getTime();
+      line.firstAt = line.firstAt === undefined ? at : Math.min(line.firstAt, at);
     }
     /* `?? 1` used to sit here, and it is exactly the default the client's rule
      * forbids: an entry whose count nobody stated became one of them. What

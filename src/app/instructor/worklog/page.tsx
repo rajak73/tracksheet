@@ -27,7 +27,7 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { formatHours, todayISO } from "@/app/_lib/format";
+import { formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
   broadCategoryCell,
   deliverableCell,
@@ -96,15 +96,18 @@ type Draft = {
   remarks: string;
 };
 
-const emptyDraft = (): Draft => ({
-  date: todayISO(),
+/* The date defaults to the UNIVERSITY's today — the only day the server will
+ * accept a worklog for. Passed in rather than read here, because a module-level
+ * helper cannot know whose university it is. */
+const emptyDraft = (today?: string): Draft => ({
+  date: today ?? todayISO(),
   deliverable: "",
   quantity: "",
   workingHours: "",
   remarks: "",
 });
 
-const firstOfMonth = () => `${todayISO().slice(0, 7)}-01`;
+const firstOfMonth = (zone?: string | null) => `${todayIn(zone).slice(0, 7)}-01`;
 
 /**
  * What a cell says when the value was never supplied.
@@ -224,10 +227,18 @@ export default function WorkLogHistoryPage() {
    * current unit. Sharing one anchor meant navigating to March in Week Wise and
    * then opening Month Wise left you in March — a view change is a change of
    * question, and the answer to a new question starts at now. */
-  const [weekAnchor, setWeekAnchor] = useState(todayISO);
-  const [monthAnchor, setMonthAnchor] = useState(() => todayISO().slice(0, 7));
-  const [from, setFrom] = useState(firstOfMonth);
-  const [to, setTo] = useState(todayISO);
+  /* `null` means "wherever today is" — the anchors are derived below rather
+   * than seeded, because at first render nothing knows the university's zone
+   * yet and a seeded value would have to be corrected afterwards. Deriving
+   * needs no correction and cannot be a render behind. */
+  const [weekAnchor, setWeekAnchor] = useState<string | null>(null);
+  /* Seeded from the browser and corrected once the session answers with the
+   * university's zone — a component cannot read state that is declared below
+   * it, and the first render happens before any request has returned. The
+   * effect below moves both anchors onto the university's day if they differ. */
+  const [monthAnchor, setMonthAnchor] = useState<string | null>(null);
+  const [from, setFrom] = useState<string | null>(null);
+  const [to, setTo] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [bannerOpen, setBannerOpen] = useState(true);
@@ -236,7 +247,7 @@ export default function WorkLogHistoryPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -253,7 +264,7 @@ export default function WorkLogHistoryPage() {
   const me = useLoad(
     useCallback(
       () =>
-        apiGet<{ user: { instructorId: string | null } }>(
+        apiGet<{ user: { instructorId: string | null }; timezone: string | null }>(
           "/api/auth/me",
           "Could not load your account.",
         ),
@@ -262,6 +273,17 @@ export default function WorkLogHistoryPage() {
     "me",
   );
   const instructorId = me.data?.user.instructorId ?? null;
+  /* "Today" means the university's today, because that is the only one the
+   * server will accept a worklog for. See `todayIn`. */
+  const zone = me.data?.timezone ?? null;
+  const today = todayIn(zone);
+
+  // What the anchors and filters actually resolve to right now.
+  const weekAt = weekAnchor ?? today;
+  const monthAt = monthAnchor ?? today.slice(0, 7);
+  const fromAt = from ?? firstOfMonth(zone);
+  const toAt = to ?? today;
+
 
   /* No `page` here, deliberately — see `ENTRY_FETCH_LIMIT`. The window's
    * entries come back together and the report paginates the days it groups them
@@ -273,15 +295,15 @@ export default function WorkLogHistoryPage() {
    * from the anchor rather than from filters the reader never touched. */
   const [windowFrom, windowTo] = useMemo<[string, string]>(() => {
     if (view === "week") {
-      const week = weekOf(weekAnchor);
+      const week = weekOf(weekAt);
       return [week[0]!, week.at(-1)!];
     }
     if (view === "month") {
-      const weeks = weeksOfMonth(monthAnchor);
+      const weeks = weeksOfMonth(monthAt);
       return [weeks[0]!.dates[0]!, weeks.at(-1)!.dates.at(-1)!];
     }
-    return [from, to];
-  }, [view, weekAnchor, monthAnchor, from, to]);
+    return [fromAt, toAt];
+  }, [view, weekAt, monthAt, fromAt, toAt]);
 
   const query = `from=${windowFrom}&to=${windowTo}&limit=${ENTRY_FETCH_LIMIT}${
     search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""
@@ -330,8 +352,6 @@ export default function WorkLogHistoryPage() {
    * than a decision: a number on a screen is arithmetic over stored rows, and
    * VIEWING never calls the model. The endpoint still exists and still works;
    * nothing on this page asks it anything. */
-  const today = todayISO();
-
   /* The notes an instructor wrote about whole DAYS, as opposed to the remarks
    * on each entry. The Remarks column prefers these — see `remarksFor`. */
   const dayNotes = useLoad(
@@ -388,13 +408,13 @@ export default function WorkLogHistoryPage() {
 
     if (view === "week") {
       // Calendar order. A week is read forwards, whatever Day Wise does.
-      return weekOf(weekAnchor).map((date) =>
+      return weekOf(weekAt).map((date) =>
         build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
       );
     }
 
     if (view === "month") {
-      const weeks = weeksOfMonth(monthAnchor).map((week) =>
+      const weeks = weeksOfMonth(monthAt).map((week) =>
         build(
           `w${week.index}`,
           `Week ${week.index}`,
@@ -424,12 +444,12 @@ export default function WorkLogHistoryPage() {
     return span.map((date) =>
       build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
     );
-  }, [rows, view, today, weekAnchor, monthAnchor, dayNotes.data]);
+  }, [rows, view, today, weekAt, monthAt, dayNotes.data]);
 
 
   function openNew() {
     setEditing(null);
-    setDraft(emptyDraft());
+    setDraft(emptyDraft(today));
     setNarrative("");
     setEntryMode("write");
     setReading(null);
@@ -698,8 +718,8 @@ export default function WorkLogHistoryPage() {
             type="button"
             onClick={() =>
               view === "week"
-                ? setWeekAnchor(addDays(weekAnchor, -7))
-                : setMonthAnchor(shiftMonth(monthAnchor, -1))
+                ? setWeekAnchor(addDays(weekAt, -7))
+                : setMonthAnchor(shiftMonth(monthAt, -1))
             }
             aria-label={view === "week" ? "Previous week" : "Previous month"}
             className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
@@ -708,15 +728,15 @@ export default function WorkLogHistoryPage() {
           </button>
           <span className="min-w-[18rem] text-center text-sm font-semibold text-content">
             {view === "week"
-              ? `${longDate(weekOf(weekAnchor)[0]!)} – ${longDate(weekOf(weekAnchor).at(-1)!)}`
-              : monthLabel(monthAnchor)}
+              ? `${longDate(weekOf(weekAt)[0]!)} – ${longDate(weekOf(weekAt).at(-1)!)}`
+              : monthLabel(monthAt)}
           </span>
           <button
             type="button"
             onClick={() =>
               view === "week"
-                ? setWeekAnchor(addDays(weekAnchor, 7))
-                : setMonthAnchor(shiftMonth(monthAnchor, 1))
+                ? setWeekAnchor(addDays(weekAt, 7))
+                : setMonthAnchor(shiftMonth(monthAt, 1))
             }
             aria-label={view === "week" ? "Next week" : "Next month"}
             className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
@@ -739,11 +759,11 @@ export default function WorkLogHistoryPage() {
               setView(v);
               setPage(1);
               setExpanded(null);
-              if (v === "week") setWeekAnchor(todayISO());
-              if (v === "month") setMonthAnchor(todayISO().slice(0, 7));
+              if (v === "week") setWeekAnchor(today);
+              if (v === "month") setMonthAnchor(todayIn(zone).slice(0, 7));
               if (v === "date") {
-                setFrom(firstOfMonth());
-                setTo(todayISO());
+                setFrom(firstOfMonth(zone));
+                setTo(today);
               }
             }}
             aria-pressed={view === v}
@@ -775,8 +795,8 @@ export default function WorkLogHistoryPage() {
           <span className="mb-1.5 block text-sm font-medium text-content">From Date</span>
           <input
             type="date"
-            value={from}
-            max={to}
+            value={fromAt}
+            max={toAt}
             onChange={(e) => {
               setFrom(e.target.value);
               setPage(1);
@@ -789,8 +809,8 @@ export default function WorkLogHistoryPage() {
           <span className="mb-1.5 block text-sm font-medium text-content">To Date</span>
           <input
             type="date"
-            value={to}
-            min={from}
+            value={toAt}
+            min={fromAt}
             onChange={(e) => {
               setTo(e.target.value);
               setPage(1);
@@ -821,7 +841,7 @@ export default function WorkLogHistoryPage() {
         <button
           type="button"
           onClick={() => {
-            setFrom(firstOfMonth());
+            setFrom(firstOfMonth(zone));
             setTo(today);
             setSearch("");
             setPage(1);
@@ -1174,6 +1194,7 @@ export default function WorkLogHistoryPage() {
               value={narrative}
               onChange={setNarrative}
               reading={reading}
+              today={today}
               onRetry={(id) => void retryReading(id)}
             />
           ) : (
@@ -1310,6 +1331,7 @@ export default function WorkLogHistoryPage() {
 function NarrativeEntry({
   date,
   onDate,
+  today,
   value,
   onChange,
   reading,
@@ -1321,6 +1343,8 @@ function NarrativeEntry({
   onChange: (value: string) => void;
   reading: ReadingState;
   onRetry: (submissionId: string) => void;
+  /** The latest day that may be written up — the UNIVERSITY's today. */
+  today: string;
 }) {
   const busy = reading?.phase === "sending" || reading?.phase === "reading";
 
@@ -1331,7 +1355,7 @@ function NarrativeEntry({
         <input
           type="date"
           value={date}
-          max={todayISO()}
+          max={today}
           onChange={(e) => onDate(e.target.value)}
           disabled={busy || reading !== null}
           className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-content disabled:opacity-60"

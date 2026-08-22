@@ -187,6 +187,37 @@ export function todayISO(): string {
   return localISO(new Date());
 }
 
+/**
+ * Today in a UNIVERSITY's own zone, which is the only "today" the server has.
+ *
+ * ── Why the browser's own date is the wrong answer ────────────────────────
+ * Every day boundary on the server is judged in the university's configured
+ * timezone — a worklog is refused unless it is for the instructor's current
+ * local day. `todayISO` answers in the BROWSER's zone, so the two agree only
+ * while the person sits in the same zone as their university with a correctly
+ * set clock. When they do not, the form offers a date the server then refuses,
+ * and the instructor is told they may "only write up today's work" on what
+ * their own screen calls today.
+ *
+ * It matters beyond travel: a manager in one city reading an instructor's day
+ * in another must see the INSTRUCTOR's boundary, not their own, or the two are
+ * looking at different days and neither can tell.
+ *
+ * Falls back to the browser when no zone is known yet — a page still has to
+ * render before its first request answers — which is the same answer as before
+ * and no worse.
+ */
+export function todayIn(timeZone: string | null | undefined): string {
+  if (!timeZone) return todayISO();
+  try {
+    // en-CA formats as YYYY-MM-DD, which is the shape every date here uses.
+    return new Date().toLocaleDateString("en-CA", { timeZone });
+  } catch {
+    // An unknown zone must not blank the screen.
+    return todayISO();
+  }
+}
+
 /** A Date as `YYYY-MM-DD` in the browser's own zone. */
 function localISO(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

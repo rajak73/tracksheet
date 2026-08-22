@@ -58,12 +58,36 @@ const WINDOW_DAYS = Number(process.env.ROLLUP_WINDOW_DAYS ?? 3);
 
 export type RollupTrigger = "SCHEDULED" | "MANUAL" | "SEED";
 
-/** The trailing window, in UTC. Per-university local days resolve inside the engine. */
+/**
+ * The trailing window the rollup recomputes, in UTC, padded by a day each side.
+ *
+ * ── Why the padding is not slack ──────────────────────────────────────────
+ * `rollupUniversityDaily` iterates these dates literally — it does not widen
+ * them per university — so a UTC window is a UTC window, and a university is
+ * not in UTC.
+ *
+ * At 01:00 in Asia/Kolkata it is still 19:30 the previous day in UTC, so an
+ * unpadded window ran to "yesterday" while the university was already well into
+ * today. Every entry logged in the first five and a half hours of an Indian
+ * working day sat outside the window and was not summarised until UTC caught
+ * up at 18:30 local. Nothing failed; the admin dashboard simply disagreed with
+ * the live engine every morning, and self-corrected before anybody could
+ * reproduce it.
+ *
+ * One day either side covers every zone that exists — UTC-12 through UTC+14 —
+ * which is why the padding is stated in days rather than in hours, and why it
+ * is derived from what timezones ARE rather than from where this happens to be
+ * deployed. A university in Auckland or Honolulu is covered by the same line.
+ *
+ * Recomputing two extra days costs nothing that matters: the rollup upserts on
+ * (instructor, date), so a day computed twice is corrected, never duplicated.
+ */
 export function trailingWindow(now: Date = new Date(), days: number = WINDOW_DAYS) {
-  const to = workDateFor(now, "UTC");
+  const end = new Date(now);
+  end.setUTCDate(end.getUTCDate() + 1);
   const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - (days - 1));
-  return { from: workDateFor(start, "UTC"), to };
+  start.setUTCDate(start.getUTCDate() - days);
+  return { from: workDateFor(start, "UTC"), to: workDateFor(end, "UTC") };
 }
 
 /**

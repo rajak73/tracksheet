@@ -309,6 +309,44 @@ only a path run end to end would have reached it.
 The guard is part of the pre-commit gate below, so a change that breaks this
 rule is stopped before it is committed.
 
+## Timezones
+
+**Every day boundary is the university's, and nothing depends on the server's
+own clock zone.** A worklog is refused unless it is for the instructor's current
+local day; a week runs Monday to Sunday in their zone; a rollup covers their
+days. The machine could be in UTC, IST, or anywhere.
+
+The primitives are in [`workday.ts`](src/server/time/workday.ts) —
+`workDateFor(instant, timeZone)` turns an instant into a calendar date,
+`zonedToUtc` goes back the other way through DST. Every "now → date" on the
+server routes through them. On the client, `todayIn(timeZone)` answers in the
+university's zone; `todayISO()` answers in the *browser's* and is only correct
+where the two agree.
+
+| where | source of "today" |
+|---|---|
+| server request paths | `workDateFor(new Date(), config.timezone)` |
+| the rollup scheduler | UTC, padded a day each side to cover every zone |
+| client screens | `todayIn(zone)`, zone from `/api/auth/me` |
+| stored `@db.Date` columns | midnight UTC; read back with `toISOString()` |
+
+### Two rules, and how they are enforced
+
+**Never hardcode a zone.** The deployment is Indian and the rules are not. The
+rollup window is padded by a day rather than by five and a half hours, because
+one day covers UTC−12 through UTC+14 and IST covers only IST.
+
+**Never read the machine's clock zone.** `getHours()`, `getMonth()` and their
+siblings answer in whatever zone the process happens to be running in.
+[`tests/timezone-boundaries.test.ts`](tests/timezone-boundaries.test.ts) fails
+the build if one appears under `src/server` or `src/domain`, and sweeps all
+twenty-four hours across five zones — Kolkata, New York, Kiritimati (+14),
+Midway (−11) and UTC — so a fix that only works at +05:30 fails there.
+
+That matters because this bug class is invisible for most of a day. The one
+that started this audit passed for eighteen and a half hours out of twenty-four
+and was found only because somebody happened to be working at 01:42.
+
 ## The commit gate
 
 A pre-commit hook runs before every commit and blocks it on failure. It is
