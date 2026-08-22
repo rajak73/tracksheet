@@ -40,11 +40,11 @@ const NARRATIVE =
   "4:30 PM to 5:15 PM attended a faculty coordination meeting.";
 
 const READ = [
-  { text: "9 AM to 11 AM took DSA lecture on binary trees for Section A", categoryCode: "TEACHING", deliverableCode: "LECTURE", startLocal: "09:00", endLocal: "11:00", quantity: null, subjectCode: "TECH", remark: "binary trees, Section A" },
-  { text: "From 11:15 AM to 12 PM conducted a doubt clearing session", categoryCode: "STUDENT_SUPPORT", deliverableCode: null, startLocal: "11:15", endLocal: "12:00", quantity: null, subjectCode: null, remark: null },
-  { text: "From 1 PM to 2 PM checked 12 assignments", categoryCode: "ASSESSMENT", deliverableCode: null, startLocal: "13:00", endLocal: "14:00", quantity: 12, subjectCode: null, remark: null },
-  { text: "From 3:15 PM to 4 PM prepared slides for next week's class", categoryCode: "CONTENT_DEVELOPMENT", deliverableCode: null, startLocal: "15:15", endLocal: "16:00", quantity: null, subjectCode: null, remark: null },
-  { text: "4:30 PM to 5:15 PM attended a faculty coordination meeting", categoryCode: "MEETING", deliverableCode: null, startLocal: "16:30", endLocal: "17:15", quantity: null, subjectCode: null, remark: null },
+  { text: "9 AM to 11 AM took DSA lecture on binary trees for Section A", deliverable: "Live Class", startLocal: "09:00", endLocal: "11:00", quantity: null, subjectCode: "TECH", remark: "binary trees, Section A" },
+  { text: "From 11:15 AM to 12 PM conducted a doubt clearing session", deliverable: "Doubt Clearing", startLocal: "11:15", endLocal: "12:00", quantity: null, subjectCode: null, remark: null },
+  { text: "From 1 PM to 2 PM checked 12 assignments", deliverable: "Assignment Evaluation", startLocal: "13:00", endLocal: "14:00", quantity: 12, subjectCode: null, remark: null },
+  { text: "From 3:15 PM to 4 PM prepared slides for next week's class", deliverable: "Slide Preparation", startLocal: "15:15", endLocal: "16:00", quantity: null, subjectCode: null, remark: null },
+  { text: "4:30 PM to 5:15 PM attended a faculty coordination meeting", deliverable: "Department Meeting", startLocal: "16:30", endLocal: "17:15", quantity: null, subjectCode: null, remark: null },
 ];
 
 const minutesOf = (r: ReturnType<typeof validateActivities>) =>
@@ -73,14 +73,36 @@ describe("one paragraph, five activities", () => {
     expect(result.bullets[2]!.quantity).toBe(12);
   });
 
-  test("a quantity nobody wrote is not invented", () => {
-    // The reply claims 30 assignments for a line that names no number.
+  test("a quantity nobody wrote is not invented, and not defaulted to one", () => {
+    /* The client's rule, in as many words: "graded some assignments" with no
+       number must never become "1 Assignment". The reply here claims 30 for a
+       line that names no number, so the claim is refused — and what is left is
+       UNKNOWN, not one. An invented 1 is a wrong number with nothing about it
+       that looks wrong. */
     const result = validateActivities(
       "checked assignments 1 PM to 2 PM",
       [{ ...READ[2]!, text: "checked assignments 1 PM to 2 PM", quantity: 30 }],
       taxonomy,
     );
-    expect(result.bullets[0]!.quantity, "falls back to one, never to the claim").toBe(1);
+    expect(result.bullets[0]!.quantity, "the client's `?`, not a 1").toBeNull();
+  });
+
+  test("an occurrence still counts as one without anybody saying so", () => {
+    // The exception, and its whole justification: the entry IS one meeting.
+    const result = validateActivities(
+      "attended the department meeting 2 PM to 3 PM",
+      [
+        {
+          ...READ[4]!,
+          text: "attended the department meeting 2 PM to 3 PM",
+          startLocal: "14:00",
+          endLocal: "15:00",
+          quantity: null,
+        },
+      ],
+      taxonomy,
+    );
+    expect(result.bullets[0]!.quantity).toBe(1);
   });
 
   test("a quantity from a DIFFERENT activity cannot be borrowed", () => {
@@ -145,23 +167,27 @@ describe("nothing is invented", () => {
     expect(result.bullets).toHaveLength(0);
   });
 
-  test("a category outside the taxonomy becomes OTHER, never itself", () => {
+  test("a name outside the client's list becomes Other, never the nearest thing", () => {
+    /* The client's own instruction for "does not clearly match": use Other /
+       Unclassified Work. Snapping to whatever looked closest would put a
+       specific claim in the report that nobody made. */
     const result = validateActivities(
       NARRATIVE,
-      [{ ...READ[0]!, categoryCode: "SOMETHING_INVENTED" }],
+      [{ ...READ[0]!, deliverable: "Capstone Review" }],
       taxonomy,
     );
+    expect(result.bullets).toHaveLength(1);
     expect(result.bullets[0]!.categoryCode).toBe("OTHER");
   });
 
-  test("a deliverable belonging to another category is dropped, not reparented", () => {
-    const meeting = taxonomy.categoryByCode.get("MEETING")!.deliverables[0]!;
-    const result = validateActivities(
-      NARRATIVE,
-      [{ ...READ[0]!, categoryCode: "TEACHING", deliverableCode: meeting.code }],
-      taxonomy,
-    );
-    expect(result.bullets[0]!.deliverableCode, "null, so the category decides").toBeNull();
+  test("the stored code written is one the database will accept", () => {
+    // The report's names are coarser than the schema's, so every one of them
+    // has to resolve to a real DeliverableType or the write fails on a key.
+    for (const name of ["Live Class", "Doubt Clearing", "Assignment Evaluation", "Department Meeting"]) {
+      const result = validateActivities(NARRATIVE, [{ ...READ[0]!, deliverable: name }], taxonomy);
+      const code = result.bullets[0]!.deliverableCode;
+      expect(taxonomy.deliverableByCode.has(code!), `${name} -> ${code}`).toBe(true);
+    }
   });
 });
 
@@ -171,8 +197,8 @@ describe("time that was never written is never invented", () => {
     const result = validateActivities(
       text,
       [
-        { text: "preparing tomorrow's lecture material", categoryCode: "CONTENT_DEVELOPMENT", deliverableCode: null, startLocal: null, endLocal: null, quantity: null, subjectCode: null, remark: null },
-        { text: "reviewed student projects", categoryCode: "MENTORING", deliverableCode: null, startLocal: null, endLocal: null, quantity: null, subjectCode: null, remark: null },
+        { text: "preparing tomorrow's lecture material", deliverable: "Course Material Development", startLocal: null, endLocal: null, quantity: null, subjectCode: null, remark: null },
+        { text: "reviewed student projects", deliverable: "Academic Guidance", startLocal: null, endLocal: null, quantity: null, subjectCode: null, remark: null },
       ],
       taxonomy,
     );
@@ -206,8 +232,8 @@ describe("overlapping time is counted once, and never omitted", () => {
    */
   const text = "Lecture 9:00 AM to 11:00 AM, assignment review 10:30 AM to 11:30 AM.";
   const read = [
-    { text: "Lecture 9:00 AM to 11:00 AM", categoryCode: "TEACHING", deliverableCode: null, startLocal: "09:00", endLocal: "11:00", quantity: null, subjectCode: null, remark: null },
-    { text: "assignment review 10:30 AM to 11:30 AM", categoryCode: "ASSESSMENT", deliverableCode: null, startLocal: "10:30", endLocal: "11:30", quantity: null, subjectCode: null, remark: null },
+    { text: "Lecture 9:00 AM to 11:00 AM", deliverable: "Live Class", startLocal: "09:00", endLocal: "11:00", quantity: null, subjectCode: null, remark: null },
+    { text: "assignment review 10:30 AM to 11:30 AM", deliverable: "Assignment Evaluation", startLocal: "10:30", endLocal: "11:30", quantity: null, subjectCode: null, remark: null },
   ];
 
   test("the day holds two and a half hours", () => {
@@ -342,7 +368,10 @@ describe("what is sent to the provider", () => {
   test("the instruction carries the day and the closed list, and nothing else", () => {
     const instruction = buildNarrativeInstruction(NARRATIVE, taxonomy);
     expect(instruction).toContain(NARRATIVE);
-    expect(instruction).toContain("TEACHING");
+    // The client's own names, not the database's codes.
+    expect(instruction).toContain("Live Class");
+    expect(instruction).toContain("Assignment Evaluation");
+    expect(instruction).not.toContain("ASSIGNMENT_EVALUATION");
     // No identity travels with a paragraph about somebody's work.
     for (const field of ["employeeCode", "instructorId", "universityId", "@"]) {
       expect(instruction, `${field} must not be sent`).not.toContain(field);

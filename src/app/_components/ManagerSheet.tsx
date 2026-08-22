@@ -22,7 +22,13 @@
  */
 
 import { categoryColor } from "@/app/_components/charts";
-import { broadCategoryCell, suppliedOr } from "@/domain/worklog-report";
+import {
+  broadCategoryCell,
+  compactDuration,
+  countableLines,
+  quantityCell,
+  suppliedOr,
+} from "@/domain/worklog-report";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { rollUp } from "@/domain/rollup";
 
@@ -271,16 +277,24 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
     );
   }
 
-  const counted = lines.filter((l) => l.countable && l.quantity > 0);
+  /* The shape the shared formatter reads. Built once here so the two cells
+   * below are two views of one set of facts. */
+  const cells = lines.map((l) => ({
+    title: l.label,
+    minutes: l.minutes,
+    quantity: l.quantity,
+    countable: l.countable,
+  }));
 
   return (
     <>
-      {/* "Lecture – 02h 00m; Meeting – 00h 45m" — everything with its hours.
-          The muted ones do not count toward Working Hours. */}
+      {/* "Live Class - 2h, Department Meeting - 45m" — everything with its own
+          duration, in the client's format. The muted ones do not count toward
+          Working Hours. */}
       <td className={`${cell} min-w-[15rem] max-w-[20rem] border-l-2 border-line text-content`}>
         {lines.map((l, i) => (
           <span key={l.key} className={l.countable ? undefined : "text-muted"}>
-            {i > 0 ? "; " : ""}
+            {i > 0 ? ", " : ""}
             <span
               aria-hidden
               className="mr-1 inline-block size-2 rounded-full align-middle"
@@ -290,16 +304,16 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
               }}
             />
             <span title={l.countable ? undefined : "Not counted in Working Hours"}>
-              {l.label} – {formatDuration(l.hours)}
+              {l.label} - {compactDuration(l.minutes)}
             </span>
           </span>
         ))}
       </td>
 
       <td className={`${cell} min-w-[11rem] max-w-[14rem] border-l border-line-subtle text-right text-content`}>
-        {counted.length > 0
-          ? counted.map((l) => `${l.quantity} ${l.label}`).join(", ")
-          : empty}
+        {/* One function writes this column everywhere, the client's `?`
+            included — an unstated count stays visible instead of vanishing. */}
+        {quantityCell(countableLines(cells))}
       </td>
 
       <td

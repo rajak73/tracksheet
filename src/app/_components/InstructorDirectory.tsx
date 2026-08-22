@@ -48,6 +48,7 @@
  */
 
 import Link from "next/link";
+import { UNSTATED } from "@/domain/worklog-report";
 import {
   Badge,
   Card,
@@ -66,8 +67,15 @@ import {
 import type { Tracker, TrackerRow } from "@/app/_components/TrackerGrid";
 import { formatHours } from "@/app/_lib/format";
 
-/** Deliverable progress for the period, as the quantity that was booked. */
+/**
+ * Deliverable progress for the period, as the quantity that was booked.
+ *
+ * `?` where the count is unknown — `> 0` is false for null, so this used to
+ * print an em dash, which reads as "none booked" for somebody who booked an
+ * unstated number of them.
+ */
 function progressLabel(row: TrackerRow): string {
+  if (row.totals.quantity === null) return UNSTATED;
   return row.totals.quantity > 0 ? String(row.totals.quantity) : "—";
 }
 
@@ -158,9 +166,11 @@ export function InstructorDirectory({
               meta={
                 <span className="tabular text-sm text-muted">
                   {formatHours(row.totals.totalWorkingHours)} recorded
-                  {row.totals.quantity > 0
-                    ? ` · ${row.totals.quantity} deliverable${row.totals.quantity === 1 ? "" : "s"}`
-                    : ""}
+                  {row.totals.quantity === null
+                    ? ` · ${UNSTATED} deliverables`
+                    : row.totals.quantity > 0
+                      ? ` · ${row.totals.quantity} deliverable${row.totals.quantity === 1 ? "" : "s"}`
+                      : ""}
                 </span>
               }
               trailing={<StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />}

@@ -72,7 +72,8 @@ export type Activity = {
   deliverableType?: { code: string; label: string; isCountable: boolean } | null;
   /** Which subject the entry was about, as the reader judged it. */
   broadCategory?: { code: string; label: string } | null;
-  quantity?: number;
+  /** `null` is the client's `?` — nobody said how many. See `worklog-taxonomy`. */
+  quantity?: number | null;
   rawText?: string | null;
 };
 

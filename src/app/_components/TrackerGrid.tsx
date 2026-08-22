@@ -37,6 +37,7 @@ import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
 import {
   broadCategoryCell,
   compactDuration,
+  UNSTATED,
   countableLines,
   deliverableCell,
   quantityCell,
@@ -47,9 +48,18 @@ import {
 } from "@/domain/worklog-report";
 
 export type TrackerDeliverable = {
-  /** One of the client's activity names — see `worklog-vocabulary`. */
+  /** One of the client's deliverable names — see `worklog-taxonomy`. */
   title: string;
-  quantity: number;
+  /**
+   * `null` is the client's `?` — nobody said how many.
+   *
+   * These types MIRROR the server's, and the data crosses through an unchecked
+   * `apiGet<T>` cast, so nothing checks that they still agree. Leaving this as
+   * `number` after the server started emitting null would compile perfectly and
+   * print an invented figure — the one failure mode this whole change exists to
+   * remove.
+   */
+  quantity: number | null;
   hours: number;
   /** Exact minutes, which is what "1h 45m" is written from. */
   minutes: number;
@@ -59,7 +69,8 @@ export type TrackerDeliverable = {
 
 export type TrackerCell = {
   deliverables: TrackerDeliverable[];
-  quantity: number;
+  /** `null` once anything inside it is unknown. Mirrors the server. */
+  quantity: number | null;
   /** Carried by the API and never rendered — see the header note. */
   deliverableHours: number;
   totalWorkingHours: number;
@@ -84,7 +95,8 @@ export type TrackerRow = {
      configured working day — a week of back-to-back internal meetings scores
      the same as a week of lectures, which is not a fact about a teacher. */
   totals: {
-    quantity: number;
+    /** `null` once anything inside it is unknown. Mirrors the server. */
+    quantity: number | null;
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
@@ -114,7 +126,8 @@ export type Tracker = {
   totals: {
     instructors: number;
     formerInstructors: number;
-    quantity: number;
+    /** `null` once anything inside it is unknown. Mirrors the server. */
+    quantity: number | null;
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
@@ -478,7 +491,9 @@ export function TrackerGrid({
                                 {d.title}
                               </span>
                               <span className="tabular shrink-0 text-muted">
-                                {d.countable && d.quantity > 0 ? `${d.quantity} · ` : ""}
+                                {d.countable && d.quantity !== 0
+                                  ? `${d.quantity ?? UNSTATED} · `
+                                  : ""}
                                 {formatHours(d.hours)}
                               </span>
                             </p>
@@ -668,8 +683,16 @@ export function TrackerGrid({
                 {tracker.totals.instructors === 1 ? "" : "s"}
               </th>
               {tracker.weeks.map((week) => {
-                const quantity = tracker.rows.reduce(
-                  (sum, r) => sum + (r.cells[week.index]?.quantity ?? 0),
+                /* Unknown anywhere makes the footer unknown. `?? 0` here read
+                   "nobody said" as "none" and quietly published a total the
+                   column above it does not support. */
+                const quantity = tracker.rows.reduce<number | null>(
+                  (sum, r) =>
+                    sum === null || r.cells[week.index]?.quantity === undefined
+                      ? sum
+                      : r.cells[week.index]!.quantity === null
+                        ? null
+                        : sum + r.cells[week.index]!.quantity!,
                   0,
                 );
                 /* The column above sums to this and to nothing else: the

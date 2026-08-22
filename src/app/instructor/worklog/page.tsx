@@ -28,7 +28,8 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { formatCompactDuration, formatHours, todayISO } from "@/app/_lib/format";
-import { activityNamed, quantityPhrase } from "@/domain/worklog-vocabulary";
+import { sumQuantities } from "@/domain/worklog-taxonomy";
+import { quantityCell } from "@/domain/worklog-report";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -220,7 +221,8 @@ type DaySummary = {
     /** Minutes past midnight of the earliest of these. Orders the cell. */
     firstAt: number;
     durationMinutes: number;
-    quantity: number;
+    /** `null` is the client's `?` — nobody said how many. Never 0, never 1. */
+    quantity: number | null;
     quantityLabel: string;
   }>;
   /** One sentence about the day. The client's Remarks column. */
@@ -243,7 +245,7 @@ type DaySummary = {
 function present(dates: string[], summaries: Record<string, DaySummary | undefined>) {
   const merged = new Map<
     string,
-    { name: string; minutes: number; quantity: number; label: string; firstAt: number }
+    { name: string; minutes: number; quantity: number | null; label: string; firstAt: number }
   >();
   const remarks: string[] = [];
   const seenRemarks = new Set<string>();
@@ -267,7 +269,10 @@ function present(dates: string[], summaries: Record<string, DaySummary | undefin
       const at = merged.get(d.name);
       if (at) {
         at.minutes += d.durationMinutes;
-        at.quantity += d.quantity;
+        /* One unknown makes the merged count unknown. A week that adds twelve
+         * assignments to an unstated number of assignments does not hold
+         * twelve, and printing twelve is the error that looks like a figure. */
+        at.quantity = sumQuantities([at.quantity, d.quantity]);
         at.firstAt = Math.min(at.firstAt, d.firstAt);
       } else {
         merged.set(d.name, {
@@ -296,21 +301,14 @@ function present(dates: string[], summaries: Record<string, DaySummary | undefin
     deliverable: lines.length
       ? lines.map((l) => `${l.name} - ${formatCompactDuration(l.minutes)}`).join(", ")
       : "—",
-    /* "2 Classes, 1 Lesson Plan" — parallel to the line above, same order.
+    /* "1 Class, ? Assignments" — parallel to the line above, same order.
      *
-     * The unit is re-derived from the MERGED count rather than reused from the
-     * day, because a week that merges one class with one more has two of them
-     * and "2 Class" is not what the client's sheet says. Same function the
-     * server uses for a single day, so the two cannot mean different things. */
-    quantity: lines.some((l) => l.quantity > 0)
-      ? lines
-          .filter((l) => l.quantity > 0)
-          .map((l) => {
-            const activity = activityNamed(l.name);
-            return activity ? quantityPhrase(activity, l.quantity) : `${l.quantity} ${l.label}`;
-          })
-          .join(", ")
-      : "—",
+     * Written by the one function that writes this column everywhere. It was
+     * hand-rolled here and filtered on `quantity > 0`, which is false for null
+     * — so an unstated count vanished from the cell entirely. That is the exact
+     * failure the client's `?` exists to prevent: the number nobody stated
+     * became a line nobody could see was missing. */
+    quantity: quantityCell(lines),
     remarks: remarks.length ? remarks.join(" ") : "—",
   };
 }

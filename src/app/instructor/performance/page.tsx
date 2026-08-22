@@ -43,6 +43,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import { UNSTATED } from "@/domain/worklog-report";
 import {
   Button,
   Card,
@@ -75,7 +76,8 @@ type Entry = {
 
 type Cell = {
   deliverables: Entry[];
-  quantity: number;
+  /** `null` where the count is unknown. Mirrors the server — see `TrackerGrid`. */
+  quantity: number | null;
   totalWorkingHours: number;
   hoursByCategory: Record<string, number>;
 };
@@ -88,7 +90,8 @@ type Tracker = {
     instructorId: string;
     cells: Record<number, Cell>;
     totals: {
-      quantity: number;
+      /** `null` where the count is unknown. Mirrors the server — see `TrackerGrid`. */
+      quantity: number | null;
       totalWorkingHours: number;
     };
   }>;
@@ -152,7 +155,9 @@ export default function InstructorPerformancePage() {
           week: w,
           workingHours: studentFacingHours(cell),
           recordedHours: cell?.totalWorkingHours ?? 0,
-          quantity: cell?.quantity ?? 0,
+          /* `?? 0` read "nobody said" as "none". A missing cell genuinely is
+             none; an unknown count is not, and must stay unknown. */
+          quantity: cell === undefined ? 0 : cell.quantity,
         };
       })
       .reverse(); // newest first — the week you are in matters most.
@@ -223,7 +228,7 @@ export default function InstructorPerformancePage() {
               value={formatHours(view.totals.recordedHours)}
               hint="All the work you logged, students or not."
             />
-            <StatTile label="Deliverable quantity" value={view.totals.quantity} />
+            <StatTile label="Deliverable quantity" value={view.totals.quantity ?? UNSTATED} />
           </div>
 
           <Section title="Week by week" description="Newest first.">
@@ -257,7 +262,7 @@ export default function InstructorPerformancePage() {
                             <span className="tabular">{formatHours(w.recordedHours)}</span>
                           </TD>
                           <TD align="right">
-                            <span className="tabular">{w.quantity}</span>
+                            <span className="tabular">{w.quantity ?? UNSTATED}</span>
                           </TD>
                         </TR>
                       ))}

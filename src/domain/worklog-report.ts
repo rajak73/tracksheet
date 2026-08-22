@@ -23,14 +23,27 @@
  * what their sheet has always looked like.
  */
 
-import { activityNamed, quantityPhrase, type Activity } from "@/domain/worklog-vocabulary";
+import {
+  deliverableNamed,
+  quantityPhrase,
+  UNSTATED,
+  type Deliverable,
+} from "@/domain/worklog-taxonomy";
 
 /** One named line of work in a report cell. */
 export type ReportLine = {
   /** One of the client's activity names. */
   name: string;
   minutes: number;
-  quantity: number;
+  /**
+   * `null` is the client's `?` — the instructor never said how many.
+   *
+   * Distinct from 0, which is a count. A deliverable that is never counted at
+   * all carries null too, and is left out of the column entirely rather than
+   * printed with a question mark; `quantityCell` tells the two apart by asking
+   * the taxonomy, not by looking at the number.
+   */
+  quantity: number | null;
   /**
    * When the earliest of these started, as minutes past local midnight.
    *
@@ -106,24 +119,46 @@ export function deliverableCell(lines: ReportLine[]): string {
 }
 
 /**
- * `"1 Class, 12 Assignments"`
+ * `"1 Class, ? Assignments, 1 Department Meeting"`
  *
- * Lines with no quantity are left out rather than printed as zero: the client's
- * rule is that a quantity is a number somebody wrote or the unit-of-one for
- * that activity, and "0 Lesson Plans" is neither.
+ * ── Three different things a missing number can mean ──────────────────────
+ * The client's rule distinguishes them and so does this:
  *
- * The unit comes from the activity, never from pluralising its name — "1 Doubt
+ *   never counted      Literature Review, Reporting, Documentation,
+ *                      Self-Learning, Other. There is no unit, so the line is
+ *                      absent from this column and its hours speak for it.
+ *
+ *   counted, unknown   "graded some assignments". Printed `? Assignments`, so
+ *                      the gap is visible. Never 1, never 0, never omitted —
+ *                      omitting it is how an unknown becomes invisible, which
+ *                      is the failure the client called out by name.
+ *
+ *   counted, zero      a real count of none. Left out, because "0 Classes"
+ *                      beside two hours of teaching reads as a contradiction.
+ *
+ * The unit comes from the taxonomy, never from pluralising the name — "1 Doubt
  * Clearings" is what that produced.
  */
 export function quantityCell(lines: ReportLine[]): string {
-  const parts = ordered(lines)
-    .filter((l) => l.quantity > 0)
-    .map((l) => {
-      const activity: Activity | null = activityNamed(l.name);
-      return activity ? quantityPhrase(activity, l.quantity) : `${l.quantity} ${l.name}`;
-    });
+  const parts: string[] = [];
+  for (const line of ordered(lines)) {
+    const deliverable: Deliverable | null = deliverableNamed(line.name);
+    if (!deliverable) {
+      // A name outside the closed list should be impossible by the time it
+      // reaches here, but printing the raw count beats printing nothing.
+      if (line.quantity !== null && line.quantity > 0) parts.push(`${line.quantity} ${line.name}`);
+      continue;
+    }
+    if (deliverable.counting === "none") continue;
+    if (line.quantity !== null && line.quantity <= 0) continue;
+    const phrase = quantityPhrase(deliverable, line.quantity);
+    if (phrase) parts.push(phrase);
+  }
   return parts.length ? parts.join(", ") : NOTHING;
 }
+
+/** Re-exported so a renderer can show the client's `?` without a second source. */
+export { UNSTATED };
 
 /**
  * The Broad Category column: the category the person was assigned.
@@ -160,7 +195,8 @@ export function suppliedOr(value: string | null | undefined): string {
 export type CellDeliverable = {
   title: string;
   minutes: number;
-  quantity: number;
+  /** `null` once anything inside it is unknown. See `ReportLine.quantity`. */
+  quantity: number | null;
   /** False for planned-deliverable progress, which is not time with students. */
   countable: boolean;
   /** Earliest start, where the clock is known. Absent for planned deliverables. */
@@ -184,7 +220,13 @@ export function reportLines(deliverables: readonly CellDeliverable[]): ReportLin
  * progress has no unit of its own to count in.
  */
 export function countableLines(deliverables: readonly CellDeliverable[]): ReportLine[] {
-  return reportLines(deliverables.filter((d) => d.countable && d.quantity > 0));
+  /* An unknown count is kept, deliberately. Filtering on `> 0` dropped it —
+   * null is not greater than zero — and a dropped unknown is exactly the silent
+   * disappearance the client's `?` exists to prevent. `quantityCell` decides
+   * what to print; this only decides what is a candidate. */
+  return reportLines(
+    deliverables.filter((d) => d.countable && (d.quantity === null || d.quantity > 0)),
+  );
 }
 
 /**

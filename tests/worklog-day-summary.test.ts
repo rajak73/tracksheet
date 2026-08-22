@@ -6,7 +6,7 @@ import {
   workedMinutes,
   type SourceRow,
 } from "@/server/worklog/day-summary";
-import { ACTIVITIES, activityFor } from "@/domain/worklog-vocabulary";
+import { DELIVERABLES, deliverableFor } from "@/domain/worklog-taxonomy";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 
 /**
@@ -64,7 +64,7 @@ const row = (
     remarks,
     startMinute,
     endMinute: startMinute + minutes,
-    activity: activityFor(null, "OTHER"),
+    deliverable: deliverableFor(null, "OTHER"),
   };
 };
 
@@ -79,7 +79,7 @@ const DAY: SourceRow[] = [
 const valid = {
   groups: [
     { name: "Live Class", sourceIds: ["a1"] },
-    { name: "Lesson Preparation", sourceIds: ["a2"] },
+    { name: "Course Material Development", sourceIds: ["a2"] },
     { name: "Doubt Clearing", sourceIds: ["a3"] },
     { name: "Assignment Evaluation", sourceIds: ["a4"] },
   ],
@@ -107,7 +107,7 @@ describe("nothing is dropped", () => {
     const combined = {
       groups: [
         { name: "Live Class", sourceIds: ["a1", "a3"] },
-        { name: "Lesson Preparation", sourceIds: ["a2"] },
+        { name: "Course Material Development", sourceIds: ["a2"] },
         { name: "Assignment Evaluation", sourceIds: ["a4"] },
       ],
       remark: "",
@@ -130,7 +130,7 @@ describe("nothing is invented", () => {
   test("counting one line under two names is refused", () => {
     // It would double that line's hours, which is the same harm as dropping it.
     const doubled = {
-      groups: [...valid.groups, { name: "Student Mentoring", sourceIds: ["a1"] }],
+      groups: [...valid.groups, { name: "Academic Guidance", sourceIds: ["a1"] }],
       remark: "",
     };
     const result = validateModelGroups(DAY, doubled);
@@ -161,23 +161,23 @@ describe("nothing is invented", () => {
        sensible thing to call it and it is not what the client's sheet says —
        and the sheet GROUPS by this column, so a plural today and a singular
        tomorrow is two rows where there should be one. */
-    for (const name of ["Live Classes", "Doubt Session", "Research Work", "Teaching", "Mentoring"]) {
+    for (const name of ["Live Classes", "Doubt Session", "Research Work", "Teaching", "Student Mentoring"]) {
       const result = validateModelGroups(DAY, {
         groups: [{ name, sourceIds: DAY.map((r) => r.id) }],
         remark: "",
       });
       expect(result.ok, name).toBe(false);
-      if (!result.ok) expect(result.reason).toMatch(/not one of the report's activity names/i);
+      if (!result.ok) expect(result.reason).toMatch(/not one of the report's deliverable names/i);
     }
   });
 
   test("every name the client listed is accepted", () => {
-    for (const activity of ACTIVITIES) {
+    for (const deliverable of DELIVERABLES) {
       const result = validateModelGroups(DAY, {
-        groups: [{ name: activity.name, sourceIds: DAY.map((r) => r.id) }],
+        groups: [{ name: deliverable.name, sourceIds: DAY.map((r) => r.id) }],
         remark: "",
       });
-      expect(result.ok, activity.name).toBe(true);
+      expect(result.ok, deliverable.name).toBe(true);
     }
   });
 
@@ -380,7 +380,7 @@ describe("the report is built without the model", () => {
 
   test("every line is named in the words the client's sheet uses", async () => {
     const day: Summary = (await summaryFor(instructor, myId)).body.days[DATE];
-    const allowed = new Set(ACTIVITIES.map((a) => a.name));
+    const allowed = new Set(DELIVERABLES.map((d) => d.name));
     for (const line of day.deliverables) {
       expect(allowed.has(line.name), `"${line.name}" is not one of the client's names`).toBe(true);
     }
@@ -389,8 +389,8 @@ describe("the report is built without the model", () => {
   test("the quantity unit belongs to the activity, not to the number", async () => {
     const day: Summary = (await summaryFor(instructor, myId)).body.days[DATE];
     for (const line of day.deliverables) {
-      const activity = ACTIVITIES.find((a) => a.name === line.name)!;
-      expect([activity.unit, activity.units]).toContain(line.quantityLabel);
+      const deliverable = DELIVERABLES.find((d) => d.name === line.name)!;
+      expect([deliverable.unit, deliverable.units]).toContain(line.quantityLabel);
     }
   });
 

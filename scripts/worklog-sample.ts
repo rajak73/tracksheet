@@ -58,7 +58,14 @@ const CASES: Array<{ label: string; expect: string; text: string }> = [
     text: "Lecture 9:00 AM to 11:00 AM, assignment review 10:30 AM to 11:30 AM.",
   },
   {
-    label: "6. One activity only",
+    label: "6. No count stated — the client's `?` case",
+    expect: "Assignment Evaluation with an UNKNOWN count, and 1 Department Meeting",
+    text:
+      "Spent the morning grading assignments from the last batch 9 to 11. " +
+      "Also sat through the department meeting 2:15 to 3.",
+  },
+  {
+    label: "7. One activity only",
     expect: "one activity — a paragraph is not always several",
     text: "Took a DBMS lecture on normalisation for section B from 10 AM to 11:30 AM.",
   },
@@ -102,14 +109,12 @@ async function main() {
         bullet.startLocal && bullet.endLocal
           ? `${bullet.startLocal}–${bullet.endLocal}`
           : "  no time  ";
-      const label =
-        taxonomy.deliverableByCode.get(bullet.deliverableCode ?? "")?.label ??
-        taxonomy.categoryByCode.get(bullet.categoryCode)?.label ??
-        bullet.categoryCode;
+      const { deliverableFor } = await import("../src/domain/worklog-taxonomy");
+      const label = deliverableFor(bullet.deliverableCode, bullet.categoryCode).name;
 
       console.log(
         `  ${clock}  ${String(bullet.durationMinutes ?? "—").padStart(4)}m  ` +
-          `x${String(bullet.quantity).padEnd(3)} ${label.padEnd(26)} ` +
+          `x${String(bullet.quantity ?? "?").padEnd(3)} ${label.padEnd(28)} ` +
           `${bullet.subjectCode ?? "—"}`,
       );
       console.log(`      from: “${bullet.rawText}”`);

@@ -20237,7 +20237,7 @@ export namespace Prisma {
     submissionId: string | null
     broadCategoryId: string | null
     deliverableTypeId: string | null
-    quantity: number
+    quantity: number | null
     createdAt: Date
     updatedAt: Date
     _count: ActivityLogCountAggregateOutputType | null
@@ -20494,12 +20494,26 @@ export namespace Prisma {
       /**
        * How many of that deliverable this row accounts for.
        * 
-       * Defaults to 1 so every pre-existing row keeps meaning exactly what it meant
-       * before this column existed. The free-text parser reconciles repeats ACROSS a
-       * day's bullets into a single row with a higher count, rather than writing two
-       * rows of one — which is what the client's sheet has always counted.
+       * ── NULL means the instructor never said ──────────────────────────────
+       * Not missing data to be tidied away with a default — it is the client's
+       * `?`. Their rule is explicit: "graded some assignments" with no number must
+       * never become "1 Assignment", because the whole point of that column is how
+       * many, and an invented one is indistinguishable from a real one once it is
+       * in the sheet.
+       * 
+       * It is deliberately not zero either. Zero is a count; "none" and "unknown"
+       * are answers a manager acts on differently.
+       * 
+       * A quantity of 1 is still written without anybody stating it, but only for
+       * deliverables whose unit counts OCCURRENCES — a class, a meeting, a
+       * workshop. There, the entry is one of them by definition. See `Counting` in
+       * `@/domain/worklog-taxonomy`.
+       * 
+       * The default stays 1 so every path that does not know about this — the
+       * importer, a hand-written insert — keeps behaving as it did. Only the
+       * parsers write null, and only where the client's rule says they must.
        */
-      quantity: number
+      quantity: number | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["activityLog"]>
@@ -54117,7 +54131,7 @@ export namespace Prisma {
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
-    quantity?: IntFilter<"ActivityLog"> | number
+    quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -54150,7 +54164,7 @@ export namespace Prisma {
     submissionId?: SortOrderInput | SortOrder
     broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
-    quantity?: SortOrder
+    quantity?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     instructor?: InstructorOrderByWithRelationInput
@@ -54186,7 +54200,7 @@ export namespace Prisma {
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
-    quantity?: IntFilter<"ActivityLog"> | number
+    quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -54219,7 +54233,7 @@ export namespace Prisma {
     submissionId?: SortOrderInput | SortOrder
     broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
-    quantity?: SortOrder
+    quantity?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: ActivityLogCountOrderByAggregateInput
@@ -54251,7 +54265,7 @@ export namespace Prisma {
     submissionId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
-    quantity?: IntWithAggregatesFilter<"ActivityLog"> | number
+    quantity?: IntNullableWithAggregatesFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
   }
@@ -57835,7 +57849,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -57868,7 +57882,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -57883,7 +57897,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -57916,7 +57930,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -57940,7 +57954,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -57955,7 +57969,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -57979,7 +57993,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -61672,6 +61686,17 @@ export namespace Prisma {
     not?: NestedEnumActivitySourceFilter<$PrismaModel> | $Enums.ActivitySource
   }
 
+  export type IntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null
+  }
+
   export type ActivityTypeScalarRelationFilter = {
     is?: ActivityTypeWhereInput
     isNot?: ActivityTypeWhereInput
@@ -61800,6 +61825,22 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumActivitySourceFilter<$PrismaModel>
     _max?: NestedEnumActivitySourceFilter<$PrismaModel>
+  }
+
+  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
   }
 
   export type FloatFilter<$PrismaModel = never> = {
@@ -62247,17 +62288,6 @@ export namespace Prisma {
     createdAt?: SortOrder
   }
 
-  export type IntNullableFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableFilter<$PrismaModel> | number | null
-  }
-
   export type UniversitySettingsCountOrderByAggregateInput = {
     id?: SortOrder
     universityId?: SortOrder
@@ -62291,22 +62321,6 @@ export namespace Prisma {
 
   export type UniversitySettingsSumOrderByAggregateInput = {
     activityRetentionDays?: SortOrder
-  }
-
-  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedIntNullableFilter<$PrismaModel>
-    _max?: NestedIntNullableFilter<$PrismaModel>
   }
 
   export type DepartmentUniversityIdCodeCompoundUniqueInput = {
@@ -66494,6 +66508,14 @@ export namespace Prisma {
     set?: $Enums.ActivitySource
   }
 
+  export type NullableIntFieldUpdateOperationsInput = {
+    set?: number | null
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
   export type InstructorUpdateOneRequiredWithoutActivityLogsNestedInput = {
     create?: XOR<InstructorCreateWithoutActivityLogsInput, InstructorUncheckedCreateWithoutActivityLogsInput>
     connectOrCreate?: InstructorCreateOrConnectWithoutActivityLogsInput
@@ -66884,14 +66906,6 @@ export namespace Prisma {
     create?: XOR<UniversityCreateWithoutUniversitySettingsInput, UniversityUncheckedCreateWithoutUniversitySettingsInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutUniversitySettingsInput
     connect?: UniversityWhereUniqueInput
-  }
-
-  export type NullableIntFieldUpdateOperationsInput = {
-    set?: number | null
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
   }
 
   export type UniversityUpdateOneRequiredWithoutUniversitySettingsNestedInput = {
@@ -68239,6 +68253,33 @@ export namespace Prisma {
     _max?: NestedEnumActivitySourceFilter<$PrismaModel>
   }
 
+  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
+  export type NestedFloatNullableFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
+  }
+
   export type NestedEnumDeliverableStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.DeliverableStatus | EnumDeliverableStatusFieldRefInput<$PrismaModel>
     in?: $Enums.DeliverableStatus[] | ListEnumDeliverableStatusFieldRefInput<$PrismaModel>
@@ -68367,33 +68408,6 @@ export namespace Prisma {
     gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-  }
-
-  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
-    _count?: NestedIntNullableFilter<$PrismaModel>
-    _avg?: NestedFloatNullableFilter<$PrismaModel>
-    _sum?: NestedIntNullableFilter<$PrismaModel>
-    _min?: NestedIntNullableFilter<$PrismaModel>
-    _max?: NestedIntNullableFilter<$PrismaModel>
-  }
-
-  export type NestedFloatNullableFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
   export type NestedEnumTermStatusFilter<$PrismaModel = never> = {
@@ -69076,7 +69090,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -69107,7 +69121,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -69620,7 +69634,7 @@ export namespace Prisma {
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
-    quantity?: IntFilter<"ActivityLog"> | number
+    quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
     updatedAt?: DateTimeFilter<"ActivityLog"> | Date | string
   }
@@ -69930,7 +69944,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -69961,7 +69975,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -72980,7 +72994,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -73011,7 +73025,7 @@ export namespace Prisma {
     rawText?: string | null
     submissionId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -73282,7 +73296,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutActivityLogsInput
@@ -73313,7 +73327,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -74341,7 +74355,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -74372,7 +74386,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -76225,7 +76239,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -76256,7 +76270,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -80779,7 +80793,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -80810,7 +80824,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -83337,7 +83351,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -83368,7 +83382,7 @@ export namespace Prisma {
     rawText?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -83671,7 +83685,7 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutActivityLogsInput
@@ -83702,7 +83716,7 @@ export namespace Prisma {
     rawText?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -84401,7 +84415,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -84719,7 +84733,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -84750,7 +84764,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -84773,7 +84787,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -84907,7 +84921,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -85445,7 +85459,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -85476,7 +85490,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -85499,7 +85513,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86581,7 +86595,7 @@ export namespace Prisma {
     rawText?: string | null
     submissionId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -86654,7 +86668,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -86685,7 +86699,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86708,7 +86722,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86731,7 +86745,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -86940,7 +86954,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -86971,7 +86985,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86994,7 +87008,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -87609,7 +87623,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -87662,7 +87676,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -87693,7 +87707,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -87716,7 +87730,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -87869,7 +87883,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -87920,7 +87934,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -87951,7 +87965,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -87974,7 +87988,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88417,7 +88431,7 @@ export namespace Prisma {
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -88432,7 +88446,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -88463,7 +88477,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88486,7 +88500,7 @@ export namespace Prisma {
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88509,7 +88523,7 @@ export namespace Prisma {
     rawText?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -88524,7 +88538,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -88555,7 +88569,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88578,7 +88592,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88601,7 +88615,7 @@ export namespace Prisma {
     rawText?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
-    quantity?: number
+    quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -88616,7 +88630,7 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
@@ -88647,7 +88661,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -88670,7 +88684,7 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: IntFieldUpdateOperationsInput | number
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

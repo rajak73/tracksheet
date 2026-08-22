@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
-  ACTIVITIES,
-  activityFor,
-  activityNamed,
+  DELIVERABLES,
+  deliverableFor,
+  deliverableNamed,
   quantityPhrase,
-} from "@/domain/worklog-vocabulary";
+  quantityWhenUnstated,
+  sumQuantities,
+  UNSTATED,
+} from "@/domain/worklog-taxonomy";
 import {
   broadCategoryCell,
   compactDuration,
@@ -32,13 +35,17 @@ import {
 
 let nextAt = 9 * 60;
 /** Laid out across the day in the order they are written, as a real day is. */
-const line = (name: string, minutes: number, quantity = 0) => {
+const line = (name: string, minutes: number, quantity: number | null = 0) => {
   const firstAt = nextAt;
   nextAt += minutes + 15;
   return { name, minutes, quantity, firstAt };
 };
 /** A line with no position on the clock — a week cell, or planned progress. */
-const unplaced = (name: string, minutes: number, quantity = 0) => ({ name, minutes, quantity });
+const unplaced = (name: string, minutes: number, quantity: number | null = 0) => ({
+  name,
+  minutes,
+  quantity,
+});
 
 describe("the Deliverable column", () => {
   test("the client's own example, character for character", () => {
@@ -120,12 +127,12 @@ describe("the Deliverable Quantity column", () => {
     );
   });
 
-  test("the unit belongs to the activity, never to a pluralised name", () => {
+  test("the unit belongs to the deliverable, never to a pluralised name", () => {
     // "1 Doubt Clearings" is what pluralising the name produced.
     expect(quantityCell([line("Doubt Clearing", 45, 1)])).toBe("1 Doubt Session");
     expect(quantityCell([line("Doubt Clearing", 90, 3)])).toBe("3 Doubt Sessions");
-    expect(quantityCell([line("Student Mentoring", 60, 3)])).toBe("3 Students Mentored");
-    expect(quantityCell([line("Capstone Review", 120, 6)])).toBe("6 Capstone Reports");
+    expect(quantityCell([line("Exam Evaluation", 60, 20)])).toBe("20 Scripts");
+    expect(quantityCell([line("Academic Guidance", 60, 3)])).toBe("3 Guidance Sessions");
   });
 
   test("a line nobody counted is left out rather than printed as zero", () => {
@@ -134,12 +141,93 @@ describe("the Deliverable Quantity column", () => {
     );
   });
 
-  test("every activity the client listed has a unit for one and for many", () => {
-    for (const activity of ACTIVITIES) {
-      expect(quantityPhrase(activity, 1), activity.name).toBe(`1 ${activity.unit}`);
-      expect(quantityPhrase(activity, 4), activity.name).toBe(`4 ${activity.units}`);
-      expect(activity.unit.length, activity.name).toBeGreaterThan(0);
+  test("every counted deliverable has a unit for one and for many", () => {
+    for (const d of DELIVERABLES.filter((x) => x.counting !== "none")) {
+      expect(quantityPhrase(d, 1), d.name).toBe(`1 ${d.unit}`);
+      expect(quantityPhrase(d, 4), d.name).toBe(`4 ${d.units}`);
+      expect(d.unit.length, d.name).toBeGreaterThan(0);
     }
+  });
+
+  test("a deliverable that is never counted has no entry in the column", () => {
+    // Hours only. A unit with no number beside it would be worse than absence.
+    for (const d of DELIVERABLES.filter((x) => x.counting === "none")) {
+      expect(quantityPhrase(d, null), d.name).toBeNull();
+      expect(quantityPhrase(d, 3), d.name).toBeNull();
+      expect(quantityCell([line(d.name, 60, 3)]), d.name).toBe("—");
+    }
+  });
+});
+
+describe("a count nobody stated stays visibly unknown", () => {
+  /**
+   * ── The rule the client wrote out twice ─────────────────────────────────
+   * "graded some assignments" with no number must render `? Assignments`, never
+   * `1 Assignment`. An invented 1 is not a smaller error than an invented 12 —
+   * it is a wrong number with nothing about it that looks wrong, sitting in the
+   * column whose entire purpose is how many.
+   *
+   * The exception is as precise: for a unit that counts OCCURRENCES, the entry
+   * IS one of them, so 1 is a fact. "Attended the department meeting" is one
+   * meeting by definition and needs nobody to have counted it.
+   */
+
+  test("an unstated item count prints the client's question mark", () => {
+    expect(quantityCell([line("Assignment Evaluation", 120, null)])).toBe("? Assignments");
+    expect(quantityCell([line("Exam Evaluation", 60, null)])).toBe("? Scripts");
+    expect(quantityCell([line("Experiment", 90, null)])).toBe("? Experiments");
+  });
+
+  test("it is never quietly dropped", () => {
+    // `> 0` is false for null, so a filter on it made the unknown invisible —
+    // which is worse than a wrong number, because nobody can see it went.
+    const cell = quantityCell([line("Live Class", 120, 1), line("Assignment Evaluation", 60, null)]);
+    expect(cell).toContain(UNSTATED);
+    expect(cell).toBe("1 Class, ? Assignments");
+  });
+
+  test("an occurrence needs nobody to have counted it", () => {
+    for (const name of ["Live Class", "Department Meeting", "Workshop Attended", "Doubt Clearing"]) {
+      const d = deliverableNamed(name)!;
+      expect(quantityWhenUnstated(d), name).toBe(1);
+    }
+  });
+
+  test("an item count is never invented", () => {
+    for (const name of [
+      "Assignment Evaluation",
+      "Exam Evaluation",
+      "Question Paper Preparation",
+      "Research Paper",
+      "Experiment",
+    ]) {
+      const d = deliverableNamed(name)!;
+      expect(quantityWhenUnstated(d), name).toBeNull();
+    }
+  });
+
+  test("something never counted stays uncounted either way", () => {
+    for (const name of ["Literature Review", "Reporting", "Documentation", "Self-Learning"]) {
+      expect(quantityWhenUnstated(deliverableNamed(name)!), name).toBeNull();
+    }
+  });
+
+  test("one unknown makes the total unknown", () => {
+    // Twelve assignments plus an unstated number of assignments is not twelve.
+    expect(sumQuantities([12, null])).toBeNull();
+    expect(sumQuantities([null, null])).toBeNull();
+    expect(sumQuantities([12, 8])).toBe(20);
+  });
+
+  test("an unknown is not a zero", () => {
+    // Zero is a count. "None" and "nobody said" are answers a manager acts on
+    // differently, and the column has to be able to tell them apart.
+    expect(quantityCell([line("Assignment Evaluation", 60, 0)])).toBe("—");
+    expect(quantityCell([line("Assignment Evaluation", 60, null)])).toBe("? Assignments");
+  });
+
+  test("a day of nothing but unknowns still says so", () => {
+    expect(sumQuantities([])).toBeNull();
   });
 });
 
@@ -206,40 +294,46 @@ describe("the Remarks column", () => {
 
 describe("the taxonomy speaks the client's vocabulary", () => {
   test("the names in their example map from the taxonomy that stores them", () => {
-    expect(activityFor("LECTURE", "TEACHING").name).toBe("Live Class");
-    expect(activityFor("STUDENT_QUERY_RESOLUTION", "STUDENT_SUPPORT").name).toBe("Doubt Clearing");
-    expect(activityFor("ASSIGNMENT_EVALUATION", "ASSESSMENT").name).toBe("Assignment Evaluation");
-    expect(activityFor("DEPARTMENT_MEETING", "MEETING").name).toBe("Department Meeting");
-    expect(activityFor("SLIDES", "CONTENT_DEVELOPMENT").name).toBe("Slide Preparation");
+    expect(deliverableFor("LECTURE", "TEACHING").name).toBe("Live Class");
+    expect(deliverableFor("STUDENT_QUERY_RESOLUTION", "STUDENT_SUPPORT").name).toBe("Doubt Clearing");
+    expect(deliverableFor("ASSIGNMENT_EVALUATION", "ASSESSMENT").name).toBe("Assignment Evaluation");
+    expect(deliverableFor("DEPARTMENT_MEETING", "MEETING").name).toBe("Department Meeting");
+    expect(deliverableFor("SLIDES", "CONTENT_DEVELOPMENT").name).toBe("Slide Preparation");
   });
 
-  test("a department meeting is not a faculty meeting", () => {
-    // Both are in the client's list and they are different words. Collapsing
-    // them would be us deciding the report says something it does not.
-    expect(activityFor("FACULTY_MEETING", "MEETING").name).toBe("Faculty Meeting");
-    expect(activityFor("DEPARTMENT_MEETING", "MEETING").name).toBe("Department Meeting");
+  test("every stored deliverable resolves, and only to a name on the list", () => {
+    // 44 stored codes onto 21 printable names. A code with no home would print
+    // "Other / Unclassified Work" against real teaching.
+    const allowed = new Set(DELIVERABLES.map((d) => d.name));
+    for (const d of DELIVERABLES) {
+      for (const code of d.codes) {
+        expect(deliverableFor(code, null).name, code).toBe(d.name);
+        expect(allowed.has(deliverableFor(code, null).name)).toBe(true);
+      }
+    }
   });
 
   test("a row with no deliverable is still named by its category", () => {
-    expect(activityFor(null, "TEACHING").name).toBe("Live Class");
-    expect(activityFor(undefined, "ASSESSMENT").name).toBe("Assessment Evaluation");
+    expect(deliverableFor(null, "TEACHING").name).toBe("Live Class");
+    expect(deliverableFor(undefined, "ASSESSMENT").name).toBe("Assignment Evaluation");
+    expect(deliverableFor(null, "LEARNING").name, "hours against no artefact").toBe("Self-Learning");
   });
 
   test("nothing outside the list can be produced, whatever comes in", () => {
-    const allowed = new Set(ACTIVITIES.map((a) => a.name));
+    const allowed = new Set(DELIVERABLES.map((d) => d.name));
     for (const [deliverable, category] of [
       ["INVENTED_CODE", "ALSO_INVENTED"],
       [null, null],
       ["", ""],
     ] as Array<[string | null, string | null]>) {
-      expect(allowed.has(activityFor(deliverable, category).name)).toBe(true);
+      expect(allowed.has(deliverableFor(deliverable, category).name)).toBe(true);
     }
   });
 
   test("every name resolves to itself, so the report can round-trip", () => {
-    for (const activity of ACTIVITIES) {
-      expect(activityNamed(activity.name)).toEqual(activity);
+    for (const d of DELIVERABLES) {
+      expect(deliverableNamed(d.name)).toEqual(d);
     }
-    expect(activityNamed("Live Classes"), "a plural is not a name in the list").toBeNull();
+    expect(deliverableNamed("Live Classes"), "a plural is not a name in the list").toBeNull();
   });
 });

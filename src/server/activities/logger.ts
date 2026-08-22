@@ -51,7 +51,12 @@ export type LogActivityInput = {
   /** The deliverable within the category, from the closed taxonomy. */
   deliverableTypeId?: string | null;
   /** How many of that deliverable this row accounts for. */
-  quantity?: number;
+  /**
+   * How many. `null` writes "the instructor never said" — the client's `?` —
+   * which is a different thing from omitting the field, and a different thing
+   * again from zero. Omitting it leaves the column's default of 1.
+   */
+  quantity?: number | null;
 };
 
 /** A single activity may not span more than one working day's worth of time. */

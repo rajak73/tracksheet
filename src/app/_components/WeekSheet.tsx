@@ -25,6 +25,8 @@
  */
 
 import { categoryColor } from "@/app/_components/charts";
+import { sumQuantities } from "@/domain/worklog-taxonomy";
+import { UNSTATED } from "@/domain/worklog-report";
 import {
   countsAsWorking,
   didHappen,
@@ -75,10 +77,14 @@ export function WeekSheet({
   onOpenDay: (date: string) => void;
 }) {
   const all = days.flatMap((d) => activitiesByDate[d.date] ?? []);
-  // Countable rows only, so the footer agrees with the column above it.
-  const weekQuantity = all.reduce(
-    (n, a) => n + (a.deliverableType?.isCountable ? (a.quantity ?? 1) : 0),
-    0,
+  /* Countable rows only, so the footer agrees with the column above it.
+   *
+   * `?? 1` used to sit in here and in the two places below: a row whose count
+   * nobody stated was silently added as one of them. Unknown now propagates —
+   * one unstated count makes the total `?`, because a partial sum of the rows
+   * that happened to state a number reads exactly like a complete one. */
+  const weekQuantity = sumQuantities(
+    all.filter((a) => a.deliverableType?.isCountable).map((a) => a.quantity ?? null),
   );
   /* Working Hours, by the product's own rule — which is what the column above
    * this footer is called. It summed every row: an absence counted, and so did
@@ -115,9 +121,8 @@ export function WeekSheet({
           const rows = [...(activitiesByDate[day.date] ?? [])].sort((a, b) =>
             a.startTime.localeCompare(b.startTime),
           );
-          const dayQuantity = rows.reduce(
-            (n, a) => n + (a.deliverableType?.isCountable ? (a.quantity ?? 1) : 0),
-            0,
+          const dayQuantity = sumQuantities(
+            rows.filter((a) => a.deliverableType?.isCountable).map((a) => a.quantity ?? null),
           );
           const dayHours = rows.filter(countsAsWorking).reduce((n, a) => n + hoursOf(a, timeZone), 0);
 
@@ -188,7 +193,7 @@ export function WeekSheet({
                           but no unit — a dash rather than a 1 that means
                           nothing. */}
                       {a.deliverableType?.isCountable ? (
-                        (a.quantity ?? 1)
+                        (a.quantity ?? UNSTATED)
                       ) : (
                         <span className="text-subtle">—</span>
                       )}

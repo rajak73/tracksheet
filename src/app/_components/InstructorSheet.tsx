@@ -28,6 +28,7 @@ import { useState } from "react";
  */
 
 import { Badge, Button, inputClass } from "@/app/_components/ui";
+import { compactDuration, countableLines, quantityCell } from "@/domain/worklog-report";
 import { categoryColor } from "@/app/_components/charts";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { rollUp, type RollupLine } from "@/domain/rollup";
@@ -74,10 +75,6 @@ const COLUMNS = [
 const HEAD = "sticky top-0 z-20 bg-sunken";
 const DATE_COL = "sticky left-0 z-10";
 const CORNER = "sticky left-0 top-0 z-30 bg-sunken";
-
-
-/** "Lecture" → "Lectures", without pretending to know English grammar. */
-const plural = (label: string, n: number) => (n === 1 || label.endsWith("s") ? label : `${label}s`);
 
 
 export function InstructorSheet({
@@ -269,7 +266,7 @@ function PeriodRow({
                     style={{ background: categoryColor(rows[0]!.activityType.code) }}
                   />
                   <span title={l.countable ? undefined : "Not counted in Working Hours"}>
-                    {l.label} – {formatDuration(l.hours)}
+                    {l.label} - {compactDuration(l.minutes)}
                   </span>
                 </span>
               ))}
@@ -277,15 +274,19 @@ function PeriodRow({
 
             {/* Only what a count means something for. */}
             <td className={`${cell} max-w-[18rem] text-right text-content`}>
-              {lines.filter((l) => l.countable && l.quantity > 0).length > 0 ? (
-                lines
-                  .filter((l) => l.countable && l.quantity > 0)
-                  .map((l) => `${l.quantity} ${plural(l.label, l.quantity)}`)
-                  .join(", ")
-              ) : (
-                <span className="text-subtle" title="Nothing here has a unit to count">
-                  —
-                </span>
+              {/* Written by the one function that writes this column
+                  everywhere, so this sheet, the manager's, the monthly tracker
+                  and both exports say the same thing — including the client's
+                  `?` where somebody never said how many. */}
+              {quantityCell(
+                countableLines(
+                  lines.map((l) => ({
+                    title: l.label,
+                    minutes: l.minutes,
+                    quantity: l.quantity,
+                    countable: l.countable,
+                  })),
+                ),
               )}
             </td>
 

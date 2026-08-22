@@ -4,12 +4,13 @@ import { DID_NOT_HAPPEN } from "@/domain/working-hours";
 import { generateStructured } from "@/server/ai/gemini";
 import { toDateOnly } from "@/server/time/workday";
 import {
-  ACTIVITIES,
-  activityFor,
-  activityNamed,
-  quantityPhrase,
-  type Activity,
-} from "@/domain/worklog-vocabulary";
+  CATEGORIES,
+  DELIVERABLES,
+  deliverableFor,
+  deliverableNamed,
+  sumQuantities,
+  type Deliverable,
+} from "@/domain/worklog-taxonomy";
 
 /**
  * A day's worklog, turned into the one row the client's sheet prints.
@@ -90,15 +91,16 @@ const NOT_WORKED = ["UNUTILIZED"];
 export type SourceRow = {
   id: string;
   minutes: number;
-  quantity: number;
+  /** `null` is the client's `?` — they never said how many. */
+  quantity: number | null;
   /** What the instructor wrote, or the client's name when they typed nothing. */
   text: string;
   remarks: string | null;
   /** Wall-clock minutes since midnight. What the overlap measure works on. */
   startMinute: number;
   endMinute: number;
-  /** The client's own name for this kind of work, from the taxonomy. */
-  activity: Activity;
+  /** The client's own name for this kind of work, from the closed list. */
+  deliverable: Deliverable;
 };
 
 export type SummaryDeliverable = {
@@ -114,9 +116,15 @@ export type SummaryDeliverable = {
   firstAt: number;
   /** Summed here from the rows this group covers. Never from the model. */
   durationMinutes: number;
-  /** Summed here from the rows this group covers. Never from the model. */
-  quantity: number;
-  /** `Class` / `Classes` — the unit, decided by the activity, not the model. */
+  /**
+   * Summed here from the rows this group covers. Never from the model.
+   *
+   * `null` once ANY row under this name is unknown: twelve assignments plus an
+   * unstated number of assignments is not twelve, and printing twelve would
+   * state a figure the day does not support.
+   */
+  quantity: number | null;
+  /** `Class` / `Classes` — the unit, decided by the deliverable, not the model. */
   quantityLabel: string;
 };
 
@@ -142,7 +150,17 @@ export function fingerprintOf(rows: SourceRow[]): string {
   const canonical = [...rows]
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((r) =>
-      [r.id, r.minutes, r.quantity, r.startMinute, r.endMinute, r.text, r.remarks ?? ""].join(" "),
+      [
+        r.id,
+        r.minutes,
+        // "?" rather than an empty string: an unstated count and a count of
+        // nothing are different days and must not fingerprint alike.
+        r.quantity === null ? "?" : r.quantity,
+        r.startMinute,
+        r.endMinute,
+        r.text,
+        r.remarks ?? "",
+      ].join(" "),
     )
     .join("");
   return createHash("sha256").update(canonical).digest("hex").slice(0, 32);
@@ -199,7 +217,7 @@ export function workedMinutes(rows: SourceRow[]): { total: number; overlapped: n
 function fallbackGroups(rows: SourceRow[]) {
   const byName = new Map<string, string[]>();
   for (const row of rows) {
-    byName.set(row.activity.name, [...(byName.get(row.activity.name) ?? []), row.id]);
+    byName.set(row.deliverable.name, [...(byName.get(row.deliverable.name) ?? []), row.id]);
   }
   return [...byName.entries()].map(([name, sourceIds]) => ({ name, sourceIds }));
 }
@@ -243,7 +261,12 @@ export function buildInstruction(rows: SourceRow[]): string {
     "instructor's own words. Put every line under one of the activity names below.",
     "",
     "THE ONLY NAMES YOU MAY USE — copy one of these EXACTLY, spelling and all:",
-    ...ACTIVITIES.map((a) => `- ${a.name}`),
+    // Grouped as the client groups them, so a model choosing between two close
+    // names can see which category each belongs to.
+    ...CATEGORIES.flatMap((category) => [
+      `${category}:`,
+      ...DELIVERABLES.filter((d) => d.category === category).map((d) => `  - ${d.name}`),
+    ]),
     "",
     "RULES, in order of importance:",
     "1. EVERY id must appear EXACTLY ONCE across your groups. Not zero times, not twice.",
@@ -325,11 +348,13 @@ export function validateModelGroups(
      * Classes" tomorrow is not a cosmetic difference — it is two rows where
      * there should be one. Markup and length cannot get past a closed list
      * either, which is why neither is tested separately any more. */
-    const activity = activityNamed(claimed);
-    if (!activity) return { ok: false, reason: `"${claimed}" is not one of the report's activity names` };
+    const deliverable = deliverableNamed(claimed);
+    if (!deliverable) {
+      return { ok: false, reason: `"${claimed}" is not one of the report's deliverable names` };
+    }
 
     if (!Array.isArray(g.sourceIds) || g.sourceIds.length === 0) {
-      return { ok: false, reason: `group "${activity.name}" covers no lines` };
+      return { ok: false, reason: `group "${deliverable.name}" covers no lines` };
     }
 
     for (const id of g.sourceIds) {
@@ -341,7 +366,7 @@ export function validateModelGroups(
       seen.add(id);
     }
 
-    groups.push({ name: activity.name, sourceIds: g.sourceIds as string[] });
+    groups.push({ name: deliverable.name, sourceIds: g.sourceIds as string[] });
   }
 
   // The requirement that matters most: nothing was dropped.
@@ -377,12 +402,15 @@ function assemble(rows: SourceRow[], model: ModelGroups): SummaryDeliverable[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
   return model.groups.map((g) => {
     const covered = g.sourceIds.map((id) => byId.get(id)!).filter(Boolean);
-    const quantity = covered.reduce((n, r) => n + r.quantity, 0);
+    /* One unknown makes the group unknown — see `sumQuantities`. Never a
+     * partial sum of the rows that happened to state a number, which would look
+     * like a complete one. */
+    const quantity = sumQuantities(covered.map((r) => r.quantity));
     /* The unit belongs to the activity, not to the reply. "1 Class" and
      * "12 Assignments" are different units in the same cell, and asking a model
      * to keep them straight was asking it to be consistent about something a
      * lookup is simply right about. */
-    const activity = activityNamed(g.name) ?? covered[0]?.activity;
+    const deliverable = deliverableNamed(g.name) ?? covered[0]?.deliverable;
     return {
       name: g.name,
       firstAt: covered.reduce(
@@ -392,8 +420,12 @@ function assemble(rows: SourceRow[], model: ModelGroups): SummaryDeliverable[] {
       // Summed here. The model supplied neither of these.
       durationMinutes: covered.reduce((n, r) => n + r.minutes, 0),
       quantity,
-      quantityLabel: activity
-        ? quantityPhrase(activity, quantity).replace(/^\d+\s/, "")
+      /* The unit alone, without a number — the cell decides singular or plural
+       * from the merged count, which a week's worth of days can change. */
+      quantityLabel: deliverable
+        ? quantity === 1
+          ? deliverable.unit
+          : deliverable.units
         : g.name,
     };
   });
@@ -444,18 +476,20 @@ async function loadDays(instructorId: string, from: string, to: string) {
   for (const log of logs) {
     const date = log.workDate.toISOString().slice(0, 10);
     const bucket = byDate.get(date) ?? { rows: [], universityId: log.universityId };
-    const activity = activityFor(log.deliverableType?.code, log.activityType.code);
+    const deliverable = deliverableFor(log.deliverableType?.code, log.activityType.code);
 
     bucket.rows.push({
       id: log.id,
       minutes: Math.round((log.endTime.getTime() - log.startTime.getTime()) / 60_000),
-      quantity: log.quantity ?? 0,
+      // Carried through as null. `?? 0` here would turn "they never said" into
+      // "none", which is a count and reads as a real one.
+      quantity: log.quantity,
       // Their own words are what the model reads; the client's name for the work
       // stands in when they typed nothing.
-      text: (log.rawText ?? activity.name).trim(),
+      text: (log.rawText ?? deliverable.name).trim(),
       remarks: log.remarks,
       ...positionOn(log.startTime, log.endTime, log.university.timezone),
-      activity,
+      deliverable,
     });
     byDate.set(date, bucket);
   }

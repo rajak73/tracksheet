@@ -37,6 +37,7 @@ import {
   FALLBACK_DELIVERABLE,
   type Taxonomy,
 } from "@/server/worklog/taxonomy";
+import { deliverableFor, quantityWhenUnstated } from "@/domain/worklog-taxonomy";
 
 /** A cell in a spreadsheet, not a paragraph. */
 const MAX_REMARK_CHARS = 80;
@@ -56,8 +57,16 @@ export type ParsedBullet = {
   endLocal: string | null;
   /** Computed from the range. Null when there was no usable range. */
   durationMinutes: number | null;
-  /** How many of that deliverable THIS bullet accounts for. */
-  quantity: number;
+  /**
+   * How many of that deliverable THIS bullet accounts for.
+   *
+   * `null` is the client's `?` — the instructor never said how many, and for a
+   * unit that counts items ("assignments", "scripts", "papers") nobody is going
+   * to decide on their behalf. A unit that counts occurrences is 1 without
+   * anybody stating it, because the entry is one of them by definition. See
+   * `quantityWhenUnstated` in `@/domain/worklog-taxonomy`.
+   */
+  quantity: number | null;
   /** Why a bullet could not be given a duration. Shown to the instructor. */
   problem: string | null;
   /**
@@ -241,10 +250,15 @@ function reconcile(raw: unknown, index: number, rawText: string, taxonomy: Taxon
     `${category.label} ${deliverable?.label ?? ""}`,
   );
 
+  /* Unstated is decided by the UNIT, not by a default. See the long note in
+   * `narrative.ts` — this is the same rule, and it lives in one function so the
+   * two readers cannot drift apart on the one thing the client wrote out
+   * twice. */
+  const chosen = deliverableFor(deliverable?.code ?? null, category.code);
   const quantity =
     typeof row.quantity === "number" && Number.isFinite(row.quantity) && row.quantity >= 1
       ? Math.min(Math.round(row.quantity), 100)
-      : 1;
+      : quantityWhenUnstated(chosen);
 
   return {
     index,

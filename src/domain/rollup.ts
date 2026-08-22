@@ -9,7 +9,7 @@
  */
 
 import { countsAsWorkingHours, didHappen } from "@/domain/working-hours";
-import { activityFor } from "@/domain/worklog-vocabulary";
+import { deliverableFor, quantityWhenUnstated } from "@/domain/worklog-taxonomy";
 
 /**
  * The least an entry has to be for this to add it up.
@@ -38,7 +38,8 @@ export type RollupActivity = {
    * simply falls back to the category's name. */
   deliverableType?: { code?: string; isCountable: boolean } | null;
   broadCategory?: { label: string } | null;
-  quantity?: number;
+  /** `null` is the client's `?` — the instructor never said how many. */
+  quantity?: number | null;
 };
 
 export type RollupLine = {
@@ -47,7 +48,10 @@ export type RollupLine = {
   /** The broad category — Lecture, Practice, Meeting — not the deliverable. */
   label: string;
   hours: number;
-  quantity: number;
+  /** `null` once any entry under this line is unknown. */
+  quantity: number | null;
+  /** Exact minutes, which is what the client's "1h 45m" is written from. */
+  minutes: number;
   /** Whether this counts toward Working Hours and the quantity column. */
   countable: boolean;
 };
@@ -115,7 +119,8 @@ export function rollUp(activities: RollupActivity[]): Rollup {
      * point: the instructor's sheet, the manager's sheet and the manager's CSV
      * all read this function, so one map keeps all three saying the same words
      * as the monthly tracker and the day summary. */
-    const label = activityFor(a.deliverableType?.code, a.activityType.code).name;
+    const chosen = deliverableFor(a.deliverableType?.code, a.activityType.code);
+    const label = chosen.name;
     // A deliverable decides when there is one; otherwise the category does.
     // See `countsAsWorkingHours` — an entry with no deliverable used to be
     // read as "does not count", which silently dropped real teaching hours.
@@ -124,10 +129,19 @@ export function rollUp(activities: RollupActivity[]): Rollup {
       a.deliverableType ? a.deliverableType.isCountable : null,
     );
     const key = `${label}\u0000${countable}`;
-    const line = byCategory.get(key) ?? { key, label, hours: 0, quantity: 0, countable };
+    const line = byCategory.get(key) ?? { key, label, hours: 0, minutes: 0, quantity: 0 as number | null, countable };
 
     line.hours += a.durationHours;
-    if (countable) line.quantity += a.quantity ?? 1;
+    line.minutes += Math.round(a.durationHours * 60);
+    /* `?? 1` used to sit here, and it is exactly the default the client's rule
+     * forbids: an entry whose count nobody stated became one of them. What
+     * happens now is decided by the UNIT — an occurrence is one of itself, an
+     * item count stays unknown — and one unknown makes the line unknown, because
+     * a partial sum reads like a complete one. */
+    if (countable) {
+      const stated = a.quantity === undefined ? quantityWhenUnstated(chosen) : a.quantity;
+      line.quantity = line.quantity === null || stated === null ? null : line.quantity + stated;
+    }
     byCategory.set(key, line);
   }
 

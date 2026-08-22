@@ -32,7 +32,7 @@
  * without deactivated staff cluttering a current-week view they had no part in.
  */
 
-import { activityFor } from "@/domain/worklog-vocabulary";
+import { deliverableFor } from "@/domain/worklog-taxonomy";
 import {
   broadCategoryCell,
   countableLines,
@@ -69,7 +69,8 @@ export type TrackerWeek = {
 
 export type TrackerDeliverable = {
   title: string;
-  quantity: number;
+  /** `null` when the instructor never said how many. The client's `?`. */
+  quantity: number | null;
   hours: number;
   /** Whether a count of this means anything — see `DeliverableType`. */
   countable: boolean;
@@ -88,7 +89,8 @@ export type TrackerDeliverable = {
 export type TrackerCell = {
   deliverables: TrackerDeliverable[];
   /** Countable deliverable units recorded in this cell. */
-  quantity: number;
+  /** `null` once anything inside it is unknown. */
+  quantity: number | null;
   /** Hours on entries that name a deliverable. Reporting detail only. */
   deliverableHours: number;
   /** Engine recorded hours. The metric everything else already agrees with. */
@@ -126,7 +128,8 @@ export type TrackerRow = {
   categories: string[];
   cells: Record<number, TrackerCell>;
   totals: {
-    quantity: number;
+    /** `null` once anything inside it is unknown — the client's `?`. */
+    quantity: number | null;
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
@@ -145,7 +148,8 @@ export type TrackerResult = {
   totals: {
     instructors: number;
     formerInstructors: number;
-    quantity: number;
+    /** `null` once anything inside it is unknown — the client's `?`. */
+    quantity: number | null;
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
@@ -333,7 +337,20 @@ export async function buildTracker(args: {
     ),
   );
 
-  /* ── Two sources, and only one of them is Working Hours ─────────────────
+  /**
+ * Adds a count that may be unknown.
+ *
+ * Once anything in a total is unknown the total is unknown, and stays so —
+ * there is no later number that can make it known again. Written out rather
+ * than inlined three times so the rule has one place to be read and one place
+ * to be wrong.
+ */
+function addQuantity(total: number | null, add: number | null): number | null {
+  if (total === null || add === null) return null;
+  return total + add;
+}
+
+/* ── Two sources, and only one of them is Working Hours ─────────────────
    * `DeliverableLog` used to be summed into these cells as though it were the
    * same thing as an activity, with a hard-coded `countable: true`. That was
    * wrong twice over. `/instructor/activity-tracker` POSTs an activity AND a
@@ -523,7 +540,10 @@ export async function buildTracker(args: {
       entry = { title: log.deliverable.title, quantity: 0, hours: 0, minutes: 0, countable: false };
       cell.deliverables.push(entry);
     }
-    entry.quantity += log.quantityCompleted;
+    // A planned deliverable's progress is always a stated number, so this is
+    // never unknown — but it goes through the same adder so the one rule about
+    // unknowns has one implementation.
+    entry.quantity = addQuantity(entry.quantity, log.quantityCompleted);
     entry.hours = round(entry.hours + log.hoursSpent);
     entry.minutes += Math.round(log.hoursSpent * 60);
 
@@ -586,7 +606,7 @@ export async function buildTracker(args: {
      * a department meeting is not a Faculty Meeting. Mapping through the
      * vocabulary also makes this sheet and the instructor's own screen use one
      * set of words, which is the only reason a closed list is worth having. */
-    const activity = activityFor(log.deliverableType?.code, log.activityType.code);
+    const activity = deliverableFor(log.deliverableType?.code, log.activityType.code);
     const title = activity.name;
     const countable = countsAsWorkingHours(
       log.activityType.code,
@@ -614,10 +634,17 @@ export async function buildTracker(args: {
 
     /* Quantity counts ONLY what a count means something for, at every level.
      * The per-entry figure already did; the cell and row totals did not, so the
-     * "Qty" beside a cell could disagree with the named quantities inside it. */
+     * "Qty" beside a cell could disagree with the named quantities inside it.
+     *
+     * ── An unstated count makes the total unstated ─────────────────────────
+     * `null` is the client's `?` — the instructor never said how many. Twelve
+     * assignments plus an unknown number of assignments is not twelve, and
+     * printing twelve would state a figure the week does not support, in the
+     * column somebody reconciles. So the unknown propagates: one null anywhere
+     * in a line makes that line, its cell and the row total unknown too. */
     if (countable) {
-      entry.quantity += log.quantity;
-      cell.quantity += log.quantity;
+      entry.quantity = addQuantity(entry.quantity, log.quantity);
+      cell.quantity = addQuantity(cell.quantity, log.quantity);
     }
 
     /* Deliverable hours is time against a NAMED piece of work, so an entry with
@@ -632,7 +659,7 @@ export async function buildTracker(args: {
     const remark = log.remarks?.trim();
     if (remark && !cell.remarks.includes(remark)) cell.remarks.push(remark);
 
-    if (countable) row.totals.quantity += log.quantity;
+    if (countable) row.totals.quantity = addQuantity(row.totals.quantity, log.quantity);
     if (log.deliverableType) {
       row.totals.deliverableHours = round(row.totals.deliverableHours + hours);
     }
@@ -672,6 +699,9 @@ export async function buildTracker(args: {
   // Active staff always appear, so "recorded nothing this week" stays visible.
   const hasData = (row: TrackerRow) =>
     row.totals.totalWorkingHours > 0 ||
+    // An unknown count is something to report, not nothing: a former member of
+    // staff whose only record is "graded some assignments" still has a row.
+    row.totals.quantity === null ||
     row.totals.quantity > 0 ||
     row.totals.deliverableHours > 0;
 
@@ -707,7 +737,8 @@ export async function buildTracker(args: {
     totals: {
       instructors: visible.length,
       formerInstructors: visible.filter((r) => !r.isActive).length,
-      quantity: visible.reduce((s, r) => s + r.totals.quantity, 0),
+      // Unknown anywhere makes the grand total unknown. See `addQuantity`.
+      quantity: visible.reduce<number | null>((n, r) => addQuantity(n, r.totals.quantity), 0),
       deliverableHours: round(visible.reduce((s, r) => s + r.totals.deliverableHours, 0)),
       totalWorkingHours,
       capacityHours,

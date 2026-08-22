@@ -551,11 +551,25 @@ model ActivityLog {
 
   /// How many of that deliverable this row accounts for.
   ///
-  /// Defaults to 1 so every pre-existing row keeps meaning exactly what it meant
-  /// before this column existed. The free-text parser reconciles repeats ACROSS a
-  /// day's bullets into a single row with a higher count, rather than writing two
-  /// rows of one — which is what the client's sheet has always counted.
-  quantity Int @default(1)
+  /// ── NULL means the instructor never said ──────────────────────────────
+  /// Not missing data to be tidied away with a default — it is the client's
+  /// `?`. Their rule is explicit: "graded some assignments" with no number must
+  /// never become "1 Assignment", because the whole point of that column is how
+  /// many, and an invented one is indistinguishable from a real one once it is
+  /// in the sheet.
+  ///
+  /// It is deliberately not zero either. Zero is a count; "none" and "unknown"
+  /// are answers a manager acts on differently.
+  ///
+  /// A quantity of 1 is still written without anybody stating it, but only for
+  /// deliverables whose unit counts OCCURRENCES — a class, a meeting, a
+  /// workshop. There, the entry is one of them by definition. See `Counting` in
+  /// `@/domain/worklog-taxonomy`.
+  ///
+  /// The default stays 1 so every path that does not know about this — the
+  /// importer, a hand-written insert — keeps behaving as it did. Only the
+  /// parsers write null, and only where the client's rule says they must.
+  quantity Int? @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
