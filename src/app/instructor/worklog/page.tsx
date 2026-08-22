@@ -225,33 +225,6 @@ export function parseHours(raw: string): number | null {
  * client's sheet has one line per day. Two rows for one date would ask the
  * reader to add them up themselves.
  */
-/**
- * A day as the report reads it: names from the model, figures from the record.
- *
- * `/worklog/summary` returns one of these per day that has work on it. It
- * carries no employee data by design — the name, the id and the category on the
- * row come from the entries themselves, so a summary can never disagree with
- * the database about who it describes.
- */
-type DaySummary = {
-  date: string;
-  deliverables: Array<{
-    name: string;
-    /** Minutes past midnight of the earliest of these. Orders the cell. */
-    firstAt: number;
-    durationMinutes: number;
-    /** `null` is the client's `?` — nobody said how many. Never 0, never 1. */
-    quantity: number | null;
-    quantityLabel: string;
-  }>;
-  /** One sentence about the day. The client's Remarks column. */
-  remark: string;
-  /** The measure of the day's worked intervals — overlap counted once. */
-  totalMinutes: number;
-  overlapMinutes: number;
-  source: "ai" | "fallback";
-};
-
 
 const COLUMNS = [
   "Date",
@@ -369,17 +342,20 @@ export default function WorkLogHistoryPage() {
    * every figure summed on the server from the activities themselves. Fetched
    * for the same window as the rows, and cached there — a second look at the
    * same report does not ask the model again. */
-  const summaries = useLoad(
-    useCallback(async () => {
-      if (!instructorId) return {} as Record<string, DaySummary>;
-      const res = await apiGet<{ days: Record<string, DaySummary> }>(
-        `/api/instructors/${instructorId}/worklog/summary?from=${windowFrom}&to=${windowTo}`,
-        "Could not summarise your work logs.",
-      );
-      return res.days;
-    }, [instructorId, windowFrom, windowTo]),
-    `worklog-summary:${instructorId ?? "-"}:${windowFrom}:${windowTo}`,
-  );
+  /* The day-summary fetch that used to live here is gone.
+   *
+   * ── It was calling Gemini on every view, for nothing ───────────────────
+   * The rows are built by `buildPeriodRow` now, from the stored activities.
+   * This request was left behind when that replaced `present()`, and nothing
+   * has read its result since — but `/worklog/summary` asks the model to name
+   * and summarise any day it has not cached, so opening the screen, changing
+   * the window, or editing an entry each paid for a model call whose answer was
+   * discarded.
+   *
+   * That is the rule this codebase is built on, broken by an oversight rather
+   * than a decision: a number on a screen is arithmetic over stored rows, and
+   * VIEWING never calls the model. The endpoint still exists and still works;
+   * nothing on this page asks it anything. */
   const today = todayISO();
 
   /* The notes an instructor wrote about whole DAYS, as opposed to the remarks
@@ -583,7 +559,6 @@ export default function WorkLogHistoryPage() {
     setSaving(false);
     setReading((current) => (current?.phase === "reading" ? { phase: "slow" } : current));
     logs.reload();
-    summaries.reload();
   }
 
   /** Asks for the same text to be read again. Nothing is retyped. */
@@ -646,8 +621,7 @@ export default function WorkLogHistoryPage() {
       setOpen(false);
       setBannerOpen(true);
       logs.reload();
-        summaries.reload();
-    } catch (e) {
+        } catch (e) {
       setFormError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setSaving(false);
@@ -665,8 +639,7 @@ export default function WorkLogHistoryPage() {
       );
       toast("success", "Entry removed.");
       logs.reload();
-        summaries.reload();
-    } catch (e) {
+        } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");
     }
   }

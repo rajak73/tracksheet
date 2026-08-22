@@ -228,6 +228,58 @@ They are never added together and never reconciled. The Deliverable column on
 the sheet deliberately does not sum to Working Hours, and the muted lines are
 what says so.
 
+## The model is called once, and never again
+
+**The rule.** Gemini is called at exactly one moment: when an instructor's raw
+text becomes structured `ActivityLog` rows. Every number after that — today's
+hours, this week's, this month's, a comparison between two of them, any total
+on any dashboard, report or export — is arithmetic over the stored rows.
+
+**Why it is not negotiable.** A figure that comes from a query can be
+reconciled, reproduced and argued with. A figure that comes from asking a model
+to look at the data again cannot, and nothing about it looks different. The
+client reconciles this sheet by hand against a timetable; the moment a total
+stops being checkable, the product stops being worth having.
+
+### What may call the model
+
+Two things, and nothing else:
+
+1. **Parsing raw text that has not been parsed** — a new submission, or an
+   explicit re-parse of one that failed. This is the only place free text
+   becomes data.
+2. **Phrasing a fact that deterministic code has already established** —
+   narration. Even here the boundary is strict: `detectAnomalies` decides
+   whether a condition holds, by arithmetic, with the provider untouched; the
+   model is only ever handed an already-detected fact to word. Every condition
+   also has a deterministic sentence, so an outage costs wording and never a
+   missed condition.
+
+### What may never call it
+
+Anything that produces a number. If a figure can come from a `SUM`, a
+`GROUP BY` or a join against the taxonomy, it comes from there. A feature that
+would ask the model to work out a total or a trend already derivable from
+stored rows is wrong at the proposal stage, not at review.
+
+No numeric query is ever cached in a way that could disagree with the database.
+The same query run twice reads live both times. (Distinct from caching a
+narrated *sentence*, which exists to avoid re-phrasing unchanged prose — the
+figures beside it are always recomputed.)
+
+### It is checked, not trusted
+
+`geminiCallCount()` counts every request that leaves the process, and
+[`tests/no-gemini-in-arithmetic.test.ts`](tests/no-gemini-in-arithmetic.test.ts)
+runs the real calculation paths — the six views' row builder, the roll-up, the
+analytics engine, the month spreadsheet and its CSV, and condition detection —
+asserting the count does not move.
+
+That guard immediately found one: the instructor's report was fetching
+`/worklog/summary` on every view and discarding the answer, so opening a screen
+paid for a model call that changed nothing. The figures were all correct, which
+is exactly why it had survived review.
+
 ## The report taxonomy
 
 The client's report is written in a closed vocabulary of **8 categories and 25

@@ -180,6 +180,29 @@ type Transport =
  * extracting a roster from a scanned PDF is not, and an 8-second ceiling would
  * abort every document before the provider finished reading it.
  */
+/**
+ * How many requests have left this process for the provider, ever.
+ *
+ * ── Why a counter lives in production code ────────────────────────────────
+ * This codebase holds one architectural rule above the rest: the model is
+ * called when raw text becomes structured data, and never again. Every figure
+ * after that — a day's hours, a week's, a comparison between months — is
+ * arithmetic over stored rows.
+ *
+ * A rule nobody can check is a convention, and conventions rot. This makes it
+ * checkable: a test runs a calculation and asserts the count did not move.
+ * Costing one integer to keep honest is the cheapest architectural guard in
+ * the system, and it caught a real one — the instructor's report was fetching
+ * `/worklog/summary` on every view and discarding the answer, so opening a
+ * screen paid for a model call that changed nothing.
+ */
+let outboundCalls = 0;
+
+/** The running total. Snapshot it, do something, compare. */
+export function geminiCallCount(): number {
+  return outboundCalls;
+}
+
 async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport> {
   const apiKey = process.env.GEMINI_API_KEY;
   // The substring "GEMINI_API_KEY" is load-bearing: callers distinguish
@@ -210,6 +233,10 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
     const remaining = deadline - Date.now();
     if (remaining <= 0) return last;
 
+    /* Counted here rather than in `attempt`, and before the request rather than
+     * after: what the rule forbids is REACHING for the provider, and a call
+     * that times out reached for it just as surely as one that answered. */
+    outboundCalls++;
     last = await attempt(
       `${baseUrl}/models/${entry.model}:generateContent`,
       apiKey,
