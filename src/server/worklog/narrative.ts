@@ -69,6 +69,17 @@ import {
   FALLBACK,
 } from "@/domain/worklog-taxonomy";
 
+/**
+ * Where a duration-only entry starts when the day has nothing else to follow.
+ *
+ * The university's own working hours would be better and are not available
+ * here — this module is deliberately free of database and tenant config so it
+ * can be tested on its own. Nine o'clock is the same stand-in `quick-entry.ts`
+ * uses for a day the university does not work, and the instructor is told the
+ * placement was derived either way.
+ */
+const DEFAULT_DAY_START = 9 * 60;
+
 /** A paragraph. Beyond this something is being pasted, not written. */
 export const MAX_NARRATIVE_CHARS = 4_000;
 
@@ -86,7 +97,7 @@ const TIMEOUT_MS = Number(process.env.GEMINI_WORKLOG_TIMEOUT_MS ?? 45_000);
  * the activities were produced but something about them wants a person's eye.
  */
 export type NarrativeWarning = {
-  kind: "unaccounted_time" | "overlap" | "no_duration";
+  kind: "unaccounted_time" | "overlap" | "no_duration" | "assumed_placement";
   message: string;
 };
 
@@ -379,23 +390,32 @@ function reconcile(
     else if (span > 24 * 60) problem = "That is longer than a day.";
     else durationMinutes = span;
   } else {
-    /* A length with no clock range — "spent 45 minutes on it".
+    /* A length with no clock range — "spent 45 minutes on it", "took about an
+     * hour", "was 45 minutes".
      *
-     * The client's spec accepts that form and says to use the duration
-     * directly rather than inventing a start time for it. It still cannot be
-     * WRITTEN without one, because every stored row carries a clock range and
-     * the overlap rule depends on it, so the entry is reported back for the
-     * instructor to place rather than dropped or given a made-up hour. */
+     * ── The duration is KEPT, and the placement is derived ─────────────────
+     * The client's spec is explicit: "If the instructor gave only a duration
+     * with no clock range, use that duration directly and do not invent a clock
+     * time." Their own casual example is written almost entirely this way, and
+     * throwing those durations away cost four activities out of five and read
+     * 02h 00m for a five-and-a-quarter-hour day.
+     *
+     * Every stored row still needs a clock range, because the overlap rule and
+     * every report depend on one. So the entry is laid on the day END TO END
+     * after whatever is already placed — exactly what the four-field form does
+     * in `quick-entry.ts` for the same reason. That is not inventing a time the
+     * instructor claimed: the DURATION is theirs and is what every figure is
+     * computed from, and the position is derived so the row has somewhere to
+     * sit. The instructor is told, so they can correct it if the order matters.
+     */
     const stated =
       typeof raw.durationMinutes === "number" &&
       Number.isFinite(raw.durationMinutes) &&
       raw.durationMinutes > 0
         ? Math.min(Math.round(raw.durationMinutes), 24 * 60)
         : null;
-    problem = stated
-      ? `You wrote how long this took (${stated} minutes) but not when. ` +
-        "Add a start and end time and submit the day again."
-      : "No start and end time could be read from this. Add the times and submit it again.";
+    if (stated) durationMinutes = stated;
+    else problem = "No start and end time could be read from this. Add the times and submit it again.";
   }
 
   /* ── The quantity, and the client's `?` ────────────────────────────────
@@ -434,6 +454,8 @@ function reconcile(
     rawText: span,
     categoryCode: category.code,
     deliverableCode: stored?.code ?? null,
+    /* Null on a duration-only entry, which is the signal `validateActivities`
+     * reads to place it. A range that produced no usable duration is cleared. */
     startLocal: durationMinutes !== null ? startLocal : null,
     endLocal: durationMinutes !== null ? endLocal : null,
     durationMinutes,
@@ -584,6 +606,39 @@ export function validateActivities(
       `${wrote}–${hhmm(end)} overlaps the activity before it; counted from ${current.startLocal}.`,
     );
     claimedUntil = end;
+  }
+
+  /* ── Placing the entries that gave a length but no clock ───────────────
+   * "spent 45 min sorting that out" is a real forty-five minutes and the
+   * client's rule is to use it. It still needs a position, so it goes after
+   * everything already placed, in the order it was written — the same end-to-end
+   * placement the four-field form uses.
+   *
+   * After the overlap pass deliberately, so `claimedUntil` already accounts for
+   * every range the instructor actually gave and nothing derived can land on
+   * top of something they stated. */
+  const unplaced = kept.filter((b) => b.durationMinutes !== null && b.startLocal === null);
+  if (unplaced.length > 0) {
+    // Nothing else on the day to follow, so start where a working day starts.
+    let at = claimedUntil < 0 ? DEFAULT_DAY_START : claimedUntil;
+    for (const bullet of unplaced) {
+      const end = at + bullet.durationMinutes!;
+      if (end > 24 * 60) {
+        bullet.problem = "That would run past midnight. Add the times yourself and submit again.";
+        bullet.durationMinutes = null;
+        continue;
+      }
+      bullet.startLocal = hhmm(at);
+      bullet.endLocal = hhmm(end);
+      at = end;
+    }
+    warnings.push({
+      kind: "assumed_placement",
+      message:
+        `${unplaced.length === 1 ? "One activity gave" : `${unplaced.length} activities gave`} ` +
+        "how long it took but not when. The hours are exactly as you wrote them; they have been " +
+        "placed one after another on the day. Add start and end times if the order matters.",
+    });
   }
 
   if (adjustments.length > 0) {

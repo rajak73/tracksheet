@@ -6,7 +6,7 @@ import {
   workedMinutes,
   type SourceRow,
 } from "@/server/worklog/day-summary";
-import { DELIVERABLES, deliverableFor } from "@/domain/worklog-taxonomy";
+import { DELIVERABLES, deliverableFor, deliverableNamed } from "@/domain/worklog-taxonomy";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 
 /**
@@ -223,6 +223,34 @@ describe("what is sent to the provider", () => {
     for (const field of ["instructorName", "employeeCode", "universityId", "@"]) {
       expect(instruction, `${field} must not be sent`).not.toContain(field);
     }
+  });
+
+  test("every name the prompt offers is a name the validator accepts", () => {
+    /* ── The prompt and the validator are one list, or they are a silent bug ──
+     * The prompt told the model to fall back to "Administrative Work" — a name
+     * left over from an earlier vocabulary and not on the client's list. The
+     * validator would have refused every reply that took that instruction, and
+     * refusal is indistinguishable from a provider outage: the report falls back
+     * to deterministic text, nothing errors, nothing is logged, and the feature
+     * is quietly off. Both sides read `DELIVERABLES` now, and this fails if they
+     * ever stop. */
+    const instruction = buildInstruction(DAY);
+    const offered = [...instruction.matchAll(/^\s+- (.+)$/gm)].map((m) => m[1]!.trim());
+
+    expect(offered.length, "the whole closed list is offered").toBe(DELIVERABLES.length);
+    for (const name of offered) {
+      const result = validateModelGroups(DAY, {
+        groups: [{ name, sourceIds: DAY.map((r) => r.id) }],
+        remark: "",
+      });
+      expect(result.ok, `the prompt offers "${name}" but the validator refuses it`).toBe(true);
+    }
+  });
+
+  test("the fallback the prompt names is one the validator accepts", () => {
+    const named = buildInstruction(DAY).match(/well, use "([^"]+)"/)?.[1];
+    expect(named, "the prompt must name a fallback").toBeTruthy();
+    expect(deliverableNamed(named!), `"${named}" is not on the client's list`).not.toBeNull();
   });
 
   test("the model is told what it must never do, in order", () => {

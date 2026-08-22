@@ -191,6 +191,80 @@ describe("nothing is invented", () => {
   });
 });
 
+describe("a length with no clock is still a length", () => {
+  /**
+   * ── The client's casual example is written almost entirely this way ──────
+   * "spent 45 min sorting that out", "took about an hour", "was 45 minutes".
+   * Their rule: "If the instructor gave only a duration with no clock range,
+   * use that duration directly and do not invent a clock time."
+   *
+   * This used to discard the duration and report the line back as unusable. On
+   * their own example that lost four activities out of five and printed a
+   * two-hour day where they expect 05h 15m — the kind of wrong that survives
+   * review because the row is present and only the number is short.
+   *
+   * The duration is theirs and every figure comes from it. The POSITION is
+   * derived, laid end to end after whatever the instructor did place, and said
+   * out loud so they can correct the order if it matters.
+   */
+  const text =
+    "Morning session 9 to 11, then a student came by confused, spent 45 min on it, " +
+    "then ploughed through 12 submissions, took about an hour.";
+  const read = [
+    { deliverable: "Live Class", text: "Morning session 9 to 11", startLocal: "09:00", endLocal: "11:00", durationMinutes: null, quantity: null, subjectCode: null, remark: null },
+    { deliverable: "Doubt Clearing", text: "a student came by confused, spent 45 min on it", startLocal: null, endLocal: null, durationMinutes: 45, quantity: null, subjectCode: null, remark: null },
+    { deliverable: "Assignment Evaluation", text: "ploughed through 12 submissions, took about an hour", startLocal: null, endLocal: null, durationMinutes: 60, quantity: 12, subjectCode: null, remark: null },
+  ];
+
+  test("the stated duration is kept, not thrown away", () => {
+    const result = validateActivities(text, read, taxonomy);
+    expect(result.bullets.map((b) => b.durationMinutes)).toEqual([120, 45, 60]);
+    expect(minutesOf(result), "3h 45m, not the two hours they gave a clock for").toBe(225);
+  });
+
+  test("it is placed after the time the instructor actually gave", () => {
+    const result = validateActivities(text, read, taxonomy);
+    expect(result.bullets[1]!.startLocal, "after the class ended, not on top of it").toBe("11:00");
+    expect(result.bullets[1]!.endLocal).toBe("11:45");
+    expect(result.bullets[2]!.startLocal).toBe("11:45");
+    expect(result.bullets[2]!.endLocal).toBe("12:45");
+  });
+
+  test("it is recorded, not refused", () => {
+    // `problem` would make `writeActivities` drop it, which is the loss this
+    // whole case exists to prevent.
+    const result = validateActivities(text, read, taxonomy);
+    expect(result.bullets.every((b) => b.problem === null)).toBe(true);
+  });
+
+  test("the instructor is told the placement was ours, not theirs", () => {
+    const result = validateActivities(text, read, taxonomy);
+    const note = result.warnings.find((w) => w.kind === "assumed_placement");
+    expect(note?.message).toMatch(/how long it took but not when/i);
+    expect(note?.message, "and that the hours themselves are untouched").toMatch(/exactly as you wrote/i);
+  });
+
+  test("a day with no clock anywhere starts at nine", () => {
+    const result = validateActivities(
+      "spent 45 min on slides",
+      [{ deliverable: "Slide Preparation", text: "spent 45 min on slides", startLocal: null, endLocal: null, durationMinutes: 45, quantity: null, subjectCode: null, remark: null }],
+      taxonomy,
+    );
+    expect(result.bullets[0]!.startLocal).toBe("09:00");
+    expect(result.bullets[0]!.endLocal).toBe("09:45");
+  });
+
+  test("a duration that would run past midnight is refused, not wrapped", () => {
+    const result = validateActivities(
+      "worked 23 hours on it",
+      [{ deliverable: "Documentation", text: "worked 23 hours on it", startLocal: null, endLocal: null, durationMinutes: 23 * 60, quantity: null, subjectCode: null, remark: null }],
+      taxonomy,
+    );
+    expect(result.bullets[0]!.durationMinutes).toBeNull();
+    expect(result.bullets[0]!.problem).toMatch(/past midnight/i);
+  });
+});
+
 describe("time that was never written is never invented", () => {
   test("an activity with no clock range records no hours", () => {
     const text = "Worked on preparing tomorrow's lecture material and reviewed student projects.";
