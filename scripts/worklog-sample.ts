@@ -23,7 +23,16 @@ import { config as loadEnv } from "dotenv";
  * therefore inside `main`. */
 loadEnv({ path: ".env", quiet: true });
 
-const CASES: Array<{ label: string; expect: string; text: string }> = [
+/**
+ * A decision that must still hold, checked rather than eyeballed.
+ *
+ * `deliverable` is the name the sentence must land on. `quantity` is what the
+ * report's quantity column must print for it — `null` meaning the deliverable
+ * is never counted, so the column has no entry at all.
+ */
+type Assertion = { from: string; deliverable: string; quantity?: string | null };
+
+const CASES: Array<{ label: string; expect: string; text: string; must?: Assertion[] }> = [
   {
     label: "1. Written out properly",
     expect: "five activities, 05h 15m",
@@ -74,6 +83,46 @@ const CASES: Array<{ label: string; expect: string; text: string }> = [
       "had the project review meeting with the final year team 10 to 10:30, " +
       "spent the afternoon on the invigilation roster 2 to 3, " +
       "then analysed the experiment data 3 to 4.",
+    must: [
+      // 20 counts STUDENTS. The unit counts evaluations. Never 20.
+      { from: "practicals", deliverable: "Lab Evaluation", quantity: "? Lab Evaluations" },
+      // Students in the room, however formal the sentence.
+      { from: "project review", deliverable: "Meeting (Other)", quantity: "1 Meeting" },
+      // Not a document being written.
+      { from: "invigilation", deliverable: "Department Duties", quantity: null },
+      // Analysing an experiment is not running one.
+      { from: "analysed", deliverable: "Data Analysis", quantity: null },
+    ],
+  },
+  {
+    label: "8. Lab evaluation, counted and uncounted",
+    expect: "both Assessment — a stated number changes the quantity, never the category",
+    text: "Evaluated 8 lab reports 9 to 10, then ran the lab evaluation for section B 11 to 12.",
+    must: [
+      { from: "8 lab reports", deliverable: "Lab Evaluation", quantity: "8 Lab Evaluations" },
+      { from: "section B", deliverable: "Lab Evaluation", quantity: "? Lab Evaluations" },
+    ],
+  },
+  {
+    label: "9. Governance meetings stay governance",
+    expect: "the department meeting is the only Department Meeting",
+    text: "Met a student about their progress 9 to 9:30, then the weekly department meeting 10 to 10:30.",
+    must: [
+      { from: "student", deliverable: "Meeting (Other)" },
+      { from: "department meeting", deliverable: "Department Meeting", quantity: "1 Department Meeting" },
+    ],
+  },
+  {
+    label: "10. Research has three different verbs",
+    expect: "reading is Literature Review, running is Experiment, analysing is Data Analysis",
+    text:
+      "Read the recent papers 9 to 10, ran the experiment 10 to 11, " +
+      "then worked through the statistical models 11 to 12.",
+    must: [
+      { from: "papers", deliverable: "Literature Review", quantity: null },
+      { from: "ran the experiment", deliverable: "Experiment" },
+      { from: "statistical models", deliverable: "Data Analysis", quantity: null },
+    ],
   },
   {
     label: "8. One activity only",
@@ -97,6 +146,7 @@ async function main() {
   }
 
   const taxonomy = await loadTaxonomy();
+  const failures: string[] = [];
 
   for (const testCase of CASES) {
     const startedAt = Date.now();
@@ -138,6 +188,39 @@ async function main() {
       if (bullet.problem) console.log(`      NOT RECORDED: ${bullet.problem}`);
     }
 
+    /* ── The decisions, checked ────────────────────────────────────────
+     * This script used to only print, which meant a taxonomy regression was
+     * invisible unless somebody read the output carefully. The classification
+     * decisions cannot be asserted in the suite — they are the model's
+     * judgement, and a test that needs a live key and silently passes without
+     * one is worse than no test — but they CAN be asserted here, where a key
+     * is a precondition. A regression now exits non-zero. */
+    for (const want of testCase.must ?? []) {
+      const bullet = result.bullets.find((b) => b.rawText.toLowerCase().includes(want.from.toLowerCase()));
+      const { deliverableFor: resolve, quantityPhrase: phrase } = await import(
+        "../src/domain/worklog-taxonomy"
+      );
+      if (!bullet) {
+        failures.push(`${testCase.label}: nothing was read from “${want.from}”`);
+        continue;
+      }
+      const got = resolve(bullet.deliverableCode, bullet.categoryCode);
+      if (got.name !== want.deliverable) {
+        failures.push(
+          `${testCase.label}: “${want.from}” -> ${got.name}, expected ${want.deliverable}`,
+        );
+      }
+      if (want.quantity !== undefined) {
+        const printed = phrase(got, bullet.quantity);
+        if (printed !== want.quantity) {
+          failures.push(
+            `${testCase.label}: “${want.from}” quantity prints ${JSON.stringify(printed)}, ` +
+              `expected ${JSON.stringify(want.quantity)}`,
+          );
+        }
+      }
+    }
+
     console.log(`\n  Working Hours: ${hhmm(total)}`);
     for (const warning of result.warnings) console.log(`  REVIEW: ${warning.message}`);
     for (const drop of result.dropped ?? []) {
@@ -145,6 +228,16 @@ async function main() {
     }
   }
   console.log("");
+
+  if (failures.length > 0) {
+    console.error(`\n${"!".repeat(78)}`);
+    console.error(`${failures.length} taxonomy decision(s) no longer hold:\n`);
+    for (const failure of failures) console.error(`  - ${failure}`);
+    console.error(`${"!".repeat(78)}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("  Every taxonomy decision still holds.\n");
 }
 
 void main();

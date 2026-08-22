@@ -289,7 +289,14 @@ because the wrongness was invisible in the report rather than obvious:
   item-counted, so it demanded a count of experiments nobody ran.
 
 `npm run worklog:sample` puts the sentences behind each of these through the
-real model and prints what comes back.
+real model and **asserts** the result, exiting non-zero if any decision stops
+holding. It is a script rather than a suite test for the reason the AI
+narration is: it needs a real key, and a test that silently passes without one
+is worse than no test. It has already earned its keep — it caught "ran the lab
+evaluation for section B" drifting back to *Practical / Lab Session* when it
+appeared in the same paragraph as a counted sentence, which is the
+category-moves-with-the-phrasing bug the Lab Evaluation decision exists to
+remove.
 
 ## Pagination
 
