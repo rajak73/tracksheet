@@ -306,9 +306,59 @@ Exercise it against real rows rather than a fixture array. The bug this guard
 caught was not inside a calculation — it was a fetch sitting beside one, and
 only a path run end to end would have reached it.
 
-**There is no CI and no pre-commit gate in this repository.** Nothing
-automatically stops a change that breaks this rule from being committed; the
-guard only fires when the suite is run. That is worth deciding on separately.
+The guard is part of the pre-commit gate below, so a change that breaks this
+rule is stopped before it is committed.
+
+## The commit gate
+
+A pre-commit hook runs before every commit and blocks it on failure. It is
+installed by `npm install` on a fresh clone — the `prepare` script points
+`core.hooksPath` at the versioned `.githooks/` directory, so the hook is
+reviewable in the repository rather than living unversioned in `.git/hooks`.
+
+No dependency was added for this. Husky's value is exactly the `prepare` line
+above, and that line is three words of git config.
+
+### What runs, and why not everything
+
+| step | scope | time |
+|---|---|---|
+| `tsc --noEmit` | the whole repository | ~2s |
+| `eslint` | the staged files only | ~3s |
+| `npm run test:gate` | 130 tests across 6 files | ~24s |
+
+About thirty seconds. **The full suite is five to eight minutes**, and a gate
+that costs that much on every commit is one people learn to pass with
+`--no-verify` — a bypassed gate protects nothing. So the hook runs the checks
+that catch the regressions this project has actually suffered, and the full
+suite stays the standard before deploying.
+
+`test:gate` is:
+
+- `phase1-tenant-isolation` and `phase9-instructor-isolation` — one university
+  reading another's data, or one instructor reading a colleague's, is the worst
+  thing this system could do.
+- `no-gemini-in-arithmetic` — the model is called once and never again.
+- `worklog-taxonomy-decisions` — the five classification decisions.
+- `worklog-report-format` — the client's cell format, including `?` for a count
+  nobody stated.
+- `worklog-views` — the shared row builder both roles depend on.
+
+### Bypassing it
+
+`git commit --no-verify` skips the hook. Git provides that and it cannot be
+removed, but it should be rare and deliberate — a broken build committed with
+`--no-verify` is indistinguishable from one committed by a gate that was never
+there. If the hook is in the way often, the subset is wrong and should be
+changed rather than routed around.
+
+### One thing it does not check
+
+The hook runs against the **working tree, not the index**. Stage some files,
+leave others modified, and it tests everything on disk rather than what is
+about to be committed. Stashing the difference inside a hook is the usual fix
+and a well-known way to lose work, so it is not done — commit from a clean
+tree when the distinction matters.
 
 ## The report taxonomy
 

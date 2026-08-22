@@ -20,7 +20,9 @@
     "db:perf-seed": "docker exec -i tracksheet-db psql -U tracksheet -d tracksheet_perf < prisma/perf-seed.sql",
     "db:drift": "docker exec tracksheet-db-test psql -U tracksheet -d tracksheet_test -c \"CREATE DATABASE tracksheet_shadow\" >/dev/null 2>&1; prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
     "ai:sample": "tsx scripts/ai-sample.ts",
-    "worklog:sample": "tsx scripts/worklog-sample.ts"
+    "worklog:sample": "tsx scripts/worklog-sample.ts",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "test:gate": "vitest run tests/phase1-tenant-isolation.test.ts tests/phase9-instructor-isolation.test.ts tests/no-gemini-in-arithmetic.test.ts tests/worklog-taxonomy-decisions.test.ts tests/worklog-report-format.test.ts tests/worklog-views.test.ts"
   },
   "engines": {
     "node": ">=20.9.0 <25"

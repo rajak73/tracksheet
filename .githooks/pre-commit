@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Runs before every commit. A failure here stops the commit.
+#
+# ── Why a subset and not all 973 tests ────────────────────────────────────
+# The full suite takes five to eight minutes depending on machine load. A gate
+# that costs that much on every commit is a gate people learn to pass with
+# --no-verify, and a bypassed gate protects nothing. This runs the checks that
+# catch the highest-consequence regressions in about thirty seconds:
+#
+#   tsc          the whole repository, in two seconds
+#   eslint       the files being committed
+#   test:gate    tenant isolation, roster isolation, the Gemini-call rule,
+#                the taxonomy decisions, the report format, the shared row
+#                builder — 130 tests
+#
+# The full suite is still the standard before deploying. See the README.
+#
+# ── What this checks is the WORKING TREE, not the index ───────────────────
+# Stated plainly because it matters: if you stage some files and leave others
+# modified, these run against everything on disk, not against what is about to
+# be committed. Stashing the difference inside a hook is the usual fix and it
+# is a well-known way to lose work, so it is not done here.
+
+set -e
+
+# Hooks run with a minimal PATH under some Git GUIs, where node is invisible.
+PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
+export PATH
+
+if ! command -v npx >/dev/null 2>&1; then
+  echo "pre-commit: cannot find npx on PATH. Commit blocked rather than skipped."
+  echo "            Run the commit from a shell where 'npx' works."
+  exit 1
+fi
+
+# The tests need Postgres. Without it the failure is a wall of Prisma output
+# that looks like broken code, so say what is actually wrong.
+if ! docker info >/dev/null 2>&1; then
+  echo "pre-commit: Docker is not running, so the test databases are unreachable."
+  echo "            Start Docker and 'npm run db:up', then commit again."
+  exit 1
+fi
+
+echo "pre-commit: typechecking…"
+npx tsc --noEmit
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED" ]; then
+  echo "pre-commit: linting staged files…"
+  # shellcheck disable=SC2086
+  npx eslint $STAGED
+fi
+
+echo "pre-commit: running the gate suite…"
+npm run --silent test:gate
+
+echo "pre-commit: passed."
