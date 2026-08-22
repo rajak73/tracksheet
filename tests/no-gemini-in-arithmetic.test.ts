@@ -35,6 +35,31 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * count this process cannot see. So these import the calculation functions
  * directly. That is not a weaker test of the rule; it is a stricter one, since
  * it watches the exact code every one of those routes calls.
+ *
+ * ── ADDING A CALCULATION PATH? ADD ITS ASSERTION HERE ─────────────────────
+ * This file covers the surfaces that existed when the rule was written: the
+ * six views' row builder, cell formatting, the roll-up, the analytics engine,
+ * the month spreadsheet and its CSV, and condition detection. It does NOT
+ * cover code that does not exist yet, and it cannot.
+ *
+ * So this is a standing requirement rather than a finished checklist: any new
+ * report, dashboard, export or aggregation gets its own case here before the
+ * feature is done. The pattern is three lines —
+ *
+ *     const before = geminiCallCount();
+ *     await theNewThing(...);          // with real stored data, not a stub
+ *     expect(geminiCallCount()).toBe(before);
+ *
+ * Use real rows rather than a fixture array: the bug this guard caught was not
+ * in a calculation at all, it was a fetch beside one, and only a path exercised
+ * end to end would have reached it.
+ *
+ * ── This guard has been proved to trip ────────────────────────────────────
+ * Not assumed. The violation it originally found was deliberately reintroduced
+ * — `summariseDays` called on a day with no cached summary, which is precisely
+ * what the discarded `/worklog/summary` fetch did — and the assertion failed
+ * with "expected 1 to be +0". A count that reads zero because nothing calls it
+ * would have passed that check too, which is why it was worth running.
  */
 
 let universityId = "";

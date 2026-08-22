@@ -280,6 +280,36 @@ That guard immediately found one: the instructor's report was fetching
 paid for a model call that changed nothing. The figures were all correct, which
 is exactly why it had survived review.
 
+It runs on every `npm test` — no flag, no separate invocation — and it has been
+proved to trip rather than merely to read zero: the violation above was
+deliberately reintroduced and the assertion failed with `expected 1 to be +0`.
+
+### Adding a calculation path
+
+The guard covers the surfaces that existed when the rule was written. It cannot
+cover code that does not exist yet, so this is a standing requirement rather
+than a finished checklist:
+
+> **If you add a report, dashboard, export or aggregation, add its zero-call
+> assertion to `tests/no-gemini-in-arithmetic.test.ts` before the feature is
+> done.**
+
+The pattern is three lines:
+
+```ts
+const before = geminiCallCount();
+await theNewThing(...);          // with real stored rows, not a stub
+expect(geminiCallCount()).toBe(before);
+```
+
+Exercise it against real rows rather than a fixture array. The bug this guard
+caught was not inside a calculation — it was a fetch sitting beside one, and
+only a path run end to end would have reached it.
+
+**There is no CI and no pre-commit gate in this repository.** Nothing
+automatically stops a change that breaks this rule from being committed; the
+guard only fires when the suite is run. That is worth deciding on separately.
+
 ## The report taxonomy
 
 The client's report is written in a closed vocabulary of **8 categories and 25
