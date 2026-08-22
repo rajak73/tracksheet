@@ -48,8 +48,15 @@ npx tsc --noEmit
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$STAGED" ]; then
   echo "pre-commit: linting staged files…"
+  # --max-warnings=0 is load-bearing, not pedantry.
+  #
+  # This project's unused-variable rule is a WARNING, and eslint exits 0 on
+  # warnings — so without this the lint step ran, printed the problem, and let
+  # the commit through anyway. Found by testing the hook rather than trusting
+  # it: a deliberate unused constant was committed while the gate reported
+  # "passed". Dead code is exactly what that rule is for.
   # shellcheck disable=SC2086
-  npx eslint $STAGED
+  npx eslint --max-warnings=0 $STAGED
 fi
 
 echo "pre-commit: running the gate suite…"

@@ -324,8 +324,14 @@ above, and that line is three words of git config.
 | step | scope | time |
 |---|---|---|
 | `tsc --noEmit` | the whole repository | ~2s |
-| `eslint` | the staged files only | ~3s |
+| `eslint --max-warnings=0` | the staged files only | ~3s |
 | `npm run test:gate` | 130 tests across 6 files | ~24s |
+
+`--max-warnings=0` is load-bearing rather than pedantry: this project's
+unused-variable rule is a *warning*, and eslint exits 0 on warnings, so without
+it the lint step printed the problem and let the commit through. That was found
+by testing the hook rather than trusting it — a deliberate unused constant was
+committed while the gate reported "passed".
 
 About thirty seconds. **The full suite is five to eight minutes**, and a gate
 that costs that much on every commit is one people learn to pass with
