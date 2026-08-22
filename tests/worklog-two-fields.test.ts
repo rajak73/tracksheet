@@ -194,3 +194,97 @@ describe("the manager's month spreadsheet puts each where it belongs", () => {
     expect(row.subjects, "subjects belong to a week, not to a person").toBeUndefined();
   });
 });
+
+describe("the manager's roster is decided by the server, not the request", () => {
+  /**
+   * Requirement 4, at the API rather than through the screen.
+   *
+   * A hidden row is not an absent one. What matters is whether the manager can
+   * reach somebody off their roster by asking for them directly — and every
+   * one of these asks directly.
+   */
+
+  test("the roster payload holds their own people, and nobody else's", async () => {
+    /* ── What "their roster" actually means ──────────────────────────────
+     * Their assigned instructors, PLUS the ones nobody leads yet when they are
+     * the university's primary manager. That second half is deliberate and
+     * documented: an unassigned instructor would otherwise belong to no
+     * roster, appear in no queue, and be seen by nobody — which is the failure
+     * the escape hatch exists to prevent, not a leak.
+     *
+     * This test asserted the narrower rule first and caught the wider one,
+     * which is worth recording: the boundary is "mine, or nobody's and I am
+     * primary", never "anyone in my university". */
+    const res = await manager.get(`/api/manager/worklog?from=${DATE}&to=${DATE}`);
+    expect(res.status).toBe(200);
+
+    const university = await prisma.university.findUniqueOrThrow({
+      where: { id: northId },
+      select: { primaryManagerId: true },
+    });
+    const isPrimary = university.primaryManagerId === managerId;
+
+    const reachable = await prisma.instructor.findMany({
+      where: isPrimary
+        ? { universityId: northId, OR: [{ managerId }, { managerId: null }] }
+        : { managerId },
+      select: { id: true },
+    });
+    const allowed = new Set(reachable.map((i) => i.id));
+
+    for (const id of res.body.instructors.map((i: { instructorId: string }) => i.instructorId)) {
+      expect(allowed.has(id), `${id} is neither theirs nor unassigned`).toBe(true);
+    }
+  });
+
+  test("somebody on ANOTHER manager's roster never appears", async () => {
+    // The half of the boundary the escape hatch does not widen.
+    const res = await manager.get(`/api/manager/worklog?from=${DATE}&to=${DATE}`);
+    const returned: string[] = res.body.instructors.map(
+      (i: { instructorId: string }) => i.instructorId,
+    );
+    const someoneElses = await prisma.instructor.findMany({
+      where: { universityId: northId, managerId: { not: null, notIn: [managerId] } },
+      select: { id: true },
+    });
+    for (const other of someoneElses) {
+      expect(returned, `${other.id} is on another roster`).not.toContain(other.id);
+    }
+  });
+
+  test("asking for somebody else's instructor by id is refused", async () => {
+    // Somebody in the same university, on nobody's roster or another's.
+    // Assigned to somebody else — not merely unassigned, which the primary
+    // manager may legitimately reach.
+    const outsider = await prisma.instructor.findFirst({
+      where: { universityId: northId, managerId: { not: null, notIn: [managerId] } },
+      select: { id: true },
+    });
+    if (!outsider) return; // nothing to prove against
+    const res = await manager.get(`/api/instructors/${outsider.id}/activities`);
+    expect(
+      [403, 404],
+      "an off-roster id answers as an unknown one does",
+    ).toContain(res.status);
+  });
+
+  test("and neither is their worklog", async () => {
+    const outsider = await prisma.instructor.findFirst({
+      where: { universityId: northId, managerId: { not: null, notIn: [managerId] } },
+      select: { id: true },
+    });
+    if (!outsider) return;
+    const res = await manager.get(`/api/instructors/${outsider.id}/worklog?date=${DATE}`);
+    expect([403, 404]).toContain(res.status);
+  });
+
+  test("a manager cannot reach another university at all", async () => {
+    const elsewhere = await prisma.instructor.findFirst({
+      where: { universityId: { not: northId } },
+      select: { id: true },
+    });
+    expect(elsewhere, "the seed has a second university").toBeTruthy();
+    const res = await manager.get(`/api/instructors/${elsewhere!.id}/activities`);
+    expect([403, 404]).toContain(res.status);
+  });
+});

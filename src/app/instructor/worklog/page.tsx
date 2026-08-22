@@ -27,9 +27,23 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { formatCompactDuration, formatHours, todayISO } from "@/app/_lib/format";
-import { sumQuantities } from "@/domain/worklog-taxonomy";
-import { broadCategoryCell, quantityCell, subjectsCell } from "@/domain/worklog-report";
+import { formatHours, todayISO } from "@/app/_lib/format";
+import {
+  broadCategoryCell,
+  deliverableCell,
+  quantityCell,
+  subjectsCell,
+  UNSTATED,
+  workingHours as workingHoursCell,
+} from "@/domain/worklog-report";
+import {
+  addDays,
+  buildPeriodRow,
+  weekOf,
+  weeksOfMonth,
+  type PeriodRow,
+  type RowActivity,
+} from "@/domain/worklog-rows";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -57,6 +71,9 @@ const ENTRY_FETCH_LIMIT = 200;
 type Row = {
   id: string;
   workDate: string;
+  startTime: string;
+  status?: string;
+  activityType: { code: string; label: string };
   durationHours: number;
   remarks: string | null;
   quantity: number | null;
@@ -67,7 +84,7 @@ type Row = {
   broadCategory: { code: string; label: string } | null;
   /** The category assigned to the person. This IS the report column. */
   instructorCategory: { code: string; label: string } | null;
-  deliverableType: { code: string; label: string } | null;
+  deliverableType: { code: string; label: string; isCountable: boolean } | null;
 };
 
 type Draft = {
@@ -137,6 +154,21 @@ type SubmissionView = {
 const READING_PATIENCE_MS = 45_000;
 const READING_POLL_MS = 1_500;
 
+/** `2026-08` → `2026-09`, or back. Month arithmetic on a YYYY-MM string. */
+function shiftMonth(month: string, by: number): string {
+  const at = new Date(`${month}-01T00:00:00.000Z`);
+  at.setUTCMonth(at.getUTCMonth() + by);
+  return at.toISOString().slice(0, 7);
+}
+
+/** `2024-05-10` → `Friday`. Names the day a row is about, beside its date. */
+function weekdayOf(iso: string): string {
+  return new Date(`${iso}T00:00:00.000Z`).toLocaleDateString("en-GB", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+}
+
 /** `2024-05-10` → `10 May 2024`, the format the client's design uses. */
 function longDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -157,12 +189,6 @@ function monthLabel(key: string): string {
   return `${name} ${y}`;
 }
 
-/** Monday of the ISO week a date falls in — the key the weekly view groups on. */
-function weekStart(iso: string): string {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return d.toISOString().slice(0, 10);
-}
 
 /**
  * Hours as somebody may type them.
@@ -199,13 +225,6 @@ export function parseHours(raw: string): number | null {
  * client's sheet has one line per day. Two rows for one date would ask the
  * reader to add them up themselves.
  */
-type Group = {
-  key: string;
-  label: string;
-  dates: string[];
-  entries: Row[];
-};
-
 /**
  * A day as the report reads it: names from the model, figures from the record.
  *
@@ -233,85 +252,6 @@ type DaySummary = {
   source: "ai" | "fallback";
 };
 
-/**
- * What a row prints, from the summaries of the days it covers.
- *
- * A week or a month merges its days by activity name — twelve lectures across a
- * week are one line reading "Live Classes - 24h", not twelve. Merging happens
- * here rather than on the server because the same day summaries answer all
- * three views, and asking for them again per grouping would be three round
- * trips for one set of facts.
- */
-function present(dates: string[], summaries: Record<string, DaySummary | undefined>) {
-  const merged = new Map<
-    string,
-    { name: string; minutes: number; quantity: number | null; label: string; firstAt: number }
-  >();
-  const remarks: string[] = [];
-  const seenRemarks = new Set<string>();
-  let totalMinutes = 0;
-  let anyFallback = false;
-  let found = false;
-
-  for (const date of dates) {
-    const day = summaries[date];
-    if (!day) continue;
-    found = true;
-    if (day.source === "fallback") anyFallback = true;
-    totalMinutes += day.totalMinutes;
-    const remark = day.remark?.trim();
-    if (remark && !seenRemarks.has(remark)) {
-      seenRemarks.add(remark);
-      remarks.push(remark);
-    }
-
-    for (const d of day.deliverables) {
-      const at = merged.get(d.name);
-      if (at) {
-        at.minutes += d.durationMinutes;
-        /* One unknown makes the merged count unknown. A week that adds twelve
-         * assignments to an unstated number of assignments does not hold
-         * twelve, and printing twelve is the error that looks like a figure. */
-        at.quantity = sumQuantities([at.quantity, d.quantity]);
-        at.firstAt = Math.min(at.firstAt, d.firstAt);
-      } else {
-        merged.set(d.name, {
-          name: d.name,
-          minutes: d.durationMinutes,
-          quantity: d.quantity,
-          label: d.quantityLabel,
-          firstAt: d.firstAt,
-        });
-      }
-    }
-  }
-
-  /* In the order the day happened, which is how the client's own example is
-   * written. Ties fall back to the heaviest, and to the name after that, so two
-   * exports of the same period are diffable. */
-  const lines = [...merged.values()].sort(
-    (a, z) => a.firstAt - z.firstAt || z.minutes - a.minutes || a.name.localeCompare(z.name),
-  );
-
-  return {
-    found,
-    anyFallback,
-    totalMinutes,
-    // "Live Classes - 2h, Lesson Preparation - 1h 30m"
-    deliverable: lines.length
-      ? lines.map((l) => `${l.name} - ${formatCompactDuration(l.minutes)}`).join(", ")
-      : "—",
-    /* "1 Class, ? Assignments" — parallel to the line above, same order.
-     *
-     * Written by the one function that writes this column everywhere. It was
-     * hand-rolled here and filtered on `quantity > 0`, which is false for null
-     * — so an unstated count vanished from the cell entirely. That is the exact
-     * failure the client's `?` exists to prevent: the number nobody stated
-     * became a line nobody could see was missing. */
-    quantity: quantityCell(lines),
-    remarks: remarks.length ? remarks.join(" ") : "—",
-  };
-}
 
 const COLUMNS = [
   "Date",
@@ -333,6 +273,12 @@ export default function WorkLogHistoryPage() {
 
   // Day Wise by default, as the client requires.
   const [view, setView] = useState<"date" | "week" | "month">("date");
+  /* Each anchored view keeps its OWN anchor, and switching views resets to the
+   * current unit. Sharing one anchor meant navigating to March in Week Wise and
+   * then opening Month Wise left you in March — a view change is a change of
+   * question, and the answer to a new question starts at now. */
+  const [weekAnchor, setWeekAnchor] = useState(todayISO);
+  const [monthAnchor, setMonthAnchor] = useState(() => todayISO().slice(0, 7));
   const [from, setFrom] = useState(firstOfMonth);
   const [to, setTo] = useState(todayISO);
   const [search, setSearch] = useState("");
@@ -373,7 +319,24 @@ export default function WorkLogHistoryPage() {
   /* No `page` here, deliberately — see `ENTRY_FETCH_LIMIT`. The window's
    * entries come back together and the report paginates the days it groups them
    * into, so a day can never appear on two pages at once. */
-  const query = `from=${from}&to=${to}&limit=${ENTRY_FETCH_LIMIT}${
+  /* Which window to fetch.
+   *
+   * Day Wise is a feed and uses the date filters above it. Week and Month are
+   * anchored: they show one unit and step through it, so the window is derived
+   * from the anchor rather than from filters the reader never touched. */
+  const [windowFrom, windowTo] = useMemo<[string, string]>(() => {
+    if (view === "week") {
+      const week = weekOf(weekAnchor);
+      return [week[0]!, week.at(-1)!];
+    }
+    if (view === "month") {
+      const weeks = weeksOfMonth(monthAnchor);
+      return [weeks[0]!.dates[0]!, weeks.at(-1)!.dates.at(-1)!];
+    }
+    return [from, to];
+  }, [view, weekAnchor, monthAnchor, from, to]);
+
+  const query = `from=${windowFrom}&to=${windowTo}&limit=${ENTRY_FETCH_LIMIT}${
     search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""
   }`;
 
@@ -410,14 +373,28 @@ export default function WorkLogHistoryPage() {
     useCallback(async () => {
       if (!instructorId) return {} as Record<string, DaySummary>;
       const res = await apiGet<{ days: Record<string, DaySummary> }>(
-        `/api/instructors/${instructorId}/worklog/summary?from=${from}&to=${to}`,
+        `/api/instructors/${instructorId}/worklog/summary?from=${windowFrom}&to=${windowTo}`,
         "Could not summarise your work logs.",
       );
       return res.days;
-    }, [instructorId, from, to]),
-    `worklog-summary:${instructorId ?? "-"}:${from}:${to}`,
+    }, [instructorId, windowFrom, windowTo]),
+    `worklog-summary:${instructorId ?? "-"}:${windowFrom}:${windowTo}`,
   );
   const today = todayISO();
+
+  /* The notes an instructor wrote about whole DAYS, as opposed to the remarks
+   * on each entry. The Remarks column prefers these — see `remarksFor`. */
+  const dayNotes = useLoad(
+    useCallback(async () => {
+      if (!instructorId) return {} as Record<string, string>;
+      const res = await apiGet<{ notes: Record<string, string> }>(
+        `/api/instructors/${instructorId}/worklog/notes?from=${windowFrom}&to=${windowTo}`,
+        "Could not load your day notes.",
+      );
+      return res.notes ?? {};
+    }, [instructorId, windowFrom, windowTo]),
+    `worklog-notes:${instructorId ?? "-"}:${windowFrom}:${windowTo}`,
+  );
   const todaysRows = rows.filter((r) => r.workDate.slice(0, 10) === today);
 
   /* One row per DAY in Date Wise, per WEEK in Weekly.
@@ -425,52 +402,80 @@ export default function WorkLogHistoryPage() {
    * The client's sheet has a line per day with the deliverables read across it,
    * not a line per deliverable — two rows carrying one date would ask the
    * reader to add the hours up themselves. */
-  const groups = useMemo<Group[]>(() => {
-    const byKey = new Map<string, { dates: Set<string>; entries: Row[] }>();
-    for (const row of rows) {
-      const date = row.workDate.slice(0, 10);
-      const key = view === "date" ? date : view === "week" ? weekStart(date) : date.slice(0, 7);
-      const bucket = byKey.get(key) ?? { dates: new Set<string>(), entries: [] };
-      bucket.dates.add(date);
-      bucket.entries.push(row);
-      byKey.set(key, bucket);
-    }
-    return [...byKey.entries()]
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, b]) => ({
-        key,
-        label:
-          view === "date"
-            ? longDate(key)
-            : view === "week"
-              ? `Week of ${longDate(key)}`
-              : monthLabel(key),
-        dates: [...b.dates].sort(),
-        entries: b.entries,
-      }));
-  }, [rows, view]);
-
   /**
-   * The client's Broad Category column.
+   * The rows of whichever view is showing.
    *
-   * ── This deliberately ignores what the day was about ──────────────────
-   * It used to read the subject the model judged from each entry's wording,
-   * falling back to whatever the last office day was about. The client's rule
-   * is now the opposite one, in their words: preserve the category supplied,
-   * and "do not guess the employee's broad category from their activities".
+   * ── Three shapes, one builder ──────────────────────────────────────────
+   *   Day     one row per DAY, newest first, today labelled as today.
+   *   Week    one row per DAY of the week, Monday first — a calendar reads
+   *           forwards — with a week total beneath.
+   *   Month   one row per WEEK, the week in progress first, prior weeks
+   *           below, with a month total beneath.
    *
-   * So the column prints the category assigned to the person — the value that
-   * was supplied — and "Not Provided" when nobody has assigned one. An empty
-   * cell that says so is the honest answer; a subject inferred from a lecture
-   * would be a guess sitting in the column the whole sheet is grouped by.
+   * Week and Month used to be one row EACH: a week collapsed to a single line
+   * and a month to another. That is a summary, not the sheet the client asked
+   * for, and it made "which day did nobody file?" unanswerable from the screen
+   * that exists to answer it.
    *
-   * The per-entry subject is still read and still stored. It answers a
-   * different question, on a different screen; it just no longer answers this
-   * one.
+   * Every row comes from `buildPeriodRow`, which the manager's sheet calls too,
+   * so a Tech "Live Class" and a Maths one merge identically for both roles.
    */
-  function broadCategoryOf(row: Row): string {
-    return broadCategoryCell(row.instructorCategory);
-  }
+  const groups = useMemo<PeriodRow[]>(() => {
+    const activities: RowActivity[] = rows.map((r) => ({
+      workDate: r.workDate.slice(0, 10),
+      durationHours: r.durationHours,
+      remarks: r.remarks,
+      status: r.status,
+      startTime: r.startTime,
+      activityType: r.activityType,
+      deliverableType: r.deliverableType,
+      broadCategory: r.broadCategory,
+      quantity: r.quantity,
+    }));
+    const notes = dayNotes.data ?? {};
+    const build = (key: string, label: string, sublabel: string | undefined, dates: string[]) =>
+      buildPeriodRow({ key, label, sublabel, dates, activities, dayNotes: notes, today });
+
+    if (view === "week") {
+      // Calendar order. A week is read forwards, whatever Day Wise does.
+      return weekOf(weekAnchor).map((date) =>
+        build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
+      );
+    }
+
+    if (view === "month") {
+      const weeks = weeksOfMonth(monthAnchor).map((week) =>
+        build(
+          `w${week.index}`,
+          `Week ${week.index}`,
+          `${longDate(week.dates[0]!)} – ${longDate(week.dates.at(-1)!)}`,
+          week.dates,
+        ),
+      );
+      /* The week in progress first, the rest descending — Day Wise's
+       * newest-first principle, one level up. A week that has not started is
+       * not "newest": it goes last, where nothing is being asked of anybody. */
+      const current = weeks.filter((w) => w.dates.includes(today));
+      const past = weeks.filter((w) => w.state !== "future" && !w.dates.includes(today));
+      const future = weeks.filter((w) => w.state === "future");
+      return [...current, ...past.reverse(), ...future];
+    }
+
+    /* Day Wise: every day that has something, newest first, and every day
+     * between them that has not — a silently skipped day is a day nobody can
+     * see was skipped. */
+    const days = [...new Set(activities.map((a) => a.workDate))].sort();
+    const newest = days.at(-1);
+    const oldest = days[0] ?? today;
+    const span: string[] = [];
+    for (let d = newest && newest > today ? newest : today; d >= oldest; d = addDays(d, -1)) {
+      span.push(d);
+    }
+    return span.map((date) =>
+      build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
+    );
+  }, [rows, view, today, weekAnchor, monthAnchor, dayNotes.data]);
+
 
   function openNew() {
     setEditing(null);
@@ -724,13 +729,63 @@ export default function WorkLogHistoryPage() {
         </div>
       </div>
 
+      {/* ── Period navigation ─────────────────────────────────────────
+        * Week and Month are anchored views: they show one unit and step
+        * through them. Day Wise is a feed and uses the date filters above. */}
+      {view !== "date" ? (
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              view === "week"
+                ? setWeekAnchor(addDays(weekAnchor, -7))
+                : setMonthAnchor(shiftMonth(monthAnchor, -1))
+            }
+            aria-label={view === "week" ? "Previous week" : "Previous month"}
+            className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
+          >
+            <ChevronLeft />
+          </button>
+          <span className="min-w-[18rem] text-center text-sm font-semibold text-content">
+            {view === "week"
+              ? `${longDate(weekOf(weekAnchor)[0]!)} – ${longDate(weekOf(weekAnchor).at(-1)!)}`
+              : monthLabel(monthAnchor)}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              view === "week"
+                ? setWeekAnchor(addDays(weekAnchor, 7))
+                : setMonthAnchor(shiftMonth(monthAnchor, 1))
+            }
+            aria-label={view === "week" ? "Next week" : "Next month"}
+            className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
+          >
+            <ChevronRight />
+          </button>
+        </div>
+      ) : null}
+
       {/* ── Date Wise / Weekly ────────────────────────────────────────── */}
       <div className="mt-6 flex justify-end border-b border-line">
         {(["date", "week", "month"] as const).map((v) => (
           <button
             key={v}
             type="button"
-            onClick={() => setView(v)}
+            onClick={() => {
+              /* A view change is a change of question, and the answer to a new
+                 question starts at now. Carrying March over from Week Wise into
+                 Month Wise makes the default silently wrong. */
+              setView(v);
+              setPage(1);
+              setExpanded(null);
+              if (v === "week") setWeekAnchor(todayISO());
+              if (v === "month") setMonthAnchor(todayISO().slice(0, 7));
+              if (v === "date") {
+                setFrom(firstOfMonth());
+                setTo(todayISO());
+              }
+            }}
             aria-pressed={view === v}
             className={`-mb-px border-b-2 px-5 pb-3 text-sm font-semibold transition-colors ${
               view === v
@@ -850,59 +905,99 @@ export default function WorkLogHistoryPage() {
               </thead>
               <tbody>
                 {visibleGroups.map((group) => {
-                  const cells = present(group.dates, summaries.data ?? {});
-                  const many = group.entries.length > 1;
-                  const isOpen = expanded === group.key;
-                  const first = group.entries[0]!;
-                  /* One value per person, so the row asks the first entry and
-                     is done. It used to collect the distinct subjects across a
-                     day's entries, which was right when the column described
-                     the work and is meaningless now that it describes who did
-                     it. */
-                  const instructorCategory = broadCategoryOf(first);
-                  /* Every subject the period actually touched, read from the
-                     entries themselves. Varies by row; the column to its left
-                     does not. */
-                  const subjects = subjectsCell(
-                    group.entries.map((e) => e.broadCategory?.label),
+                  const entries = rows.filter((r) =>
+                    group.dates.includes(r.workDate.slice(0, 10)),
                   );
+                  const isOpen = expanded === group.key;
+                  const first = entries[0];
+                  const isToday = group.dates.includes(today);
+                  const who = first ?? rows[0];
+
+                  /* ── Nothing recorded, and the two reasons are different ──
+                   * A day that has passed with nothing on it is somebody not
+                   * having filed. A day that has not happened is nobody having
+                   * failed at anything. One row saying "—" for both is how a
+                   * week half in the future reads as half a week of misses. */
+                  if (group.state !== "recorded") {
+                    const future = group.state === "future";
+                    return (
+                      <tr
+                        key={group.key}
+                        className={`border-b border-line-subtle ${future ? "" : "bg-warning-subtle/30"}`}
+                      >
+                        <td className="px-4 py-4 text-content">
+                          {group.label}
+                          {group.sublabel ? (
+                            <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4 text-content">
+                          {who?.instructorName?.trim() || NOT_PROVIDED}
+                        </td>
+                        <td className="tabular px-4 py-4 text-content">
+                          {who?.employeeCode?.trim() || NOT_PROVIDED}
+                        </td>
+                        <td className="px-4 py-4 text-content">
+                          {broadCategoryCell(who?.instructorCategory ?? null)}
+                        </td>
+                        <td
+                          colSpan={5}
+                          className={`px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
+                        >
+                          {future ? "Not yet reached" : "No worklog submitted"}
+                        </td>
+                        <td className="px-4 py-4" />
+                      </tr>
+                    );
+                  }
 
                   return (
                     <Fragment key={group.key}>
-                      <tr className="border-b border-line-subtle">
-                        <td className="px-4 py-4 text-content">{group.label}</td>
+                      <tr
+                        className={`border-b border-line-subtle ${isToday ? "bg-primary-subtle/25" : ""}`}
+                      >
                         <td className="px-4 py-4 text-content">
-                          {first.instructorName?.trim() || NOT_PROVIDED}
+                          {group.label}
+                          {group.sublabel ? (
+                            <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4 text-content">
+                          {who?.instructorName?.trim() || NOT_PROVIDED}
                         </td>
                         <td className="tabular px-4 py-4 text-content">
-                          {first.employeeCode?.trim() || NOT_PROVIDED}
+                          {who?.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
-                        <td className="px-4 py-4 text-content">{instructorCategory}</td>
-                        <td className="px-4 py-4 text-content">{subjects}</td>
-                        <td className="px-4 py-4 text-content">{cells.deliverable}</td>
-                        <td className="tabular px-4 py-4 text-content">{cells.quantity}</td>
+                        <td className="px-4 py-4 text-content">
+                          {broadCategoryCell(who?.instructorCategory ?? null)}
+                        </td>
+                        <td className="px-4 py-4 text-content">{subjectsCell(group.subjects)}</td>
+                        <td className="px-4 py-4 text-content">{deliverableCell(group.lines)}</td>
+                        <td className="tabular px-4 py-4 text-content">
+                          {quantityCell(group.lines)}
+                        </td>
                         <td className="tabular px-4 py-4 font-medium text-content">
-                          {formatHours(cells.totalMinutes / 60)}
+                          {workingHoursCell(group.totalMinutes)}
                         </td>
-                        <td className="px-4 py-4 text-content">{cells.remarks}</td>
+                        <td className="px-4 py-4 text-content">{group.remarks || "—"}</td>
                         <td className="px-4 py-4">
                           <span className="inline-flex items-center gap-2">
-                            {many ? (
-                              /* What the row was made FROM. The row itself is
-                                 the reading of the day; this is the record it
+                            {entries.length > 1 || view !== "date" ? (
+                              /* What the row was made FROM. The row is the
+                                 reading of the period; this is the record it
                                  was read from, which is what somebody checking
                                  a figure actually wants to see. */
                               <button
                                 type="button"
                                 onClick={() => setExpanded(isOpen ? null : group.key)}
                                 aria-expanded={isOpen}
-                                aria-label={`${isOpen ? "Hide" : "Show"} what ${group.label} was made of — ${group.entries.length} entries as recorded`}
+                                aria-label={`${isOpen ? "Hide" : "Show"} what ${group.label} was made of — ${entries.length} entries as recorded`}
                                 className="inline-flex h-9 items-center gap-1.5 rounded-control border border-line px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-hovered hover:text-content"
                               >
-                                {group.entries.length} entries
+                                {entries.length} {entries.length === 1 ? "entry" : "entries"}
                                 <Chevron open={isOpen} />
                               </button>
-                            ) : (
+                            ) : first ? (
                               <>
                                 <button
                                   type="button"
@@ -923,23 +1018,23 @@ export default function WorkLogHistoryPage() {
                                   <Bin />
                                 </button>
                               </>
-                            )}
+                            ) : null}
                           </span>
                         </td>
                       </tr>
 
-                      {many && isOpen
-                        ? group.entries.map((e) => (
+                      {isOpen
+                        ? entries.map((e) => (
                             <tr key={e.id} className="border-b border-line-subtle bg-sunken/50">
                               <td className="px-4 py-3 text-sm text-muted">
-                                {view === "week" ? longDate(e.workDate.slice(0, 10)) : ""}
+                                {view === "date" ? "" : longDate(e.workDate.slice(0, 10))}
                               </td>
                               <td colSpan={4} />
                               <td className="px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
                               <td className="tabular px-4 py-3 text-sm text-content">
-                                {e.quantity ?? "—"}
+                                {e.quantity ?? UNSTATED}
                               </td>
                               <td className="tabular px-4 py-3 text-sm text-content">
                                 {formatHours(e.durationHours)}
@@ -973,6 +1068,23 @@ export default function WorkLogHistoryPage() {
                     </Fragment>
                   );
                 })}
+
+                {/* ── The period total ───────────────────────────────────
+                  * A week's rows are days and a month's are weeks, so neither
+                  * table adds up to anything on its own. This is the line the
+                  * client reconciles against. */}
+                {view !== "date" && groups.some((g) => g.state === "recorded") ? (
+                  <tr className="border-t-2 border-line bg-sunken font-semibold">
+                    <td className="px-4 py-3.5 text-content">
+                      {view === "week" ? "Week total" : "Month total"}
+                    </td>
+                    <td colSpan={6} />
+                    <td className="tabular px-4 py-3.5 text-content">
+                      {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>

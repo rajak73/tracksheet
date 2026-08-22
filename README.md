@@ -298,6 +298,37 @@ appeared in the same paragraph as a counted sentence, which is the
 category-moves-with-the-phrasing bug the Lab Evaluation decision exists to
 remove.
 
+### The six views
+
+Instructor and Manager each get Day, Week and Month. All six read the same
+`ActivityLog` rows and are computed by `GROUP BY` at read time — nothing is
+stored pre-flattened, because a stored copy cannot survive a per-entry edit.
+
+The merge lives once, in
+[`buildPeriodRow`](src/domain/worklog-rows.ts): a Tech "Live Class" and a Maths
+one become one line with their hours added, on every screen, because only one
+function decides. It was two implementations, and they disagreed.
+
+| view | rows are | ordering |
+|---|---|---|
+| Instructor Day | one per **day** | newest first, today labelled "Today" |
+| Instructor Week | one per **day** of the week | Monday first — a calendar reads forwards |
+| Instructor Month | one per **week** | the week in progress first, then descending |
+| Manager Day | one per **instructor** | the roster, whoever filed and whoever did not |
+| Manager Week | one per **instructor**, summed | sortable by real summed minutes |
+| Manager Month | one per **instructor**, weeks across | chronological left to right — it is a spreadsheet |
+
+**Three states, not two.** A period with nothing in it is either `missing`
+(it passed and nobody filed) or `future` (it has not happened). Collapsing them
+is how a week half ahead of today reads as half a week of people not filing.
+
+**Remarks composes from two places.** A day can carry a note the instructor
+wrote about the whole day (`WorklogDayNote`) and each entry carries its own
+(`ActivityLog.remarks`). The day note wins where one exists — it is the more
+considered of the two — and the entries' remarks stand in where none does,
+de-duplicated. A period spanning days joins each day's, semicolon-separated in
+date order, skipping the empty.
+
 ## Pagination
 
 Six list-returning endpoints are server-side paginated: Universities,

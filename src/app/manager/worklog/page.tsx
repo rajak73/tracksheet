@@ -204,17 +204,32 @@ export default function ManagerWorklogPage() {
       return out;
     }
 
-    const span =
-      view === "day" ? [range.from] : Array.from({ length: 7 }, (_, i) => addDays(range.from, i));
+    if (view === "week") {
+      /* ONE column, summed across the week.
+       *
+       * It used to be seven — a column per day — which turned the manager's
+       * week into a forty-cell grid to read sideways. A manager scanning a
+       * roster is asking who logged what this week, not what each of them did
+       * on Wednesday; the day-by-day answer is the Day view, one click away. */
+      const dates = Array.from({ length: 7 }, (_, i) => addDays(range.from, i));
+      return [
+        {
+          dates,
+          label: `${shortDate(range.from)} – ${shortDate(dates.at(-1)!)}`,
+          sublabel: "This week",
+          isCurrent: dates.includes(today),
+        },
+      ];
+    }
 
-    return span
-      .map((date) => ({
-        dates: [date],
-        label: formatDayAs(date, { day: "numeric", month: "short" }),
-        sublabel: formatDayAs(date, { weekday: "long" }),
-        isCurrent: date === today,
-      }))
-      .sort((a, b) => a.dates[0]!.localeCompare(b.dates[0]!));
+    return [
+      {
+        dates: [range.from],
+        label: formatDayAs(range.from, { day: "numeric", month: "short" }),
+        sublabel: formatDayAs(range.from, { weekday: "long" }),
+        isCurrent: range.from === today,
+      },
+    ];
   }, [view, range.from, range.to]);
 
   const people: ManagerPerson[] = useMemo(() => {

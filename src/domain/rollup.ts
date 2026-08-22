@@ -31,6 +31,14 @@ export type RollupActivity = {
    * `ActivityStatus`'s own default says.
    */
   status?: string;
+  /**
+   * ISO instant this started. Optional, and only used for ORDER.
+   *
+   * The report reads in the order the day happened, which needs a position;
+   * a week or month cell merges several days and has no single answer, so it
+   * falls back to heaviest-first. See `ordered` in `worklog-report`.
+   */
+  startTime?: string;
   activityType: { code: string; label: string };
   /* `code` as well as `isCountable`: countability decides whether the line is
    * Working Hours, and the code decides what the client's report CALLS it.
@@ -52,6 +60,8 @@ export type RollupLine = {
   quantity: number | null;
   /** Exact minutes, which is what the client's "1h 45m" is written from. */
   minutes: number;
+  /** Earliest start under this line, as minutes past midnight. */
+  firstAt?: number;
   /** Whether this counts toward Working Hours and the quantity column. */
   countable: boolean;
 };
@@ -133,6 +143,11 @@ export function rollUp(activities: RollupActivity[]): Rollup {
 
     line.hours += a.durationHours;
     line.minutes += Math.round(a.durationHours * 60);
+    if (a.startTime) {
+      const at = new Date(a.startTime);
+      const minute = at.getHours() * 60 + at.getMinutes();
+      line.firstAt = line.firstAt === undefined ? minute : Math.min(line.firstAt, minute);
+    }
     /* `?? 1` used to sit here, and it is exactly the default the client's rule
      * forbids: an entry whose count nobody stated became one of them. What
      * happens now is decided by the UNIT — an occurrence is one of itself, an

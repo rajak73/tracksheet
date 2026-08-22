@@ -299,17 +299,26 @@ function WeekColumns({
   who,
   week,
   current,
+  striped,
   showBreakdown,
 }: {
   cell: TrackerCell | undefined;
   who: string;
   week: string;
   current: boolean;
+  /** Alternates the ground between adjacent week groups. See `bg`. */
+  striped: boolean;
   /** Single-instructor report only: there is room for the category split. */
   showBreakdown: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const bg = current ? "bg-primary-subtle/40" : "";
+  /* ── Which week am I looking at ───────────────────────────────────────
+   * Adjacent groups alternate, so after scrolling four weeks sideways the
+   * boundary is visible without scrolling back to the header. The week in
+   * progress keeps its own tint on top of that, because "which week is this"
+   * and "which week is now" are two questions and one shading answered only
+   * the second — every other week looked identical to every other. */
+  const bg = current ? "bg-primary-subtle/40" : striped ? "bg-sunken/40" : "";
   const remarks = cell?.remarks ?? [];
 
   /* Heaviest first. The cell is read left to right and the biggest commitment
@@ -345,6 +354,20 @@ function WeekColumns({
        * character for character — `deliverableCell` below is what the export
        * writes for this same cell.
        */}
+      {/* ── A week with nothing in it says so ──────────────────────────
+        * It used to be an em dash in each of the five columns, which reads as
+        * "no value" rather than "nobody filed" — and a manager scanning for
+        * who is missing needs the second. Held per WEEK: somebody absent in
+        * week two and present in the other three shows exactly that. */}
+      {!cell || (cell.deliverables.length === 0 && cell.totalWorkingHours === 0) ? (
+        <td
+          colSpan={WEEK_FIELDS.length}
+          className={`border-b border-l-2 border-line px-3 py-3 align-top text-sm font-medium text-warning-text ${bg}`}
+        >
+          No worklog
+        </td>
+      ) : (
+        <>
       <td className={`border-b border-l-2 border-line px-3 py-3 align-top ${bg}`}>
         <span className="block text-sm text-content">{subjectsCell(cell?.subjects ?? [])}</span>
       </td>
@@ -418,6 +441,8 @@ function WeekColumns({
           </>
         )}
       </td>
+        </>
+      )}
     </>
   );
 }
@@ -676,6 +701,7 @@ export function TrackerGrid({
                     who={row.instructorName}
                     week={`Week ${week.index} · ${weekLabel(week)}`}
                     current={week.isCurrent}
+                    striped={week.index % 2 === 0}
                     showBreakdown={showBreakdown}
                   />
                 ))}
