@@ -44,6 +44,7 @@ import {
   type PeriodRow,
   type RowActivity,
 } from "@/domain/worklog-rows";
+import { splitEntries } from "@/domain/worklog-entry-lines";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 
@@ -190,33 +191,6 @@ function monthLabel(key: string): string {
 }
 
 
-/**
- * Hours as somebody may type them.
- *
- * The field asks for a number, and people write time the way they say it. All
- * of these mean the same eight and a half hours: `8.5`, `8h 30m`, `8:30`,
- * `8h30`. Refusing three of the four would be pedantry — the field's job is to
- * find out how long something took.
- */
-export function parseHours(raw: string): number | null {
-  const text = raw.trim().toLowerCase();
-  if (!text) return null;
-
-  // `8:30`, `8h 30m`, `8h30`, `8 h 30`
-  const split = text.match(/^(\d+)\s*(?::|h)\s*(\d{1,2})\s*m?$/);
-  if (split) {
-    const h = Number(split[1]);
-    const m = Number(split[2]);
-    if (m > 59) return null;
-    return h + m / 60;
-  }
-
-  // `8h`
-  const whole = text.match(/^(\d+(?:\.\d+)?)\s*h?$/);
-  if (whole) return Number(whole[1]);
-
-  return null;
-}
 
 /**
  * One row of the table is one DAY, not one entry.
@@ -586,19 +560,12 @@ export default function WorkLogHistoryPage() {
 
   async function submit() {
     if (!instructorId) return;
-    const workingHours = parseHours(draft.workingHours);
-    const quantity = draft.quantity.trim() === "" ? 0 : Number(draft.quantity);
 
-    if (!draft.deliverable.trim()) return setFormError("Enter what you worked on.");
-    if (workingHours === null || workingHours <= 0) {
-      return setFormError("Enter how long it took — 8, 8.5, or 8h 30m.");
-    }
-    if (workingHours > 24) {
-      return setFormError("A single entry cannot be longer than a day.");
-    }
-    if (!Number.isInteger(quantity) || quantity < 0) {
-      return setFormError("Deliverable quantity must be a whole number.");
-    }
+    /* Checked here only so the instructor is told before the round trip. The
+     * server runs the SAME function on the same strings and its answer is what
+     * is written — where a list gets cut decides which quantity lands on which
+     * deliverable, and that is not a decision to make in a browser and trust. */
+    if (!split.ok) return setFormError(split.reason);
 
     setSaving(true);
     setFormError(null);
@@ -610,14 +577,21 @@ export default function WorkLogHistoryPage() {
         editing ? "PATCH" : "POST",
         {
           date: draft.date,
-          deliverable: draft.deliverable.trim(),
-          quantity,
-          workingHours,
-          remarks: draft.remarks.trim() || null,
+          deliverable: draft.deliverable,
+          quantity: draft.quantity,
+          workingHours: draft.workingHours,
+          remarks: draft.remarks,
         },
         editing ? "Could not save that change." : "Could not submit your work log.",
       );
-      toast("success", editing ? "Entry updated." : "Work log submitted.");
+      toast(
+        "success",
+        editing
+          ? "Entry updated."
+          : split.entries.length === 1
+            ? "Work log submitted."
+            : `${split.entries.length} entries recorded.`,
+      );
       setOpen(false);
       setBannerOpen(true);
       logs.reload();
@@ -646,6 +620,19 @@ export default function WorkLogHistoryPage() {
 
   /** The paragraph box, rather than the four fields. Never while editing a row. */
   const writingItOut = entryMode === "write" && !editing;
+
+  /* What the four boxes currently describe, read by the same function the
+   * server will use. One source for the preview, the error and the write.
+   *
+   * Not memoised: it is string splitting over four short fields, and the React
+   * compiler refuses to optimise a component whose manual memoisation it cannot
+   * preserve — costing far more than this recomputes. */
+  const split = splitEntries({
+    deliverable: draft.deliverable,
+    quantity: draft.quantity,
+    workingHours: draft.workingHours,
+    remarks: draft.remarks,
+  });
 
   /* Counted in ROWS, which is what the table shows and what the client's sheet
    * means by a row: one per date, week or month. It used to count entries,
@@ -1192,12 +1179,17 @@ export default function WorkLogHistoryPage() {
           ) : (
             <>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">Deliverable</span>
+            <span className="mb-1.5 block text-sm font-semibold text-content">
+              Deliverable
+              <span className="ml-2 font-normal text-muted">
+                one per line, or separated by commas
+              </span>
+            </span>
             <textarea
               rows={3}
               value={draft.deliverable}
               onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
-              placeholder="Enter deliverable"
+              placeholder={"Live class on binary trees\nDoubt session\nChecked assignments"}
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
@@ -1205,27 +1197,32 @@ export default function WorkLogHistoryPage() {
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
               Deliverable Quantity
+              <span className="ml-2 font-normal text-muted">
+                leave empty if you did not count them
+              </span>
             </span>
-            <input
-              type="number"
-              min={0}
-              step={1}
+            <textarea
+              rows={3}
               value={draft.quantity}
               onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-              placeholder="Enter deliverable quantity"
-              className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-content"
+              placeholder={"1\n1\n12   — or leave empty"}
+              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">Working Hours</span>
-            <input
-              type="text"
-              inputMode="decimal"
+            <span className="mb-1.5 block text-sm font-semibold text-content">
+              Working Hours
+              <span className="ml-2 font-normal text-muted">
+                one for each deliverable, in the same order
+              </span>
+            </span>
+            <textarea
+              rows={3}
               value={draft.workingHours}
               onChange={(e) => setDraft({ ...draft, workingHours: e.target.value })}
-              placeholder="Enter working hours (e.g., 8)"
-              className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-content"
+              placeholder={"2h\n45m\n1h"}
+              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
 
@@ -1239,6 +1236,59 @@ export default function WorkLogHistoryPage() {
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
+
+          {/* ── What will actually be recorded ─────────────────────────────
+            * Built by the same function the server will run, so the preview
+            * cannot promise something different from what is written.
+            *
+            * It is also the only defence against the one mistake no counting
+            * rule catches: three deliverables and three durations that line up
+            * in COUNT but not in meaning. A reader can see "Doubt session —
+            * 2h" and know the hours went to the wrong line; nothing in the
+            * arithmetic can. */}
+          {draft.deliverable.trim() || draft.workingHours.trim() ? (
+            <div className="rounded-control border border-line bg-sunken px-3.5 py-3">
+              {split.ok ? (
+                <>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {split.entries.length === 1
+                      ? "This will be recorded as"
+                      : `${split.entries.length} entries will be recorded`}
+                  </p>
+                  <ul className="grid gap-1">
+                    {split.entries.map((entry, i) => (
+                      <li key={i} className="text-sm text-content">
+                        <span className="tabular text-muted">{formatHours(entry.workingHours)}</span>
+                        {"  "}
+                        {entry.deliverable}
+                        {entry.quantity !== null ? (
+                          <span className="text-muted"> · {entry.quantity}</span>
+                        ) : (
+                          <span
+                            className="text-muted"
+                            title="No count given — the report will show ? unless this is a class, meeting or session, which counts as one"
+                          >
+                            {" "}
+                            · not counted
+                          </span>
+                        )}
+                        {entry.remarks ? (
+                          <span className="text-muted"> · {entry.remarks}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {split.entries.length > 1 ? (
+                    <p className="mt-2 text-xs text-muted">
+                      Placed one after another from the start of your working day.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-warning-text">{split.reason}</p>
+              )}
+            </div>
+          ) : null}
             </>
           )}
         </div>

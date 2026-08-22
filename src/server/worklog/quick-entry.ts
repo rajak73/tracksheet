@@ -6,6 +6,7 @@ import { parseBullets } from "@/server/worklog/parse";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { dayOfWeekFor } from "@/server/time/schedule-windows";
 import { toDateOnly, zonedParts } from "@/server/time/workday";
+import { deliverableFor, quantityWhenUnstated } from "@/domain/worklog-taxonomy";
 
 /**
  * One line of the day, recorded from four fields.
@@ -50,7 +51,11 @@ export type QuickEntryInput = {
   date: string;
   /** What they produced, in their own words. Classified, never rewritten. */
   deliverable: string;
-  quantity: number;
+  /**
+   * How many. `null` is the client's `?` — they did not say, and nobody is
+   * going to decide for them. Different from 0, which is a count of none.
+   */
+  quantity: number | null;
   workingHours: number;
   remarks?: string | null;
   /**
@@ -60,12 +65,23 @@ export type QuickEntryInput = {
    * pointing at it survive the edit.
    */
   activityId?: string;
+  /**
+   * A classification already made for this line.
+   *
+   * The caller supplies one when it is recording several entries at once: the
+   * whole submission is classified in a single provider call rather than one
+   * per line, so a rate limit part-way through cannot give one day's work two
+   * different treatments. Omitted, this classifies the line itself.
+   */
+  classification?: Classification;
 };
 
 /** What the model made of the deliverable line. Every field may be absent. */
-type Classification = {
+export type Classification = {
   activityTypeCode: string;
   deliverableTypeId: string | null;
+  /** The same deliverable as a code, for the report taxonomy to read. */
+  deliverableCode: string | null;
   broadCategoryId: string | null;
 };
 
@@ -78,17 +94,20 @@ type Classification = {
  * Broad Category from the last one that had a subject, which is the same answer
  * a line naming no subject would have produced anyway.
  */
-async function classify(deliverable: string, quantity: number): Promise<Classification> {
+async function classify(deliverable: string, quantity: number | null): Promise<Classification> {
   const fallback: Classification = {
     activityTypeCode: "OTHER",
     deliverableTypeId: null,
+    deliverableCode: null,
     broadCategoryId: null,
   };
 
   try {
     const taxonomy = await loadTaxonomy();
     // Phrased as one worklog line so the existing instruction applies unchanged.
-    const line = quantity > 1 ? `${deliverable} (${quantity})` : deliverable;
+    // Phrased as one worklog line so the existing instruction applies unchanged.
+    // A count nobody stated adds nothing to the sentence.
+    const line = quantity !== null && quantity > 1 ? `${deliverable} (${quantity})` : deliverable;
     const parsed = await parseBullets([line], taxonomy);
     if (!parsed.ok || parsed.bullets.length === 0) return fallback;
 
@@ -107,6 +126,7 @@ async function classify(deliverable: string, quantity: number): Promise<Classifi
         ? bullet.categoryCode
         : fallback.activityTypeCode,
       deliverableTypeId: deliverableType?.id ?? null,
+      deliverableCode: deliverableType?.code ?? null,
       broadCategoryId: subject?.id ?? null,
     };
   } catch {
@@ -156,6 +176,61 @@ async function placeOnDay(
 const hhmm = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
+/**
+ * Classifies a whole submission's lines in ONE provider call.
+ *
+ * `parseBullets` already takes an array, so recording five entries was making
+ * five calls where one would do — five times the latency and five chances to
+ * be rate-limited part-way through, which would leave one day's work with two
+ * different category treatments depending on where it stopped.
+ *
+ * Never throws, for the same reason `classify` does not: a provider outage
+ * must not stop somebody recording their day. Every line falls back to `OTHER`
+ * with no subject, which is exactly what a line naming no subject would have
+ * produced anyway.
+ */
+export async function classifyLines(
+  lines: Array<{ deliverable: string; quantity: number | null }>,
+): Promise<Classification[]> {
+  const fallback: Classification = {
+    activityTypeCode: "OTHER",
+    deliverableTypeId: null,
+    deliverableCode: null,
+    broadCategoryId: null,
+  };
+  if (lines.length === 0) return [];
+
+  try {
+    const taxonomy = await loadTaxonomy();
+    const parsed = await parseBullets(
+      lines.map((l) =>
+        l.quantity !== null && l.quantity > 1 ? `${l.deliverable} (${l.quantity})` : l.deliverable,
+      ),
+      taxonomy,
+    );
+    if (!parsed.ok) return lines.map(() => fallback);
+
+    return lines.map((_, i) => {
+      const bullet = parsed.bullets[i];
+      if (!bullet) return fallback;
+      const deliverableType = bullet.deliverableCode
+        ? taxonomy.deliverableByCode.get(bullet.deliverableCode)
+        : undefined;
+      const subject = bullet.subjectCode ? taxonomy.subjectByCode.get(bullet.subjectCode) : undefined;
+      return {
+        activityTypeCode: taxonomy.categoryByCode.has(bullet.categoryCode)
+          ? bullet.categoryCode
+          : fallback.activityTypeCode,
+        deliverableTypeId: deliverableType?.id ?? null,
+        deliverableCode: deliverableType?.code ?? null,
+        broadCategoryId: subject?.id ?? null,
+      };
+    });
+  } catch {
+    return lines.map(() => fallback);
+  }
+}
+
 /** Records one line of the day. */
 export async function recordQuickEntry(input: QuickEntryInput) {
   const deliverable = input.deliverable.trim();
@@ -172,7 +247,7 @@ export async function recordQuickEntry(input: QuickEntryInput) {
       `A single entry may not exceed ${MAX_HOURS_PER_DAY} hours.`,
     );
   }
-  if (!Number.isInteger(input.quantity) || input.quantity < 0) {
+  if (input.quantity !== null && (!Number.isInteger(input.quantity) || input.quantity < 0)) {
     throw new ApiError(400, "QUANTITY_INVALID", "Quantity must be a whole number.");
   }
 
@@ -184,7 +259,23 @@ export async function recordQuickEntry(input: QuickEntryInput) {
   const dayStartMinute = hours?.startMinute ?? 9 * 60;
 
   const { startMinute, endMinute } = await placeOnDay(input, config.timezone, dayStartMinute);
-  const classification = await classify(deliverable, input.quantity);
+  const classification = input.classification ?? (await classify(deliverable, input.quantity));
+
+  /* ── An unstated count is resolved by the UNIT, not by a default ────────
+   * An empty Quantity box means the instructor did not say how many, and what
+   * that means depends entirely on what the work was: one class IS one class,
+   * so 1 is a fact; some unstated number of assignments is not, so it stays
+   * null and prints "?".
+   *
+   * Resolved HERE and not in the form, because only here is the deliverable
+   * known — the box is free text until something classifies it. Getting this
+   * wrong renders "? Classes" against somebody who taught one class, which is
+   * a question mark where there was never any doubt. */
+  const quantity =
+    input.quantity ??
+    quantityWhenUnstated(
+      deliverableFor(classification.deliverableCode, classification.activityTypeCode),
+    );
 
   const fields = {
     instructorId: input.instructorId,
@@ -193,7 +284,7 @@ export async function recordQuickEntry(input: QuickEntryInput) {
     local: { date: input.date, start: hhmm(startMinute), end: hhmm(endMinute) },
     // Their words, kept exactly. The sheet shows this as the Deliverable.
     rawText: deliverable,
-    quantity: input.quantity,
+    quantity,
     remarks: input.remarks ?? null,
     deliverableTypeId: classification.deliverableTypeId,
     broadCategoryId: classification.broadCategoryId,

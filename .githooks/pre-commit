@@ -36,9 +36,30 @@ fi
 
 # The tests need Postgres. Without it the failure is a wall of Prisma output
 # that looks like broken code, so say what is actually wrong.
-if ! docker info >/dev/null 2>&1; then
-  echo "pre-commit: Docker is not running, so the test databases are unreachable."
-  echo "            Start Docker and 'npm run db:up', then commit again."
+#
+# The PORT is what gets checked, not `docker info`. The daemon being up says
+# nothing about whether the containers are — and containers stopped while the
+# daemon runs is the case that actually happens. Asking the daemon let exactly
+# that through and produced the Prisma wall this guard exists to replace.
+db_reachable() {
+  # nc where there is one; /dev/tcp otherwise. If neither works, say nothing
+  # and let the tests report their own failure — a check that cannot run must
+  # not block every commit on this machine.
+  if command -v nc >/dev/null 2>&1; then
+    nc -z -w 2 127.0.0.1 5434 >/dev/null 2>&1
+    return $?
+  fi
+  (exec 3<>/dev/tcp/127.0.0.1/5434) >/dev/null 2>&1 || return 1
+  return 0
+}
+
+if command -v nc >/dev/null 2>&1 && ! db_reachable; then
+  echo "pre-commit: the test database is not reachable on port 5434."
+  if docker info >/dev/null 2>&1; then
+    echo "            Docker is running but the containers are not. Try: npm run db:up"
+  else
+    echo "            Docker is not running. Start it, then: npm run db:up"
+  fi
   exit 1
 fi
 

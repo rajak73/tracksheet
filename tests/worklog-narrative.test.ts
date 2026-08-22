@@ -474,7 +474,20 @@ beforeAll(async () => {
   await admin.login(ACCOUNTS.admin);
 });
 
-const today = () => new Date().toISOString().slice(0, 10);
+/**
+ * Today in the UNIVERSITY's zone, not the machine's and not UTC.
+ *
+ * The server refuses a worklog for any day but the instructor's own current
+ * one, judged in their university's timezone — Northfield is Asia/Kolkata. A
+ * UTC date agrees with that for most of the day and disagrees for the five and
+ * a half hours after midnight IST, so this test passed until it was run at
+ * 01:42 and then failed with "you can only write up today's work".
+ *
+ * A test whose result depends on the hour it runs is worse than no test: it
+ * teaches people that red is sometimes fine.
+ */
+const today = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 describe("the text is safe before anything reads it", () => {
   test("a paragraph is accepted and stored word for word", async () => {

@@ -6,7 +6,8 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
 import { assertValidDate } from "@/server/time/schedule-windows";
-import { recordQuickEntry } from "@/server/worklog/quick-entry";
+import { classifyLines, recordQuickEntry } from "@/server/worklog/quick-entry";
+import { splitEntries } from "@/domain/worklog-entry-lines";
 
 /**
  * One line of a day, from the four fields the form asks for.
@@ -16,14 +17,41 @@ import { recordQuickEntry } from "@/server/worklog/quick-entry";
  * names no subject inherits from the last one that did. See that module.
  */
 
+/**
+ * The four boxes, as typed.
+ *
+ * ── Strings, not numbers, and the splitting happens on the server ─────────
+ * The boxes take LISTS now — "Live Class, Doubt Session" against "2h, 45m" is
+ * two entries — and where that list is cut decides which quantity lands on
+ * which deliverable. That is not a decision to make in a browser and trust: it
+ * is `splitEntries`, one function, and the form calls the same one only to show
+ * a preview. What reaches the database is what the server split.
+ *
+ * `quantity` is a string for the same reason it is nullable elsewhere: an empty
+ * box means nobody stated a count, which prints "?" and is a different answer
+ * from zero. A number field cannot say that.
+ */
 export const QuickEntry = z.object({
   /** YYYY-MM-DD in the university's zone. */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  deliverable: z.string().min(1).max(500),
-  /** Whole units of the deliverable. Zero is a real answer for unmeasured work. */
-  quantity: z.number().int().min(0).max(10_000),
-  workingHours: z.number().positive().max(24),
-  remarks: z.string().max(500).nullable().optional(),
+  deliverable: z.string().min(1).max(4_000),
+  /* A string or a number, either way.
+   *
+   * These became strings so a box can hold a LIST and so an empty quantity can
+   * mean "nobody said" rather than zero. But callers that predate that send
+   * numbers, and breaking them to tidy a type would be breaking a working API
+   * for nothing — `splitEntries` reads "2" and 2 identically. */
+  quantity: z
+    .union([z.string().max(500), z.number()])
+    .optional()
+    .transform((v) => (v === undefined ? "" : String(v))),
+  workingHours: z
+    .union([z.string().min(1).max(500), z.number()])
+    .transform((v) => String(v)),
+  remarks: z
+    .union([z.string().max(4_000), z.null()])
+    .optional()
+    .transform((v) => v ?? ""),
 });
 
 /** Resolves the instructor and authorises writing to them. */
@@ -54,23 +82,67 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
 
   const instructor = await requireWritableInstructor(scope, params.id);
 
-  const activity = await recordQuickEntry({
-    instructorId: instructor.id,
-    universityId: instructor.universityId,
-    date: input.date,
+  const split = splitEntries({
     deliverable: input.deliverable,
     quantity: input.quantity,
     workingHours: input.workingHours,
-    remarks: input.remarks ?? null,
+    remarks: input.remarks,
   });
+  if (!split.ok) throw new ApiError(400, "ENTRY_LINES_INVALID", split.reason);
+
+  /* Written in order, one at a time, through the same writer a single entry
+   * always used — so the interval limits, the once-per-day rule and the overlap
+   * check under its advisory lock all apply to each of them.
+   *
+   * In order and not in parallel, deliberately: `recordQuickEntry` lays each
+   * entry after whatever is already on the day, so the second has to see the
+   * first. Racing them would put two activities at the same start time, and the
+   * overlap rule would refuse one of the instructor's own lines. */
+  // One provider call for the whole submission, not one per entry.
+  const classifications = await classifyLines(split.entries);
+
+  const activities = [];
+  const refused: string[] = [];
+  for (const [i, entry] of split.entries.entries()) {
+    try {
+      activities.push(
+        await recordQuickEntry({
+          instructorId: instructor.id,
+          universityId: instructor.universityId,
+          date: input.date,
+          deliverable: entry.deliverable,
+          quantity: entry.quantity,
+          workingHours: entry.workingHours,
+          remarks: entry.remarks,
+          classification: classifications[i],
+        }),
+      );
+    } catch (error) {
+      /* One line refused — the day is full, or it overlaps something already
+       * recorded — must not cost the instructor the others. What was written
+       * stays written and the response says exactly which did not, because
+       * silently recording four of five is the version they cannot see. */
+      refused.push(
+        `"${entry.deliverable}" — ${error instanceof ApiError ? error.message : "could not be recorded."}`,
+      );
+    }
+  }
+
+  if (activities.length === 0) {
+    throw new ApiError(400, "NOTHING_RECORDED", refused.join(" "));
+  }
 
   await logAudit(principal, scope, {
     action: "ACTIVITY_LOGGED",
     entityType: "ActivityLog",
-    entityId: activity.id,
+    entityId: activities[0]!.id,
     universityId: instructor.universityId,
-    metadata: { instructorId: instructor.id, via: "quick-entry" },
+    metadata: { instructorId: instructor.id, via: "quick-entry", entries: activities.length },
   });
 
-  return NextResponse.json({ activity }, { status: 201 });
+  // `activity` stays for callers that sent one and expect one back.
+  return NextResponse.json(
+    { activity: activities[0], activities, refused },
+    { status: 201 },
+  );
 });
