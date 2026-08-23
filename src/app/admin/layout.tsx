@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/server/auth/session";
 import { AppShell } from "@/app/_components/AppShell";
+import { TimeZoneProvider } from "@/app/_lib/zone";
 
 /**
  * Server-side role guard for the entire /admin tree. This runs before any page
@@ -18,9 +19,20 @@ export default async function ADMINLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
+  /* ── An admin has no university, and so no "today" of their own ────────
+   * Stated as `null` rather than left absent, because the two look identical
+   * from a screen and mean different things: absent is somebody forgetting to
+   * provide it, null is this role genuinely spanning several zones at once.
+   *
+   * Screens under here that look at ONE university wrap their own subtree in
+   * that university's zone — see the tracker and manager detail pages — so the
+   * fallback below is only ever reached where the question really has no single
+   * answer. */
   return (
+    <TimeZoneProvider timeZone={null}>
     <AppShell role="ADMIN" userName={principal.name}>
       {children}
     </AppShell>
+    </TimeZoneProvider>
   );
 }

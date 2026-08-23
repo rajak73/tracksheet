@@ -23,6 +23,7 @@ import { InstructorDirectory } from "@/app/_components/InstructorDirectory";
 import { TrackerReport } from "@/app/_components/TrackerReport";
 import type { Tracker } from "@/app/_components/TrackerGrid";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { TimeZoneProvider } from "@/app/_lib/zone";
 import { formatHours } from "@/app/_lib/format";
 
 export default function AdminUniversityTrackerPage({
@@ -116,7 +117,19 @@ export default function AdminUniversityTrackerPage({
             title="Weekly grid"
             description="All instructors across the selected period. Week columns scroll horizontally."
           >
-            <TrackerReport universityId={id} />
+            {/* ── An admin's "today" is the SUBJECT's, not their own ──────
+              * An administrator belongs to no university, so there is no
+              * "their today" to use — and reading the browser's would show a
+              * Westbrook grid opening on whatever day it is wherever the admin
+              * happens to be sitting.
+              *
+              * The tracker payload already carries the university's zone, so
+              * the report is wrapped in it: the same screen viewed from Delhi
+              * and from New York shows the same current week, because the week
+              * belongs to the university being looked at. */}
+            <TimeZoneProvider timeZone={data.timezone}>
+              <TrackerReport universityId={id} />
+            </TimeZoneProvider>
           </Section>
         </>
       )}

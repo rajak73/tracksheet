@@ -51,7 +51,8 @@ import {
 } from "@/app/_components/ui";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDateShort, formatHours, humanizeCode, todayISO } from "@/app/_lib/format";
+import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 type Activity = {
   id: string;
@@ -96,7 +97,10 @@ function mondayOf(iso: string): string {
 
 export default function InstructorActivityTrackerPage() {
   const toast = useToast();
-  const today = todayISO();
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
 
   const [mode, setMode] = useState<Mode>("week");
   const [from, setFrom] = useState(today);

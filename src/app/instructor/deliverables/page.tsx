@@ -26,7 +26,8 @@ import {
 } from "@/app/_components/ui";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatHours, todayISO } from "@/app/_lib/format";
+import { formatDate, formatHours } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 type Deliverable = {
   id: string;
@@ -40,12 +41,16 @@ type Deliverable = {
 };
 
 export default function InstructorDeliverablesPage() {
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
   const toast = useToast();
   const [active, setActive] = useState<Deliverable | null>(null);
   const [form, setForm] = useState({
     quantity: 1,
     hours: 1,
-    workDate: todayISO(),
+    workDate: "",
     remarks: "",
   });
   const [saving, setSaving] = useState(false);
@@ -84,7 +89,7 @@ export default function InstructorDeliverablesPage() {
         `/api/instructors/${data.instructorId}/deliverables/${active.id}/logs`,
         "POST",
         {
-          workDate: form.workDate,
+          workDate: form.workDate || today,
           quantityCompleted: Number(form.quantity),
           hoursSpent: Number(form.hours),
           remarks: form.remarks || undefined,
@@ -93,7 +98,7 @@ export default function InstructorDeliverablesPage() {
       );
       toast("success", "Progress recorded.");
       setActive(null);
-      setForm({ quantity: 1, hours: 1, workDate: todayISO(), remarks: "" });
+      setForm({ quantity: 1, hours: 1, workDate: today, remarks: "" });
       reload();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Could not record that progress just now.");
@@ -231,7 +236,7 @@ export default function InstructorDeliverablesPage() {
           <Field label="Date this work was done" required>
             <input
               type="date"
-              value={form.workDate}
+              value={form.workDate || today}
               onChange={(e) => setForm({ ...form, workDate: e.target.value })}
               className={inputClass}
             />

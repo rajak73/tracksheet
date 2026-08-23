@@ -38,7 +38,8 @@ import {
 } from "@/app/_components/ui";
 import { useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatTimeRange, todayISO } from "@/app/_lib/format";
+import { formatDate, formatTimeRange } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 type ActivityType = {
   id: string;
@@ -59,10 +60,14 @@ type Activity = {
 };
 
 export default function InstructorActivitiesPage() {
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
   const toast = useToast();
   const [form, setForm] = useState({
     code: "",
-    date: todayISO(),
+    date: "",
     start: "09:00",
     end: "10:00",
     remarks: "",
@@ -163,7 +168,7 @@ export default function InstructorActivitiesPage() {
           // `new Date(...)` used the BROWSER's zone — an instructor in a
           // Kolkata browser posting to a New-York university silently booked
           // the previous calendar day.
-          local: { date: form.date, start: form.start, end: form.end },
+          local: { date: form.date || today, start: form.start, end: form.end },
           remarks: form.remarks || undefined,
         },
         "Could not record that activity just now.",
@@ -232,7 +237,7 @@ export default function InstructorActivitiesPage() {
               <Field label="Date" required>
                 <input
                   type="date"
-                  value={form.date}
+                  value={form.date || today}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className={inputClass}
                 />

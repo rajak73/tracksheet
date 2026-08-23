@@ -33,7 +33,8 @@ import {
 } from "@/app/_components/ui";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatMinuteOfDay, todayISO } from "@/app/_lib/format";
+import { formatDate, formatMinuteOfDay } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -62,7 +63,11 @@ export default function InstructorProfilePage() {
   const [requesting, setRequesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [form, setForm] = useState({ startDate: todayISO(), endDate: todayISO(), reason: "" });
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
+  const [form, setForm] = useState({ startDate: "", endDate: "", reason: "" });
 
   const load = useCallback(async () => {
     const me = await fetchMe();
@@ -121,7 +126,7 @@ export default function InstructorProfilePage() {
       );
       toast("success", "Leave request submitted for approval.");
       setRequesting(false);
-      setForm({ startDate: todayISO(), endDate: todayISO(), reason: "" });
+      setForm({ startDate: today, endDate: today, reason: "" });
       reload();
     } catch (e) {
       setFormError(

@@ -19,6 +19,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useUniversityToday } from "@/app/_lib/zone";
 import {
   Badge,
   Button,
@@ -29,7 +30,6 @@ import {
   inputClass,
 } from "@/app/_components/ui";
 import { IconAlert, IconCheck, IconClose, IconInfo } from "@/app/_components/icons";
-import { daysAgoISO, todayISO } from "@/app/_lib/format";
 
 /* ── Dialog ────────────────────────────────────────────────────────────── */
 
@@ -301,12 +301,27 @@ export function Tabs({
 
 export type Period = { from: string; to: string };
 
-const PRESETS: Array<{ id: string; label: string; resolve: () => Period }> = [
-  { id: "today", label: "Today", resolve: () => ({ from: todayISO(), to: todayISO() }) },
-  { id: "7d", label: "Last 7 days", resolve: () => ({ from: daysAgoISO(6), to: todayISO() }) },
-  { id: "30d", label: "Last 30 days", resolve: () => ({ from: daysAgoISO(29), to: todayISO() }) },
-  { id: "90d", label: "Last 90 days", resolve: () => ({ from: daysAgoISO(89), to: todayISO() }) },
+/**
+ * The presets, resolved against a given "today".
+ *
+ * A function of the day rather than a constant, because "Today" has to mean the
+ * UNIVERSITY's today. Read from the browser it labels yesterday's rows "Today"
+ * for the hours the two zones disagree — which for an Indian university and a
+ * UTC-set machine is every evening.
+ */
+const presetsFor = (today: string): Array<{ id: string; label: string; resolve: () => Period }> => [
+  { id: "today", label: "Today", resolve: () => ({ from: today, to: today }) },
+  { id: "7d", label: "Last 7 days", resolve: () => ({ from: daysBefore(today, 6), to: today }) },
+  { id: "30d", label: "Last 30 days", resolve: () => ({ from: daysBefore(today, 29), to: today }) },
+  { id: "90d", label: "Last 90 days", resolve: () => ({ from: daysBefore(today, 89), to: today }) },
 ];
+
+/** Calendar arithmetic on a date string — no instant, so no zone to get wrong. */
+function daysBefore(date: string, days: number): string {
+  const at = new Date(`${date}T00:00:00.000Z`);
+  at.setUTCDate(at.getUTCDate() - days);
+  return at.toISOString().slice(0, 10);
+}
 
 /**
  * The one period control (§47).
@@ -326,14 +341,17 @@ export function PeriodSelector({
   onChange: (next: Period | null) => void;
   defaultLabel?: string;
 }) {
+  const today = useUniversityToday();
+  const PRESETS = presetsFor(today);
   const [custom, setCustom] = useState(false);
-  const [draft, setDraft] = useState<Period>({ from: daysAgoISO(6), to: todayISO() });
+  const [draft, setDraft] = useState<Period | null>(null);
+  const range = draft ?? { from: daysBefore(today, 6), to: today };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select
         aria-label="Period"
-        value={custom ? "custom" : (value ? matchPreset(value) : "default")}
+        value={custom ? "custom" : (value ? matchPreset(value, today) : "default")}
         onChange={(e) => {
           const id = e.target.value;
           if (id === "default") {
@@ -366,10 +384,10 @@ export function PeriodSelector({
           <input
             type="date"
             aria-label="From date"
-            value={draft.from}
-            max={draft.to}
+            value={range.from}
+            max={range.to}
             onChange={(e) => {
-              const nextDraft = { ...draft, from: e.target.value };
+              const nextDraft = { ...range, from: e.target.value };
               setDraft(nextDraft);
               onChange(nextDraft);
             }}
@@ -379,10 +397,10 @@ export function PeriodSelector({
           <input
             type="date"
             aria-label="To date"
-            value={draft.to}
-            min={draft.from}
+            value={range.to}
+            min={range.from}
             onChange={(e) => {
-              const nextDraft = { ...draft, to: e.target.value };
+              const nextDraft = { ...range, to: e.target.value };
               setDraft(nextDraft);
               onChange(nextDraft);
             }}
@@ -394,8 +412,8 @@ export function PeriodSelector({
   );
 }
 
-function matchPreset(period: Period): string {
-  const hit = PRESETS.find((p) => {
+function matchPreset(period: Period, today: string): string {
+  const hit = presetsFor(today).find((p) => {
     const r = p.resolve();
     return r.from === period.from && r.to === period.to;
   });

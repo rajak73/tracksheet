@@ -29,7 +29,8 @@ import {
 } from "@/app/_components/ui";
 import { useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { formatDate, formatTimeRange, todayISO } from "@/app/_lib/format";
+import { formatDate, formatTimeRange } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 type Instructor = { id: string; user: { name: string } };
 type ActivityType = { id: string; code: string; label: string; isDerivedFromWorkingHours: boolean };
@@ -44,7 +45,12 @@ type Slot = {
 
 export default function ManagerSchedulePage() {
   const toast = useToast();
-  const [date, setDate] = useState(todayISO());
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
+  const [date, setDate] = useState<string | null>(null);
+  const at = date ?? today;
   const [instructorId, setInstructorId] = useState("");
   const [form, setForm] = useState({ code: "", start: "09:00", end: "10:00", location: "" });
   const [saving, setSaving] = useState(false);
@@ -133,7 +139,7 @@ export default function ManagerSchedulePage() {
       <Field label="Date" className="w-auto">
         <input
           type="date"
-          value={date}
+          value={at}
           onChange={(e) => setDate(e.target.value)}
           className={inputClass}
         />
@@ -182,7 +188,7 @@ export default function ManagerSchedulePage() {
       />
 
       <Card>
-        <CardHeader title="Add a slot" description={formatDate(date)} />
+        <CardHeader title="Add a slot" description={formatDate(at)} />
         <CardBody>
           <form onSubmit={addSlot} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -228,7 +234,7 @@ export default function ManagerSchedulePage() {
       </Card>
 
       <Card>
-        <CardHeader title="Planned slots" description={formatDate(date)} />
+        <CardHeader title="Planned slots" description={formatDate(at)} />
         {slots.loading ? (
           <div className="p-5">
             <TableSkeleton cols={3} rows={3} />

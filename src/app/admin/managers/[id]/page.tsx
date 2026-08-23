@@ -26,6 +26,7 @@ import {
 } from "@/app/_components/ui";
 import { TrackerReport } from "@/app/_components/TrackerReport";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { TimeZoneProvider } from "@/app/_lib/zone";
 import { formatHours } from "@/app/_lib/format";
 
 type Instructor = {
@@ -49,7 +50,7 @@ type ManagerDetail = {
   id: string;
   employeeCode: string | null;
   universityId: string;
-  university: { id: string; name: string; code: string };
+  university: { id: string; name: string; code: string; timezone: string };
   user: { name: string; email: string; isActive: boolean };
   isPrimary: boolean;
   instructorCount: number;
@@ -196,11 +197,15 @@ export default function AdminManagerDetailPage({
           </Section>
 
           <Section title="Weekly report">
-            <TrackerReport
-              universityId={data.universityId}
-              managerId={id}
-              emptyHint="Nothing was recorded by this manager's instructors in the selected period."
-            />
+            {/* The SUBJECT's zone, not the admin's — see the note on the
+                university tracker page. */}
+            <TimeZoneProvider timeZone={data.manager.university.timezone}>
+              <TrackerReport
+                universityId={data.universityId}
+                managerId={id}
+                emptyHint="Nothing was recorded by this manager's instructors in the selected period."
+              />
+            </TimeZoneProvider>
           </Section>
         </>
       ) : null}

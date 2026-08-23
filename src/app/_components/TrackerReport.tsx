@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import { useUniversityToday } from "@/app/_lib/zone";
 import {
   Alert,
   Button,
@@ -31,7 +32,7 @@ import {
 } from "@/app/_components/ui";
 import { TrackerGrid, type Tracker } from "@/app/_components/TrackerGrid";
 import { apiGet, useLoad } from "@/app/_lib/api";
-import { formatDate, formatHours, todayISO } from "@/app/_lib/format";
+import { formatDate, formatHours } from "@/app/_lib/format";
 
 /**
  * The four reporting periods the client works in. `currentMonth` and `month`
@@ -75,7 +76,10 @@ export function TrackerReport({
   managerId?: string;
   emptyHint?: string;
 }) {
-  const today = todayISO();
+  /* The UNIVERSITY's today. This seeds the year, the month and the date
+   * filters, so a browser a day out opens the report on the wrong month at the
+   * turn of one. See `useUniversityToday`. */
+  const today = useUniversityToday();
   const [mode, setMode] = useState<Mode>("week");
   const [year, setYear] = useState(() => Number(today.slice(0, 4)));
   const [month, setMonth] = useState(() => Number(today.slice(5, 7)));

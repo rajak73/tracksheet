@@ -26,7 +26,11 @@ export const GET = withAuth<{ id: string }>(
         employeeCode: true,
         universityId: true,
         user: { select: { name: true, email: true, isActive: true } },
-        university: { select: { id: true, name: true, code: true } },
+        /* `timezone` so an admin screen showing this manager's roster can work
+         * out what "today" means where the WORK happens. An admin belongs to no
+         * university, so without it the screen falls back to the browser and a
+         * Westbrook report opens on whatever day it is in Delhi. */
+        university: { select: { id: true, name: true, code: true, timezone: true } },
       },
     });
 

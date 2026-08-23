@@ -27,7 +27,8 @@ import {
   inputClass,
 } from "@/app/_components/ui";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
-import { formatDate, formatTimeRange, todayISO } from "@/app/_lib/format";
+import { formatDate, formatTimeRange } from "@/app/_lib/format";
+import { useUniversityToday } from "@/app/_lib/zone";
 
 type Slot = {
   id: string;
@@ -60,7 +61,12 @@ type Schedule = {
 };
 
 export default function InstructorSchedulePage() {
-  const [date, setDate] = useState(todayISO());
+  /* The UNIVERSITY's today, not the browser's — the server judges every day
+   * boundary in the university's zone, so a browser a day out offers a date
+   * the server then refuses. See `useUniversityToday`. */
+  const today = useUniversityToday();
+  const [date, setDate] = useState<string | null>(null);
+  const at = date ?? today;
 
   const load = useCallback(async (): Promise<Schedule> => {
     const me = await fetchMe();
@@ -68,18 +74,18 @@ export default function InstructorSchedulePage() {
       throw new Error("No instructor profile is linked to this account.");
     }
     return apiGet<Schedule>(
-      `/api/instructors/${me.user.instructorId}/schedule?date=${date}`,
+      `/api/instructors/${me.user.instructorId}/schedule?date=${at}`,
       "Could not load your schedule for that date.",
     );
-  }, [date]);
+  }, [at]);
 
-  const { data, error, loading, reload } = useLoad(load, date);
+  const { data, error, loading, reload } = useLoad(load, at);
 
   const picker = (
     <Field label="Date" className="w-auto">
       <input
         type="date"
-        value={date}
+        value={at}
         onChange={(e) => setDate(e.target.value)}
         className={inputClass}
       />

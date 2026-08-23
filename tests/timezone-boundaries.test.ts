@@ -209,3 +209,54 @@ describe("nothing on the server reads the machine's own timezone", () => {
     ).toEqual([]);
   });
 });
+
+describe("no screen asks the browser what day it is", () => {
+  /* The third source the audit forbids, after the machine's zone and a
+   * hardcoded one: the BROWSER's. `todayISO` answers in it, and it is correct
+   * only where the viewer sits in their university's zone with a right clock.
+   *
+   * A manager reading an instructor's day in another city must see the
+   * INSTRUCTOR's boundary, and an instructor whose laptop is a day out must not
+   * be offered a date the server then refuses.
+   *
+   * `useUniversityToday` is the answer, fed by a zone the layout resolves
+   * server-side. This fails the build if a screen reaches for `todayISO`
+   * instead — with two exemptions that are the fallback itself.
+   */
+  test("todayISO is only reached for as a documented fallback", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    /* Where a browser answer is the honest one: the helper that defines it, the
+     * hook that falls back to it for a role with no university, and the one
+     * default that runs before any zone is known. */
+    const EXEMPT = new Set([
+      "src/app/_lib/format.ts",
+      "src/app/_lib/zone.tsx",
+      "src/app/instructor/worklog/page.tsx",
+    ]);
+
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          if (name === "generated" || name === "node_modules") continue;
+          walk(path);
+          continue;
+        }
+        if (!/\.tsx?$/.test(path) || EXEMPT.has(path)) continue;
+        const source = readFileSync(path, "utf8");
+        for (const [i, line] of source.split("\n").entries()) {
+          if (/\btodayISO\s*\(/.test(line)) offenders.push(`${path}:${i + 1} ${line.trim()}`);
+        }
+      }
+    };
+    walk("src/app");
+
+    expect(
+      offenders,
+      "use useUniversityToday() — the server judges days in the university's zone, not the viewer's",
+    ).toEqual([]);
+  });
+});

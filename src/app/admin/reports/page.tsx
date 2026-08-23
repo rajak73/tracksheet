@@ -5,9 +5,10 @@ import { ButtonLink, ErrorState, Field, PageHeader, Pagination, Select, TableSke
 import { ReportTable, type ReportRow } from "@/app/_components/ReportTable";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { TimeZoneProvider } from "@/app/_lib/zone";
 import { formatDate } from "@/app/_lib/format";
 
-type University = { id: string; name: string };
+type University = { id: string; name: string; timezone: string };
 
 type ReportResponse = {
   report: { from: string; to: string; rows: ReportRow[] };
@@ -36,6 +37,7 @@ export default function AdminReportsPage() {
   }, []);
 
   const { data: universities, error, loading, reload } = useLoad(load, "admin-reports-universities");
+  const selectedUniversity = universities?.find((u) => u.id === activeId) ?? null;
 
   const activeId = selected || universities?.[0]?.id || "";
 
@@ -66,7 +68,18 @@ export default function AdminReportsPage() {
           ))}
         </Select>
       </Field>
-      <PeriodSelector value={period} onChange={setPeriodAndResetPage} />
+      {/* ── Whose "today"? The selected university's ────────────────────
+        * An administrator belongs to no university, so "Today" has no meaning
+        * on an admin screen until one is chosen — and this screen chooses one.
+        * Wrapping the selector in that university's zone makes the preset mean
+        * the day where the work happened, so the same button pressed in Delhi
+        * and in New York asks for the same rows.
+        *
+        * Before a university is picked there is genuinely no answer, and the
+        * browser's day is the honest stand-in rather than an arbitrary one. */}
+      <TimeZoneProvider timeZone={selectedUniversity?.timezone ?? null}>
+        <PeriodSelector value={period} onChange={setPeriodAndResetPage} />
+      </TimeZoneProvider>
       {activeId && report.data ? (
         <ButtonLink
           external

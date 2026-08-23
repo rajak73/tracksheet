@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/server/auth/session";
+import { prisma } from "@/server/db";
 import { InstructorShell } from "@/app/_components/InstructorShell";
+import { TimeZoneProvider } from "@/app/_lib/zone";
 
 /**
  * Server-side role guard for the entire /instructor tree. This runs before any
@@ -20,9 +22,21 @@ export default async function INSTRUCTORLayout({ children }: { children: React.R
     redirect("/login");
   }
 
+  /* Resolved here, once, because this component already holds the principal —
+   * so every screen below can say what day it is where the WORK happens
+   * without a request of its own. See `TimeZoneProvider`. */
+  const university = principal.universityId
+    ? await prisma.university.findUnique({
+        where: { id: principal.universityId },
+        select: { timezone: true },
+      })
+    : null;
+
   return (
-    <InstructorShell userName={principal.name}>
-      {children}
-    </InstructorShell>
+    <TimeZoneProvider timeZone={university?.timezone ?? null}>
+      <InstructorShell userName={principal.name}>
+        {children}
+      </InstructorShell>
+    </TimeZoneProvider>
   );
 }
