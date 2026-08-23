@@ -37,6 +37,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/app/_components/ManagerDashboard";
 import { PeriodPicker, type View } from "@/app/_components/PeriodPicker";
+import { AverageHoursByUniversity } from "@/app/_components/AverageHoursByUniversity";
 import {
   IconUniversity,
   IconUsers,
@@ -52,6 +53,7 @@ import {
   TableSkeleton,
 } from "@/app/_components/ui";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { useUniversityToday } from "@/app/_lib/zone";
 import { formatDayAs, formatHours } from "@/app/_lib/format";
 import { categoryColor } from "@/app/_components/charts";
 
@@ -107,10 +109,7 @@ function monthEdges(iso: string): { from: string; to: string } {
   return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
 }
 
-const todayIso = () =>
-  new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
-    .toISOString()
-    .slice(0, 10);
+
 
 const VIEW_KEY = "niat:admin:view";
 
@@ -119,7 +118,16 @@ type Sort = "name" | "hours-desc" | "hours-asc" | "silent-desc";
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  const today = todayIso();
+  /**
+   * Today, in the UNIVERSITY's zone.
+   *
+   * This was a hand-rolled helper reading `getFullYear()/getMonth()/getDate()` —
+   * the BROWSER's date. The audit that removed every other one of these missed
+   * all three, because it searched for the name `todayISO` and these were spelled
+   * `todayIso` and defined locally rather than imported. The guard is a pattern
+   * now, not a name.
+   */
+  const today = useUniversityToday();
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(today);
   /* Silent first by default. The reason to open this page is to find what is
@@ -256,6 +264,14 @@ export default function AdminDashboardPage() {
       ) : null}
 
       {/* ── The network ──────────────────────────────────────────────────── */}
+      {/* ── What each university averages per instructor ────────────────
+        * A plain figure with no target behind it: everything recorded in the
+        * period divided by every instructor on the roster, reporting or not.
+        * Its own Day/Week/Month switch, because the question "what are we
+        * averaging" is asked at a granularity of its own rather than whatever
+        * the page above happens to be showing. */}
+      <AverageHoursByUniversity />
+
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div>

@@ -88,6 +88,40 @@ function label(view: View, selected: string): string {
   return formatDayAs(selected, { month: "long", year: "numeric" });
 }
 
+/**
+ * Day / Week / Month, on its own.
+ *
+ * Lifted out of `PeriodPicker` so a card that switches granularity without
+ * navigating between dates uses the same control rather than a second one that
+ * looks nearly the same — three buttons is exactly the amount of markup that
+ * gets copied and then quietly diverges.
+ */
+export function PeriodSwitch({
+  view,
+  onView,
+}: {
+  view: View;
+  onView: (next: View) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-control border border-line p-0.5">
+      {VIEWS.map(([id, name]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onView(id)}
+          aria-pressed={view === id}
+          className={`rounded-[0.4rem] px-3 py-1.5 text-sm font-medium transition ${
+            view === id ? "bg-primary text-white" : "text-muted hover:bg-hovered hover:text-content"
+          }`}
+        >
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function PeriodPicker({
   view,
   onView,
@@ -139,21 +173,7 @@ export function PeriodPicker({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-card">
-      <div className="flex items-center gap-1 rounded-control border border-line p-0.5">
-        {VIEWS.map(([id, name]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onView(id)}
-            aria-pressed={view === id}
-            className={`rounded-[0.4rem] px-3 py-1.5 text-sm font-medium transition ${
-              view === id ? "bg-primary text-white" : "text-muted hover:bg-hovered hover:text-content"
-            }`}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
+      <PeriodSwitch view={view} onView={onView} />
 
       <div className="ml-auto flex items-center gap-2">
         <Button size="sm" variant="ghost" aria-label={`Previous ${view}`} onClick={() => step(-1)}>
