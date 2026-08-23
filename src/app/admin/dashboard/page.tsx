@@ -25,12 +25,17 @@
  * relabelled. It rewarded whoever recorded the most minutes of anything.
  *
  * ── What is deliberately absent ───────────────────────────────────────────
- * No utilization percentage, and no averages per instructor. Both need a
- * capacity to divide by, and capacity is configured per university — an
- * institute-wide percentage would be dividing by a number that means something
- * different in each row. The network view reports totals and counts, which are
- * true whatever each university's hours are, and the drill-through leads to the
- * university's own page where capacity is known.
+ * No utilization percentage. It needs a capacity to divide by, and capacity is
+ * configured per university — an institute-wide percentage would be dividing by
+ * a number that means something different in each row. The drill-through leads
+ * to the university's own page, where capacity is known.
+ *
+ * The average hours per instructor IS here, and the distinction is the
+ * denominator: it divides by headcount, which counts the same thing everywhere,
+ * rather than by capacity, which does not. That also fixes what it is an
+ * average OF — the divisor is the whole roster, so an instructor who logged
+ * nothing is a zero in the average rather than absent from it. See
+ * `averageMinutesPerInstructor`.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
