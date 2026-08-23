@@ -48,6 +48,7 @@ import { IconDownload, IconFilter } from "@/app/_components/icons";
 import { useToast } from "@/app/_components/interactive";
 import { formatDayAs, formatDayShort } from "@/app/_lib/format";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
+import { useUniversityToday } from "@/app/_lib/zone";
 import {
   ManagerSheet,
   totalHours,
@@ -116,12 +117,7 @@ function monthGrid(iso: string): { from: string; to: string } {
   return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
 }
 
-function todayIso(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-    .toISOString()
-    .slice(0, 10);
-}
+
 
 const shortDate = formatDayShort;
 
@@ -129,7 +125,13 @@ const shortDate = formatDayShort;
 
 export default function ManagerWorklogPage() {
   const [view, setView] = useState<View>("day");
-  const [anchor, setAnchor] = useState<string>(todayIso());
+  /* Today in the UNIVERSITY's zone. This read the BROWSER's, through a
+   * hand-rolled `todayIso` the timezone audit missed — it searched for the name
+   * `todayISO`, and this was spelled differently and defined locally. */
+  const today = useUniversityToday();
+  const [anchor, setAnchor] = useState<string | null>(null);
+  /** The day being looked at: whatever was navigated to, else today. */
+  const at = anchor ?? today;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -140,13 +142,13 @@ export default function ManagerWorklogPage() {
   const toast = useToast();
 
   const range = useMemo(() => {
-    if (view === "day") return { from: anchor, to: anchor };
+    if (view === "day") return { from: at, to: at };
     if (view === "week") {
-      const monday = mondayOf(anchor);
+      const monday = mondayOf(at);
       return { from: monday, to: addDays(monday, 6) };
     }
-    return monthGrid(anchor);
-  }, [view, anchor]);
+    return monthGrid(at);
+  }, [view, at]);
 
   /* The SEARCH goes to the server, because it decides which instructors are in
    * the answer at all and therefore what "showing 3 of 28" counts. */
@@ -186,7 +188,7 @@ export default function ManagerWorklogPage() {
    * Day gives one row per person, Week seven, Month the weeks the month
    * touches — the same shape the instructor reads about themselves. */
   const periods: ManagerPeriod[] = useMemo(() => {
-    const today = todayIso();
+
 
     if (view === "month") {
       const out: ManagerPeriod[] = [];
@@ -230,7 +232,7 @@ export default function ManagerWorklogPage() {
         isCurrent: range.from === today,
       },
     ];
-  }, [view, range.from, range.to]);
+  }, [view, range.from, range.to, today]);
 
   const people: ManagerPerson[] = useMemo(() => {
     const rows = (data?.instructors ?? []).map((r) => ({
@@ -264,19 +266,19 @@ export default function ManagerWorklogPage() {
   }, [data, category, sort, periods]);
 
   const step = (direction: -1 | 1) => {
-    if (view === "day") return setAnchor(addDays(anchor, direction));
-    if (view === "week") return setAnchor(addDays(mondayOf(anchor), direction * 7));
-    const d = new Date(`${anchor}T00:00:00.000Z`);
+    if (view === "day") return setAnchor(addDays(at, direction));
+    if (view === "week") return setAnchor(addDays(mondayOf(at), direction * 7));
+    const d = new Date(`${at}T00:00:00.000Z`);
     d.setUTCMonth(d.getUTCMonth() + direction, 1);
     setAnchor(d.toISOString().slice(0, 10));
   };
 
   const periodLabel =
     view === "day"
-      ? formatDayAs(anchor, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+      ? formatDayAs(at, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
       : view === "week"
         ? `${shortDate(range.from)} – ${shortDate(range.to)}`
-        : formatDayAs(anchor, { month: "long", year: "numeric" });
+        : formatDayAs(at, { month: "long", year: "numeric" });
 
   /** Exactly what is on screen, as a spreadsheet. */
   const exportCsv = () => {
@@ -372,7 +374,7 @@ export default function ManagerWorklogPage() {
               <ButtonLink
                 external
                 size="sm"
-                href={`/api/universities/${universityId}/tracker?month=${anchor.slice(0, 7)}&export=csv`}
+                href={`/api/universities/${universityId}/tracker?month=${at.slice(0, 7)}&export=csv`}
               >
                 <IconDownload size={16} />
                 Export
@@ -454,7 +456,7 @@ export default function ManagerWorklogPage() {
             <Button size="sm" variant="ghost" aria-label={`Next ${view}`} onClick={() => step(1)}>
               →
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setAnchor(todayIso())}>
+            <Button size="sm" variant="secondary" onClick={() => setAnchor(today)}>
               Today
             </Button>
           </div>

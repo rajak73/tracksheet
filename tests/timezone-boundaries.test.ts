@@ -223,6 +223,66 @@ describe("no screen asks the browser what day it is", () => {
    * server-side. This fails the build if a screen reaches for `todayISO`
    * instead — with two exemptions that are the fallback itself.
    */
+  test("no screen builds its own local date, whatever it calls the helper", async () => {
+    /* ── Why this replaced a search for the NAME `todayISO` ────────────────
+     * That guard passed while three screens were reading the browser's clock,
+     * because they spelled it `todayIso` and defined it locally:
+     *
+     *     const todayIso = () =>
+     *       new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(),
+     *                         new Date().getDate())).toISOString().slice(0, 10)
+     *
+     * A guard that matches a name only catches the people who used the name.
+     * This matches the SHAPE — a local date getter — so a fourth hand-rolled
+     * helper under any name fails here the day it is written.
+     */
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    /* A copyright year is not a day boundary. Nothing is decided by it, no
+     * request carries it, and being a few hours out at midnight on the 31st of
+     * December costs nobody anything. */
+    const PRESENTATIONAL = new Set([
+      /* The file that DEFINES the browser-zone helper. `localISO` and
+       * `daysAgoISO` are supposed to read the browser — they are the fallback
+       * every other file is forbidden from rolling by hand. */
+      "src/app/_lib/format.ts",
+      /* A copyright year is not a day boundary. Nothing downstream reads it, no
+       * request carries it, and being an hour out on New Year's Eve costs
+       * nobody anything — so these stay, named, rather than being quietly
+       * swept along with the rest. */
+      "src/app/_components/public/PublicFooter.tsx",
+      "src/app/login/page.tsx",
+    ]);
+
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          if (name === "generated" || name === "node_modules") continue;
+          walk(path);
+          continue;
+        }
+        if (!/\.tsx?$/.test(path) || PRESENTATIONAL.has(path)) continue;
+        const source = readFileSync(path, "utf8");
+        for (const [i, line] of source.split("\n").entries()) {
+          if (/\.get(FullYear|Month|Date|Day|Hours|Minutes|Seconds)\(\)/.test(line)) {
+            if (line.includes("getUTC")) continue;
+            offenders.push(`${path}:${i + 1} ${line.trim()}`);
+          }
+        }
+      }
+    };
+    walk("src/app");
+
+    expect(
+      offenders,
+      "use useUniversityToday() — a day boundary belongs to the university, not the viewer",
+    ).toEqual([]);
+  });
+
+
   test("todayISO is only reached for as a documented fallback", async () => {
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");

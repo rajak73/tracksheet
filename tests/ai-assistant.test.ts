@@ -890,9 +890,18 @@ describe("the endpoint", () => {
   });
 });
 
+/**
+ * Today in NORTHFIELD's zone, which is the only today the figures move on.
+ *
+ * This returned the UTC date, and the assistant computes its context for the
+ * university's current period in Asia/Kolkata. Between 18:30 and midnight IST
+ * the two are different days, so the activity this test logs to "change the
+ * figures" landed outside the period, the figures did not move, the cache was
+ * correctly left alone — and the test failed for being right.
+ *
+ * Found at 02:15 IST, which is exactly the window. The same shape as the
+ * `worklog-narrative` bug: one side reading UTC, the other the university.
+ */
 function todayIso(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    .toISOString()
-    .slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }

@@ -56,6 +56,7 @@ import {
 import { useToast } from "@/app/_components/interactive";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { useUniversityToday } from "@/app/_lib/zone";
 import { formatDayAs } from "@/app/_lib/format";
 import { pingNotifications } from "@/app/_components/NotificationBell";
 import { Avatar } from "@/app/_components/AccountDialogs";
@@ -135,17 +136,23 @@ function monthEdges(iso: string): { from: string; to: string } {
 }
 
 /** Today, as the browser reads it. Corrected to the tenant's zone once known. */
-const todayIso = () =>
-  new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()))
-    .toISOString()
-    .slice(0, 10);
+
 
 const fmt = formatDayAs;
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function ManagerDashboardPage() {
-  const today = todayIso();
+  /**
+   * Today, in the UNIVERSITY's zone.
+   *
+   * This was a hand-rolled helper reading `getFullYear()/getMonth()/getDate()` —
+   * the BROWSER's date. The audit that removed every other one of these missed
+   * all three, because it searched for the name `todayISO` and these were spelled
+   * `todayIso` and defined locally rather than imported. The guard is a pattern
+   * now, not a name.
+   */
+  const today = useUniversityToday();
   const [view, setView] = useState<View>("day");
   const [anchor, setAnchor] = useState(today);
   const [reminding, setReminding] = useState<string | null>(null);
