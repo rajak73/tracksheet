@@ -219,6 +219,17 @@ export default function AdminDashboardPage() {
         }
       />
 
+      {/* ── What each university averages per active instructor-day ────────
+        * Shown first, ahead of the network totals below: it is the one figure
+        * on this page an admin reads university-by-university rather than as
+        * a single network-wide number, so it leads rather than follows.
+        * Σ(active minutes) ÷ Σ(active instructor-count) — see
+        * `src/domain/average-hours.ts` for the confirmed formula. Its own
+        * Day/Week/Month switch, because the question "what are we averaging"
+        * is asked at a granularity of its own rather than whatever the page
+        * below happens to be showing. */}
+      <AverageHoursByUniversity />
+
       {/* ── The four figures ─────────────────────────────────────────────── */}
       {network.loading && !totals ? (
         <StatGridSkeleton />
@@ -269,14 +280,6 @@ export default function AdminDashboardPage() {
       ) : null}
 
       {/* ── The network ──────────────────────────────────────────────────── */}
-      {/* ── What each university averages per instructor ────────────────
-        * A plain figure with no target behind it: everything recorded in the
-        * period divided by every instructor on the roster, reporting or not.
-        * Its own Day/Week/Month switch, because the question "what are we
-        * averaging" is asked at a granularity of its own rather than whatever
-        * the page above happens to be showing. */}
-      <AverageHoursByUniversity />
-
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div>
