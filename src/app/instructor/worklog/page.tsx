@@ -6,10 +6,10 @@
  * ── Why this is hand-built rather than assembled from the kit ─────────────
  * The shared `Section`, `FilterBar` and `Pagination` express this app's own
  * conventions, and the client's design differs from them in specific ways they
- * asked for: underlined tabs rather than a segmented control, a dismissible
- * banner beside the title rather than above it, outlined square row actions,
- * and a page-numbered pager. The markup here follows the design; the tokens are
- * still the app's, so it stays a page of this product rather than a transplant.
+ * asked for: underlined tabs rather than a segmented control, outlined square
+ * row actions, and a page-numbered pager. The markup here follows the design;
+ * the tokens are still the app's, so it stays a page of this product rather
+ * than a transplant.
  *
  * ── Their own rows, always ────────────────────────────────────────────────
  * `/api/activities` pins a self-scoped caller to their own instructorId on the
@@ -230,7 +230,6 @@ export default function WorkLogHistoryPage() {
   const [to, setTo] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [bannerOpen, setBannerOpen] = useState(true);
   /** The day whose individual entries are open, when it was written in several. */
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -355,8 +354,6 @@ export default function WorkLogHistoryPage() {
     }, [instructorId, windowFrom, windowTo]),
     `worklog-notes:${instructorId ?? "-"}:${windowFrom}:${windowTo}`,
   );
-  const todaysRows = rows.filter((r) => r.workDate.slice(0, 10) === today);
-
   /* One row per DAY in Date Wise, per WEEK in Weekly.
    *
    * The client's sheet has a line per day with the deliverables read across it,
@@ -603,7 +600,6 @@ export default function WorkLogHistoryPage() {
             : `${split.entries.length} entries recorded.`,
       );
       setOpen(false);
-      setBannerOpen(true);
       logs.reload();
         } catch (e) {
       setFormError(e instanceof Error ? e.message : "Something went wrong.");
@@ -660,43 +656,25 @@ export default function WorkLogHistoryPage() {
 
   return (
     <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-8">
-      {/* ── Title, banner, and the way in ─────────────────────────────── */}
+      {/* ── Title and the way in ──────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-content">Work Log History</h1>
           <p className="mt-1 text-sm text-muted">View and manage your submitted work logs</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {todaysRows.length > 0 && bannerOpen ? (
-            <div className="flex items-start gap-3 rounded-card border border-success/25 bg-success-subtle px-4 py-3">
-              <CheckCircle />
-              <p className="text-sm">
-                <span className="block font-semibold text-success-text">Great job!</span>
-                <span className="block text-content">
-                  Your work log for today has been submitted successfully.
-                </span>
-              </p>
-              <button
-                type="button"
-                onClick={() => setBannerOpen(false)}
-                aria-label="Dismiss"
-                className="-mr-1 shrink-0 rounded-control p-1 text-muted transition-colors hover:bg-hovered hover:text-content"
-              >
-                <Cross />
-              </button>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={openNew}
-            className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
-          >
-            <Plus />
-            Today&rsquo;s Work Log
-          </button>
-        </div>
+        {/* Submission feedback is the toast `submit()` fires — see below —
+            not a persistent banner here. A banner gated on "today has a row"
+            reappeared on every reload for as long as that stayed true, which
+            read as congratulating a page load rather than an action. */}
+        <button
+          type="button"
+          onClick={openNew}
+          className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
+        >
+          <Plus />
+          Today&rsquo;s Work Log
+        </button>
       </div>
 
       {/* ── Period navigation ─────────────────────────────────────────
@@ -766,17 +744,6 @@ export default function WorkLogHistoryPage() {
             {v === "date" ? "Day Wise" : v === "week" ? "Week Wise" : "Month Wise"}
           </button>
         ))}
-      </div>
-
-      <div className="mt-5 flex items-start gap-2.5 rounded-card border border-info/20 bg-info-subtle px-4 py-3 text-sm text-info-text">
-        <Info />
-        <p>
-          {view === "date"
-            ? "You are viewing your work logs day wise. Week and month views are also available in this section."
-            : view === "week"
-              ? "The same days, added up a week at a time. Activities of the same kind are merged into one line."
-              : "The same days, added up a month at a time. Switch to Day Wise for the day-by-day list."}
-        </p>
       </div>
 
       {/* ── Filters ───────────────────────────────────────────────────── */}
@@ -1529,33 +1496,10 @@ function Clipboard() {
     </svg>
   );
 }
-function CheckCircle() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="mt-0.5 size-5 shrink-0 text-success">
-      <circle cx="10" cy="10" r="8" fill="currentColor" />
-      <path d="m6.5 10.2 2.3 2.3 4.7-4.7" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function Cross() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
-      <path d="m5.5 5.5 9 9m0-9-9 9" {...stroke} />
-    </svg>
-  );
-}
 function Plus() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
       <path d="M10 4.5v11M4.5 10h11" {...stroke} strokeWidth={2} />
-    </svg>
-  );
-}
-function Info() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="mt-0.5 size-4 shrink-0">
-      <circle cx="10" cy="10" r="7.5" {...stroke} />
-      <path d="M10 9v4.5M10 6.6v.1" {...stroke} />
     </svg>
   );
 }
