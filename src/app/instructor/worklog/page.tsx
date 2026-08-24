@@ -757,93 +757,99 @@ export default function WorkLogHistoryPage() {
   return (
     <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-8">
       {/* ── Title and the way in ──────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-content">Work Log History</h1>
           <p className="mt-1 text-sm text-muted">View and manage your submitted work logs</p>
         </div>
 
-        {/* Submission feedback is the toast `submit()` fires — see below —
-            not a persistent banner here. A banner gated on "today has a row"
-            reappeared on every reload for as long as that stayed true, which
-            read as congratulating a page load rather than an action.
+        {/* The view switch and the day's action share the header's right-hand
+            side rather than each claiming a row of their own. Two full-width
+            rows for two small controls pushed the table down a whole band of
+            empty space, and the switch — right-aligned under a right-aligned
+            button — read as a second, unrelated header.
 
-            Two states, read from `hasSubmittedToday` — the same rows the
-            table below renders, so this button and that table can never
-            disagree about whether today has anything written yet. Distinct
-            styling rather than just a different label: a glance should tell
-            which state this is, not just a read.
+            ── Date Wise / Weekly ──────────────────────────────────────────
+            A segmented control of solid blue pills, matching the client's
+            reference: the selected view is filled, the rest are quiet. This
+            was an underlined tab strip, which read as navigation between
+            pages rather than as one control with two settings. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
+            {(["date", "week"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => {
+                  /* A view change is a change of question, and the answer to a
+                     new question starts at now — so both views reset the filters
+                     to today rather than carrying a date the reader chose while
+                     asking something else. */
+                  setView(v);
+                  setPage(1);
+                  setExpanded(null);
+                  /* Each view sets the calendar to the range it is about to
+                     show: Week Wise to this week's Monday and Sunday, Day Wise
+                     to one page of days ending today. The filters and the table
+                     then describe the same period rather than the filters
+                     describing one the table has never shown. */
+                  if (v === "week") {
+                    const week = weekRange(today);
+                    setFrom(week.from);
+                    setTo(week.to);
+                  } else {
+                    const range = defaultDayRange(zone);
+                    setFrom(range.from);
+                    setTo(range.to);
+                  }
+                }}
+                aria-pressed={view === v}
+                className={`rounded-[calc(var(--radius-control)-2px)] px-5 py-2 text-sm font-semibold transition-colors ${
+                  view === v
+                    ? "bg-primary text-white"
+                    : "text-muted hover:bg-primary-subtle hover:text-primary-text"
+                }`}
+              >
+                {v === "date" ? "Day Wise" : "Week Wise"}
+              </button>
+            ))}
+          </div>
 
-            Shown only while today is in the range on screen. An instructor
-            records today and nothing else, so a control for it sitting above
-            a table of last April was offering the one day that table does not
-            contain — and, worse, guessing its state from rows that could not
-            answer. See `todayInView`. */}
-        {!todayInView ? null : hasSubmittedToday ? (
-          <button
-            type="button"
-            onClick={() => void openEditToday()}
-            className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success-text shadow-card transition-colors hover:bg-success/10"
-          >
-            <Pencil />
-            Edit Today&rsquo;s Log
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={openNew}
-            className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
-          >
-            <Plus />
-            Add Today&rsquo;s Worklog
-          </button>
-        )}
-      </div>
+          {/* Submission feedback is the toast `submit()` fires — see below —
+              not a persistent banner here. A banner gated on "today has a row"
+              reappeared on every reload for as long as that stayed true, which
+              read as congratulating a page load rather than an action.
 
-      {/* ── Date Wise / Weekly ──────────────────────────────────────────
-        * A segmented control of solid blue pills, matching the client's
-        * reference: the selected view is filled, the rest are quiet. This was
-        * an underlined tab strip, which read as navigation between pages
-        * rather than as one control with three settings. */}
-      <div className="mt-6 flex justify-end">
-        <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
-          {(["date", "week"] as const).map((v) => (
+              Two states, read from `hasSubmittedToday` — the same rows the
+              table below renders, so this button and that table can never
+              disagree about whether today has anything written yet. Distinct
+              styling rather than just a different label: a glance should tell
+              which state this is, not just a read.
+
+              Shown only while today is in the range on screen. An instructor
+              records today and nothing else, so a control for it sitting above
+              a table of last April was offering the one day that table does not
+              contain — and, worse, guessing its state from rows that could not
+              answer. See `todayInView`. */}
+          {!todayInView ? null : hasSubmittedToday ? (
             <button
-              key={v}
               type="button"
-              onClick={() => {
-                /* A view change is a change of question, and the answer to a
-                   new question starts at now — so both views reset the filters
-                   to today rather than carrying a date the reader chose while
-                   asking something else. */
-                setView(v);
-                setPage(1);
-                setExpanded(null);
-                /* Each view sets the calendar to the range it is about to
-                   show: Week Wise to this week's Monday and Sunday, Day Wise
-                   to one page of days ending today. The filters and the table
-                   then describe the same period rather than the filters
-                   describing one the table has never shown. */
-                if (v === "week") {
-                  const week = weekRange(today);
-                  setFrom(week.from);
-                  setTo(week.to);
-                } else {
-                  const range = defaultDayRange(zone);
-                  setFrom(range.from);
-                  setTo(range.to);
-                }
-              }}
-              aria-pressed={view === v}
-              className={`rounded-[calc(var(--radius-control)-2px)] px-5 py-2 text-sm font-semibold transition-colors ${
-                view === v
-                  ? "bg-primary text-white"
-                  : "text-muted hover:bg-primary-subtle hover:text-primary-text"
-              }`}
+              onClick={() => void openEditToday()}
+              className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success-text shadow-card transition-colors hover:bg-success/10"
             >
-              {v === "date" ? "Day Wise" : "Week Wise"}
+              <Pencil />
+              Edit Today&rsquo;s Log
             </button>
-          ))}
+          ) : (
+            <button
+              type="button"
+              onClick={openNew}
+              className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
+            >
+              <Plus />
+              Add Today&rsquo;s Worklog
+            </button>
+          )}
         </div>
       </div>
 
