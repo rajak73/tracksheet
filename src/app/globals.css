@@ -35,14 +35,35 @@
    apart one component at a time.
 
    Palette direction: Dark Navy + Enterprise Blue + Cool White. Navy
-   (#08213D) is the structural brand anchor and belongs almost exclusively to
-   the sidebar and mobile navigation. Enterprise Blue (#2563EB) is the
+   (#162238) is the structural brand anchor and belongs almost exclusively to
+   the sidebar and mobile navigation. Enterprise Blue (#1467E8) is the
    interaction colour — primary buttons, links, active indicators, the
    primary chart series. The workspace is a very light cool grey-blue
    (#F7F9FC), never stark white everywhere, so the layering reads
    NAVY SIDEBAR -> LIGHT WORKSPACE -> WHITE CARDS. Roughly 70-80% of any
    screen stays neutral, ~10-15% navy, ~5-10% blue, with semantic colour used
    sparingly on top.
+
+   ── The reference-palette pass ─────────────────────────────────────────
+   Navy and blue were retuned to a client-supplied reference: navy moved
+   from #08213D/#0B2342 (two slightly different values, the second never
+   actually reachable from a real screen — brand-navy and sidebar-bg now
+   share the one #162238) to a lighter, warmer navy; blue from #2563EB to a
+   deeper #1467E8. Body text now shares that same navy family (#162238)
+   rather than a separate near-black, matching the reference. `--app-text-
+   muted` moved toward the reference's lighter grey but NOT all the way to
+   its literal value: that value (#64748B) is already this file's `subtle`,
+   sitting at 4.51:1 on canvas — the lowest lightness that still clears AA
+   here, so `subtle` stayed put and `muted` moved only halfway to it,
+   preserving three visually distinct, individually AA-compliant text
+   steps rather than collapsing two of them together. `success` moved
+   toward the reference's teal-leaning green, darkened enough (#0E7A44
+   rather than its literal ~#169653) to hold 4.5:1 on success-subtle — the
+   literal value only cleared 3.6:1. `warning` and `danger` are untouched:
+   neither appears in the reference (one screenshot, no error or caution
+   state visible in it), and both were checked for a clash against the new
+   navy/blue/green and found to still read as clearly distinct semantic
+   colours, so nothing here was invented to fill a gap that isn't one.
 
    ── THIS IS A FIXED LIGHT THEME. NO DARK MODE. ────────────────────────────
 
@@ -75,13 +96,15 @@
   --app-surface-sunken: #f8fafc;
   --app-surface-hover: #f1f5f9;
 
-  /* Text, in descending emphasis. */
-  --app-text: #0f172a;
-  --app-text-muted: #475569;
+  /* Text, in descending emphasis. `text` shares the navy family below —
+     the reference keeps body text and the brand navy in one hue rather
+     than a separate near-black. */
+  --app-text: #162238;
+  --app-text-muted: #526074;
   --app-text-subtle: #64748b;
   --app-text-inverted: #ffffff;
 
-  --app-border: #e2e8f0;
+  --app-border: #d9e2ef;
   /* Subtle border for inner rules that must not compete with the card edge. */
   --app-border-subtle: #edf2f7;
   --app-border-strong: #cbd5e1;
@@ -91,25 +114,27 @@
      decorative, so its presence always means "this is interactive". The
      sidebar's navy is a separate token set below (structural, not
      interactive). */
-  --app-primary: #2563eb;
-  --app-primary-hover: #1d4ed8;
+  --app-primary: #1467e8;
+  --app-primary-hover: #0f52c4;
   --app-primary-subtle: #eff6ff;
-  --app-primary-text: #1d4ed8;
+  --app-primary-text: #0f52c4;
   /* A lighter step of the same family, for a second data series or a
-     secondary interactive emphasis. Never a second brand colour. */
-  --app-primary-bright: #3b82f6;
+     secondary interactive emphasis. Never a second brand colour. UI-scale
+     use only (3.2:1 on white) — a chart accent or an icon, never body text. */
+  --app-primary-bright: #4d8ff0;
 
   /* Structural brand navy. Exposed as tokens so anything genuinely
      structural/brand-level can reach them, but in practice this is
-     navigation — the workspace itself stays light. */
-  --app-brand-navy: #0b2342;
-  --app-brand-navy-dark: #071a33;
+     navigation — the workspace itself stays light. Same value as
+     `--app-sidebar-bg` below: one navy, not two that happen to look close. */
+  --app-brand-navy: #162238;
+  --app-brand-navy-dark: #0e1723;
 
   /* Status. Restrained semantic colours — used for data (utilisation,
      compliance, severity), never for brand emphasis. */
-  --app-success: #16a34a;
+  --app-success: #1caa5c;
   --app-success-subtle: #f0fdf4;
-  --app-success-text: #15803d;
+  --app-success-text: #0e7a44;
 
   --app-warning: #f59e0b;
   --app-warning-subtle: #fffbeb;
@@ -119,9 +144,9 @@
   --app-danger-subtle: #fef2f2;
   --app-danger-text: #b91c1c;
 
-  --app-info: #2563eb;
+  --app-info: #1467e8;
   --app-info-subtle: #eff6ff;
-  --app-info-text: #1d4ed8;
+  --app-info-text: #0f52c4;
 
   /* Deliberately shallow. Depth here comes from borders and background
      steps, not drop shadows — cards must not look like floating balloons. */
@@ -132,13 +157,13 @@
      surface, so it does not participate in light/dark switching. The active
      item is a SOLID blue pill against the navy: at that contrast a
      translucent wash reads as a smudge rather than a selection. */
-  --app-sidebar-bg: #08213d;
+  --app-sidebar-bg: #162238;
   --app-sidebar-text: #ffffff;
   --app-sidebar-text-muted: #94a3b8;
   --app-sidebar-border: rgb(255 255 255 / 0.08);
   --app-sidebar-hover-bg: rgb(255 255 255 / 0.06);
-  --app-sidebar-active-bg: #2563eb;
-  --app-sidebar-active-accent: #3b82f6;
+  --app-sidebar-active-bg: #1467e8;
+  --app-sidebar-active-accent: #4d8ff0;
 
   /* Workload categories.
 
@@ -342,10 +367,11 @@ body {
   border-radius: 2px;
 }
 
-/* The sidebar is a fixed Deep Teal surface in both light and dark mode (see
-   the token block above), so the default primary-coloured ring — teal on
-   teal — would be invisible there. `<aside>` is used nowhere else in the
-   app, so this scopes cleanly to just the two sidebar instances. */
+/* The sidebar is a fixed Navy surface in both light and dark mode (see
+   the token block above), so the default primary-coloured ring — blue on
+   navy that's already close to it in darkness — would be low-contrast
+   there. `<aside>` is used nowhere else in the app, so this scopes cleanly
+   to just the two sidebar instances. */
 aside :focus-visible {
   outline-color: var(--app-sidebar-text);
 }

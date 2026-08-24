@@ -34,9 +34,9 @@ Colours are **semantic roles, never palette steps**. Components say
 rule here: it is what stops light and dark themes drifting apart one component
 at a time, and it means a theme change is one file rather than a search.
 
-The palette is **Dark Navy + Royal Blue + Cool White**. Navy (`#0C2546`) is
+The palette is **Dark Navy + Royal Blue + Cool White**. Navy (`#162238`) is
 the *structural* brand anchor and belongs almost exclusively to the sidebar
-and mobile navigation — it is not a workspace colour. Royal Blue (`#2F6FED`)
+and mobile navigation — it is not a workspace colour. Royal Blue (`#1467E8`)
 is the *interaction* colour: primary buttons, links, active indicators,
 selected controls, the primary chart series. The workspace is a very light
 cool grey-blue (`#F7F9FC`), never stark white everywhere, which produces the
@@ -56,14 +56,36 @@ that reaches for navy or blue on every card has drifted.
 | `surface` | Cards, panels, dialogs, the header — `#FFFFFF` |
 | `sunken` | Inset areas — table headers, chips, meter tracks |
 | `hovered` | Row and control hover |
-| `content` | Primary text — `#172338` |
-| `muted` | Secondary text, labels — `#5F6B7A` |
-| `subtle` | Tertiary — placeholders, em-dashes, timestamps — `#8A95A3` |
-| `line` / `line-strong` | Borders — `#E2E8F0` |
-| `primary` | Interaction colour — Royal Blue, `#2F6FED` (hover `#245FD0`, soft `#EEF4FF`) |
-| `brand-navy` | Structural brand navy — `#0C2546` |
+| `content` | Primary text — `#162238`, the same navy family as the header |
+| `muted` | Secondary text, labels — `#526074` |
+| `subtle` | Tertiary — placeholders, em-dashes, timestamps — `#64748B` |
+| `line` / `line-strong` | Borders — `#D9E2EF` |
+| `primary` | Interaction colour — Royal Blue, `#1467E8` (hover/text `#0F52C4`, soft `#EFF6FF`) |
+| `brand-navy` | Structural brand navy — `#162238` (same value as `sidebar-bg`) |
 | `success` `warning` `danger` `info` | Status, each with `-subtle` and `-text` pairs |
 | `sidebar-bg` `sidebar-text` `sidebar-text-muted` `sidebar-border` `sidebar-hover-bg` `sidebar-active-bg` `sidebar-active-accent` | The sidebar's own token set — see below |
+
+This table was re-tuned against a client-supplied reference screenshot. Two
+adjustments there are worth recording, since a future reader diffing this
+table against a colour picker on the reference will otherwise wonder why the
+numbers don't match exactly:
+
+- **`muted` is not the reference's literal `#64748B`.** That value is
+  already `subtle`, sitting at 4.51:1 against `canvas` — the lightest a
+  colour can be here and still clear WCAG AA. Promoting it to `muted` too
+  would collapse two of the three text steps into one. `muted` moved about
+  halfway there instead (`#526074`), keeping all three steps distinct and
+  every one of them individually AA-compliant.
+- **`success-text` is darker than the reference's `~#169653`.** That value
+  only reaches 3.6:1 on `success-subtle` — enough for a bold heading ("Great
+  job!") but not for the regular-weight confirmation line beneath it.
+  `#0E7A44` holds 4.5:1 while staying in the same teal-leaning green family.
+
+`warning` and `danger` are untouched — neither state appears in the
+reference (one screenshot, no error or caution state visible in it), and
+both were checked for a clash against the new navy/blue/green and still
+read as clearly distinct. Nothing was invented to fill a gap that isn't
+actually there.
 
 **Navy is structural, blue is interactive.** They are not interchangeable:
 navy says "this is the frame of the application", blue says "this does
@@ -77,8 +99,9 @@ means "healthy"; it is never applied because green looks nice.
 Unlike every other surface in the app, the sidebar's tokens (`--app-sidebar-*`
 in `globals.css`) live **outside** the `prefers-color-scheme: dark` block —
 navy in both light and dark, because it is a brand anchor, not a workspace
-surface. Its active-nav state is a Royal Blue wash (`rgb(47 111 237 / 0.22)`)
-plus a solid Royal Blue left accent bar — never a bright glowing fill.
+surface. Its active-nav state is a solid Royal Blue pill (`sidebar-active-bg`)
+and nothing else — no separate left accent bar, which would just be a second
+indicator saying what the fill already says.
 Because the default focus ring is `--app-primary` and would be low-contrast
 on navy, `aside :focus-visible` (the sidebar is the only `<aside>` in the
 app) overrides the ring colour to white.
