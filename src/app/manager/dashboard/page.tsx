@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import { useQueryState } from "@/app/_lib/query-state";
 import {
   Button,
   SearchInput,
@@ -153,15 +154,30 @@ export default function ManagerDashboardPage() {
    * now, not a name.
    */
   const today = useUniversityToday();
-  const [view, setView] = useState<View>("day");
-  const [anchor, setAnchor] = useState(today);
-  const [reminding, setReminding] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  /* View, date, search and sort live in the URL, so a refresh comes back to
+   * the week somebody had paged to rather than to today's Day view — and so
+   * that week can be linked to. `showAll` and `reminding` stay in memory: one
+   * is how far down a list you have expanded and the other is a request in
+   * flight, and neither is a thing to restore or send to somebody.
+   * See `useQueryState`. */
+  const [q, setQ] = useQueryState({ view: "day", on: "", search: "", sort: "name" });
+  const view = (["day", "week", "month"].includes(q.view) ? q.view : "day") as View;
+  const anchor = q.on || today;
+  const search = q.search;
   /* Name first, because a roster is usually read looking for somebody. Hours
    * is the other question — "who is light this week, who is buried" — and it
    * only answers it if the figure sorted on is the SAME one on the cards. */
-  const [sort, setSort] = useState<"name" | "hours-desc" | "hours-asc">("name");
+  const sort = (["name", "hours-desc", "hours-asc"].includes(q.sort)
+    ? q.sort
+    : "name") as "name" | "hours-desc" | "hours-asc";
+
+  const setView = (v: View) => setQ({ view: v });
+  const setAnchor = (v: string) => setQ({ on: v });
+  const setSearch = (v: string) => setQ({ search: v });
+  const setSort = (v: typeof sort) => setQ({ sort: v });
+
+  const [reminding, setReminding] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const toast = useToast();
 
   const month = anchor.slice(0, 7);

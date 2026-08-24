@@ -32,6 +32,7 @@
  */
 
 import { Fragment, useCallback, useMemo, useState } from "react";
+import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
@@ -213,17 +214,24 @@ const COLUMNS = [
 export default function WorkLogHistoryPage() {
   const toast = useToast();
 
-  // Day Wise by default, as the client requires.
-  const [view, setView] = useState<"date" | "week">("date");
-  /* Neither view carries an anchor of its own any more. Day Wise reads the two
-   * date filters; Week Wise reads the week the From filter falls in. They used
-   * to have one each, stepped by arrows above the filters — with those gone
-   * there is nothing left to move an anchor, and one that cannot move is just a
+  /* Which view, which dates, which search, which page — in the URL, so a
+   * refresh comes back to the same screen instead of dropping the reader on
+   * today's Day Wise. Day Wise is still the default; it is just no longer the
+   * only thing a reload can produce. See `useQueryState`.
+   *
+   * Neither view carries an anchor of its own. Day Wise reads the two date
+   * filters; Week Wise reads the week the From filter falls in. They used to
+   * have one each, stepped by arrows above the filters — with those gone there
+   * is nothing left to move an anchor, and one that cannot move is just a
    * second, stale source of truth beside the filters. */
-  const [from, setFrom] = useState<string | null>(null);
-  const [to, setTo] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [q, setQ] = useQueryState({ view: "date", from: "", to: "", search: "", page: "1" });
+  const view = q.view === "week" ? "week" : "date";
+  const from = q.from || null;
+  const to = q.to || null;
+  const search = q.search;
+  const page = Math.max(1, Number(q.page) || 1);
+
+  const setPage = (n: number) => setQ({ page: String(n) });
   /** The day whose individual entries are open, when it was written in several. */
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -352,14 +360,10 @@ export default function WorkLogHistoryPage() {
     value = inRange(value);
     if (view === "week") {
       const week = weekRange(value);
-      setFrom(week.from);
-      setTo(week.to);
-    } else if (end === "from") {
-      setFrom(value);
+      setQ({ from: week.from, to: week.to, page: "1" });
     } else {
-      setTo(value);
+      setQ({ [end]: value, page: "1" });
     }
-    setPage(1);
   }
 
   /* Is today inside the range being looked at?
@@ -816,23 +820,18 @@ export default function WorkLogHistoryPage() {
                      new question starts at now — so both views reset the filters
                      to today rather than carrying a date the reader chose while
                      asking something else. */
-                  setView(v);
-                  setPage(1);
                   setExpanded(null);
                   /* Each view sets the calendar to the range it is about to
                      show: Week Wise to this week's Monday and Sunday, Day Wise
                      to one page of days ending today. The filters and the table
                      then describe the same period rather than the filters
-                     describing one the table has never shown. */
-                  if (v === "week") {
-                    const week = weekRange(today);
-                    setFrom(week.from);
-                    setTo(week.to);
-                  } else {
-                    const range = defaultDayRange(zone);
-                    setFrom(range.from);
-                    setTo(range.to);
-                  }
+                     describing one the table has never shown.
+
+                     All four in ONE patch: `router.replace` does not update the
+                     address synchronously, so four calls here would each read
+                     the same URL and the last would be the only one kept. */
+                  const range = v === "week" ? weekRange(today) : defaultDayRange(zone);
+                  setQ({ view: v, from: range.from, to: range.to, page: "1" });
                 }}
                 aria-pressed={view === v}
                 className={`rounded-[calc(var(--radius-control)-2px)] px-5 py-2 text-sm font-semibold transition-colors ${
@@ -936,8 +935,7 @@ export default function WorkLogHistoryPage() {
             type="search"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
+              setQ({ search: e.target.value, page: "1" });
             }}
             placeholder="Search by deliverable, remarks..."
             className="h-11 w-full rounded-control border border-line bg-surface pl-10 pr-3 text-sm text-content"
@@ -951,10 +949,7 @@ export default function WorkLogHistoryPage() {
             // always Day Wise's — resetting inside Week Wise used to hand back
             // a range that was not a week.
             const range = view === "week" ? weekRange(today) : defaultDayRange(zone);
-            setFrom(range.from);
-            setTo(range.to);
-            setSearch("");
-            setPage(1);
+            setQ({ from: range.from, to: range.to, search: "", page: "1" });
           }}
           className="inline-flex h-11 shrink-0 items-center gap-2 rounded-control border border-primary/40 px-4 text-sm font-semibold text-primary-text transition-colors hover:bg-primary-subtle"
         >
