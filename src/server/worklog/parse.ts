@@ -58,6 +58,15 @@ export type ParsedBullet = {
   /** Computed from the range. Null when there was no usable range. */
   durationMinutes: number | null;
   /**
+   * Whether the instructor GAVE this clock range.
+   *
+   * A duration-only line ("spent 2h on lab prep") gets a range later, laid
+   * after whatever the day already holds — see the placement pass in
+   * `narrative.ts`. That range is ours, and readers must not print it as
+   * something anybody said. Stored on the row as `ActivityLog.timesStated`.
+   */
+  timesStated: boolean;
+  /**
    * How many of that deliverable THIS bullet accounts for.
    *
    * `null` is the client's `?` — the instructor never said how many, and for a
@@ -273,6 +282,8 @@ function reconcile(raw: unknown, index: number, rawText: string, taxonomy: Taxon
     // A range only survives if it produced a usable duration.
     startLocal: durationMinutes !== null ? startLocal : null,
     endLocal: durationMinutes !== null ? endLocal : null,
+    // Same rule as the narrative reader: stated only when a clock was read.
+    timesStated: durationMinutes !== null && startLocal !== null && endLocal !== null,
     durationMinutes,
     quantity,
     problem,

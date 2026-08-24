@@ -88,7 +88,12 @@ export function AppShell({
             visual anchors of the product (the other is the wordmark inside
             it). It does not follow the workspace's light/dark switching; see
             the token comment in globals.css. */}
-        <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 bg-sidebar-bg lg:flex lg:flex-col">
+        {/* Blue, matching the instructor's bar and this shell's own mobile one.
+            The `sidebar-*` TOKENS stay navy on purpose — the login page and the
+            marketing bands still use them and are still navy — so the colours
+            here are named outright rather than by repointing a token that other
+            surfaces depend on. */}
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 bg-primary lg:flex lg:flex-col">
           <SidebarContent
             role={role}
             nav={nav}
@@ -106,7 +111,7 @@ export function AppShell({
               onClick={() => setDrawerOpen(false)}
               className="absolute inset-0 bg-black/40"
             />
-            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-sidebar-bg">
+            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-primary">
               <SidebarContent
                 role={role}
                 nav={nav}
@@ -239,18 +244,18 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-white/20 px-4">
         <div className="min-w-0">
-          <p className="font-display truncate text-sm font-semibold tracking-tight text-sidebar-text">
+          <p className="font-display truncate text-sm font-semibold tracking-tight text-white">
             NIAT
           </p>
-          <p className="truncate text-xs text-sidebar-text-muted">{ROLE_LABEL[role]}</p>
+          <p className="truncate text-xs text-white">{ROLE_LABEL[role]}</p>
         </div>
         {onClose ? (
           <IconButton
             label="Close navigation"
             onClick={onClose}
-            className="-mr-2 text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+            className="-mr-2 text-white/80 hover:bg-white/15 hover:text-white"
           >
             <IconClose size={20} />
           </IconButton>
@@ -267,7 +272,7 @@ function SidebarContent({
               key={group}
               className={
                 groupIndex > 0
-                  ? "mt-3 space-y-0.5 border-t border-sidebar-border pt-3"
+                  ? "mt-3 space-y-0.5 border-t border-white/20 pt-3"
                   : "space-y-0.5"
               }
             >
@@ -277,16 +282,20 @@ function SidebarContent({
                   pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <li key={item.href}>
-                    {/* The active item is a solid Royal Blue pill. No extra
-                        left accent bar — against a filled selection that is
-                        a second indicator saying the same thing. */}
+                    {/* The active item INVERTS — white pill, blue label —
+                        because the rail is now that same blue and a blue pill
+                        on it is not a pill. Inactive items are full white
+                        rather than a tint: at 14px they are small text, and no
+                        tint of white clears 4.5:1 on this blue. The pill is
+                        what separates the two, which is what a segmented
+                        control does everywhere else in the product. */}
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-sm font-medium transition-colors ${
                         active
-                          ? "bg-sidebar-active-bg text-white"
-                          : "text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+                          ? "bg-white text-primary-text"
+                          : "text-white hover:bg-white/15"
                       }`}
                     >
                       <Icon size={20} className="shrink-0" />
@@ -306,13 +315,13 @@ function SidebarContent({
           The bell sits beside the profile rather than in a bar of its own: both
           are about the person signed in, not about the page, and one row of
           chrome is enough for them. */}
-      <div className="hidden shrink-0 items-center gap-1 border-t border-sidebar-border p-3 lg:flex">
+      <div className="hidden shrink-0 items-center gap-1 border-t border-white/20 p-3 lg:flex">
         <div className="min-w-0 flex-1">
           <SidebarProfile userName={userName} role={role} account={account} />
         </div>
         <NotificationBell
           placement="sidebar-footer"
-          className="shrink-0 text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+          className="shrink-0 text-white/80 hover:bg-white/15 hover:text-white"
         />
       </div>
     </>
@@ -369,25 +378,21 @@ function SidebarProfile({
         onClick={menu.toggle}
         aria-expanded={menu.open}
         aria-haspopup="menu"
-        className="flex w-full items-center gap-2.5 rounded-control px-2 py-2 text-left transition-colors hover:bg-sidebar-hover-bg"
+        className="flex w-full items-center gap-2.5 rounded-control px-2 py-2 text-left transition-colors hover:bg-white/15"
       >
         <Avatar
           name={name}
           avatarUrl={account.profile?.avatarUrl ?? null}
           size={32}
-          className="bg-white/10 text-sidebar-text"
+          className="bg-white/20 text-white"
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-sidebar-text">
-            {name}
-          </span>
-          <span className="block truncate text-xs text-sidebar-text-muted">
-            {ROLE_LABEL[role]}
-          </span>
+          <span className="block truncate text-sm font-medium text-white">{name}</span>
+          <span className="block truncate text-xs text-white">{ROLE_LABEL[role]}</span>
         </span>
         <IconChevronDown
           size={16}
-          className={`shrink-0 text-sidebar-text-muted transition-transform ${
+          className={`shrink-0 text-white/80 transition-transform ${
             menu.open ? "rotate-180" : ""
           }`}
         />

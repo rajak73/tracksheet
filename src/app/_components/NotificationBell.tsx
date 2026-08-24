@@ -38,9 +38,9 @@ const NOTIFY_POLL_MS = 30_000;
  * downward — for a header that is navy rather than white (the instructor
  * shell's bar), so only the ring changes, to match that ground instead.
  * `sidebar-footer` is the desktop home — the bell sits at the BOTTOM of a
- * 240px navy column, so a panel anchored to its right edge would extend
- * leftward off the screen. It opens upward and to the right instead, over the
- * content, with the same navy ring `header-dark` uses.
+ * 240px column, so a panel anchored to its right edge would extend leftward
+ * off the screen. It opens upward and to the right instead, over the content,
+ * with the same ring `header-dark` uses.
  */
 type Placement = "header" | "header-dark" | "sidebar-footer";
 
@@ -124,16 +124,12 @@ export function NotificationBell({
           {items.length > 0 ? (
             <span
               className={`absolute -right-0.5 -top-0.5 size-2 rounded-full bg-danger ring-2 ${
-                /* The ring cuts the dot out of whatever it sits on, so it
-                   has to name that surface exactly: white in a light header,
-                   blue in the two dark top bars (which are `bg-primary`), navy
-                   in the sidebar footer. A single "not header" case used to
-                   cover the last two, which was fine while both were navy. */
-                placement === "header"
-                  ? "ring-surface"
-                  : placement === "header-dark"
-                    ? "ring-primary"
-                    : "ring-sidebar-bg"
+                /* The ring cuts the dot out of whatever it sits on. Every
+                   dark surface the bell sits in is `bg-primary` now — both top
+                   bars and the sidebar, which stopped being navy when the rail
+                   was matched to the instructor's chrome — so the only split
+                   left is light header versus the rest. */
+                placement === "header" ? "ring-surface" : "ring-primary"
               }`}
             />
           ) : null}

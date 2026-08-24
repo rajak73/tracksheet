@@ -495,6 +495,25 @@ model ActivityLog {
   startTime DateTime
   endTime   DateTime
 
+  /// Did the instructor actually GIVE this clock range, or did we place it?
+  ///
+  /// `startTime`/`endTime` are never null, because duration is derived from
+  /// them and every reader needs a range to derive it from. But a range is not
+  /// always something anybody said: the four-field form asks for hours and no
+  /// clock at all, and `placeOnDay` lays those end to end from the start of the
+  /// day. A narrative line can be either — "9 to 11 took a lecture" states one,
+  /// "spent 2h on lab prep" does not.
+  ///
+  /// Without this, a screen showing "9 AM – 11 AM" was presenting our
+  /// arithmetic as the instructor's testimony. Readers that have it show the
+  /// range when it was stated and the duration when it was not.
+  ///
+  /// Defaults FALSE: for a row written before this column existed we genuinely
+  /// do not know, and "we placed it" is the honest answer to that rather than a
+  /// claim nobody made. The migration backfills the narrative rows, which are
+  /// the ones most likely to have carried real times.
+  timesStated Boolean @default(false)
+
   status  ActivityStatus @default(COMPLETED)
   remarks String?
 

@@ -594,6 +594,9 @@ async function writeActivities(
         universityId: submission.universityId,
         activityTypeCode: bullet.categoryCode,
         local: { date: submission.workDate, start: bullet.startLocal, end: bullet.endLocal },
+        // True only where the sentence carried a clock; a duration-only line
+        // was placed by the parser and says so. See `ActivityLog.timesStated`.
+        timesStated: bullet.timesStated,
         rawText: bullet.rawText,
         // The detail the four structured columns cannot hold. Absent stays
         // absent — an empty Remarks cell is honest, a filled-in vague one is not.

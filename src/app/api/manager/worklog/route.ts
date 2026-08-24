@@ -269,6 +269,10 @@ export const GET = withAuth(async ({ scope, req }) => {
       workDate: true,
       startTime: true,
       endTime: true,
+      /* Whether that range is the instructor's or ours. The timeline prints a
+       * clock when it is theirs and a length when it is not — see
+       * `ActivityLog.timesStated`. */
+      timesStated: true,
       status: true,
       remarks: true,
       activityType: { select: { code: true, label: true } },
@@ -395,6 +399,7 @@ export const GET = withAuth(async ({ scope, req }) => {
           startTime: log.startTime.toISOString(),
           endTime: log.endTime.toISOString(),
           durationHours: round((log.endTime.getTime() - log.startTime.getTime()) / 3_600_000),
+          timesStated: log.timesStated,
           remarks: log.remarks,
           // The sheets exclude an absence from Working Hours, which they can
           // only do if the payload says so.

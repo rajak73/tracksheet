@@ -512,6 +512,10 @@ function reconcile(
      * reads to place it. A range that produced no usable duration is cleared. */
     startLocal: durationMinutes !== null ? startLocal : null,
     endLocal: durationMinutes !== null ? endLocal : null,
+    /* True only when the model read a range out of the sentence. A line that
+     * gave a length and no clock is placed below and stays false — that range
+     * is arithmetic, not testimony. */
+    timesStated: durationMinutes !== null && startLocal !== null && endLocal !== null,
     durationMinutes,
     quantity,
     problem,

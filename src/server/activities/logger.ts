@@ -31,6 +31,15 @@ export type LogActivityInput = {
   status?: ActivityStatus;
   /** `null` clears one; absent leaves it as it stands. */
   remarks?: string | null;
+  /**
+   * Whether the CALLER's times came from the instructor.
+   *
+   * Defaults false, which is the safe direction: a caller that has not thought
+   * about it is not asserting that anybody stated a clock, and a reader seeing
+   * false shows the duration instead of a range. Only paths that genuinely read
+   * a time out of what somebody wrote pass true.
+   */
+  timesStated?: boolean;
   /** Which subject the entry was about. `null` is a real answer — no subject. */
   broadCategoryId?: string | null;
   /**
@@ -279,6 +288,10 @@ async function writeActivity(input: LogActivityInput, targetId: string | null) {
           : {}
         : { status: input.status ?? "COMPLETED" }),
       remarks: input.remarks,
+      /* Written on create AND on update: an edit can turn a placed range into
+       * a stated one or the other way round, so leaving it alone would let the
+       * row keep an answer its own times no longer support. */
+      timesStated: input.timesStated ?? false,
       isOncePerDay: activityType.isOncePerDay,
       ...(input.rawText !== undefined ? { rawText: input.rawText } : {}),
       ...(input.submissionId !== undefined ? { submissionId: input.submissionId } : {}),

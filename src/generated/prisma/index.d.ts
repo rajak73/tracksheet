@@ -19985,6 +19985,7 @@ export namespace Prisma {
     workDate: Date | null
     startTime: Date | null
     endTime: Date | null
+    timesStated: boolean | null
     status: $Enums.ActivityStatus | null
     remarks: string | null
     source: $Enums.ActivitySource | null
@@ -20009,6 +20010,7 @@ export namespace Prisma {
     workDate: Date | null
     startTime: Date | null
     endTime: Date | null
+    timesStated: boolean | null
     status: $Enums.ActivityStatus | null
     remarks: string | null
     source: $Enums.ActivitySource | null
@@ -20033,6 +20035,7 @@ export namespace Prisma {
     workDate: number
     startTime: number
     endTime: number
+    timesStated: number
     status: number
     remarks: number
     source: number
@@ -20067,6 +20070,7 @@ export namespace Prisma {
     workDate?: true
     startTime?: true
     endTime?: true
+    timesStated?: true
     status?: true
     remarks?: true
     source?: true
@@ -20091,6 +20095,7 @@ export namespace Prisma {
     workDate?: true
     startTime?: true
     endTime?: true
+    timesStated?: true
     status?: true
     remarks?: true
     source?: true
@@ -20115,6 +20120,7 @@ export namespace Prisma {
     workDate?: true
     startTime?: true
     endTime?: true
+    timesStated?: true
     status?: true
     remarks?: true
     source?: true
@@ -20226,6 +20232,7 @@ export namespace Prisma {
     workDate: Date
     startTime: Date
     endTime: Date
+    timesStated: boolean
     status: $Enums.ActivityStatus
     remarks: string | null
     source: $Enums.ActivitySource
@@ -20269,6 +20276,7 @@ export namespace Prisma {
     workDate?: boolean
     startTime?: boolean
     endTime?: boolean
+    timesStated?: boolean
     status?: boolean
     remarks?: boolean
     source?: boolean
@@ -20302,6 +20310,7 @@ export namespace Prisma {
     workDate?: boolean
     startTime?: boolean
     endTime?: boolean
+    timesStated?: boolean
     status?: boolean
     remarks?: boolean
     source?: boolean
@@ -20335,6 +20344,7 @@ export namespace Prisma {
     workDate?: boolean
     startTime?: boolean
     endTime?: boolean
+    timesStated?: boolean
     status?: boolean
     remarks?: boolean
     source?: boolean
@@ -20368,6 +20378,7 @@ export namespace Prisma {
     workDate?: boolean
     startTime?: boolean
     endTime?: boolean
+    timesStated?: boolean
     status?: boolean
     remarks?: boolean
     source?: boolean
@@ -20384,7 +20395,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
+  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "timesStated" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
   export type ActivityLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -20447,6 +20458,26 @@ export namespace Prisma {
       workDate: Date
       startTime: Date
       endTime: Date
+      /**
+       * Did the instructor actually GIVE this clock range, or did we place it?
+       * 
+       * `startTime`/`endTime` are never null, because duration is derived from
+       * them and every reader needs a range to derive it from. But a range is not
+       * always something anybody said: the four-field form asks for hours and no
+       * clock at all, and `placeOnDay` lays those end to end from the start of the
+       * day. A narrative line can be either — "9 to 11 took a lecture" states one,
+       * "spent 2h on lab prep" does not.
+       * 
+       * Without this, a screen showing "9 AM – 11 AM" was presenting our
+       * arithmetic as the instructor's testimony. Readers that have it show the
+       * range when it was stated and the duration when it was not.
+       * 
+       * Defaults FALSE: for a row written before this column existed we genuinely
+       * do not know, and "we placed it" is the honest answer to that rather than a
+       * claim nobody made. The migration backfills the narrative rows, which are
+       * the ones most likely to have carried real times.
+       */
+      timesStated: boolean
       status: $Enums.ActivityStatus
       remarks: string | null
       /**
@@ -20955,6 +20986,7 @@ export namespace Prisma {
     readonly workDate: FieldRef<"ActivityLog", 'DateTime'>
     readonly startTime: FieldRef<"ActivityLog", 'DateTime'>
     readonly endTime: FieldRef<"ActivityLog", 'DateTime'>
+    readonly timesStated: FieldRef<"ActivityLog", 'Boolean'>
     readonly status: FieldRef<"ActivityLog", 'ActivityStatus'>
     readonly remarks: FieldRef<"ActivityLog", 'String'>
     readonly source: FieldRef<"ActivityLog", 'ActivitySource'>
@@ -52202,6 +52234,7 @@ export namespace Prisma {
     workDate: 'workDate',
     startTime: 'startTime',
     endTime: 'endTime',
+    timesStated: 'timesStated',
     status: 'status',
     remarks: 'remarks',
     source: 'source',
@@ -54166,6 +54199,7 @@ export namespace Prisma {
     workDate?: DateTimeFilter<"ActivityLog"> | Date | string
     startTime?: DateTimeFilter<"ActivityLog"> | Date | string
     endTime?: DateTimeFilter<"ActivityLog"> | Date | string
+    timesStated?: BoolFilter<"ActivityLog"> | boolean
     status?: EnumActivityStatusFilter<"ActivityLog"> | $Enums.ActivityStatus
     remarks?: StringNullableFilter<"ActivityLog"> | string | null
     source?: EnumActivitySourceFilter<"ActivityLog"> | $Enums.ActivitySource
@@ -54199,6 +54233,7 @@ export namespace Prisma {
     workDate?: SortOrder
     startTime?: SortOrder
     endTime?: SortOrder
+    timesStated?: SortOrder
     status?: SortOrder
     remarks?: SortOrderInput | SortOrder
     source?: SortOrder
@@ -54235,6 +54270,7 @@ export namespace Prisma {
     workDate?: DateTimeFilter<"ActivityLog"> | Date | string
     startTime?: DateTimeFilter<"ActivityLog"> | Date | string
     endTime?: DateTimeFilter<"ActivityLog"> | Date | string
+    timesStated?: BoolFilter<"ActivityLog"> | boolean
     status?: EnumActivityStatusFilter<"ActivityLog"> | $Enums.ActivityStatus
     remarks?: StringNullableFilter<"ActivityLog"> | string | null
     source?: EnumActivitySourceFilter<"ActivityLog"> | $Enums.ActivitySource
@@ -54268,6 +54304,7 @@ export namespace Prisma {
     workDate?: SortOrder
     startTime?: SortOrder
     endTime?: SortOrder
+    timesStated?: SortOrder
     status?: SortOrder
     remarks?: SortOrderInput | SortOrder
     source?: SortOrder
@@ -54300,6 +54337,7 @@ export namespace Prisma {
     workDate?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
     startTime?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
     endTime?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
+    timesStated?: BoolWithAggregatesFilter<"ActivityLog"> | boolean
     status?: EnumActivityStatusWithAggregatesFilter<"ActivityLog"> | $Enums.ActivityStatus
     remarks?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     source?: EnumActivitySourceWithAggregatesFilter<"ActivityLog"> | $Enums.ActivitySource
@@ -57900,6 +57938,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -57927,6 +57966,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -57948,6 +57988,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -57975,6 +58016,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -57999,6 +58041,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -58020,6 +58063,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -58038,6 +58082,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -61805,6 +61850,7 @@ export namespace Prisma {
     workDate?: SortOrder
     startTime?: SortOrder
     endTime?: SortOrder
+    timesStated?: SortOrder
     status?: SortOrder
     remarks?: SortOrder
     source?: SortOrder
@@ -61833,6 +61879,7 @@ export namespace Prisma {
     workDate?: SortOrder
     startTime?: SortOrder
     endTime?: SortOrder
+    timesStated?: SortOrder
     status?: SortOrder
     remarks?: SortOrder
     source?: SortOrder
@@ -61857,6 +61904,7 @@ export namespace Prisma {
     workDate?: SortOrder
     startTime?: SortOrder
     endTime?: SortOrder
+    timesStated?: SortOrder
     status?: SortOrder
     remarks?: SortOrder
     source?: SortOrder
@@ -69165,6 +69213,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -69191,6 +69240,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -69703,6 +69753,7 @@ export namespace Prisma {
     workDate?: DateTimeFilter<"ActivityLog"> | Date | string
     startTime?: DateTimeFilter<"ActivityLog"> | Date | string
     endTime?: DateTimeFilter<"ActivityLog"> | Date | string
+    timesStated?: BoolFilter<"ActivityLog"> | boolean
     status?: EnumActivityStatusFilter<"ActivityLog"> | $Enums.ActivityStatus
     remarks?: StringNullableFilter<"ActivityLog"> | string | null
     source?: EnumActivitySourceFilter<"ActivityLog"> | $Enums.ActivitySource
@@ -70019,6 +70070,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -70044,6 +70096,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -73075,6 +73128,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -73101,6 +73155,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -73377,6 +73432,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -73402,6 +73458,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -74436,6 +74493,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -74461,6 +74519,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -76320,6 +76379,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -76346,6 +76406,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -80874,6 +80935,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -80900,6 +80962,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -83432,6 +83495,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -83458,6 +83522,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -83766,6 +83831,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -83792,6 +83858,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -84491,6 +84558,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -84814,6 +84882,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -84840,6 +84909,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -84863,6 +84933,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -84996,6 +85067,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -85542,6 +85614,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -85567,6 +85640,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -85590,6 +85664,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -86679,6 +86754,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -86757,6 +86833,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -86783,6 +86860,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -86806,6 +86884,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -86828,6 +86907,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -87043,6 +87123,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87068,6 +87149,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87091,6 +87173,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87706,6 +87789,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -87765,6 +87849,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87790,6 +87875,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87813,6 +87899,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -87967,6 +88054,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -88023,6 +88111,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88049,6 +88138,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88072,6 +88162,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88515,6 +88606,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -88535,6 +88627,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88561,6 +88654,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88584,6 +88678,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88607,6 +88702,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -88627,6 +88723,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88653,6 +88750,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88676,6 +88774,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88699,6 +88798,7 @@ export namespace Prisma {
     workDate: Date | string
     startTime: Date | string
     endTime: Date | string
+    timesStated?: boolean
     status?: $Enums.ActivityStatus
     remarks?: string | null
     source?: $Enums.ActivitySource
@@ -88719,6 +88819,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88745,6 +88846,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
@@ -88768,6 +88870,7 @@ export namespace Prisma {
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
     startTime?: DateTimeFieldUpdateOperationsInput | Date | string
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    timesStated?: BoolFieldUpdateOperationsInput | boolean
     status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource

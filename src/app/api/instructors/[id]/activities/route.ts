@@ -99,6 +99,11 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     instructorId: instructor.id,
     universityId: instructor.universityId,
     activityTypeCode: input.activityTypeCode,
+    /* This route is given a clock outright — `startTime`/`endTime`, or a
+     * local range — so whoever called it stated one. That is the whole
+     * difference from the four-field worklog form, which asks for a length
+     * and lets `placeOnDay` decide where it sits. */
+    timesStated: true,
     startTime: input.startTime ? new Date(input.startTime) : undefined,
     endTime: input.endTime ? new Date(input.endTime) : undefined,
     local: input.local,

@@ -60,6 +60,14 @@ export type Activity = {
   startTime: string;
   endTime: string;
   durationHours: number;
+  /**
+   * Whether `startTime`/`endTime` are the instructor's own or ours.
+   *
+   * Optional because older payloads and hand-built fixtures do not carry it;
+   * absent is read as false, so a reader falls back to showing the DURATION
+   * rather than asserting a clock nobody gave. See `ActivityLog.timesStated`.
+   */
+  timesStated?: boolean;
   remarks: string | null;
   /** COMPLETED / LATE / MISSED / EXCUSED. Absent on older payloads. */
   status?: string;

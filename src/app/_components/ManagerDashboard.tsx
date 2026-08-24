@@ -196,7 +196,7 @@ export function DayTimelineCard({
                 ) : (
                   <span
                     key={segment.key}
-                    title={`${clock(segment.start)} – ${clock(segment.end)} · ${label(segment.activity)}`}
+                    title={`${when(segment)} · ${label(segment.activity)}`}
                     style={{
                       flex: `${segment.minutes} 0 ${BLOCK_MIN_REM}rem`,
                       borderLeft: `3px solid ${categoryColor(segment.activity.activityType.code)}`,
@@ -204,7 +204,7 @@ export function DayTimelineCard({
                     className="min-w-0 overflow-hidden rounded-control border border-line bg-surface px-2 py-1.5 transition-colors hover:bg-hovered"
                   >
                     <span className="tabular block truncate text-[11px] text-muted">
-                      {clock(segment.start)} – {clock(segment.end)}
+                      {when(segment)}
                     </span>
                     <span className="block truncate text-xs font-medium text-content">
                       {label(segment.activity)}
@@ -218,6 +218,25 @@ export function DayTimelineCard({
       </div>
     </Card>
   );
+}
+
+/**
+ * What a block says about its own time.
+ *
+ * A clock range ONLY when the instructor gave one. The four-field form asks for
+ * a length and no clock, and `placeOnDay` lays those end to end from the start
+ * of the day — so "9 AM – 12 PM" on one of those was our arithmetic presented
+ * as their testimony, and a manager reading the timeline had no way to tell the
+ * two apart. Where the range is ours, the length is the only thing that was
+ * actually claimed, so the length is what it shows.
+ *
+ * The BLOCK's width is unaffected either way: it is proportional to the
+ * duration, which is true in both cases. Only the label changes.
+ */
+function when(segment: { start: number; end: number; activity: Activity }): string {
+  return segment.activity.timesStated
+    ? `${clock(segment.start)} – ${clock(segment.end)}`
+    : formatDuration((segment.end - segment.start) / 60);
 }
 
 /** Wide enough for a short "Lecture: Data Structures" before it truncates. */

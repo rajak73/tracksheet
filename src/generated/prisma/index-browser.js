@@ -261,6 +261,7 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   workDate: 'workDate',
   startTime: 'startTime',
   endTime: 'endTime',
+  timesStated: 'timesStated',
   status: 'status',
   remarks: 'remarks',
   source: 'source',
