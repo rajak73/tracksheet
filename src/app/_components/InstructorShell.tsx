@@ -92,7 +92,7 @@ export function InstructorShell({
             corner is z-30 and `main` opens no stacking context of its own, so at
             the z-30 this used to carry, the "Date" cell simply out-painted the
             bell and profile panels for coming later in the document. */}
-        <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar-bg">
+        <header className="sticky top-0 z-50 border-b-2 border-primary bg-sidebar-bg">
           <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-4 sm:px-6 lg:px-10">
             {/* The client's mark for this product: a clipboard tile, then the
                 wordmark with the second half in the brand blue. */}

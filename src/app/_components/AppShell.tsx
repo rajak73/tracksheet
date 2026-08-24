@@ -135,7 +135,7 @@ export function AppShell({
            * z-50: chrome, above anything the page content can stick. It was
            * z-20 — under the manager sheet's own sticky header — so the bell
            * and profile panels opened UNDERNEATH the table. */}
-          <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar-bg lg:hidden">
+          <header className="sticky top-0 z-50 border-b-2 border-primary bg-sidebar-bg lg:hidden">
             <div className="flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
               <IconButton
                 label="Open navigation"
