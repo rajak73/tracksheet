@@ -245,8 +245,15 @@ export default function WorkLogHistoryPage() {
    *
    * `write` is the whole day in one box, in their own words, and the reader
    * finds the activities in it. `fields` is one activity filled in by hand, and
-   * is what an EDIT always uses — correcting one row is not rewriting the day. */
-  const [entryMode, setEntryMode] = useState<"write" | "fields">("write");
+   * is what an EDIT always uses — correcting one row is not rewriting the day.
+   *
+   * `fields` is also the DEFAULT. Writing it out is the more capable path and
+   * was the default for that reason, but it costs a provider round trip before
+   * anything is recorded, and the columns it fills are the ones these four
+   * boxes ask for outright. Somebody opening this box to record a day they
+   * already know the shape of should not have to wait for a model to read it
+   * back to them. Writing it out is one click away and unchanged. */
+  const [entryMode, setEntryMode] = useState<"write" | "fields">("fields");
   const [narrative, setNarrative] = useState("");
   /** Where the reading has got to, once a paragraph has been sent. */
   const [reading, setReading] = useState<ReadingState>(null);
@@ -486,7 +493,7 @@ export default function WorkLogHistoryPage() {
     setEditingToday(false);
     setDraft(emptyDraft(today));
     setNarrative("");
-    setEntryMode("write");
+    setEntryMode("fields");
     setReading(null);
     setFormError(null);
     setOpen(true);

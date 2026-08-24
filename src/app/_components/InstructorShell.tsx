@@ -24,7 +24,6 @@
 
 import { useState, type ReactNode } from "react";
 import { ConfirmDialog, ToastProvider } from "@/app/_components/interactive";
-import { NotificationBell } from "@/app/_components/NotificationBell";
 import {
   AccountDialog,
   Avatar,
@@ -155,10 +154,13 @@ export function InstructorShell({
             ) : null}
 
             <div className="ml-auto flex items-center gap-2">
-              <NotificationBell
-                placement="header-dark"
-                className="text-white/80 hover:bg-white/15 hover:text-white"
-              />
+              {/* ── No bell here ──────────────────────────────────────────
+                  Removed at the client's request. The endpoint, the rows and
+                  the manager/admin bell are all untouched — this is the
+                  instructor's SURFACE for them going away, not the feature.
+                  What that costs is written up in the commit: a worklog the
+                  parser could not read reports through a notification, and an
+                  instructor now has nowhere to see one. */}
               <IdentityMenu
                 userName={userName}
                 profile={profile}
