@@ -376,14 +376,6 @@ aside :focus-visible {
   outline-color: var(--app-sidebar-text);
 }
 
-/* Table headers moved onto the same Navy `sidebar-bg` as the sidebar and top
-   bar — see `THead` in `ui/tables.tsx` and the hand-built tables that match
-   it — so a sortable column's focus ring needs the identical fix as above,
-   for the identical reason. */
-thead :focus-visible {
-  outline-color: var(--app-sidebar-text);
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

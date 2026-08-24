@@ -800,36 +800,42 @@ export default function WorkLogHistoryPage() {
         </div>
       ) : null}
 
-      {/* ── Date Wise / Weekly ────────────────────────────────────────── */}
-      <div className="mt-6 flex justify-end border-b border-line">
-        {(["date", "week", "month"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => {
-              /* A view change is a change of question, and the answer to a new
-                 question starts at now. Carrying March over from Week Wise into
-                 Month Wise makes the default silently wrong. */
-              setView(v);
-              setPage(1);
-              setExpanded(null);
-              if (v === "week") setWeekAnchor(today);
-              if (v === "month") setMonthAnchor(todayIn(zone).slice(0, 7));
-              if (v === "date") {
-                setFrom(firstOfMonth(zone));
-                setTo(today);
-              }
-            }}
-            aria-pressed={view === v}
-            className={`-mb-px border-b-2 px-5 pb-3 text-sm font-semibold transition-colors ${
-              view === v
-                ? "border-primary text-primary-text"
-                : "border-transparent text-muted hover:text-content"
-            }`}
-          >
-            {v === "date" ? "Day Wise" : v === "week" ? "Week Wise" : "Month Wise"}
-          </button>
-        ))}
+      {/* ── Date Wise / Weekly ──────────────────────────────────────────
+        * A segmented control of solid blue pills, matching the client's
+        * reference: the selected view is filled, the rest are quiet. This was
+        * an underlined tab strip, which read as navigation between pages
+        * rather than as one control with three settings. */}
+      <div className="mt-6 flex justify-end">
+        <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
+          {(["date", "week", "month"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => {
+                /* A view change is a change of question, and the answer to a new
+                   question starts at now. Carrying March over from Week Wise into
+                   Month Wise makes the default silently wrong. */
+                setView(v);
+                setPage(1);
+                setExpanded(null);
+                if (v === "week") setWeekAnchor(today);
+                if (v === "month") setMonthAnchor(todayIn(zone).slice(0, 7));
+                if (v === "date") {
+                  setFrom(firstOfMonth(zone));
+                  setTo(today);
+                }
+              }}
+              aria-pressed={view === v}
+              className={`rounded-[calc(var(--radius-control)-2px)] px-5 py-2 text-sm font-semibold transition-colors ${
+                view === v
+                  ? "bg-primary text-white"
+                  : "text-muted hover:bg-primary-subtle hover:text-primary-text"
+              }`}
+            >
+              {v === "date" ? "Day Wise" : v === "week" ? "Week Wise" : "Month Wise"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Filters ───────────────────────────────────────────────────── */}
@@ -914,12 +920,12 @@ export default function WorkLogHistoryPage() {
                 Your work logs, newest first, in the columns the monthly report uses.
               </caption>
               <thead>
-                <tr className="bg-sidebar-bg">
+                <tr className="bg-primary-subtle">
                   {COLUMNS.map((c) => (
                     <th
                       key={c}
                       scope="col"
-                      className="border-b border-sidebar-border px-4 py-3.5 text-left text-sm font-semibold text-sidebar-text"
+                      className="border-b border-line px-4 py-3.5 text-left text-sm font-semibold text-primary-text"
                     >
                       {c}
                     </th>
