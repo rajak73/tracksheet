@@ -100,7 +100,7 @@ export function InstructorShell({
             corner is z-30 and `main` opens no stacking context of its own, so at
             the z-30 this used to carry, the "Date" cell simply out-painted the
             bell and profile panels for coming later in the document. */}
-        <header className="sticky top-0 z-50 border-b border-line bg-surface">
+        <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar-bg">
           <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-4 sm:px-6 lg:px-10">
             {/* The client's mark for this product: a clipboard tile, then the
                 wordmark with the second half in the brand blue. */}
@@ -134,22 +134,25 @@ export function InstructorShell({
                   />
                 </svg>
               </span>
-              <span className="font-display text-2xl font-bold tracking-tight text-content">
-                Work<span className="text-primary-text">Log</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-sidebar-text">
+                Work<span className="text-primary-bright">Log</span>
               </span>
             </span>
 
             {title ? (
               <>
-                <span aria-hidden className="hidden h-6 w-px bg-line sm:block" />
-                <h1 className="hidden truncate text-lg font-semibold text-content sm:block">
+                <span aria-hidden className="hidden h-6 w-px bg-sidebar-border sm:block" />
+                <h1 className="hidden truncate text-lg font-semibold text-sidebar-text sm:block">
                   {title}
                 </h1>
               </>
             ) : null}
 
             <div className="ml-auto flex items-center gap-2">
-              <NotificationBell />
+              <NotificationBell
+                placement="header-dark"
+                className="text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+              />
               <IdentityMenu
                 userName={userName}
                 profile={profile}
@@ -223,18 +226,25 @@ function IdentityMenu({
         onClick={menu.toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2.5 rounded-card border border-line bg-surface py-1.5 pl-1.5 pr-2.5 text-left transition hover:bg-hovered"
+        className="flex items-center gap-2.5 rounded-card py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:bg-sidebar-hover-bg"
       >
-        <Avatar name={name} avatarUrl={profile?.avatarUrl ?? null} size={36} />
+        <Avatar
+          name={name}
+          avatarUrl={profile?.avatarUrl ?? null}
+          size={36}
+          className="bg-white/10 text-sidebar-text"
+        />
         <span className="min-w-0">
-          <span className="block max-w-[9rem] truncate text-sm font-semibold text-content">
+          <span className="block max-w-[9rem] truncate text-sm font-semibold text-sidebar-text">
             {name}
           </span>
-          {code ? <span className="tabular block truncate text-xs text-muted">{code}</span> : null}
+          {code ? (
+            <span className="tabular block truncate text-xs text-sidebar-text-muted">{code}</span>
+          ) : null}
         </span>
         <IconChevronDown
           size={16}
-          className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 text-sidebar-text-muted transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 

@@ -135,22 +135,25 @@ export function AppShell({
            * z-50: chrome, above anything the page content can stick. It was
            * z-20 — under the manager sheet's own sticky header — so the bell
            * and profile panels opened UNDERNEATH the table. */}
-          <header className="sticky top-0 z-50 border-b border-line bg-surface lg:hidden">
+          <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar-bg lg:hidden">
             <div className="flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
               <IconButton
                 label="Open navigation"
                 onClick={() => setDrawerOpen(true)}
-                className="-ml-2 lg:hidden"
+                className="-ml-2 text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text lg:hidden"
               >
                 <IconMenu size={20} />
               </IconButton>
 
-              <span className="font-display text-sm font-semibold tracking-tight text-content lg:hidden">
+              <span className="font-display text-sm font-semibold tracking-tight text-sidebar-text lg:hidden">
                 NIAT
               </span>
 
               <div className="ml-auto flex items-center gap-1">
-                <NotificationBell />
+                <NotificationBell
+                  placement="header-dark"
+                  className="text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+                />
                 {/* The profile menu lives in the sidebar footer on desktop
                     (§7). This whole bar is mobile-only now, so no `lg:hidden`
                     is needed here any more. */}
@@ -495,14 +498,15 @@ function UserMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors hover:bg-hovered"
+        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors hover:bg-sidebar-hover-bg"
       >
         <Avatar
           name={userName}
           avatarUrl={account.profile?.avatarUrl ?? null}
           size={28}
+          className="bg-white/10 text-sidebar-text"
         />
-        <span className="hidden max-w-32 truncate text-sm text-content sm:inline">
+        <span className="hidden max-w-32 truncate text-sm text-sidebar-text sm:inline">
           {userName}
         </span>
       </button>

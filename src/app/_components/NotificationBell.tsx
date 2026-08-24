@@ -30,15 +30,19 @@ export const pingNotifications = () => {
 const NOTIFY_POLL_MS = 30_000;
 
 /**
- * Where the panel opens from.
+ * Where the panel opens from, and what the unread ring sits against.
  *
  * `header` is the default: the bell sits at the top-right of a white bar and
- * the panel drops down under it. `sidebar-footer` is the desktop home — the
- * bell sits at the BOTTOM of a 240px navy column, so a panel anchored to its
- * right edge would extend leftward off the screen. It opens upward and to the
- * right instead, over the content.
+ * the panel drops down under it, with a white ring cutting the unread dot out
+ * from that white ground. `header-dark` opens the same way — top-right,
+ * downward — for a header that is navy rather than white (the instructor
+ * shell's bar), so only the ring changes, to match that ground instead.
+ * `sidebar-footer` is the desktop home — the bell sits at the BOTTOM of a
+ * 240px navy column, so a panel anchored to its right edge would extend
+ * leftward off the screen. It opens upward and to the right instead, over the
+ * content, with the same navy ring `header-dark` uses.
  */
-type Placement = "header" | "sidebar-footer";
+type Placement = "header" | "header-dark" | "sidebar-footer";
 
 export function NotificationBell({
   placement = "header",
@@ -120,7 +124,7 @@ export function NotificationBell({
           {items.length > 0 ? (
             <span
               className={`absolute -right-0.5 -top-0.5 size-2 rounded-full bg-danger ring-2 ${
-                placement === "sidebar-footer" ? "ring-sidebar-bg" : "ring-surface"
+                placement === "header" ? "ring-surface" : "ring-sidebar-bg"
               }`}
             />
           ) : null}
@@ -137,7 +141,7 @@ export function NotificationBell({
           />
           <div
             className={`absolute z-20 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-line bg-surface shadow-raised ${
-              placement === "sidebar-footer" ? "bottom-full left-0 mb-1" : "right-0 mt-1"
+              placement === "sidebar-footer" ? "bottom-full left-0 mb-1" : "right-0 mt-1" // header + header-dark both open downward
             }`}
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
