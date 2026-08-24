@@ -618,10 +618,7 @@ export default function WorkLogHistoryPage() {
          * the manual-entry path, already does this; this path is the AI one
          * and had gone through the whole read-back-and-confirm cycle with
          * nothing outside the dialog to show for it. */
-        toast(
-          "success",
-          `${live.activities.length} ${live.activities.length === 1 ? "activity" : "activities"} recorded.`,
-        );
+        toast("success", "Today's worklog submitted successfully.");
         break;
       }
       if (live.processingState === "REVIEW_REQUIRED") {
@@ -698,13 +695,16 @@ export default function WorkLogHistoryPage() {
         },
         editing ? "Could not save that change." : "Could not submit your work log.",
       );
+      /* One sentence about the DAY, whichever path got here and however many
+       * lines it turned into. It used to count rows — "2 entries recorded." —
+       * which answers a question nobody asked at the moment they press Submit:
+       * they want to know the day went in, and the table behind the dialog is
+       * already showing them what it became. */
       toast(
         "success",
         editing
-          ? "Entry updated."
-          : split.entries.length === 1
-            ? "Work log submitted."
-            : `${split.entries.length} entries recorded.`,
+          ? "Today's worklog updated successfully."
+          : "Today's worklog submitted successfully.",
       );
       setOpen(false);
       logs.reload();
@@ -724,7 +724,7 @@ export default function WorkLogHistoryPage() {
         undefined,
         "Could not remove that entry.",
       );
-      toast("success", "Entry removed.");
+      toast("success", "Entry removed successfully.");
       logs.reload();
         } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");

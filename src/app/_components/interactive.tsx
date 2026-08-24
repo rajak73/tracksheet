@@ -209,10 +209,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={push}>
       {children}
       {/* Polite: a save confirmation should not interrupt what is being read. */}
+      {/* Top, not bottom. A confirmation belongs where the eye already is
+          after pressing a button in a dialog — the bottom-right corner of a
+          tall page is somewhere nobody was looking, and a message that times
+          out unseen is the same as no message. z-[60] keeps it over the
+          chrome, per the layer scale in globals.css. */}
       <div
         aria-live="polite"
         aria-atomic="false"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end"
       >
         {toasts.map((t) => {
           const Glyph = glyphs[t.tone];
