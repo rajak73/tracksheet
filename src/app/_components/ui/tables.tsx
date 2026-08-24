@@ -15,6 +15,16 @@ import {
 
 /* ── Tables ────────────────────────────────────────────────────────────── */
 
+/**
+ * The column rule every cell carries.
+ *
+ * `last:border-r-0` rather than counting columns: a row can end on a cell with
+ * a `colSpan`, so "which cell is last" is not a fixed index, and asking the DOM
+ * is what keeps the final column off whatever border the surrounding card
+ * already draws.
+ */
+const COLUMN_RULE = "border-r border-line last:border-r-0";
+
 export function TableWrap({ children }: { children: ReactNode }) {
   // Wide tables scroll inside their own container so the page body never does.
   return <div className="overflow-x-auto">{children}</div>;
@@ -61,6 +71,7 @@ export function THead({
           const sortable = Boolean(c.sortKey && onSort);
           const active = sort?.key === c.sortKey;
           const base = cx(
+            COLUMN_RULE,
             "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text",
             c.align === "right" ? "text-right" : "text-left",
           );
@@ -150,6 +161,7 @@ export function TD({
     <td
       colSpan={colSpan}
       className={cx(
+        COLUMN_RULE,
         "px-4 py-3",
         align === "right" ? "text-right tabular" : "",
         strong ? "font-medium text-content" : "text-muted",

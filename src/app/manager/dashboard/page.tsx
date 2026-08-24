@@ -551,7 +551,11 @@ export default function ManagerDashboardPage() {
  * above it.
  */
 function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod[] }) {
-  const head = "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text";
+  /* Matches `COLUMN_RULE` in `ui/tables.tsx`. This table is hand-built rather
+     than assembled from those primitives, so the rule has to be repeated —
+     `last:border-r-0` keeps the final column off the card's own edge. */
+  const rule = "border-r border-line last:border-r-0";
+  const head = `${rule} px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text`;
 
   return (
     <div className="overflow-x-auto">
@@ -598,7 +602,7 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
                 key={row.instructorId}
                 className="border-b border-line-subtle transition-colors hover:bg-hovered"
               >
-                <th scope="row" className="px-3 py-2.5 text-left font-normal">
+                <th scope="row" className={`${rule} px-3 py-2.5 text-left font-normal`}>
                   <span className="flex items-center gap-2">
                     <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
                     <span className="min-w-0">
@@ -613,7 +617,7 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
                 </th>
 
                 {cells.map((c) => (
-                  <td key={c.key} className="px-3 py-2.5 text-right">
+                  <td key={c.key} className={`${rule} px-3 py-2.5 text-right`}>
                     {c.count > 0 ? (
                       <>
                         <span className="tabular block text-content">{formatDuration(c.hours)}</span>
@@ -630,10 +634,10 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
                   </td>
                 ))}
 
-                <td className="tabular px-3 py-2.5 text-right font-semibold text-content">
+                <td className={`tabular ${rule} px-3 py-2.5 text-right font-semibold text-content`}>
                   {formatDuration(cells.reduce((n, c) => n + c.hours, 0))}
                 </td>
-                <td className="tabular px-3 py-2.5 text-right font-semibold text-content">
+                <td className={`tabular ${rule} px-3 py-2.5 text-right font-semibold text-content`}>
                   {cells.reduce((n, c) => n + c.count, 0)}
                 </td>
               </tr>
