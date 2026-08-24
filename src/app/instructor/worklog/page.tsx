@@ -33,7 +33,7 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { formatHours, todayIn, todayISO } from "@/app/_lib/format";
+import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
   broadCategoryCell,
   deliverableCell,
@@ -254,10 +254,11 @@ export default function WorkLogHistoryPage() {
   const me = useLoad(
     useCallback(
       () =>
-        apiGet<{ user: { instructorId: string | null }; timezone: string | null }>(
-          "/api/auth/me",
-          "Could not load your account.",
-        ),
+        apiGet<{
+          user: { instructorId: string | null };
+          timezone: string | null;
+          recordsFrom: string | null;
+        }>("/api/auth/me", "Could not load your account."),
       [],
     ),
     "me",
@@ -268,8 +269,21 @@ export default function WorkLogHistoryPage() {
   const zone = me.data?.timezone ?? null;
   const today = todayIn(zone);
 
+  /* The earliest day there could be anything to look at: the day this
+   * instructor's record was created, read in the university's own zone.
+   *
+   * Both date fields are floored at it. A range starting before somebody
+   * existed can only ever come back empty — which is exactly what looked like
+   * a bug: the filter said the 1st, the table started on the 17th, and nothing
+   * on screen explained that the 16 days between were days this person did not
+   * yet have. The picker refusing them says it plainly. */
+  const recordsFrom = me.data?.recordsFrom ? dateIn(new Date(me.data.recordsFrom), zone) : null;
+  /** Clamps any date to the range that can actually hold data. */
+  const inRange = (date: string) =>
+    recordsFrom && date < recordsFrom ? recordsFrom : date > today ? today : date;
+
   // What the filters actually resolve to right now.
-  const fromAt = from ?? defaultDayRange(zone).from;
+  const fromAt = inRange(from ?? defaultDayRange(zone).from);
   const toAt = to ?? today;
   /* Week Wise shows the week CONTAINING the From date, rather than carrying a
    * separate anchor of its own. It used to have one, stepped by a pair of
@@ -330,6 +344,9 @@ export default function WorkLogHistoryPage() {
    * the table is about to render either way. */
   function pickDate(value: string, end: "from" | "to") {
     if (!value) return;
+    // `min`/`max` on the input are a hint the keyboard can walk straight past,
+    // so the value is clamped here too rather than trusted.
+    value = inRange(value);
     if (view === "week") {
       const week = weekRange(value);
       setFrom(week.from);
@@ -439,12 +456,21 @@ export default function WorkLogHistoryPage() {
       );
     }
 
-    /* Day Wise: every day that has something, newest first, and every day
-     * between them that has not — a silently skipped day is a day nobody can
-     * see was skipped. */
+    /* Day Wise: every day in the range asked for, newest first — including
+     * the ones with nothing on them, because a silently skipped day is a day
+     * nobody can see was skipped.
+     *
+     * The floor used to be the OLDEST DAY THAT HAD AN ACTIVITY, which quietly
+     * made the two date fields decorative: asking for the 1st when the first
+     * entry was on the 17th produced a table starting on the 17th, and the
+     * sixteen missed days in between — the exact thing this view exists to
+     * surface — were the ones it left out. It reads to `fromAt` now, which the
+     * picker has already floored at the day this instructor's record began, so
+     * it cannot run back into days that were never theirs. */
     const days = [...new Set(activities.map((a) => a.workDate))].sort();
     const newest = days.at(-1);
-    const oldest = days[0] ?? today;
+    const first = days[0];
+    const oldest = first && first < fromAt ? first : fromAt;
     const span: string[] = [];
     for (let d = newest && newest > today ? newest : today; d >= oldest; d = addDays(d, -1)) {
       span.push(d);
@@ -452,7 +478,7 @@ export default function WorkLogHistoryPage() {
     return span.map((date) =>
       build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
     );
-  }, [rows, view, today, weekAt, dayNotes.data]);
+  }, [rows, view, today, weekAt, fromAt, dayNotes.data]);
 
 
   function openNew() {
@@ -837,6 +863,7 @@ export default function WorkLogHistoryPage() {
           <input
             type="date"
             value={fromAt}
+            min={recordsFrom ?? undefined}
             max={toAt}
             onChange={(e) => {
               /* In Week Wise both fields move together, to the week the picked
@@ -854,7 +881,8 @@ export default function WorkLogHistoryPage() {
           <input
             type="date"
             value={toAt}
-            min={view === "week" ? undefined : fromAt}
+            min={view === "week" ? (recordsFrom ?? undefined) : fromAt}
+            max={today}
             onChange={(e) => {
               pickDate(e.target.value, "to");
             }}

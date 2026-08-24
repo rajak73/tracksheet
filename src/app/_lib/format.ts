@@ -208,13 +208,27 @@ export function todayISO(): string {
  * and no worse.
  */
 export function todayIn(timeZone: string | null | undefined): string {
-  if (!timeZone) return todayISO();
+  return dateIn(new Date(), timeZone);
+}
+
+/**
+ * Any instant as `YYYY-MM-DD` in a UNIVERSITY's own zone.
+ *
+ * `todayIn` is this with the clock supplied — kept as its own name because
+ * "today" is what almost every caller means, and because it reads better at
+ * the call site than passing `new Date()` in. Everything said above about why
+ * the browser's zone is the wrong answer applies here identically: an instant
+ * is a moment, and which CALENDAR DAY it falls on is a question only a zone
+ * can answer.
+ */
+export function dateIn(instant: Date, timeZone: string | null | undefined): string {
+  if (!timeZone) return localISO(instant);
   try {
     // en-CA formats as YYYY-MM-DD, which is the shape every date here uses.
-    return new Date().toLocaleDateString("en-CA", { timeZone });
+    return instant.toLocaleDateString("en-CA", { timeZone });
   } catch {
     // An unknown zone must not blank the screen.
-    return todayISO();
+    return localISO(instant);
   }
 }
 
