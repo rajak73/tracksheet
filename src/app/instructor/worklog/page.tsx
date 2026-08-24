@@ -14,9 +14,10 @@
  * ── Their own rows, always ────────────────────────────────────────────────
  * `/api/activities` pins a self-scoped caller to their own instructorId on the
  * server, so this cannot show anybody else's work whatever it asks for. Employee
- * Name and Employee ID therefore repeat one person down the page; they are in
- * the client's design and are kept, because a sheet that names who it is about
- * is worth more than two saved columns.
+ * Name and Employee ID are dropped from the table for exactly that reason: this
+ * is one instructor's own screen, and a column naming who it is about is only
+ * useful where a page can show more than one person — the manager and admin
+ * sheets keep both columns because they genuinely mix rows across a roster.
  *
  * ── Where Broad Category comes from ───────────────────────────────────────
  * The form does not ask for it, deliberately: a subject should follow the work
@@ -83,8 +84,6 @@ type Row = {
   remarks: string | null;
   quantity: number | null;
   rawText: string | null;
-  instructorName: string;
-  employeeCode: string | null;
   /** The subject read out of THIS entry's wording. This IS the report column. */
   broadCategory: { code: string; label: string } | null;
   deliverableType: { code: string; label: string; isCountable: boolean } | null;
@@ -110,15 +109,6 @@ const emptyDraft = (today?: string): Draft => ({
 });
 
 const firstOfMonth = (zone?: string | null) => `${todayIn(zone).slice(0, 7)}-01`;
-
-/**
- * What a cell says when the value was never supplied.
- *
- * The client asked for this exact string rather than a blank or a dash: a blank
- * reads as an oversight in the report and a dash reads as zero, while "Not
- * Provided" says the one true thing — nobody has told us.
- */
-const NOT_PROVIDED = "Not Provided";
 
 /**
  * What the screen says while a paragraph is being read, and afterwards.
@@ -207,8 +197,6 @@ function monthLabel(key: string): string {
 
 const COLUMNS = [
   "Date",
-  "Employee Name",
-  "Employee ID",
   /* One column. It holds what they DID — the subject read off each entry —
    * which is what the client asked Broad Category to mean. */
   "Broad Category",
@@ -893,7 +881,6 @@ export default function WorkLogHistoryPage() {
                   const isOpen = expanded === group.key;
                   const first = entries[0];
                   const isToday = group.dates.includes(today);
-                  const who = first ?? rows[0];
 
                   /* ── Nothing recorded, and the two reasons are different ──
                    * A day that has passed with nothing on it is somebody not
@@ -912,12 +899,6 @@ export default function WorkLogHistoryPage() {
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
-                        </td>
-                        <td className="px-4 py-4 text-content">
-                          {who?.instructorName?.trim() || NOT_PROVIDED}
-                        </td>
-                        <td className="tabular px-4 py-4 text-content">
-                          {who?.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
                         <td
                           colSpan={5}
@@ -940,12 +921,6 @@ export default function WorkLogHistoryPage() {
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
-                        </td>
-                        <td className="px-4 py-4 text-content">
-                          {who?.instructorName?.trim() || NOT_PROVIDED}
-                        </td>
-                        <td className="tabular px-4 py-4 text-content">
-                          {who?.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
                         <td className="px-4 py-4 text-content">
                           {broadCategoryCell(group.subjects)}
@@ -1007,7 +982,10 @@ export default function WorkLogHistoryPage() {
                               <td className="px-4 py-3 text-sm text-muted">
                                 {view === "date" ? "" : longDate(e.workDate.slice(0, 10))}
                               </td>
-                              <td colSpan={4} />
+                              {/* Skips only Broad Category to land on Deliverable —
+                                  this entry's own row doesn't carry a subject of its
+                                  own to show here. */}
+                              <td colSpan={1} />
                               <td className="px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
@@ -1056,7 +1034,9 @@ export default function WorkLogHistoryPage() {
                     <td className="px-4 py-3.5 text-content">
                       {view === "week" ? "Week total" : "Month total"}
                     </td>
-                    <td colSpan={6} />
+                    {/* Skips Broad Category, Deliverable and Quantity to land the
+                        total under Working Hours, then Remarks and Actions. */}
+                    <td colSpan={3} />
                     <td className="tabular px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
