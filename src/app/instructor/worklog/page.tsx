@@ -107,7 +107,28 @@ const emptyDraft = (today?: string): Draft => ({
   remarks: "",
 });
 
-const firstOfMonth = (zone?: string | null) => `${todayIn(zone).slice(0, 7)}-01`;
+/**
+ * The range Day Wise opens on: exactly one page of days, ending today.
+ *
+ * It used to be the first of the month to today, which on the 28th asked for
+ * twenty-eight rows and then paginated them ten at a time — so the calendar
+ * above the table described a period the table was never showing all of, and
+ * the first thing anybody had to do was page. Sizing the default range to the
+ * page means what the two date fields say is what is on screen.
+ *
+ * Widening the range by hand still works and still paginates; this is only
+ * where it starts.
+ */
+const defaultDayRange = (zone?: string | null) => {
+  const end = todayIn(zone);
+  return { from: addDays(end, -(PAGE_SIZE - 1)), to: end };
+};
+
+/** Monday and Sunday of the week a date falls in, as the two filters read them. */
+const weekRange = (date: string) => {
+  const days = weekOf(date);
+  return { from: days[0]!, to: days.at(-1)! };
+};
 
 /**
  * What the screen says while a paragraph is being read, and afterwards.
@@ -248,7 +269,7 @@ export default function WorkLogHistoryPage() {
   const today = todayIn(zone);
 
   // What the filters actually resolve to right now.
-  const fromAt = from ?? firstOfMonth(zone);
+  const fromAt = from ?? defaultDayRange(zone).from;
   const toAt = to ?? today;
   /* Week Wise shows the week CONTAINING the From date, rather than carrying a
    * separate anchor of its own. It used to have one, stepped by a pair of
@@ -303,6 +324,23 @@ export default function WorkLogHistoryPage() {
    * simply does not ask. */
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
+
+  /* Picking either date. In Day Wise it moves that end alone; in Week Wise it
+   * snaps BOTH to the week the chosen day falls in, because that is the range
+   * the table is about to render either way. */
+  function pickDate(value: string, end: "from" | "to") {
+    if (!value) return;
+    if (view === "week") {
+      const week = weekRange(value);
+      setFrom(week.from);
+      setTo(week.to);
+    } else if (end === "from") {
+      setFrom(value);
+    } else {
+      setTo(value);
+    }
+    setPage(1);
+  }
 
   /* Is today inside the range being looked at?
    *
@@ -755,13 +793,19 @@ export default function WorkLogHistoryPage() {
                 setView(v);
                 setPage(1);
                 setExpanded(null);
+                /* Each view sets the calendar to the range it is about to
+                   show: Week Wise to this week's Monday and Sunday, Day Wise
+                   to one page of days ending today. The filters and the table
+                   then describe the same period rather than the filters
+                   describing one the table has never shown. */
                 if (v === "week") {
-                  // The week containing today, which is what `weekAt` reads.
-                  setFrom(today);
-                  setTo(today);
+                  const week = weekRange(today);
+                  setFrom(week.from);
+                  setTo(week.to);
                 } else {
-                  setFrom(firstOfMonth(zone));
-                  setTo(today);
+                  const range = defaultDayRange(zone);
+                  setFrom(range.from);
+                  setTo(range.to);
                 }
               }}
               aria-pressed={view === v}
@@ -795,8 +839,11 @@ export default function WorkLogHistoryPage() {
             value={fromAt}
             max={toAt}
             onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(1);
+              /* In Week Wise both fields move together, to the week the picked
+                 day falls in. The view shows a whole week whatever the filters
+                 say, so letting them describe part of one would leave the
+                 calendar disagreeing with the table underneath it. */
+              pickDate(e.target.value, "from");
             }}
             className="h-11 w-40 rounded-control border border-line bg-surface px-3 text-sm text-content"
           />
@@ -807,10 +854,9 @@ export default function WorkLogHistoryPage() {
           <input
             type="date"
             value={toAt}
-            min={fromAt}
+            min={view === "week" ? undefined : fromAt}
             onChange={(e) => {
-              setTo(e.target.value);
-              setPage(1);
+              pickDate(e.target.value, "to");
             }}
             className="h-11 w-40 rounded-control border border-line bg-surface px-3 text-sm text-content"
           />
@@ -836,8 +882,12 @@ export default function WorkLogHistoryPage() {
         <button
           type="button"
           onClick={() => {
-            setFrom(firstOfMonth(zone));
-            setTo(today);
+            // Reset means "back to this view's own default range", not
+            // always Day Wise's — resetting inside Week Wise used to hand back
+            // a range that was not a week.
+            const range = view === "week" ? weekRange(today) : defaultDayRange(zone);
+            setFrom(range.from);
+            setTo(range.to);
             setSearch("");
             setPage(1);
           }}
