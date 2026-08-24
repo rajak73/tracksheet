@@ -515,6 +515,15 @@ export default function WorkLogHistoryPage() {
 
       if (live.processingState === "COMPLETED") {
         setReading({ phase: "done", activities: live.activities.length });
+        /* The inline box says the same thing, but only while this dialog
+         * stays open — this is what confirms it once it's closed. `submit()`,
+         * the manual-entry path, already does this; this path is the AI one
+         * and had gone through the whole read-back-and-confirm cycle with
+         * nothing outside the dialog to show for it. */
+        toast(
+          "success",
+          `${live.activities.length} ${live.activities.length === 1 ? "activity" : "activities"} recorded.`,
+        );
         break;
       }
       if (live.processingState === "REVIEW_REQUIRED") {
