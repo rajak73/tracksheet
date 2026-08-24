@@ -140,10 +140,6 @@ const weekRange = (date: string) => {
  */
 type ReadingState =
   | null
-  /** Fetching today's own submission back, for "Edit Today's Log" — not a
-   *  submit in progress, so it gets its own copy rather than borrowing
-   *  "sending"'s. */
-  | { phase: "loading" }
   | { phase: "sending" }
   | { phase: "reading" }
   | { phase: "done"; activities: number }
@@ -536,29 +532,40 @@ export default function WorkLogHistoryPage() {
    * still records the day, it is only the pre-fill that has nothing to work
    * from.
    */
-  async function openEditToday() {
+  function openEditToday() {
     if (!instructorId) return;
     setEditing(null);
     setEditingToday(true);
-    setDraft(emptyDraft(today));
+    setEntryMode("fields");
     setNarrative("");
-    setEntryMode("write");
+    setReading(null);
     setFormError(null);
+
+    /* Today's own lines, back in the four boxes that wrote them.
+     *
+     * Read from `rows` — already on screen, already today's — rather than
+     * fetched. This used to open the paragraph box and pull the day's
+     * `rawBullets` back from the server, which only ever held anything for a
+     * day written that way; a day filled in through these boxes has no
+     * narrative to return, so the box opened empty and saving it replaced the
+     * day with nothing.
+     *
+     * The lists stay index-aligned, empties included, because `splitEntries`
+     * pairs them by position — dropping a blank quantity would shift every
+     * hour after it onto the wrong deliverable. */
+    const todays = rows.filter((r) => r.workDate.slice(0, 10) === today);
+    setDraft({
+      date: today,
+      deliverable: todays.map((r) => r.rawText ?? r.deliverableType?.label ?? "").join("\n"),
+      quantity: todays.map((r) => String(r.quantity ?? "")).join("\n"),
+      // Printed the way the table prints it, so an edit does not turn
+      // "8h 30m" into "8.5" in front of the person correcting it.
+      workingHours: todays
+        .map((r) => formatHours(r.durationHours).replace(/^0/, ""))
+        .join("\n"),
+      remarks: todays.map((r) => r.remarks ?? "").join("\n"),
+    });
     setOpen(true);
-    setReading({ phase: "loading" });
-    try {
-      const res = await apiGet<{ submissions: SubmissionView[] }>(
-        `/api/instructors/${instructorId}/worklog?date=${today}`,
-        "Could not load today's worklog.",
-      );
-      const latest = res.submissions.at(-1);
-      setNarrative(latest?.rawBullets?.join("\n") ?? "");
-    } catch {
-      // Opened already; a failed read-back leaves a blank box to write into
-      // rather than blocking the edit entirely.
-    } finally {
-      setReading(null);
-    }
   }
 
   /**
@@ -692,6 +699,10 @@ export default function WorkLogHistoryPage() {
           quantity: draft.quantity,
           workingHours: draft.workingHours,
           remarks: draft.remarks,
+          /* Rewriting the whole day, not adding to it — every line of it is
+           * in the boxes, so appending would duplicate the ones left alone.
+           * The server does the clearing; see `replace` on the entry route. */
+          ...(editingToday ? { replace: true } : {}),
         },
         editing ? "Could not save that change." : "Could not submit your work log.",
       );
@@ -841,7 +852,7 @@ export default function WorkLogHistoryPage() {
           {!todayInView ? null : hasSubmittedToday ? (
             <button
               type="button"
-              onClick={() => void openEditToday()}
+              onClick={openEditToday}
               className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success-text shadow-card transition-colors hover:bg-success/10"
             >
               <Pencil />
@@ -1460,8 +1471,7 @@ function NarrativeEntry({
   /** The latest day that may be written up — the UNIVERSITY's today. */
   today: string;
 }) {
-  const busy =
-    reading?.phase === "sending" || reading?.phase === "reading" || reading?.phase === "loading";
+  const busy = reading?.phase === "sending" || reading?.phase === "reading";
 
   return (
     <div className="grid gap-5">
@@ -1522,12 +1532,7 @@ function NarrativeEntry({
                   : "border-line bg-sunken text-muted")
           }
         >
-          {reading.phase === "loading" ? (
-            <span className="inline-flex items-center gap-2">
-              <Spinner />
-              Loading today&rsquo;s entry…
-            </span>
-          ) : reading.phase === "sending" ? (
+          {reading.phase === "sending" ? (
             <span>Saving your worklog…</span>
           ) : reading.phase === "reading" ? (
             <span className="inline-flex items-center gap-2">

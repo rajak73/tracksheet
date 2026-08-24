@@ -127,3 +127,84 @@ describe("resubmitting today REPLACES it, never appends a second one", () => {
     ]);
   });
 });
+
+describe("rewriting today through the four fields replaces it", () => {
+  /* The path "Edit Today's Log" takes now: the day's lines come back into the
+   * boxes and are saved with `replace`, so what was there is gone rather than
+   * doubled. Its own throwaway instructor, because these cases assert on the
+   * whole of one day. */
+  let mine = "";
+  let asMe: ApiClient;
+
+  beforeAll(async () => {
+    const created = await admin.post("/api/instructors", {
+      email: `replace.${RUN}@example.edu`,
+      name: `Replace ${RUN}`,
+      password: "replace-test-pw-1234",
+      universityId: northId,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    mine = created.body.instructor.id;
+    asMe = new ApiClient("replace-me");
+    await asMe.login(created.body.instructor.user.email, "replace-test-pw-1234");
+  });
+
+  const dayRows = async () => {
+    const res = await asMe.get(`/api/activities?from=${TODAY_IST}&to=${TODAY_IST}&limit=50`);
+    expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
+    return res.body.activities as Array<{ rawText: string | null; durationHours: number }>;
+  };
+
+  test("without `replace`, a second save adds to the day", async () => {
+    const first = await asMe.post(`/api/instructors/${mine}/worklog/entry`, {
+      date: TODAY_IST,
+      deliverable: "Live class on trees",
+      quantity: "1",
+      workingHours: "2h",
+    });
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+
+    const second = await asMe.post(`/api/instructors/${mine}/worklog/entry`, {
+      date: TODAY_IST,
+      deliverable: "Doubt session",
+      quantity: "1",
+      workingHours: "1h",
+    });
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
+    expect(await dayRows()).toHaveLength(2);
+  });
+
+  test("with `replace`, the day becomes exactly what was sent", async () => {
+    const res = await asMe.post(`/api/instructors/${mine}/worklog/entry`, {
+      date: TODAY_IST,
+      // The same two lines the boxes would hand back, with one corrected.
+      deliverable: "Live class on binary trees\nDoubt session",
+      quantity: "1\n1",
+      workingHours: "3h\n1h",
+      replace: true,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+
+    const rows = await dayRows();
+    expect(rows, "two in, two out — not four").toHaveLength(2);
+    expect(rows.map((r) => r.rawText).sort()).toEqual(
+      ["Doubt session", "Live class on binary trees"],
+    );
+    // The correction took: 2h became 3h.
+    expect(rows.reduce((n, r) => n + r.durationHours, 0)).toBe(4);
+  });
+
+  test("a replace that cannot parse leaves the day untouched", async () => {
+    const before = await dayRows();
+    const res = await asMe.post(`/api/instructors/${mine}/worklog/entry`, {
+      date: TODAY_IST,
+      deliverable: "Live class\nDoubt session",
+      // Three hours for two deliverables — refused by `splitEntries`.
+      workingHours: "1h\n2h\n3h",
+      replace: true,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(400);
+    // The clearing happens AFTER the parse, so a refusal never empties a day.
+    expect(await dayRows()).toHaveLength(before.length);
+  });
+});

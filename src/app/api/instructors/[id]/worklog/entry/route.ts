@@ -6,6 +6,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
 import { assertValidDate } from "@/server/time/schedule-windows";
+import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
 import { classifyLines, recordQuickEntry } from "@/server/worklog/quick-entry";
@@ -54,6 +55,18 @@ export const QuickEntry = z.object({
     .union([z.string().max(4_000), z.null()])
     .optional()
     .transform((v) => v ?? ""),
+  /**
+   * Rewrite the whole day rather than add to it.
+   *
+   * "Edit Today's Log" hands back every line of the day at once, so saving it
+   * has to REPLACE what is there — appending would duplicate every line the
+   * instructor did not touch. The client cannot do this in two requests: the
+   * new entries are laid end to end after whatever the day already holds, so
+   * writing before deleting pushes a full day past midnight and is refused,
+   * and deleting before writing loses the day if the write then fails. One
+   * request, one order, on the server.
+   */
+  replace: z.boolean().optional(),
 });
 
 /** Resolves the instructor and authorises writing to them. */
@@ -99,6 +112,19 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     remarks: input.remarks,
   });
   if (!split.ok) throw new ApiError(400, "ENTRY_LINES_INVALID", split.reason);
+
+  /* Cleared AFTER the lines parse and BEFORE any are written.
+   *
+   * After, so a request that was never going to succeed cannot empty a day on
+   * its way to being refused. Before, so the new entries are placed against an
+   * empty day — `recordQuickEntry` lays each one after whatever is already
+   * there, and replacing eight hours with eight more would otherwise run the
+   * day past midnight and be refused for it. */
+  if (input.replace) {
+    await prisma.activityLog.deleteMany({
+      where: { instructorId: instructor.id, workDate: toDateOnly(input.date) },
+    });
+  }
 
   /* Written in order, one at a time, through the same writer a single entry
    * always used — so the interval limits, the once-per-day rule and the overlap
