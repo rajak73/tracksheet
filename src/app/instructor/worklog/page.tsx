@@ -627,8 +627,10 @@ export default function WorkLogHistoryPage() {
          * nothing outside the dialog to show for it. */
         toast(
           "success",
-          "Your work log for today has been submitted successfully.",
-          "Great job!",
+          editingToday
+            ? "Your work log for today has been updated successfully."
+            : "Your work log for today has been submitted successfully.",
+          editingToday ? "Updated!" : "Great job!",
         );
         break;
       }
@@ -715,12 +717,18 @@ export default function WorkLogHistoryPage() {
        * which answers a question nobody asked at the moment they press Submit:
        * they want to know the day went in, and the table behind the dialog is
        * already showing them what it became. */
+      /* Correcting, by either route: one row through the pencil (`editing`)
+       * or the whole day through "Edit Today's Log" (`editingToday`). Only
+       * the first was checked, so rewriting the day — which REPLACES it —
+       * congratulated the instructor for submitting something they had
+       * already submitted. */
+      const correcting = Boolean(editing || editingToday);
       toast(
         "success",
-        editing
+        correcting
           ? "Your work log for today has been updated successfully."
           : "Your work log for today has been submitted successfully.",
-        editing ? "Updated!" : "Great job!",
+        correcting ? "Updated!" : "Great job!",
       );
       setOpen(false);
       logs.reload();
