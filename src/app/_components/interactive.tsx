@@ -175,9 +175,20 @@ export function ConfirmDialog({
 /* ── Toasts ────────────────────────────────────────────────────────────── */
 
 type ToastTone = "success" | "danger" | "info";
-type Toast = { id: number; tone: ToastTone; message: string };
+/**
+ * `title` is optional, and the difference is a real one rather than a style.
+ *
+ * With one, the toast says what HAPPENED in a bolded line and what that means
+ * underneath it — "Great job!" over "Your work log for today has been
+ * submitted successfully." Without one it is a single sentence, which is right
+ * for the small confirmations ("Entry removed successfully.") that would look
+ * self-important with a headline over them.
+ */
+type Toast = { id: number; tone: ToastTone; message: string; title?: string };
 
-const ToastContext = createContext<((tone: ToastTone, message: string) => void) | null>(null);
+const ToastContext = createContext<
+  ((tone: ToastTone, message: string, title?: string) => void) | null
+>(null);
 
 /**
  * Transient confirmation of something that already happened (§32).
@@ -190,9 +201,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const next = useRef(0);
 
-  const push = useCallback((tone: ToastTone, message: string) => {
+  const push = useCallback((tone: ToastTone, message: string, title?: string) => {
     const id = next.current++;
-    setToasts((current) => [...current, { id, tone, message }]);
+    setToasts((current) => [...current, { id, tone, message, title }]);
     setTimeout(() => {
       setToasts((current) => current.filter((t) => t.id !== id));
     }, 5000);
@@ -204,6 +215,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     info: "border-info/30 bg-info-subtle text-info-text",
   };
   const glyphs = { success: IconCheck, danger: IconAlert, info: IconInfo };
+  /* The disc behind the glyph: the tone at full strength, which the pale
+     surface it sits on is a tint of. */
+  const discs: Record<ToastTone, string> = {
+    success: "bg-success",
+    danger: "bg-danger",
+    info: "bg-info",
+  };
 
   return (
     <ToastContext.Provider value={push}>
@@ -226,8 +244,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={t.id}
               className={`pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-card border px-4 py-3 text-sm shadow-raised ${tones[t.tone]}`}
             >
-              <Glyph size={16} className="mt-0.5 shrink-0" />
-              <span className="flex-1">{t.message}</span>
+              {/* A filled disc rather than a bare tick: at 16px on a pale
+                  ground the glyph alone reads as decoration, and the disc is
+                  what makes the tone legible before the words are. */}
+              <span
+                className={`mt-px flex size-7 shrink-0 items-center justify-center rounded-full ${discs[t.tone]}`}
+              >
+                <Glyph size={16} className="text-white" />
+              </span>
+              <span className="flex-1">
+                {t.title ? <span className="block font-semibold">{t.title}</span> : null}
+                <span className="block text-content">{t.message}</span>
+              </span>
               <button
                 onClick={() => setToasts((c) => c.filter((x) => x.id !== t.id))}
                 aria-label="Dismiss"
@@ -253,7 +281,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function useToast() {
   const push = useContext(ToastContext);
   return useCallback(
-    (tone: ToastTone, message: string) => push?.(tone, message),
+    (tone: ToastTone, message: string, title?: string) => push?.(tone, message, title),
     [push],
   );
 }

@@ -625,7 +625,11 @@ export default function WorkLogHistoryPage() {
          * the manual-entry path, already does this; this path is the AI one
          * and had gone through the whole read-back-and-confirm cycle with
          * nothing outside the dialog to show for it. */
-        toast("success", "Today's worklog submitted successfully.");
+        toast(
+          "success",
+          "Your work log for today has been submitted successfully.",
+          "Great job!",
+        );
         break;
       }
       if (live.processingState === "REVIEW_REQUIRED") {
@@ -714,8 +718,9 @@ export default function WorkLogHistoryPage() {
       toast(
         "success",
         editing
-          ? "Today's worklog updated successfully."
-          : "Today's worklog submitted successfully.",
+          ? "Your work log for today has been updated successfully."
+          : "Your work log for today has been submitted successfully.",
+        editing ? "Updated!" : "Great job!",
       );
       setOpen(false);
       logs.reload();
