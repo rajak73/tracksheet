@@ -999,7 +999,7 @@ export default function WorkLogHistoryPage() {
                       /* The background belongs on the CELL, not the row: once a
                          sticky cell detaches it paints on its own, and a
                          transparent one would show the rows sliding underneath. */
-                      className="sticky top-0 z-10 border-b border-line bg-primary-subtle px-4 py-3.5 text-left text-sm font-semibold text-primary-text"
+                      className="border-r border-line last:border-r-0 sticky top-0 z-10 border-b border-line bg-primary-subtle px-4 py-3.5 text-left text-sm font-semibold text-primary-text"
                     >
                       {c}
                     </th>
@@ -1024,7 +1024,7 @@ export default function WorkLogHistoryPage() {
                     const future = group.state === "future";
                     return (
                       <tr key={group.key} className={future ? "" : "bg-warning-subtle/30"}>
-                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
@@ -1032,11 +1032,11 @@ export default function WorkLogHistoryPage() {
                         </td>
                         <td
                           colSpan={5}
-                          className={`border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
+                          className={`border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
                         </td>
-                        <td className="border-b border-line-subtle px-4 py-4" />
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4" />
                       </tr>
                     );
                   }
@@ -1044,28 +1044,28 @@ export default function WorkLogHistoryPage() {
                   return (
                     <Fragment key={group.key}>
                       <tr className={isToday ? "bg-primary-subtle/25" : ""}>
-                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
                         </td>
-                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {broadCategoryCell(group.subjects)}
                         </td>
-                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {deliverableCell(group.lines)}
                         </td>
-                        <td className="tabular border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-4 text-content">
                           {quantityCell(group.lines)}
                         </td>
-                        <td className="tabular border-b border-line-subtle px-4 py-4 font-medium text-content">
+                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-4 font-medium text-content">
                           {workingHoursCell(group.totalMinutes)}
                         </td>
-                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {group.remarks || "—"}
                         </td>
-                        <td className="border-b border-line-subtle px-4 py-4">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4">
                           <span className="inline-flex items-center gap-2">
                             {entries.length > 1 || view !== "date" ? (
                               /* What the row was made FROM. The row is the
@@ -1115,26 +1115,26 @@ export default function WorkLogHistoryPage() {
                       {isOpen
                         ? entries.map((e) => (
                             <tr key={e.id} className="bg-sunken/50">
-                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-muted">
+                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-muted">
                                 {view === "date" ? "" : longDate(e.workDate.slice(0, 10))}
                               </td>
                               {/* Skips only Broad Category to land on Deliverable —
                                   this entry's own row doesn't carry a subject of its
                                   own to show here. */}
-                              <td colSpan={1} className="border-b border-line-subtle" />
-                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-content">
+                              <td colSpan={1} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
+                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
-                              <td className="tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
+                              <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.quantity ?? UNSTATED}
                               </td>
-                              <td className="tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
+                              <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {formatHours(e.durationHours)}
                               </td>
-                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-content">
+                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.remarks ?? "—"}
                               </td>
-                              <td className="border-b border-line-subtle px-4 py-3">
+                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3">
                                 {/* Per ENTRY, not per row: an expanded week can
                                     hold entries from seven different days, and
                                     only the ones on today are the instructor's
@@ -1183,16 +1183,16 @@ export default function WorkLogHistoryPage() {
                        detaches from the row. */
                     className="font-semibold"
                   >
-                    <td className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
+                    <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       Week total
                     </td>
                     {/* Skips Broad Category, Deliverable and Quantity to land the
                         total under Working Hours, then Remarks and Actions. */}
-                    <td colSpan={3} className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
-                    <td className="tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
+                    <td colSpan={3} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td className="border-r border-line last:border-r-0 tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
-                    <td colSpan={2} className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td colSpan={2} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                   </tr>
                 ) : null}
               </tbody>
