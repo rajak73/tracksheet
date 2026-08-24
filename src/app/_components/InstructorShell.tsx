@@ -92,14 +92,28 @@ export function InstructorShell({
             corner is z-30 and `main` opens no stacking context of its own, so at
             the z-30 this used to carry, the "Date" cell simply out-painted the
             bell and profile panels for coming later in the document. */}
-        <header className="sticky top-0 z-50 border-b-2 border-primary bg-sidebar-bg">
+        <header
+          /* ── Blue, not the navy the sidebar uses ────────────────────────
+           * The client's reference puts this bar in the interaction blue, and
+           * an instructor has no sidebar — this bar IS their whole chrome, so
+           * there is no navy rail beside it for it to agree with.
+           *
+           * Nothing on it can keep the `sidebar-*` tokens: those were mixed
+           * for navy, and on blue the muted grey drops to 1.98:1. Secondary
+           * text here is full white, made secondary by SIZE rather than by
+           * opacity — every tint of white on this blue, up to 90%, lands
+           * under 4.5:1. Icons take a tint (3:1 is their bar) and the wordmark
+           * takes one too, since at 24px bold it counts as large text. */
+          className="sticky top-0 z-50 bg-primary"
+        >
           <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-4 sm:px-6 lg:px-10">
             {/* The client's mark for this product: a clipboard tile, then the
                 wordmark with the second half in the brand blue. */}
             <span className="flex shrink-0 items-center gap-2.5">
               <span
                 aria-hidden
-                className="inline-flex size-10 items-center justify-center rounded-[10px] bg-primary text-white"
+                /* Inverted: a blue tile on a blue bar is not a tile. */
+                className="inline-flex size-10 items-center justify-center rounded-[10px] bg-white text-primary"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="size-6">
                   <rect
@@ -126,15 +140,15 @@ export function InstructorShell({
                   />
                 </svg>
               </span>
-              <span className="font-display text-2xl font-bold tracking-tight text-sidebar-text">
-                Work<span className="text-primary-bright">Log</span>
+              <span className="font-display text-2xl font-bold tracking-tight text-white">
+                Work<span className="text-white/85">Log</span>
               </span>
             </span>
 
             {title ? (
               <>
-                <span aria-hidden className="hidden h-6 w-px bg-sidebar-border sm:block" />
-                <h1 className="hidden truncate text-lg font-semibold text-sidebar-text sm:block">
+                <span aria-hidden className="hidden h-6 w-px bg-white/25 sm:block" />
+                <h1 className="hidden truncate text-lg font-semibold text-white sm:block">
                   {title}
                 </h1>
               </>
@@ -143,7 +157,7 @@ export function InstructorShell({
             <div className="ml-auto flex items-center gap-2">
               <NotificationBell
                 placement="header-dark"
-                className="text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+                className="text-white/80 hover:bg-white/15 hover:text-white"
               />
               <IdentityMenu
                 userName={userName}
@@ -222,25 +236,25 @@ function IdentityMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2.5 rounded-card py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:bg-sidebar-hover-bg"
+        className="flex items-center gap-2.5 rounded-card py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:bg-white/15"
       >
         <Avatar
           name={name}
           avatarUrl={profile?.avatarUrl ?? null}
           size={36}
-          className="bg-white/10 text-sidebar-text"
+          className="bg-white/20 text-white"
         />
         <span className="min-w-0">
-          <span className="block max-w-[9rem] truncate text-sm font-semibold text-sidebar-text">
+          <span className="block max-w-[9rem] truncate text-sm font-semibold text-white">
             {name}
           </span>
           {code ? (
-            <span className="tabular block truncate text-xs text-sidebar-text-muted">{code}</span>
+            <span className="tabular block truncate text-xs text-white">{code}</span>
           ) : null}
         </span>
         <IconChevronDown
           size={16}
-          className={`shrink-0 text-sidebar-text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 text-white/80 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 

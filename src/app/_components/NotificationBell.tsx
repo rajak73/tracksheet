@@ -124,7 +124,16 @@ export function NotificationBell({
           {items.length > 0 ? (
             <span
               className={`absolute -right-0.5 -top-0.5 size-2 rounded-full bg-danger ring-2 ${
-                placement === "header" ? "ring-surface" : "ring-sidebar-bg"
+                /* The ring cuts the dot out of whatever it sits on, so it
+                   has to name that surface exactly: white in a light header,
+                   blue in the two dark top bars (which are `bg-primary`), navy
+                   in the sidebar footer. A single "not header" case used to
+                   cover the last two, which was fine while both were navy. */
+                placement === "header"
+                  ? "ring-surface"
+                  : placement === "header-dark"
+                    ? "ring-primary"
+                    : "ring-sidebar-bg"
               }`}
             />
           ) : null}

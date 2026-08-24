@@ -135,24 +135,30 @@ export function AppShell({
            * z-50: chrome, above anything the page content can stick. It was
            * z-20 — under the manager sheet's own sticky header — so the bell
            * and profile panels opened UNDERNEATH the table. */}
-          <header className="sticky top-0 z-50 border-b-2 border-primary bg-sidebar-bg lg:hidden">
+          <header
+            /* Blue, matching `InstructorShell`'s bar — see the note there for
+               why the `sidebar-*` tokens cannot come along. The desktop
+               SIDEBAR stays navy: it is a vertical rail, not this bar, and the
+               two are never on screen together. */
+            className="sticky top-0 z-50 bg-primary lg:hidden"
+          >
             <div className="flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
               <IconButton
                 label="Open navigation"
                 onClick={() => setDrawerOpen(true)}
-                className="-ml-2 text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text lg:hidden"
+                className="-ml-2 text-white/80 hover:bg-white/15 hover:text-white lg:hidden"
               >
                 <IconMenu size={20} />
               </IconButton>
 
-              <span className="font-display text-sm font-semibold tracking-tight text-sidebar-text lg:hidden">
+              <span className="font-display text-sm font-semibold tracking-tight text-white lg:hidden">
                 NIAT
               </span>
 
               <div className="ml-auto flex items-center gap-1">
                 <NotificationBell
                   placement="header-dark"
-                  className="text-sidebar-text-muted hover:bg-sidebar-hover-bg hover:text-sidebar-text"
+                  className="text-white/80 hover:bg-white/15 hover:text-white"
                 />
                 {/* The profile menu lives in the sidebar footer on desktop
                     (§7). This whole bar is mobile-only now, so no `lg:hidden`
@@ -481,15 +487,15 @@ function UserMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors hover:bg-sidebar-hover-bg"
+        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors hover:bg-white/15"
       >
         <Avatar
           name={userName}
           avatarUrl={account.profile?.avatarUrl ?? null}
           size={28}
-          className="bg-white/10 text-sidebar-text"
+          className="bg-white/20 text-white"
         />
-        <span className="hidden max-w-32 truncate text-sm text-sidebar-text sm:inline">
+        <span className="hidden max-w-32 truncate text-sm text-white sm:inline">
           {userName}
         </span>
       </button>
