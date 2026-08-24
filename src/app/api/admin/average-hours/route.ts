@@ -33,6 +33,16 @@ import { averageActiveMinutes, type UniversityDay } from "@/domain/average-hours
  * ── No model call, and there could not be one ─────────────────────────────
  * Every figure here is a SUM and a division over stored rows. See the rule in
  * the README and the guard in `tests/no-gemini-in-arithmetic.test.ts`.
+ *
+ * ── Manager and instructor counts are roster metadata, not inputs ─────────
+ * `managerCount` and `instructorCount` below answer "how big is this
+ * university's team", read from `Manager`/`Instructor` directly — the same
+ * tables and the same `user: { isActive: true }` filter `admin/overview`
+ * already uses for roster size, so this card cannot disagree with that one
+ * about what counts as "on the roster". They are never read from
+ * `UniversityDailyMetric` and never touch `averageActiveMinutes`: a
+ * university with one manager and one with four, given identical activity,
+ * produce the identical average — see `tests/average-hours.test.ts`.
  */
 
 type View = "day" | "week" | "month";
@@ -83,6 +93,29 @@ export const GET = withAuth(
       select: { id: true, name: true, slug: true, timezone: true },
       orderBy: { name: "asc" },
     });
+    const universityIds = universities.map((u) => u.id);
+
+    // Period-independent roster metadata, batched ONCE across every
+    // university rather than once per row below — mirrors the identical
+    // pattern in `admin/overview/route.ts`. Deliberately two separate
+    // `groupBy` calls against `Manager`/`Instructor`, not a read of anything
+    // this feature's own calculation touches.
+    const [managerRows, instructorRows] = await Promise.all([
+      prisma.manager.groupBy({
+        by: ["universityId"],
+        where: { universityId: { in: universityIds }, user: { isActive: true } },
+        _count: { _all: true },
+      }),
+      prisma.instructor.groupBy({
+        by: ["universityId"],
+        where: { universityId: { in: universityIds }, user: { isActive: true } },
+        _count: { _all: true },
+      }),
+    ]);
+    const managerCountByUniversity = new Map(managerRows.map((r) => [r.universityId, r._count._all]));
+    const instructorCountByUniversity = new Map(
+      instructorRows.map((r) => [r.universityId, r._count._all]),
+    );
 
     const now = new Date();
     const rows = await Promise.all(
@@ -124,6 +157,10 @@ export const GET = withAuth(
           activeMinutes: shaped.reduce((n, d) => n + d.activeMinutes, 0),
           activeInstructorDays: shaped.reduce((n, d) => n + d.activeCount, 0),
           averageMinutes: average.minutes,
+          // Roster size, NOT the calculation's denominator — see the file doc.
+          // An instructor with nothing active this period still counts here.
+          managerCount: managerCountByUniversity.get(university.id) ?? 0,
+          instructorCount: instructorCountByUniversity.get(university.id) ?? 0,
         };
       }),
     );

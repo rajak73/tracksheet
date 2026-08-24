@@ -368,6 +368,175 @@ describe("7 — each university resolves its own configured zone", () => {
   });
 });
 
+describe("8 — manager and instructor counts are roster context, never inputs", () => {
+  /* Every fixture here is a fresh, throwaway university, so this block cannot
+   * disturb the figures the describes above already asserted on
+   * `universityId` — nothing here mutates shared fixture state. */
+  const ROSTER_DAY = "2026-07-06"; // a fresh Monday this file does not reuse
+  let codeSeq = 0;
+
+  async function newUniversity(tag: string): Promise<string> {
+    codeSeq += 1;
+    // Deliberately NOT "Roster ..." — the payload's own banned-word guard
+    // (below, in its own describe) scans the whole response text, and a
+    // fixture's free-text NAME is part of that text same as any field.
+    const created = await admin.post("/api/universities", {
+      name: `Team ${tag} ${RUN}`,
+      slug: `team-${tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${RUN}`,
+      code: `RC${codeSeq}${RUN.slice(0, 4).toUpperCase()}`,
+      timezone: "Asia/Kolkata",
+      workingHours: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        dayOfWeek,
+        isWorkingDay: dayOfWeek >= 1 && dayOfWeek <= 5,
+        startMinute: 9 * 60,
+        endMinute: 18 * 60,
+      })),
+    });
+    expect(created.status, JSON.stringify(created.body).slice(0, 200)).toBe(201);
+    return created.body.university.id;
+  }
+
+  async function addManagers(uniId: string, count: number) {
+    for (let i = 0; i < count; i++) {
+      const res = await admin.post(`/api/universities/${uniId}/managers`, {
+        email: `roster.mgr.${uniId}.${i}.${RUN}@example.edu`,
+        name: `Roster Mgr ${i} ${RUN}`,
+        password: "roster-mgr-test-pw-1234",
+        employeeCode: `RM${RUN}${uniId.slice(-4)}${i}`,
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+    }
+  }
+
+  async function addInstructors(uniId: string, count: number) {
+    for (let i = 0; i < count; i++) {
+      const res = await admin.post("/api/instructors", {
+        email: `roster.inst.${uniId}.${i}.${RUN}@example.edu`,
+        name: `Roster Inst ${i} ${RUN}`,
+        password: "roster-inst-test-pw-1234",
+        universityId: uniId,
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+    }
+  }
+
+  async function dayMetric(uniId: string, activeMinutes: number, activeCount: number) {
+    await prisma.universityDailyMetric.upsert({
+      where: {
+        universityId_metricDate: { universityId: uniId, metricDate: new Date(`${ROSTER_DAY}T00:00:00.000Z`) },
+      },
+      create: {
+        universityId: uniId,
+        metricDate: new Date(`${ROSTER_DAY}T00:00:00.000Z`),
+        activeInstructorMinutes: activeMinutes,
+        activeInstructorCount: activeCount,
+      },
+      update: { activeInstructorMinutes: activeMinutes, activeInstructorCount: activeCount },
+    });
+  }
+
+  // Requirement 1: identical activity, 1 manager vs 4 managers.
+  let oneManager = "", fourManagers = "";
+  // Requirement 3: 8 on the roster, only 3 active that day.
+  let eightOnRoster = "";
+  // Requirement 2: the worked example's three rows, verbatim.
+  let worked1 = "", worked2 = "", worked3 = "";
+
+  beforeAll(async () => {
+    oneManager = await newUniversity("OneManager");
+    fourManagers = await newUniversity("FourManagers");
+    eightOnRoster = await newUniversity("EightTotalThreeActive");
+    worked1 = await newUniversity("Worked1");
+    worked2 = await newUniversity("Worked2");
+    worked3 = await newUniversity("Worked3");
+
+    await Promise.all([
+      addManagers(oneManager, 1),
+      addManagers(fourManagers, 4),
+      addManagers(eightOnRoster, 1),
+      addManagers(worked1, 2),
+      addManagers(worked2, 1),
+      addManagers(worked3, 4),
+    ]);
+    await Promise.all([
+      addInstructors(eightOnRoster, 8),
+      addInstructors(worked1, 5),
+      addInstructors(worked2, 4),
+      addInstructors(worked3, 8),
+    ]);
+
+    // oneManager and fourManagers: the SAME activity, on purpose.
+    await dayMetric(oneManager, 400, 5);
+    await dayMetric(fourManagers, 400, 5);
+    // 8 instructors on the roster; only 3 of them active this day.
+    await dayMetric(eightOnRoster, 240, 3);
+    // The worked example's three figures, exactly:
+    //   1605 ÷ 12 = 133.75  = 2h 13.75m
+    //    953 ÷ 10 =  95.3   = 1h 35.3m
+    //    888 ÷ 10 =  88.8   = 1h 28.8m
+    await dayMetric(worked1, 1605, 12);
+    await dayMetric(worked2, 953, 10);
+    await dayMetric(worked3, 888, 10);
+  });
+
+  const rowFor = async (uniId: string) => {
+    const res = await admin.get(`/api/admin/average-hours?view=day&on=${ROSTER_DAY}`);
+    expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
+    const row = res.body.universities.find((u: { id: string }) => u.id === uniId);
+    expect(row, "the university should be in the response").toBeTruthy();
+    return row as {
+      managerCount: number;
+      instructorCount: number;
+      activeInstructorDays: number;
+      averageMinutes: number | null;
+    };
+  };
+
+  test("manager count has zero effect on the calculation — 1 manager vs 4, identical activity", async () => {
+    const a = await rowFor(oneManager);
+    const b = await rowFor(fourManagers);
+    expect(a.managerCount).toBe(1);
+    expect(b.managerCount).toBe(4);
+    // Same underlying activity, so the same average — manager count never
+    // entered the formula on either side.
+    expect(a.averageMinutes).toBe(b.averageMinutes);
+    expect(a.averageMinutes).toBe(80); // 400 ÷ 5
+  });
+
+  test("roster size (8) and the active count the average used (3) are never conflated", async () => {
+    const row = await rowFor(eightOnRoster);
+    expect(row.instructorCount, "the whole roster, active today or not").toBe(8);
+    expect(row.activeInstructorDays, "only who was active today").toBe(3);
+    // 240 ÷ 3, never 240 ÷ 8 — the roster size the card also shows must not
+    // leak into the number it sits beside.
+    expect(row.averageMinutes).toBe(80);
+    expect(row.averageMinutes).not.toBe(240 / 8);
+  });
+
+  test("the worked example: manager count, instructor count and average together, exactly", async () => {
+    const first = await rowFor(worked1);
+    expect(first.managerCount).toBe(2);
+    expect(first.instructorCount).toBe(5);
+    expect(formatActiveAverage(first.averageMinutes)).toBe("2h 13.75m");
+
+    const second = await rowFor(worked2);
+    expect(second.managerCount).toBe(1);
+    expect(second.instructorCount).toBe(4);
+    expect(formatActiveAverage(second.averageMinutes)).toBe("1h 35.3m");
+
+    const third = await rowFor(worked3);
+    expect(third.managerCount).toBe(4);
+    expect(third.instructorCount).toBe(8);
+    expect(formatActiveAverage(third.averageMinutes)).toBe("1h 28.8m");
+  });
+
+  test("Gemini is never called for roster counts either", async () => {
+    const before = geminiCallCount();
+    await admin.get(`/api/admin/average-hours?view=day&on=${ROSTER_DAY}`);
+    expect(geminiCallCount()).toBe(before);
+  });
+});
+
 describe("it is an admin figure, and it is not a percentage", () => {
   test("a manager cannot read the whole network's averages", async () => {
     const manager = new ApiClient("manager");

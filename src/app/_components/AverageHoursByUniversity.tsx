@@ -21,6 +21,14 @@
  * highest university on screen rather than against any target. It says which
  * university is averaging more than which — a comparison the reader can make
  * something of — and refuses to say whether either is good.
+ *
+ * ── Manager and instructor counts are roster context, not part of the sum ──
+ * Shown beside each row so "2h 13.75m" reads against the size of the team it
+ * came from. Sourced from a separate query (`Manager`/`Instructor` directly,
+ * never `UniversityDailyMetric`) and never fed into the average — two
+ * universities with identical activity produce identical figures whatever
+ * their manager counts are. See the route's own doc and
+ * `tests/average-hours.test.ts`.
  */
 
 import { useCallback, useState } from "react";
@@ -40,6 +48,9 @@ type Row = {
   activeMinutes: number;
   activeInstructorDays: number;
   averageMinutes: number | null;
+  /** Roster size — NOT the calculation's denominator. See the file doc. */
+  managerCount: number;
+  instructorCount: number;
 };
 
 const LABEL: Record<View, string> = {
@@ -101,6 +112,10 @@ export function AverageHoursByUniversity() {
               >
                 <div className="min-w-0 flex-1 basis-56">
                   <p className="truncate text-sm font-semibold text-content">{row.name}</p>
+                  <p className="mt-0.5 text-xs text-subtle">
+                    {row.managerCount} manager{row.managerCount === 1 ? "" : "s"}, {row.instructorCount}{" "}
+                    instructor{row.instructorCount === 1 ? "" : "s"}
+                  </p>
                   <p className="mt-0.5 text-xs text-muted">
                     {row.activeInstructorDays === 0
                       ? "No activity recorded"
