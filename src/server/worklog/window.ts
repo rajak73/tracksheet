@@ -27,6 +27,7 @@
 
 import { computeDayWindows } from "@/server/time/schedule-windows";
 import { workDateFor } from "@/server/time/workday";
+import { ApiError } from "@/server/http/errors";
 import type { UniversityConfig } from "@/server/universities/config";
 
 export type EntryVerdict =
@@ -61,6 +62,50 @@ const APPROVAL_REQUIRED = false;
 /** The date an instructor is currently allowed to write up. */
 export function todayFor(config: UniversityConfig, now: Date = new Date()): string {
   return workDateFor(now, config.timezone);
+}
+
+/**
+ * THE DAY rule, for the routes that do not go through `verifyEntry`.
+ *
+ * ── Why this exists separately ────────────────────────────────────────────
+ * `verifyEntry` above enforces all three rules for a NARRATIVE submission, and
+ * for a long time that was the only way an instructor recorded anything. The
+ * four-field quick entry, its per-row edit, and the activity edit/delete routes
+ * grew alongside it and never picked the day rule up — so the paragraph box
+ * refused a backdated day while the pencil beside the row on that same day
+ * happily rewrote it. The rule was real and half-applied, which is worse than
+ * either applying it or dropping it, because the screen offered one answer and
+ * the server gave another.
+ *
+ * ── Scoped to SELF, deliberately ─────────────────────────────────────────
+ * Only the instructor is held to today. The refusal `verifyEntry` writes says
+ * so in as many words — "Ask your manager to record anything from an earlier
+ * day" — so a manager or an admin backdating is the escape hatch the rule
+ * itself points at, not a hole in it. Passing the caller's scope rather than a
+ * boolean keeps that decision here, in one place, instead of at four call
+ * sites that could each read it differently.
+ *
+ * `workDate` is a YYYY-MM-DD in the university's own zone, which is the only
+ * zone any day boundary in this product is judged in.
+ */
+export function assertSelfMayWriteDay(input: {
+  scope: { kind: "global" | "university" | "self" };
+  config: UniversityConfig;
+  workDate: string;
+  now?: Date;
+}): void {
+  if (input.scope.kind !== "self") return;
+
+  const today = todayFor(input.config, input.now ?? new Date());
+  if (input.workDate === today) return;
+
+  throw new ApiError(
+    400,
+    "WORKLOG_DATE_NOT_ALLOWED",
+    input.workDate < today
+      ? "You can only change today's work. Ask your manager to record or correct anything from an earlier day."
+      : "You cannot record a day that has not happened yet.",
+  );
 }
 
 /**

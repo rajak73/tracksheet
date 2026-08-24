@@ -6,6 +6,8 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
 import { assertValidDate } from "@/server/time/schedule-windows";
+import { loadUniversityConfig } from "@/server/universities/config";
+import { assertSelfMayWriteDay } from "@/server/worklog/window";
 import { classifyLines, recordQuickEntry } from "@/server/worklog/quick-entry";
 import { splitEntries } from "@/domain/worklog-entry-lines";
 
@@ -81,6 +83,14 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
   assertValidDate(input.date);
 
   const instructor = await requireWritableInstructor(scope, params.id);
+  /* An instructor records TODAY. The narrative box has always refused anything
+   * else; this path never did, so the same day was writable here and refused
+   * there. A manager or admin is unaffected — see `assertSelfMayWriteDay`. */
+  assertSelfMayWriteDay({
+    scope,
+    config: await loadUniversityConfig(instructor.universityId),
+    workDate: input.date,
+  });
 
   const split = splitEntries({
     deliverable: input.deliverable,

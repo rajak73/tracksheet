@@ -45,7 +45,6 @@ import {
   addDays,
   buildPeriodRow,
   weekOf,
-  weeksOfMonth,
   type PeriodRow,
   type RowActivity,
 } from "@/domain/worklog-rows";
@@ -154,13 +153,6 @@ type SubmissionView = {
 const READING_PATIENCE_MS = 45_000;
 const READING_POLL_MS = 1_500;
 
-/** `2026-08` → `2026-09`, or back. Month arithmetic on a YYYY-MM string. */
-function shiftMonth(month: string, by: number): string {
-  const at = new Date(`${month}-01T00:00:00.000Z`);
-  at.setUTCMonth(at.getUTCMonth() + by);
-  return at.toISOString().slice(0, 7);
-}
-
 /** `2024-05-10` → `Friday`. Names the day a row is about, beside its date. */
 function weekdayOf(iso: string): string {
   return new Date(`${iso}T00:00:00.000Z`).toLocaleDateString("en-GB", {
@@ -177,16 +169,6 @@ function longDate(iso: string): string {
     timeZone: "UTC",
   });
   return `${String(d).padStart(2, "0")} ${month} ${y}`;
-}
-
-/** `2026-08` → `August 2026`, the key the monthly view groups on. */
-function monthLabel(key: string): string {
-  const [y, m] = key.split("-").map(Number);
-  const name = new Date(Date.UTC(y!, (m ?? 1) - 1, 1)).toLocaleString("en-GB", {
-    month: "long",
-    timeZone: "UTC",
-  });
-  return `${name} ${y}`;
 }
 
 
@@ -215,21 +197,12 @@ export default function WorkLogHistoryPage() {
   const toast = useToast();
 
   // Day Wise by default, as the client requires.
-  const [view, setView] = useState<"date" | "week" | "month">("date");
-  /* Each anchored view keeps its OWN anchor, and switching views resets to the
-   * current unit. Sharing one anchor meant navigating to March in Week Wise and
-   * then opening Month Wise left you in March — a view change is a change of
-   * question, and the answer to a new question starts at now. */
-  /* `null` means "wherever today is" — the anchors are derived below rather
-   * than seeded, because at first render nothing knows the university's zone
-   * yet and a seeded value would have to be corrected afterwards. Deriving
-   * needs no correction and cannot be a render behind. */
-  const [weekAnchor, setWeekAnchor] = useState<string | null>(null);
-  /* Seeded from the browser and corrected once the session answers with the
-   * university's zone — a component cannot read state that is declared below
-   * it, and the first render happens before any request has returned. The
-   * effect below moves both anchors onto the university's day if they differ. */
-  const [monthAnchor, setMonthAnchor] = useState<string | null>(null);
+  const [view, setView] = useState<"date" | "week">("date");
+  /* Neither view carries an anchor of its own any more. Day Wise reads the two
+   * date filters; Week Wise reads the week the From filter falls in. They used
+   * to have one each, stepped by arrows above the filters — with those gone
+   * there is nothing left to move an anchor, and one that cannot move is just a
+   * second, stale source of truth beside the filters. */
   const [from, setFrom] = useState<string | null>(null);
   const [to, setTo] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -274,11 +247,15 @@ export default function WorkLogHistoryPage() {
   const zone = me.data?.timezone ?? null;
   const today = todayIn(zone);
 
-  // What the anchors and filters actually resolve to right now.
-  const weekAt = weekAnchor ?? today;
-  const monthAt = monthAnchor ?? today.slice(0, 7);
+  // What the filters actually resolve to right now.
   const fromAt = from ?? firstOfMonth(zone);
   const toAt = to ?? today;
+  /* Week Wise shows the week CONTAINING the From date, rather than carrying a
+   * separate anchor of its own. It used to have one, stepped by a pair of
+   * arrows above the filters; with those gone the anchor had nothing to move
+   * it, so it would have pinned Week Wise to the current week forever. Deriving
+   * it from a filter the reader can actually see keeps the two agreeing. */
+  const weekAt = fromAt;
 
 
   /* No `page` here, deliberately — see `ENTRY_FETCH_LIMIT`. The window's
@@ -286,20 +263,16 @@ export default function WorkLogHistoryPage() {
    * into, so a day can never appear on two pages at once. */
   /* Which window to fetch.
    *
-   * Day Wise is a feed and uses the date filters above it. Week and Month are
-   * anchored: they show one unit and step through it, so the window is derived
-   * from the anchor rather than from filters the reader never touched. */
+   * Day Wise is a feed and uses both date filters. Week Wise widens the From
+   * filter to the whole week it falls in, so a week always shows seven days
+   * rather than the ragged slice the filters happen to describe. */
   const [windowFrom, windowTo] = useMemo<[string, string]>(() => {
     if (view === "week") {
       const week = weekOf(weekAt);
       return [week[0]!, week.at(-1)!];
     }
-    if (view === "month") {
-      const weeks = weeksOfMonth(monthAt);
-      return [weeks[0]!.dates[0]!, weeks.at(-1)!.dates.at(-1)!];
-    }
     return [fromAt, toAt];
-  }, [view, weekAt, monthAt, fromAt, toAt]);
+  }, [view, weekAt, fromAt, toAt]);
 
   const query = `from=${windowFrom}&to=${windowTo}&limit=${ENTRY_FETCH_LIMIT}${
     search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""
@@ -416,24 +389,6 @@ export default function WorkLogHistoryPage() {
       );
     }
 
-    if (view === "month") {
-      const weeks = weeksOfMonth(monthAt).map((week) =>
-        build(
-          `w${week.index}`,
-          `Week ${week.index}`,
-          `${longDate(week.dates[0]!)} – ${longDate(week.dates.at(-1)!)}`,
-          week.dates,
-        ),
-      );
-      /* The week in progress first, the rest descending — Day Wise's
-       * newest-first principle, one level up. A week that has not started is
-       * not "newest": it goes last, where nothing is being asked of anybody. */
-      const current = weeks.filter((w) => w.dates.includes(today));
-      const past = weeks.filter((w) => w.state !== "future" && !w.dates.includes(today));
-      const future = weeks.filter((w) => w.state === "future");
-      return [...current, ...past.reverse(), ...future];
-    }
-
     /* Day Wise: every day that has something, newest first, and every day
      * between them that has not — a silently skipped day is a day nobody can
      * see was skipped. */
@@ -447,7 +402,7 @@ export default function WorkLogHistoryPage() {
     return span.map((date) =>
       build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
     );
-  }, [rows, view, today, weekAt, monthAt, dayNotes.data]);
+  }, [rows, view, today, weekAt, dayNotes.data]);
 
 
   function openNew() {
@@ -763,43 +718,6 @@ export default function WorkLogHistoryPage() {
         )}
       </div>
 
-      {/* ── Period navigation ─────────────────────────────────────────
-        * Week and Month are anchored views: they show one unit and step
-        * through them. Day Wise is a feed and uses the date filters above. */}
-      {view !== "date" ? (
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              view === "week"
-                ? setWeekAnchor(addDays(weekAt, -7))
-                : setMonthAnchor(shiftMonth(monthAt, -1))
-            }
-            aria-label={view === "week" ? "Previous week" : "Previous month"}
-            className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
-          >
-            <ChevronLeft />
-          </button>
-          <span className="min-w-[18rem] text-center text-sm font-semibold text-content">
-            {view === "week"
-              ? `${longDate(weekOf(weekAt)[0]!)} – ${longDate(weekOf(weekAt).at(-1)!)}`
-              : monthLabel(monthAt)}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              view === "week"
-                ? setWeekAnchor(addDays(weekAt, 7))
-                : setMonthAnchor(shiftMonth(monthAt, 1))
-            }
-            aria-label={view === "week" ? "Next week" : "Next month"}
-            className="inline-flex size-9 items-center justify-center rounded-control border border-line text-muted transition-colors hover:bg-hovered hover:text-content"
-          >
-            <ChevronRight />
-          </button>
-        </div>
-      ) : null}
-
       {/* ── Date Wise / Weekly ──────────────────────────────────────────
         * A segmented control of solid blue pills, matching the client's
         * reference: the selected view is filled, the rest are quiet. This was
@@ -807,20 +725,23 @@ export default function WorkLogHistoryPage() {
         * rather than as one control with three settings. */}
       <div className="mt-6 flex justify-end">
         <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
-          {(["date", "week", "month"] as const).map((v) => (
+          {(["date", "week"] as const).map((v) => (
             <button
               key={v}
               type="button"
               onClick={() => {
-                /* A view change is a change of question, and the answer to a new
-                   question starts at now. Carrying March over from Week Wise into
-                   Month Wise makes the default silently wrong. */
+                /* A view change is a change of question, and the answer to a
+                   new question starts at now — so both views reset the filters
+                   to today rather than carrying a date the reader chose while
+                   asking something else. */
                 setView(v);
                 setPage(1);
                 setExpanded(null);
-                if (v === "week") setWeekAnchor(today);
-                if (v === "month") setMonthAnchor(todayIn(zone).slice(0, 7));
-                if (v === "date") {
+                if (v === "week") {
+                  // The week containing today, which is what `weekAt` reads.
+                  setFrom(today);
+                  setTo(today);
+                } else {
                   setFrom(firstOfMonth(zone));
                   setTo(today);
                 }
@@ -832,16 +753,25 @@ export default function WorkLogHistoryPage() {
                   : "text-muted hover:bg-primary-subtle hover:text-primary-text"
               }`}
             >
-              {v === "date" ? "Day Wise" : v === "week" ? "Week Wise" : "Month Wise"}
+              {v === "date" ? "Day Wise" : "Week Wise"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Filters ───────────────────────────────────────────────────── */}
-      <div className="mt-5 flex flex-wrap items-end gap-4">
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-content">From Date</span>
+      {/* ── Filters ───────────────────────────────────────────────────────
+        * One row: each label sits BESIDE its input rather than above it, which
+        * is what the client's design shows and what lets the whole bar fit on
+        * a single line. Stacked labels made the row two lines tall and forced
+        * the search box to carry a `mt-6` purely to line its own baseline up
+        * with fields whose labels it did not share.
+        *
+        * `flex-wrap` stays. At a phone's width four controls cannot share a
+        * line whatever the labels do, and wrapping is the only alternative to
+        * the page itself scrolling sideways. */}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-content">From Date</span>
           <input
             type="date"
             value={fromAt}
@@ -850,12 +780,12 @@ export default function WorkLogHistoryPage() {
               setFrom(e.target.value);
               setPage(1);
             }}
-            className="h-11 w-44 rounded-control border border-line bg-surface px-3 text-sm text-content"
+            className="h-11 w-40 rounded-control border border-line bg-surface px-3 text-sm text-content"
           />
         </label>
 
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-content">To Date</span>
+        <label className="flex items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-content">To Date</span>
           <input
             type="date"
             value={toAt}
@@ -864,27 +794,25 @@ export default function WorkLogHistoryPage() {
               setTo(e.target.value);
               setPage(1);
             }}
-            className="h-11 w-44 rounded-control border border-line bg-surface px-3 text-sm text-content"
+            className="h-11 w-40 rounded-control border border-line bg-surface px-3 text-sm text-content"
           />
         </label>
 
-        <label className="block min-w-[16rem] flex-1">
+        <label className="relative flex min-w-[14rem] flex-1 items-center">
           <span className="sr-only-text">Search work logs</span>
-          <span className="relative mt-6 flex items-center">
-            <span aria-hidden className="absolute left-3 text-muted">
-              <Magnifier />
-            </span>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search by deliverable, remarks..."
-              className="h-11 w-full rounded-control border border-line bg-surface pl-10 pr-3 text-sm text-content"
-            />
+          <span aria-hidden className="absolute left-3 text-muted">
+            <Magnifier />
           </span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by deliverable, remarks..."
+            className="h-11 w-full rounded-control border border-line bg-surface pl-10 pr-3 text-sm text-content"
+          />
         </label>
 
         <button
@@ -1009,7 +937,11 @@ export default function WorkLogHistoryPage() {
                                 {entries.length} {entries.length === 1 ? "entry" : "entries"}
                                 <Chevron open={isOpen} />
                               </button>
-                            ) : first ? (
+                            ) : first && isToday ? (
+                              /* Today only. An instructor records the day they
+                                 are in — the server refuses anything else, so
+                                 offering a pencil on last Tuesday was offering
+                                 a button whose only outcome was a refusal. */
                               <>
                                 <button
                                   type="button"
@@ -1056,26 +988,32 @@ export default function WorkLogHistoryPage() {
                               </td>
                               <td className="px-4 py-3 text-sm text-content">{e.remarks ?? "—"}</td>
                               <td className="px-4 py-3">
-                                <span className="inline-flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => openEdit(e)}
-                                    aria-label={`Edit "${e.rawText ?? "this entry"}"`}
-                                    title="Edit"
-                                    className="inline-flex size-8 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
-                                  >
-                                    <Pencil />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void remove(e)}
-                                    aria-label={`Remove "${e.rawText ?? "this entry"}"`}
-                                    title="Remove"
-                                    className="inline-flex size-8 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
-                                  >
-                                    <Bin />
-                                  </button>
-                                </span>
+                                {/* Per ENTRY, not per row: an expanded week can
+                                    hold entries from seven different days, and
+                                    only the ones on today are the instructor's
+                                    to change. */}
+                                {e.workDate.slice(0, 10) === today ? (
+                                  <span className="inline-flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEdit(e)}
+                                      aria-label={`Edit "${e.rawText ?? "this entry"}"`}
+                                      title="Edit"
+                                      className="inline-flex size-8 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
+                                    >
+                                      <Pencil />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void remove(e)}
+                                      aria-label={`Remove "${e.rawText ?? "this entry"}"`}
+                                      title="Remove"
+                                      className="inline-flex size-8 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
+                                    >
+                                      <Bin />
+                                    </button>
+                                  </span>
+                                ) : null}
                               </td>
                             </tr>
                           ))
@@ -1091,7 +1029,7 @@ export default function WorkLogHistoryPage() {
                 {view !== "date" && groups.some((g) => g.state === "recorded") ? (
                   <tr className="border-t-2 border-line bg-sunken font-semibold">
                     <td className="px-4 py-3.5 text-content">
-                      {view === "week" ? "Week total" : "Month total"}
+                      Week total
                     </td>
                     {/* Skips Broad Category, Deliverable and Quantity to land the
                         total under Working Hours, then Remarks and Actions. */}
@@ -1390,14 +1328,21 @@ function NarrativeEntry({
     <div className="grid gap-5">
       <label className="block">
         <span className="mb-1.5 block text-sm font-semibold text-content">Date</span>
+        {/* Pinned to today, both ends. `max` alone let a past date be picked and
+            then refused on submit — a date field that offers a day the server
+            will not take is a field that exists to waste somebody's typing. */}
         <input
           type="date"
           value={date}
+          min={today}
           max={today}
           onChange={(e) => onDate(e.target.value)}
           disabled={busy || reading !== null}
           className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-content disabled:opacity-60"
         />
+        <span className="mt-1.5 block text-xs text-muted">
+          You record today. Ask your manager to record an earlier day.
+        </span>
       </label>
 
       <label className="block">

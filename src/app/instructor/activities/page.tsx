@@ -235,9 +235,16 @@ export default function InstructorActivitiesPage() {
                 </Select>
               </Field>
               <Field label="Date" required>
+                {/* Pinned to today, both ends. An instructor records the day
+                    they are in — the server refuses anything else — and this
+                    field had no bound at all, so it offered every past AND
+                    future day and the refusal only arrived after the form was
+                    filled in. */}
                 <input
                   type="date"
                   value={form.date || today}
+                  min={today}
+                  max={today}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className={inputClass}
                 />

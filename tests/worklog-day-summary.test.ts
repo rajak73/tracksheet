@@ -361,8 +361,17 @@ beforeAll(async () => {
     [`Doubt session ${RUN}`, 0.75, 3],
     [`Assignment evaluation ${RUN}`, 2, 12],
   ];
+  /* Written as ADMIN, not as the instructor.
+   *
+   * An instructor may only record TODAY — the rule the narrative box always
+   * enforced, now applied to the quick-entry routes it had never covered. The
+   * fixed past date matters to this file (every assertion below is about a
+   * summary over a known span), and an admin recording on somebody's behalf is
+   * the escape hatch that rule explicitly points at, so the WRITER moves rather
+   * than the date. Who may write is `worklog-quick-entry.test.ts`'s subject;
+   * this file's is what the summary makes of a day once it exists. */
   for (const [deliverable, workingHours, quantity] of day) {
-    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+    const res = await admin.post(`/api/instructors/${myId}/worklog/entry`, {
       date: DATE,
       deliverable,
       quantity,
@@ -448,7 +457,8 @@ describe("the report is built without the model", () => {
 describe("adding up a week", () => {
   test("the days sum to the week, activity by activity", async () => {
     const second = "2026-03-11";
-    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+    // Admin, for the same reason as the fixture above.
+    const res = await admin.post(`/api/instructors/${myId}/worklog/entry`, {
       date: second,
       deliverable: `Live classes on binary trees ${RUN}`,
       quantity: 3,

@@ -11,12 +11,19 @@
  * the target with `assertCanReadInstructor` — an instructor may only ever be
  * the subject of their own record.
  *
- * ── Why there is no edit or delete ─────────────────────────────────────────
- * `ActivityLog` is an append-only ledger by product decision: it carries
- * `createdBy` and `source` but deliberately has no `deletedAt`, and no route
- * exposes update or delete. Adding either here would be inventing a business
- * rule, so the table offers neither and says why rather than showing a button
- * that cannot work.
+ * ── Why there is no edit or delete HERE ────────────────────────────────────
+ * `ActivityLog` was an append-only ledger when this page was written — no
+ * route exposed update or delete at all. That stopped being true: an
+ * instructor who typed 14:00 for 04:00 had no recourse and a permanently wrong
+ * figure, so `PATCH`/`DELETE /api/instructors/:id/activities/:activityId` now
+ * exist, and the property that mattered is preserved by the audit trail
+ * instead — every edit and removal records what the row held before.
+ *
+ * This page still offers neither, and that is now a choice about WHERE rather
+ * than whether: correction belongs beside the sentence that produced the row,
+ * on the work log, which is also the only place the today-only rule can be
+ * expressed honestly. A pencil here would be a second, thinner way to do
+ * something that screen does properly.
  *
  * ── Deliverable quantity ───────────────────────────────────────────────────
  * Quantity lives on `DeliverableLog`, against a named deliverable — never on
@@ -414,8 +421,8 @@ export default function InstructorActivityTrackerPage() {
       </Card>
 
       <p className="text-xs text-subtle">
-        Activity records cannot be edited or deleted once logged — they are an append-only ledger.
-        If something is wrong, tell your manager.
+        Records are corrected on your work log, and only for today. Ask your manager to change
+        anything from an earlier day.
       </p>
 
       <Dialog open={logging} onClose={() => setLogging(false)} title="Log activity">
@@ -435,9 +442,14 @@ export default function InstructorActivityTrackerPage() {
           </Field>
 
           <Field label="Date">
+            {/* `min` as well as `max`. Capping at today stopped a future date
+                but still offered every past one, which the server refuses —
+                a date field whose options include days that cannot be saved
+                is a field that exists to waste somebody's typing. */}
             <input
               type="date"
               value={form.date}
+              min={today}
               max={today}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
               className={inputClass}

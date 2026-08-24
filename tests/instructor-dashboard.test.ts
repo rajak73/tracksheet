@@ -34,8 +34,22 @@ let otherInstructorId: string;
 let northId: string;
 
 const PASSWORD = "DashboardPassword1";
-/** A window in 2039 that no other suite touches. */
-const DAY = "2039-03-07";
+/**
+ * Today, in Northfield's own zone (Asia/Kolkata).
+ *
+ * This was a fixed window in 2039, chosen so no other suite would touch it.
+ * Isolation never actually depended on the date — `owner` is provisioned here
+ * with a unique per-run suffix and deleted in `afterAll`, so nothing else can
+ * reach its rows whatever day they sit on.
+ *
+ * The date had to move because an instructor may only record TODAY: the rule
+ * the narrative box always enforced, now applied to the activity routes it had
+ * never covered. Writing these as an admin instead would have kept the file
+ * green while quietly no longer testing what it says it tests — an instructor
+ * correcting their OWN activity, subject to the same interval and overlap
+ * rules as recording one.
+ */
+const DAY = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 async function logActivity(client: ApiClient, instructorId: string, start: string, end: string, code = "TEACHING") {
   return client.post(`/api/instructors/${instructorId}/activities`, {

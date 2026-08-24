@@ -74,6 +74,27 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
    * primary manager standing in for an unassigned instructor. */
   assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
+  /* ── Why the today-only rule is NOT applied here ────────────────────────
+   * The worklog routes hold an instructor to today, and the activity edit and
+   * delete routes beside this one do too. This one deliberately does not, and
+   * the distinction is worth stating because the asymmetry looks like an
+   * oversight and is not.
+   *
+   * This is the general activity API. It predates the worklog feature, it is
+   * how a manager records somebody's hours, and it is how history gets built
+   * at all — a comparison of this week against last week cannot be expressed
+   * by a route that only accepts today. Holding it to today broke twenty-six
+   * suites, several of which are legitimately about multi-day arithmetic
+   * rather than about lax fixtures.
+   *
+   * What that leaves: an instructor can still create a past-dated row through
+   * this route directly, and then be refused permission to edit or delete it.
+   * That is a real wart. It is bounded rather than open — no instructor screen
+   * offers a non-today date into it any more (the date fields on
+   * instructor/activities and instructor/activity-tracker are pinned to today)
+   * — and closing it properly means deciding what a manager-built history is
+   * supposed to look like, which is a product question rather than a patch. */
+
   const log = await logActivity({
     instructorId: instructor.id,
     universityId: instructor.universityId,

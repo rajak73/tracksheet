@@ -4,6 +4,8 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
 import { assertValidDate } from "@/server/time/schedule-windows";
+import { loadUniversityConfig } from "@/server/universities/config";
+import { assertSelfMayWriteDay } from "@/server/worklog/window";
 import { recordQuickEntry } from "@/server/worklog/quick-entry";
 import { QuickEntry, requireWritableInstructor } from "../route";
 import { splitEntries } from "@/domain/worklog-entry-lines";
@@ -28,9 +30,25 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(
     // cannot be reached even by guessing its id.
     const existing = await prisma.activityLog.findFirst({
       where: { id: params.activityId, instructorId: instructor.id },
-      select: { id: true },
+      select: { id: true, workDate: true },
     });
     if (!existing) throw new ApiError(404, "NOT_FOUND", "That entry was not found.");
+
+    /* Today only, for the instructor themselves — checked on BOTH dates.
+     *
+     * The date being saved TO is the obvious one. The row's existing date
+     * matters just as much and is easy to miss: without it, a past day's entry
+     * could be PATCHed with today's date, which passes a check that only looks
+     * forward while quietly removing work from a day the same caller is not
+     * allowed to touch. Two checks, because an edit spans two days whenever it
+     * moves one. */
+    const config = await loadUniversityConfig(instructor.universityId);
+    assertSelfMayWriteDay({ scope, config, workDate: input.date });
+    assertSelfMayWriteDay({
+      scope,
+      config,
+      workDate: existing.workDate.toISOString().slice(0, 10),
+    });
 
     /* An edit is ONE entry, always.
      *

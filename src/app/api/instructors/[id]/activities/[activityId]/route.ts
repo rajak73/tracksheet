@@ -9,6 +9,8 @@ import { markReviewed } from "@/server/worklog/service";
 import { createNotification } from "@/server/notifications/service";
 import { workDateFor } from "@/server/time/workday";
 import { recomputeDay } from "@/server/analytics/rollup";
+import { loadUniversityConfig } from "@/server/universities/config";
+import { assertSelfMayWriteDay } from "@/server/worklog/window";
 
 /**
  * Correcting or removing one recorded activity.
@@ -92,6 +94,14 @@ async function reportActivityFailure(
  *
  * A 404 rather than a 403 when it belongs to somebody else: the caller has no
  * business knowing the id exists.
+ *
+ * ── Ownership is not the only question ────────────────────────────────────
+ * An instructor owning a row does not make every row of theirs writable: they
+ * record TODAY, and a day already recorded is not theirs to rewrite or erase
+ * afterwards. That is checked here rather than in PATCH and DELETE separately,
+ * because both reach the database through this one function and a rule applied
+ * at one of two call sites is the shape the bug had in the first place. An
+ * admin passes untouched.
  */
 async function loadOwned(scope: { kind: string; instructorId?: string }, params: Params) {
   const activity = await prisma.activityLog.findUnique({
@@ -117,6 +127,14 @@ async function loadOwned(scope: { kind: string; instructorId?: string }, params:
     if (scope.instructorId !== activity.instructorId) {
       throw new ApiError(404, "NOT_FOUND", "Activity not found");
     }
+    /* `workDate` is a DATE column, so Prisma hands it back at UTC midnight —
+     * slicing the ISO string is reading the stored calendar day, not
+     * converting an instant into one. */
+    assertSelfMayWriteDay({
+      scope: { kind: "self" },
+      config: await loadUniversityConfig(activity.universityId),
+      workDate: activity.workDate.toISOString().slice(0, 10),
+    });
     return activity;
   }
   if (scope.kind === "global") return activity;
@@ -131,6 +149,18 @@ async function loadOwned(scope: { kind: string; instructorId?: string }, params:
 export const PATCH = withAuth<Params>(async ({ scope, params, req, principal }) => {
   const activity = await loadOwned(scope, params);
   const input = EditActivity.parse(await req.json().catch(() => null));
+
+  /* `loadOwned` checked the day this activity is ON. An edit carrying
+   * `local.date` can also MOVE it, so the destination is checked too —
+   * otherwise today's row could be pushed onto a day the same caller was just
+   * refused direct access to. */
+  if (input.local) {
+    assertSelfMayWriteDay({
+      scope,
+      config: await loadUniversityConfig(activity.universityId),
+      workDate: input.local.date,
+    });
+  }
 
   // A deliverable is resolved through the taxonomy rather than taken as an id,
   // so a request cannot attach one that does not exist — the same closed list

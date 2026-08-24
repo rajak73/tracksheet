@@ -25,6 +25,19 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * hours are laid on the day end to end. Stacking every entry at the same start
  * would trip the overlap rule on the second row of every day — the rule that
  * stops a day quietly holding fourteen hours.
+ *
+ * ── Why TODAY, and why a throwaway instructor ─────────────────────────────
+ * This file used to write to a fixed past date (2026-04-14). That stopped
+ * working when the day rule — "an instructor records TODAY", which the
+ * narrative box had always enforced — was extended to the quick-entry routes
+ * it had never covered. The date moved rather than the caller: writing as an
+ * admin would have kept the tests green while quietly no longer exercising the
+ * path an instructor actually takes, which is the whole subject of the file.
+ *
+ * The instructor is created here rather than seeded, because these cases lay
+ * hours end to end on one day and assert on the day's running total — a
+ * seeded instructor already carrying rollup data for today would move those
+ * totals depending on which files ran first.
  */
 
 const RUN = Math.random()
@@ -32,17 +45,40 @@ const RUN = Math.random()
   .slice(2, 10)
   .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 
-let admin: ApiClient, instructor: ApiClient, colleague: ApiClient;
+let admin: ApiClient, instructor: ApiClient;
 let myId = "", theirId = "";
-const DAY = "2026-04-14";
+
+/* Northfield is Asia/Kolkata, and the university's own day is the only one the
+ * server measures this rule in — so "today" is asked of that zone rather than
+ * of the machine running the suite. */
+const DAY = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+const PASSWORD = "quick-entry-test-pw-1234";
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
   await admin.login(ACCOUNTS.admin);
+
+  const probe = new ApiClient("probe");
+  const northId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
+
+  const newInstructor = async (tag: string) => {
+    const res = await admin.post("/api/instructors", {
+      email: `quick.${tag}.${RUN}@example.edu`,
+      name: `Quick ${tag} ${RUN}`,
+      password: PASSWORD,
+      universityId: northId,
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    return { id: res.body.instructor.id as string, email: res.body.instructor.user.email as string };
+  };
+
+  const me = await newInstructor("me");
+  myId = me.id;
   instructor = new ApiClient("me");
-  myId = (await instructor.login(ACCOUNTS.instructorNorth1)).user.instructorId!;
-  colleague = new ApiClient("colleague");
-  theirId = (await colleague.login(ACCOUNTS.instructorNorth2)).user.instructorId!;
+  await instructor.login(me.email, PASSWORD);
+
+  theirId = (await newInstructor("colleague")).id;
 });
 
 const entry = (over: Partial<Record<string, unknown>> = {}) => ({
@@ -104,18 +140,18 @@ describe("correcting an entry", () => {
   test("an edit keeps the row and changes what it says", async () => {
     const created = await instructor.post(
       `/api/instructors/${myId}/worklog/entry`,
-      entry({ date: "2026-04-15", deliverable: `First wording ${RUN}`, workingHours: 1 }),
+      entry({ deliverable: `First wording ${RUN}`, workingHours: 1 }),
     );
     expect(created.status).toBe(201);
     const id = created.body.activity.id;
 
     const edited = await instructor.patch(
       `/api/instructors/${myId}/worklog/entry/${id}`,
-      entry({ date: "2026-04-15", deliverable: `Corrected wording ${RUN}`, workingHours: 4, quantity: 7 }),
+      entry({ deliverable: `Corrected wording ${RUN}`, workingHours: 4, quantity: 7 }),
     );
     expect(edited.status, JSON.stringify(edited.body)).toBe(200);
 
-    const list = await instructor.get(`/api/activities?from=2026-04-15&to=2026-04-15&limit=50`);
+    const list = await instructor.get(`/api/activities?from=${DAY}&to=${DAY}&limit=50`);
     const row = list.body.activities.find((a: { id: string }) => a.id === id);
     expect(row, "the row keeps its id through an edit").toBeTruthy();
     expect(row.rawText).toBe(`Corrected wording ${RUN}`);
@@ -149,7 +185,7 @@ describe("what the form refuses", () => {
   });
 
   test("more hours than the day can hold", async () => {
-    // The day already holds five hours from the cases above.
+    // The day already holds nine hours from the cases above.
     const res = await instructor.post(
       `/api/instructors/${myId}/worklog/entry`,
       entry({ workingHours: 20 }),
@@ -166,13 +202,13 @@ describe("it is their own log", () => {
 
   test("nor edit a colleague's entry", async () => {
     const theirs = await admin.post(`/api/instructors/${theirId}/worklog/entry`, {
-      ...entry({ date: "2026-04-16", deliverable: `Their work ${RUN}` }),
+      ...entry({ deliverable: `Their work ${RUN}` }),
     });
     expect(theirs.status).toBe(201);
 
     const res = await instructor.patch(
       `/api/instructors/${theirId}/worklog/entry/${theirs.body.activity.id}`,
-      entry({ date: "2026-04-16" }),
+      entry(),
     );
     expect([403, 404]).toContain(res.status);
   });
