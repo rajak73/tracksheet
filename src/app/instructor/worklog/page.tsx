@@ -304,9 +304,21 @@ export default function WorkLogHistoryPage() {
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
 
+  /* Is today inside the range being looked at?
+   *
+   * The two facts below are read from the LOADED WINDOW, which is the only
+   * honest thing to read them from and also why the button is gated on this
+   * one. Browsing April says nothing about whether today has been written up
+   * — so a button that answered from April's rows would have shown
+   * "+ Add Today's Worklog" to somebody who had already submitted, and
+   * opened a BLANK box that replaces the day on save. Out of range, the page
+   * does not know, so it does not offer. */
+  const todayInView = windowFrom <= today && today <= windowTo;
+
   /* Drives the primary button's two states. Read from the SAME rows the
    * table renders — not a second fetch — so the button can never claim a
-   * state the table underneath it disagrees with. */
+   * state the table underneath it disagrees with. Only meaningful while
+   * `todayInView`, which is what gates the button that reads it. */
   const hasSubmittedToday = useMemo(
     () => rows.some((r) => r.workDate.slice(0, 10) === today),
     [rows, today],
@@ -696,8 +708,14 @@ export default function WorkLogHistoryPage() {
             table below renders, so this button and that table can never
             disagree about whether today has anything written yet. Distinct
             styling rather than just a different label: a glance should tell
-            which state this is, not just a read. */}
-        {hasSubmittedToday ? (
+            which state this is, not just a read.
+
+            Shown only while today is in the range on screen. An instructor
+            records today and nothing else, so a control for it sitting above
+            a table of last April was offering the one day that table does not
+            contain — and, worse, guessing its state from rows that could not
+            answer. See `todayInView`. */}
+        {!todayInView ? null : hasSubmittedToday ? (
           <button
             type="button"
             onClick={() => void openEditToday()}
