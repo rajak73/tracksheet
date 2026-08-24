@@ -358,11 +358,17 @@ function SidebarProfile({
   return (
     <div className="relative" {...menu.hoverProps}>
       {menu.open ? (
-        /* The 4px of daylight above the trigger is PADDING on the positioned
-           box, not a margin below it, so the pointer never crosses a gap that
-           belongs to neither the trigger nor the panel on its way up. Same
-           look, unbroken hover path. */
-        <div className="absolute bottom-full left-0 z-20 w-full pb-1">
+        /* Opens to the RIGHT of the rail rather than upward over it.
+           Upward, the panel covered the navigation it sits under — the list
+           somebody may well have been on their way to — and the taller it got
+           the more of it went. Sideways it opens over the page instead, which
+           is the surface with room to spare.
+           `bottom-0` rather than `top-0`: the trigger is the last thing in the
+           rail, so the panel aligns to its bottom edge and grows upward from
+           there instead of running off the foot of the window.
+           The gap is PADDING on the positioned box, not a margin on the panel,
+           so the pointer never crosses a strip belonging to neither. */
+        <div className="absolute bottom-0 left-full z-20 w-60 pl-2">
           <div
             role="menu"
             /* No name/photo/ID header block — the trigger this opens from
