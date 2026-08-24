@@ -944,18 +944,39 @@ export default function WorkLogHistoryPage() {
             description="Change the dates, or write up today with the button above."
           />
         ) : (
-          <div className="overflow-x-auto rounded-card border border-line">
-            <table className="w-full min-w-[68rem] border-collapse text-sm">
+          <div
+            /* ── The table scrolls, the page does not ─────────────────────
+             * Its own scroll box with a bounded height, so the title, the view
+             * switch, the filters and the column header all stay put and only
+             * the rows move. This is `ManagerSheet`'s pattern, and the reason
+             * it is that one: `sticky top-0` on the header cells is measured
+             * against THIS box, not against the page. An earlier attempt made
+             * the page scroll and pinned the header at a hand-computed offset
+             * from the top bar — a number that has to be re-derived every time
+             * the bar's contents change. It was already wrong when it shipped,
+             * and it covered the first row.
+             *
+             * `border-separate` below is not cosmetic: a collapsed table drops
+             * `position: sticky` on its cells, so the header would scroll away
+             * with the rows. Every row divider therefore lives on the CELLS —
+             * a `<tr>`'s own border does not paint under that model, and the
+             * table would silently lose its lines. */
+            className="max-h-[60vh] overflow-auto rounded-card border border-line"
+          >
+            <table className="w-full min-w-[68rem] border-separate border-spacing-0 text-sm">
               <caption className="sr-only-text">
                 Your work logs, newest first, in the columns the monthly report uses.
               </caption>
               <thead>
-                <tr className="bg-primary-subtle">
+                <tr>
                   {COLUMNS.map((c) => (
                     <th
                       key={c}
                       scope="col"
-                      className="border-b border-line px-4 py-3.5 text-left text-sm font-semibold text-primary-text"
+                      /* The background belongs on the CELL, not the row: once a
+                         sticky cell detaches it paints on its own, and a
+                         transparent one would show the rows sliding underneath. */
+                      className="sticky top-0 z-10 border-b border-line bg-primary-subtle px-4 py-3.5 text-left text-sm font-semibold text-primary-text"
                     >
                       {c}
                     </th>
@@ -979,11 +1000,8 @@ export default function WorkLogHistoryPage() {
                   if (group.state !== "recorded") {
                     const future = group.state === "future";
                     return (
-                      <tr
-                        key={group.key}
-                        className={`border-b border-line-subtle ${future ? "" : "bg-warning-subtle/30"}`}
-                      >
-                        <td className="px-4 py-4 text-content">
+                      <tr key={group.key} className={future ? "" : "bg-warning-subtle/30"}>
+                        <td className="border-b border-line-subtle px-4 py-4 text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
@@ -991,38 +1009,40 @@ export default function WorkLogHistoryPage() {
                         </td>
                         <td
                           colSpan={5}
-                          className={`px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
+                          className={`border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
                         </td>
-                        <td className="px-4 py-4" />
+                        <td className="border-b border-line-subtle px-4 py-4" />
                       </tr>
                     );
                   }
 
                   return (
                     <Fragment key={group.key}>
-                      <tr
-                        className={`border-b border-line-subtle ${isToday ? "bg-primary-subtle/25" : ""}`}
-                      >
-                        <td className="px-4 py-4 text-content">
+                      <tr className={isToday ? "bg-primary-subtle/25" : ""}>
+                        <td className="border-b border-line-subtle px-4 py-4 text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-4 text-content">
+                        <td className="border-b border-line-subtle px-4 py-4 text-content">
                           {broadCategoryCell(group.subjects)}
                         </td>
-                        <td className="px-4 py-4 text-content">{deliverableCell(group.lines)}</td>
-                        <td className="tabular px-4 py-4 text-content">
+                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                          {deliverableCell(group.lines)}
+                        </td>
+                        <td className="tabular border-b border-line-subtle px-4 py-4 text-content">
                           {quantityCell(group.lines)}
                         </td>
-                        <td className="tabular px-4 py-4 font-medium text-content">
+                        <td className="tabular border-b border-line-subtle px-4 py-4 font-medium text-content">
                           {workingHoursCell(group.totalMinutes)}
                         </td>
-                        <td className="px-4 py-4 text-content">{group.remarks || "—"}</td>
-                        <td className="px-4 py-4">
+                        <td className="border-b border-line-subtle px-4 py-4 text-content">
+                          {group.remarks || "—"}
+                        </td>
+                        <td className="border-b border-line-subtle px-4 py-4">
                           <span className="inline-flex items-center gap-2">
                             {entries.length > 1 || view !== "date" ? (
                               /* What the row was made FROM. The row is the
@@ -1071,25 +1091,27 @@ export default function WorkLogHistoryPage() {
 
                       {isOpen
                         ? entries.map((e) => (
-                            <tr key={e.id} className="border-b border-line-subtle bg-sunken/50">
-                              <td className="px-4 py-3 text-sm text-muted">
+                            <tr key={e.id} className="bg-sunken/50">
+                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-muted">
                                 {view === "date" ? "" : longDate(e.workDate.slice(0, 10))}
                               </td>
                               {/* Skips only Broad Category to land on Deliverable —
                                   this entry's own row doesn't carry a subject of its
                                   own to show here. */}
-                              <td colSpan={1} />
-                              <td className="px-4 py-3 text-sm text-content">
+                              <td colSpan={1} className="border-b border-line-subtle" />
+                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
-                              <td className="tabular px-4 py-3 text-sm text-content">
+                              <td className="tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.quantity ?? UNSTATED}
                               </td>
-                              <td className="tabular px-4 py-3 text-sm text-content">
+                              <td className="tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {formatHours(e.durationHours)}
                               </td>
-                              <td className="px-4 py-3 text-sm text-content">{e.remarks ?? "—"}</td>
-                              <td className="px-4 py-3">
+                              <td className="border-b border-line-subtle px-4 py-3 text-sm text-content">
+                                {e.remarks ?? "—"}
+                              </td>
+                              <td className="border-b border-line-subtle px-4 py-3">
                                 {/* Per ENTRY, not per row: an expanded week can
                                     hold entries from seven different days, and
                                     only the ones on today are the instructor's
@@ -1129,17 +1151,25 @@ export default function WorkLogHistoryPage() {
                   * table adds up to anything on its own. This is the line the
                   * client reconciles against. */}
                 {view !== "date" && groups.some((g) => g.state === "recorded") ? (
-                  <tr className="border-t-2 border-line bg-sunken font-semibold">
-                    <td className="px-4 py-3.5 text-content">
+                  <tr
+                    /* Pinned to the BOTTOM of the scroll box, for the same
+                       reason the header is pinned to the top: it is the line
+                       the client reconciles against, and a total that scrolls
+                       out of sight has to be hunted for. Backgrounds sit on the
+                       cells because a sticky cell paints on its own once it
+                       detaches from the row. */
+                    className="font-semibold"
+                  >
+                    <td className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       Week total
                     </td>
                     {/* Skips Broad Category, Deliverable and Quantity to land the
                         total under Working Hours, then Remarks and Actions. */}
-                    <td colSpan={3} />
-                    <td className="tabular px-4 py-3.5 text-content">
+                    <td colSpan={3} className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td className="tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
-                    <td colSpan={2} />
+                    <td colSpan={2} className="sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                   </tr>
                 ) : null}
               </tbody>
