@@ -117,17 +117,31 @@ export function AccountDialog({
   profile,
   onClose,
   onSaved,
+  onChangePassword,
 }: {
   open: boolean;
   initialTab: "profile" | "password";
   profile: MyProfile | null;
   onClose: () => void;
   onSaved: (profile: MyProfile) => void;
+  /**
+   * Lets Profile settings offer its own way to Change password, for a caller
+   * whose menu no longer lists both as separate items — see `InstructorShell`.
+   * Omitted, Profile settings has no such link; a caller whose menu still
+   * offers "Change password" directly (`AppShell`) needs nothing extra here.
+   */
+  onChangePassword?: () => void;
 }) {
   if (!open) return null;
 
   return initialTab === "profile" ? (
-    <ProfileSettingsDialog open profile={profile} onClose={onClose} onSaved={onSaved} />
+    <ProfileSettingsDialog
+      open
+      profile={profile}
+      onClose={onClose}
+      onSaved={onSaved}
+      onChangePassword={onChangePassword}
+    />
   ) : (
     <ChangePasswordDialog open onClose={onClose} />
   );
@@ -140,11 +154,13 @@ function ProfileSettingsDialog({
   profile,
   onClose,
   onSaved,
+  onChangePassword,
 }: {
   open: boolean;
   profile: MyProfile | null;
   onClose: () => void;
   onSaved: (profile: MyProfile) => void;
+  onChangePassword?: () => void;
 }) {
   // Seeded from the profile at MOUNT. The parent remounts this component every
   // time it opens, so these initialisers are the reset.
@@ -209,12 +225,29 @@ function ProfileSettingsDialog({
       description="Your name, picture and contact number. Your email address is managed by your administrator."
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={busy || name.trim() === ""}>
-            {busy ? "Saving…" : "Save changes"}
-          </Button>
+          {/* Only rendered for a caller whose own menu no longer offers this
+              as a separate item — see `onChangePassword` on `AccountDialog`.
+              `ml-auto` on the group beside it keeps Cancel/Save pinned right
+              in the footer's own `justify-end` row, this link sitting alone
+              on the left. */}
+          {onChangePassword ? (
+            <button
+              type="button"
+              onClick={onChangePassword}
+              disabled={busy}
+              className="text-sm font-medium text-primary-text underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              Change password
+            </button>
+          ) : null}
+          <span className="ml-auto flex gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={busy || name.trim() === ""}>
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+          </span>
         </>
       }
     >

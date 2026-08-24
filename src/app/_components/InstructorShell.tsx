@@ -31,16 +31,8 @@ import {
   useMyProfile,
   type MyProfile,
 } from "@/app/_components/AccountDialogs";
-import {
-  IconChevronDown,
-  IconChevronRight,
-  IconLock,
-  IconSettings,
-  IconSignOut,
-  IconUser,
-} from "@/app/_components/icons";
+import { IconChevronDown, IconSignOut, IconUser } from "@/app/_components/icons";
 import { usePathname, useRouter } from "next/navigation";
-import { useHoverMenu } from "@/app/_components/use-hover-menu";
 import { apiSend } from "@/app/_lib/api";
 
 /**
@@ -157,7 +149,6 @@ export function InstructorShell({
                 userName={userName}
                 profile={profile}
                 onProfile={() => setAccountTab("profile")}
-                onPassword={() => setAccountTab("password")}
                 onSignOut={() => setConfirmSignOut(true)}
               />
             </div>
@@ -176,6 +167,7 @@ export function InstructorShell({
         profile={profile}
         onClose={() => setAccountTab(null)}
         onSaved={setProfile}
+        onChangePassword={() => setAccountTab("password")}
       />
       <SignOutConfirm open={confirmSignOut} onClose={() => setConfirmSignOut(false)} />
     </ToastProvider>
@@ -188,42 +180,46 @@ export function InstructorShell({
  * Photo, name and employee code, because "am I looking at my own dashboard?" is
  * the first question the page has to answer and an id is what settles it.
  *
- * ── Hover opens it, but hover is never the only way in ────────────────────
- * The menu opens on hover and each level opens the next the same way. Hover
- * alone would make it unreachable on a phone, which has no hover, and unusable
- * from a keyboard — so clicking still toggles it, focus still opens it, and
- * Escape closes it. The hover is the convenience, not the mechanism.
+ * ── Click only, no hover ─────────────────────────────────────────────────
+ * This used to open on hover too (`useHoverMenu`, shared with the sidebar's
+ * own profile chip), and that was the complaint: resting the pointer near the
+ * corner — reading the notification bell beside it, aiming for something
+ * else — popped the menu open uninvited. A menu opening from something that
+ * isn't a deliberate action is a menu that gets in the way. Click toggles it;
+ * a click anywhere outside — the full-screen invisible button below — closes
+ * it, the same dismissal `UserMenu` in `AppShell.tsx` already uses.
+ *
+ * ── Two items only ───────────────────────────────────────────────────────
+ * Profile, Logout. What used to be here — "Change password" as its own row
+ * under an "Account" flyout — still exists, just one layer in: it is a link
+ * inside the Profile dialog now (see `onChangePassword` on `AccountDialog`),
+ * not a second thing this menu has to offer.
  */
 function IdentityMenu({
   userName,
   profile,
   onProfile,
-  onPassword,
   onSignOut,
 }: {
   userName: string;
   profile: MyProfile | null;
   onProfile: () => void;
-  onPassword: () => void;
   onSignOut: () => void;
 }) {
-  const [submenu, setSubmenu] = useState<string | null>(null);
-  // The submenu is this component's own state, so closing hands it back: a
-  // panel left open would be showing when the menu is next hovered.
-  const menu = useHoverMenu(() => setSubmenu(null));
-  const { open } = menu;
+  const [open, setOpen] = useState(false);
 
   const name = profile?.name ?? userName;
   const code = profile?.employeeCode ?? null;
 
+  // ~46px tall: py-3 (24px) plus a 16px icon/text line plus its leading.
   const item =
-    "flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-hovered";
+    "flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm transition-colors hover:bg-hovered";
 
   return (
-    <div className="relative" {...menu.hoverProps}>
+    <div className="relative">
       <button
         type="button"
-        onClick={menu.toggle}
+        onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
         className="flex items-center gap-2.5 rounded-card py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:bg-sidebar-hover-bg"
@@ -249,108 +245,61 @@ function IdentityMenu({
       </button>
 
       {open ? (
-        /* Anchored to the right edge, because the chip sits at the right of the
-           bar and a left-anchored panel would open past the window. */
-        <div
-          role="menu"
-          /* No `overflow-hidden` here, deliberately. It was clipping the
-             rounded corners neatly — and clipping the submenu out of
-             existence with them, because that panel is positioned OUTSIDE this
-             box. The corners are rounded on the first and last rows instead. */
-          className="absolute right-0 z-20 mt-2 w-64 rounded-card border border-line bg-surface shadow-raised"
-        >
-          <div className="flex items-center gap-3 rounded-t-card border-b border-line px-4 py-3">
-            <Avatar name={name} avatarUrl={profile?.avatarUrl ?? null} size={44} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-content">{name}</p>
-              <p className="text-xs text-muted">Instructor</p>
-              {code ? (
-                <p className="tabular mt-1 inline-block rounded-chip bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">
-                  ID: {code}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          {/* ── Account, and the two things inside it ─────────────────────
-           * The submenu is not decoration: editing a profile and changing a
-           * password are the same dialog's two tabs, so they belong under one
-           * heading rather than sitting as siblings of "Logout" — which is not
-           * an account SETTING, it is leaving. */}
+        <>
+          {/* Dismisses on any click outside the panel — not a hover leave,
+              a deliberate second interaction, matching `UserMenu`. */}
+          <button
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-10 cursor-default"
+          />
+          {/* Anchored to the right edge, because the chip sits at the right of
+              the bar and a left-anchored panel would open past the window. */}
           <div
-            className="relative"
-            onMouseEnter={() => setSubmenu("account")}
-            onMouseLeave={() => setSubmenu(null)}
+            role="menu"
+            className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+              <Avatar name={name} avatarUrl={profile?.avatarUrl ?? null} size={44} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-content">{name}</p>
+                <p className="text-xs text-muted">Instructor</p>
+                {code ? (
+                  <p className="tabular mt-1 inline-block rounded-chip bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">
+                    ID: {code}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
             <button
               role="menuitem"
               type="button"
-              aria-haspopup="menu"
-              aria-expanded={submenu === "account"}
-              onClick={() => setSubmenu(submenu === "account" ? null : "account")}
-              onFocus={() => setSubmenu("account")}
+              onClick={() => {
+                setOpen(false);
+                onProfile();
+              }}
               className={`${item} text-muted hover:text-content`}
             >
-              <IconSettings size={16} />
-              Account
-              <IconChevronRight size={16} className="ml-auto text-subtle" />
+              <IconUser size={16} />
+              Profile
             </button>
 
-            {submenu === "account" ? (
-              /* Opens to the LEFT. The parent is already flush with the right
-                 edge of the window, so a submenu to its right would be
-                 off-screen — the direction is forced by where the menu is, not
-                 chosen for looks. */
-              <div
-                role="menu"
-                /* Flush against the parent, with no gap. A margin here leaves
-                   a sliver the pointer crosses on its way over — and that
-                   sliver belongs to the menu behind, so leaving the row closed
-                   the very panel the pointer was heading for. */
-                className="absolute right-full top-0 z-30 w-56 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
-              >
-                <button
-                  role="menuitem"
-                  type="button"
-                  onClick={() => {
-                    menu.closeNow();
-                    onProfile();
-                  }}
-                  className={`${item} text-muted hover:text-content`}
-                >
-                  <IconUser size={16} />
-                  Profile settings
-                </button>
-                <button
-                  role="menuitem"
-                  type="button"
-                  onClick={() => {
-                    menu.closeNow();
-                    onPassword();
-                  }}
-                  className={`${item} border-t border-line text-muted hover:text-content`}
-                >
-                  <IconLock size={16} />
-                  Change password
-                </button>
-              </div>
-            ) : null}
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onSignOut();
+              }}
+              className={`${item} border-t border-line text-danger-text`}
+            >
+              <IconSignOut size={16} />
+              Logout
+            </button>
           </div>
-
-          <button
-            role="menuitem"
-            type="button"
-            onMouseEnter={() => setSubmenu(null)}
-            onClick={() => {
-              menu.closeNow();
-              onSignOut();
-            }}
-            className={`${item} rounded-b-card border-t border-line text-danger-text`}
-          >
-            <IconSignOut size={16} />
-            Logout
-          </button>
-        </div>
+        </>
       ) : null}
     </div>
   );

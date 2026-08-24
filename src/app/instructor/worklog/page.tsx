@@ -120,6 +120,10 @@ const firstOfMonth = (zone?: string | null) => `${todayIn(zone).slice(0, 7)}-01`
  */
 type ReadingState =
   | null
+  /** Fetching today's own submission back, for "Edit Today's Log" — not a
+   *  submit in progress, so it gets its own copy rather than borrowing
+   *  "sending"'s. */
+  | { phase: "loading" }
   | { phase: "sending" }
   | { phase: "reading" }
   | { phase: "done"; activities: number }
@@ -235,6 +239,10 @@ export default function WorkLogHistoryPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  /** True while the dialog holds today's own narrative for correction, rather
+   *  than a blank one — distinct from `editing`, which is the single-entry
+   *  manual-fields correction, not the whole day's. */
+  const [editingToday, setEditingToday] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -322,6 +330,14 @@ export default function WorkLogHistoryPage() {
    * simply does not ask. */
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
+
+  /* Drives the primary button's two states. Read from the SAME rows the
+   * table renders — not a second fetch — so the button can never claim a
+   * state the table underneath it disagrees with. */
+  const hasSubmittedToday = useMemo(
+    () => rows.some((r) => r.workDate.slice(0, 10) === today),
+    [rows, today],
+  );
 
   /* The reading of each day: professional activity names, comma-separated, with
    * every figure summed on the server from the activities themselves. Fetched
@@ -436,6 +452,7 @@ export default function WorkLogHistoryPage() {
 
   function openNew() {
     setEditing(null);
+    setEditingToday(false);
     setDraft(emptyDraft(today));
     setNarrative("");
     setEntryMode("write");
@@ -446,6 +463,7 @@ export default function WorkLogHistoryPage() {
 
   function openEdit(row: Row) {
     setEditing(row);
+    setEditingToday(false);
     // One row is being corrected, not the day rewritten, so the fields are the
     // only sensible shape for it.
     setEntryMode("fields");
@@ -461,6 +479,48 @@ export default function WorkLogHistoryPage() {
     });
     setFormError(null);
     setOpen(true);
+  }
+
+  /**
+   * "Edit Today's Log" — the whole day, read back and reopened for
+   * correction, not a blank box.
+   *
+   * Loads today's own narrative and seeds it into the same write box
+   * `openNew()` uses. Submitting from here is not a special path: it is the
+   * ordinary POST to `/worklog` for today's date, which `submitWorklog`
+   * already treats as replacing the day rather than appending to it — see
+   * the service's own comment on that. Nothing here needs to know it is an
+   * edit; the server already does.
+   *
+   * A day recorded through the manual-fields form has no `WorklogSubmission`
+   * to read back — `rawBullets` belongs to the narrative path only. That
+   * case opens blank rather than failing outright: writing a fresh narrative
+   * still records the day, it is only the pre-fill that has nothing to work
+   * from.
+   */
+  async function openEditToday() {
+    if (!instructorId) return;
+    setEditing(null);
+    setEditingToday(true);
+    setDraft(emptyDraft(today));
+    setNarrative("");
+    setEntryMode("write");
+    setFormError(null);
+    setOpen(true);
+    setReading({ phase: "loading" });
+    try {
+      const res = await apiGet<{ submissions: SubmissionView[] }>(
+        `/api/instructors/${instructorId}/worklog?date=${today}`,
+        "Could not load today's worklog.",
+      );
+      const latest = res.submissions.at(-1);
+      setNarrative(latest?.rawBullets?.join("\n") ?? "");
+    } catch {
+      // Opened already; a failed read-back leaves a blank box to write into
+      // rather than blocking the edit entirely.
+    } finally {
+      setReading(null);
+    }
   }
 
   /**
@@ -675,15 +735,32 @@ export default function WorkLogHistoryPage() {
         {/* Submission feedback is the toast `submit()` fires — see below —
             not a persistent banner here. A banner gated on "today has a row"
             reappeared on every reload for as long as that stayed true, which
-            read as congratulating a page load rather than an action. */}
-        <button
-          type="button"
-          onClick={openNew}
-          className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
-        >
-          <Plus />
-          Today&rsquo;s Work Log
-        </button>
+            read as congratulating a page load rather than an action.
+
+            Two states, read from `hasSubmittedToday` — the same rows the
+            table below renders, so this button and that table can never
+            disagree about whether today has anything written yet. Distinct
+            styling rather than just a different label: a glance should tell
+            which state this is, not just a read. */}
+        {hasSubmittedToday ? (
+          <button
+            type="button"
+            onClick={() => void openEditToday()}
+            className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success-text shadow-card transition-colors hover:bg-success/10"
+          >
+            <Pencil />
+            Edit Today&rsquo;s Log
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={openNew}
+            className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
+          >
+            <Plus />
+            Add Today&rsquo;s Worklog
+          </button>
+        )}
       </div>
 
       {/* ── Period navigation ─────────────────────────────────────────
@@ -1048,7 +1125,7 @@ export default function WorkLogHistoryPage() {
         icon={<Clipboard />}
         dividers={false}
         size="lg"
-        title={editing ? "Edit work log" : "Today's Work Log"}
+        title={editing ? "Edit work log" : editingToday ? "Edit Today's Worklog" : "Today's Work Log"}
         description={
           editing
             ? `Correcting the entry from ${longDate(draft.date)}.`
@@ -1300,7 +1377,8 @@ function NarrativeEntry({
   /** The latest day that may be written up — the UNIVERSITY's today. */
   today: string;
 }) {
-  const busy = reading?.phase === "sending" || reading?.phase === "reading";
+  const busy =
+    reading?.phase === "sending" || reading?.phase === "reading" || reading?.phase === "loading";
 
   return (
     <div className="grid gap-5">
@@ -1354,7 +1432,12 @@ function NarrativeEntry({
                   : "border-line bg-sunken text-muted")
           }
         >
-          {reading.phase === "sending" ? (
+          {reading.phase === "loading" ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner />
+              Loading today&rsquo;s entry…
+            </span>
+          ) : reading.phase === "sending" ? (
             <span>Saving your worklog…</span>
           ) : reading.phase === "reading" ? (
             <span className="inline-flex items-center gap-2">
