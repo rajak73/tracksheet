@@ -25,7 +25,6 @@ import { categoryColor } from "@/app/_components/charts";
 import {
   broadCategoryCell,
   compactDuration,
-  subjectsCell,
   countableLines,
   quantityCell,
   suppliedOr,
@@ -56,8 +55,6 @@ export type ManagerPerson = {
    * this sheet asked for. Absent dates are non-office days; a null value is a
    * day with nothing to inherit.
    */
-  /** The Broad Category assigned to this person. What the column prints. */
-  category: { code: string; label: string } | null;
   /** What each office day was about. Shown in the day view, never in the column. */
   subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
   /** Their own remark per day, keyed by date. */
@@ -77,8 +74,7 @@ const FIELDS = [
 const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
-  category: "w-[168px] min-w-[168px]",
-  subjects: "w-[160px] min-w-[160px]",
+  broadCategory: "w-[160px] min-w-[160px]",
 };
 
 const HEAD = "bg-sunken text-xs font-semibold leading-snug text-muted";
@@ -143,16 +139,9 @@ export function ManagerSheet({
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.category} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
             >
-              Instructor Category
-            </th>
-            <th
-              scope="col"
-              rowSpan={2}
-              className={`${HEAD} ${IDENTITY.subjects} sticky left-[520px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
-            >
-              Subjects Covered
+              Broad Category
             </th>
 
             {periods.map((p) => (
@@ -232,27 +221,14 @@ export function ManagerSheet({
                   {suppliedOr(person.employeeCode)}
                 </td>
                 <td
-                  className={`${IDENTITY.category} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.broadCategory} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
-                  {/* The category assigned to this person, written by the one
-                      function that writes it everywhere. It used to be the
-                      distinct subjects their days were judged to be about,
-                      which is the guess the client's rule now forbids in this
-                      column. "Not Provided" where nobody has assigned one — an
-                      empty cell that says so, rather than one filled in from a
-                      lecture. */}
-                  <span className={person.category ? "text-content" : "text-subtle"}>
-                    {broadCategoryCell(person.category)}
-                  </span>
-                </td>
-                <td
-                  className={`${IDENTITY.subjects} sticky left-[520px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
-                >
-                  {/* What they actually worked on across the range shown — read
-                      from the entries, not from the column beside it. A person
-                      filed under Technical who spent the week on Maths shows
-                      both facts, in the two places they belong. */}
-                  {subjectsCell(
+                  {/* What they actually worked on across the range shown, read
+                      from the entries. The assigned-category column that used to
+                      sit beside this one is gone at the client's request, so
+                      this is the only category on the sheet and it is the
+                      inferred one. */}
+                  {broadCategoryCell(
                     periods
                       .flatMap((p) => p.dates)
                       .flatMap((d) => person.activitiesByDate[d] ?? [])

@@ -132,19 +132,22 @@ describe("when there is nothing to read", () => {
   });
 });
 
-describe("the report prints what was assigned, not what was taught", () => {
+describe("the assigned category is kept, and is not a report column", () => {
   /**
-   * ── This replaces the opposite requirement, on the client's instruction ──
-   * These cases used to assert that nobody could file a Broad Category by hand
-   * and that the client's sheet followed the work somebody actually did. That
-   * was built to the client's position at the time.
+   * ── The requirement here has now moved twice ─────────────────────────────
+   * First these cases asserted that nobody could file a Broad Category by hand
+   * and that the sheet followed the work. Then the client reversed it — the
+   * category was "supplied", "preserved exactly", never guessed from activities
+   * — and the sheet printed the assigned value.
    *
-   * Their rule now is the reverse, in their own words: the Broad Category is
-   * "supplied", it must be "preserved exactly", and nobody may "guess the
-   * employee's broad category from their activities".
+   * The client has now dropped that column. Broad Category is the subject read
+   * from the work again, and the assigned value is not printed anywhere.
    *
-   * The derived stream is not deleted — it still answers, under its own name,
-   * and the cases above still cover it. It simply no longer decides the column.
+   * What survives both reversals is the assignment itself: an admin can still
+   * file somebody under a category, it is still stored exactly as given, and a
+   * category nobody defined is still refused. Those cases are unchanged below.
+   * Only the two that asserted the tracker PRINTS it have moved, because the
+   * column they were about no longer exists.
    */
 
   test("the derived stream and the assigned category are different answers", async () => {
@@ -208,7 +211,11 @@ describe("the report prints what was assigned, not what was taught", () => {
     expect(stored.categoryId).toBeNull();
   });
 
-  test("the client's monthly sheet prints the assigned category", async () => {
+  test("assigning it does not put it on the monthly sheet", async () => {
+    /* The strongest form of the new rule: file somebody under TECH, have them
+     * log nothing but Physics, and the sheet must carry no TECH anywhere on the
+     * row — not in a column, not in a leftover field a future screen could
+     * reach for. Broad Category is the Physics. */
     const id = await newInstructor("tracker");
     await entry(id, "PHYSICS", 6);
     await admin.patch(`/api/instructors/${id}`, { categoryCode: "TECH" });
@@ -222,13 +229,14 @@ describe("the report prints what was assigned, not what was taught", () => {
       (r: { instructorId: string }) => r.instructorId === id,
     );
     expect(row, "the instructor should appear in the tracker").toBeTruthy();
-    expect(
-      row.broadCategory,
-      "the sheet prints what was supplied, not the Physics they logged",
-    ).toMatchObject({ code: "TECH" });
+    expect(row.broadCategory, "no assigned category travels on the row").toBeUndefined();
+
+    // And it is still assigned on the person, just not on the sheet.
+    const detail = await admin.get(`/api/instructors/${id}`);
+    expect(detail.body.instructor.category).toMatchObject({ code: "TECH" });
   });
 
-  test("the sheet leaves it unset rather than filling it in from the work", async () => {
+  test("what the sheet does print is the subject of the work", async () => {
     const id = await newInstructor("unassigned");
     await entry(id, "PHYSICS", 6);
 
@@ -238,9 +246,9 @@ describe("the report prints what was assigned, not what was taught", () => {
     const row = res.body.tracker.rows.find(
       (r: { instructorId: string }) => r.instructorId === id,
     );
-    expect(
-      row.broadCategory,
-      "six hours of Physics must not become an assignment nobody made",
-    ).toBeNull();
+    const subjects = Object.values(
+      row.cells as Record<string, { subjects?: string[] }>,
+    ).flatMap((c) => c?.subjects ?? []);
+    expect(subjects, "six hours of Physics is what the column reports").toContain("Physics");
   });
 });

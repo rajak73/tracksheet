@@ -43,7 +43,6 @@ import {
   quantityCell,
   remarksCell,
   reportLines,
-  subjectsCell,
   workedMinutesIn,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
@@ -86,9 +85,7 @@ export type TrackerRow = {
   instructorName: string;
   employeeCode: string | null;
   isActive: boolean;
-  /** What they TEACH — the column the client's sheet prints. Set by an admin. */
-  broadCategory: { code: string; label: string } | null;
-  /** The dominant ACTIVITY category for the period. Derived, and not the above. */
+  /** The dominant ACTIVITY category for the period. Derived, never a column. */
   category: string | null;
   categories: string[];
   cells: Record<number, TrackerCell>;
@@ -258,7 +255,6 @@ function CategoryBreakdown({ hours }: { hours: Record<string, number> }) {
 const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
-  category: "w-[160px] min-w-[160px]",
 } as const;
 
 /** The five fields the client's sheet repeats under every week. */
@@ -270,11 +266,13 @@ const IDENTITY = {
  * Evaluations" rather than a bare figure; right-aligning prose puts its ragged
  * edge against the numbers beside it. */
 const WEEK_FIELDS = [
-  /* Subjects Covered lives INSIDE the week group, not among the sticky columns.
-   * It varies week to week for the same person — a Technical instructor can
-   * spend one week on Maths — so it belongs with the period's own data. The
-   * sticky column beside their name is what they ARE, and does not move. */
-  { key: "subjects", label: "Subjects Covered", align: "text-left" },
+  /* Broad Category lives INSIDE the week group, not among the sticky columns.
+   * It varies week to week for the same person — someone can spend one week on
+   * Technical and the next on Maths — so it belongs with the period's own data
+   * rather than beside their name. The assigned-category column that used to
+   * sit there is gone at the client's request; this is the only category on the
+   * sheet now, and it is read from the work. */
+  { key: "subjects", label: "Broad Category", align: "text-left" },
   { key: "deliverable", label: "Deliverable", align: "text-left" },
   { key: "quantity", label: "Deliverable Quantity", align: "text-left" },
   { key: "hours", label: "# Working Hours", align: "text-right" },
@@ -369,7 +367,9 @@ function WeekColumns({
       ) : (
         <>
       <td className={`border-b border-l-2 border-line px-3 py-3 align-top ${bg}`}>
-        <span className="block text-sm text-content">{subjectsCell(cell?.subjects ?? [])}</span>
+        <span className="block text-sm text-content">
+          {broadCategoryCell(cell?.subjects ?? [])}
+        </span>
       </td>
       <td className={`border-b border-l border-line px-3 py-3 align-top ${bg}`}>
         {deliverables.length === 0 ? (
@@ -590,22 +590,15 @@ export function TrackerGrid({
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
+                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-r border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
               >
                 Employee ID
-              </th>
-              <th
-                scope="col"
-                rowSpan={2}
-                className={`${IDENTITY.category} sticky left-[352px] z-30 border-b border-r border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
-              >
-                Instructor Category
               </th>
               {tracker.weeks.map((week) => (
                 <th
                   key={week.index}
                   scope="colgroup"
-                  colSpan={4}
+                  colSpan={WEEK_FIELDS.length}
                   className={`border-b border-l-2 border-line px-4 py-2 text-center ${
                     week.isCurrent ? "bg-primary-subtle" : "bg-sunken"
                   }`}
@@ -661,39 +654,22 @@ export function TrackerGrid({
                   <span className="tabular mt-0.5 block text-xs text-muted">
                     {formatHours(rowWorkingHours(row, tracker.weeks))} Working Hours
                   </span>
+                  {/* This pill used to ride in the Instructor Category cell.
+                      That column is gone, and "Former" is a fact about the
+                      person rather than about a category, so it belongs under
+                      their name — and the CSV still carries its Status column
+                      either way. */}
+                  {!row.isActive ? (
+                    <span className="mt-1 block">
+                      <StatusPill status="FORMER" />
+                    </span>
+                  ) : null}
                 </th>
                 <td
-                  className={`${IDENTITY.code} tabular sticky left-[224px] z-20 border-b border-line bg-surface px-3 py-3 align-top text-content group-hover:bg-hovered`}
+                  className={`${IDENTITY.code} tabular sticky left-[224px] z-20 border-b border-r border-line bg-surface px-3 py-3 align-top text-content group-hover:bg-hovered`}
                 >
                   {row.employeeCode ?? "—"}
                 </td>
-                <td
-                  className={`${IDENTITY.category} sticky left-[352px] z-20 border-b border-r border-line bg-surface px-3 py-3 align-top group-hover:bg-hovered`}
-                >
-                  {/* ── What they TEACH, not what they happened to do ────────
-                   * This column used to hold the dominant activity category,
-                   * derived from the period's hours. That made the client's
-                   * signed-off sheet reshuffle its own rows between two
-                   * readings of the same month: an instructor who spent April
-                   * in meetings came out as "Meeting". It now shows the stream
-                   * an admin filed them under, which is stable, and blank when
-                   * nobody has filed them — a blank says "not decided" where a
-                   * derived value claimed somebody had decided.
-                   */}
-                  <span className="flex flex-wrap items-center gap-1">
-                    {/* One function writes this column everywhere — here, in
-                        this grid's CSV, on the manager's sheet and on the
-                        instructor's own report — so the four cannot disagree
-                        about what Broad Category means or how it is spelled. */}
-                    {row.broadCategory ? (
-                      <Badge tone="neutral">{broadCategoryCell(row.broadCategory)}</Badge>
-                    ) : (
-                      <span className="text-xs text-subtle">{broadCategoryCell(null)}</span>
-                    )}
-                    {!row.isActive ? <StatusPill status="FORMER" /> : null}
-                  </span>
-                </td>
-
                 {tracker.weeks.map((week) => (
                   <WeekColumns
                     key={week.index}
@@ -713,7 +689,7 @@ export function TrackerGrid({
             <tr>
               <th
                 scope="row"
-                colSpan={3}
+                colSpan={2}
                 className="sticky left-0 z-20 border-r border-t border-line bg-sunken px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted"
               >
                 Total · {tracker.totals.instructors} instructor

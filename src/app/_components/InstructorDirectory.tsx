@@ -26,16 +26,16 @@
  * takes its place — the tracker has no student-facing capacity to divide by,
  * and a substitute invented here would be one more figure to reconcile.
  *
- * ── Why "Broad category" is the filed stream, not the derived one ─────────
- * Two different categories travel on this row. `broadCategory` is what the
- * instructor TEACHES — set by an admin, stable across months, and the column
- * the client's sheet prints. `category` is the dominant ACTIVITY they spent
- * the period on, derived from their hours. This column prints the first: the
- * derived one turned a quiet week of meetings into "Meeting", and left this
- * directory disagreeing with the grid and the CSV export one screen away,
- * both of which already print the filed stream. Blank reads "Not set" —
- * nobody has filed them — because a derived value here claimed a decision
- * that had not been made.
+ * ── What "Broad category" prints ──────────────────────────────────────────
+ * The subjects the period's own entries named, joined by the same function the
+ * grid, the CSV and both worklog reports call, so this directory cannot
+ * disagree with the screen one click away.
+ *
+ * It used to print the stream an admin had filed the instructor under. That
+ * column is gone at the client's request, along with the per-render query that
+ * fetched it. Note this is NOT `category`, also on this row — that is the
+ * dominant ACTIVITY of the period, derived from hours, which once turned a
+ * quiet week of meetings into "Meeting".
  *
  * ── Why "Deliverables" is a count with no hours beside it ──────────────────
  * "Deliverable hours" meant two different quantities. On this screen it was
@@ -48,7 +48,7 @@
  */
 
 import Link from "next/link";
-import { UNSTATED } from "@/domain/worklog-report";
+import { broadCategoryCell, NOTHING, UNSTATED } from "@/domain/worklog-report";
 import {
   Badge,
   Card,
@@ -66,6 +66,15 @@ import {
 } from "@/app/_components/ui";
 import type { Tracker, TrackerRow } from "@/app/_components/TrackerGrid";
 import { formatHours } from "@/app/_lib/format";
+
+/**
+ * Broad Category for a whole row: every subject its weeks touched, deduped and
+ * joined by the shared formatter. An em dash when the period named none — a day
+ * of meetings and admin genuinely has no subject.
+ */
+function subjectsOf(row: TrackerRow): string {
+  return broadCategoryCell(Object.values(row.cells).flatMap((cell) => cell.subjects));
+}
 
 /**
  * Deliverable progress for the period, as the quantity that was booked.
@@ -132,10 +141,10 @@ export function InstructorDirectory({
                     <StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />
                   </TD>
                   <TD>
-                    {row.broadCategory ? (
-                      <Badge tone="neutral">{row.broadCategory.label}</Badge>
+                    {subjectsOf(row) === NOTHING ? (
+                      <span className="text-subtle">{NOTHING}</span>
                     ) : (
-                      <span className="text-subtle">Not set</span>
+                      <Badge tone="neutral">{subjectsOf(row)}</Badge>
                     )}
                   </TD>
                   <TD align="right">{formatHours(row.totals.totalWorkingHours)}</TD>
@@ -160,7 +169,7 @@ export function InstructorDirectory({
               subtitle={
                 <span className="tabular">
                   {row.employeeCode ?? "—"}
-                  {row.broadCategory ? ` · ${row.broadCategory.label}` : ""}
+                  {subjectsOf(row) === NOTHING ? "" : ` · ${subjectsOf(row)}`}
                 </span>
               }
               meta={

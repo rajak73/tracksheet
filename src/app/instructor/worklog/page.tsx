@@ -20,9 +20,14 @@
  *
  * ── Where Broad Category comes from ───────────────────────────────────────
  * The form does not ask for it, deliberately: a subject should follow the work
- * rather than be chosen from a menu. Each entry carries the subject read from
- * its deliverable text, and a day whose lines named none inherits from the last
- * office day that did.
+ * rather than be chosen from a menu. Each entry carries the subject the model
+ * read from its deliverable text, and the column lists the distinct ones the
+ * day touched.
+ *
+ * A day whose lines named no subject at all shows an em dash. It does NOT
+ * inherit from the last office day — the carry-forward exists server-side and
+ * this screen does not ask for it, so what you see here is only what was
+ * actually written down.
  */
 
 import { Fragment, useCallback, useMemo, useState } from "react";
@@ -32,7 +37,6 @@ import {
   broadCategoryCell,
   deliverableCell,
   quantityCell,
-  subjectsCell,
   UNSTATED,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
@@ -81,10 +85,8 @@ type Row = {
   rawText: string | null;
   instructorName: string;
   employeeCode: string | null;
-  /** The subject read out of THIS entry's wording. Not the report column. */
+  /** The subject read out of THIS entry's wording. This IS the report column. */
   broadCategory: { code: string; label: string } | null;
-  /** The category assigned to the person. This IS the report column. */
-  instructorCategory: { code: string; label: string } | null;
   deliverableType: { code: string; label: string; isCountable: boolean } | null;
 };
 
@@ -207,10 +209,9 @@ const COLUMNS = [
   "Date",
   "Employee Name",
   "Employee ID",
-  /* Two columns, not one. What this person IS, and what they DID — see
-   * `subjectsCell`. Collapsing them is what produced the contradiction. */
-  "Instructor Category",
-  "Subjects Covered",
+  /* One column. It holds what they DID — the subject read off each entry —
+   * which is what the client asked Broad Category to mean. */
+  "Broad Category",
   "Deliverable",
   "Deliverable Quantity",
   "Working Hours",
@@ -321,16 +322,17 @@ export default function WorkLogHistoryPage() {
     `worklogs:${query}`,
   );
 
-  /* The day-subject fetch that used to live here is gone.
+  /* The day-subject fetch that used to live here is still gone.
    *
-   * It answered "what was this day about", which is what the Broad Category
-   * column used before the client's rule changed to "print the category we
-   * supplied, and never guess one from the work". Nothing on this page reads it
-   * any more, so it is one request per view that nobody was going to look at.
+   * It answered "what was this day about", carrying a subject forward onto days
+   * whose own lines named none. Broad Category has since gone back to meaning
+   * the inferred subject, so that fetch would be renderable again — but this
+   * column lists what each day actually recorded, and a day that named no
+   * subject reads as an em dash rather than borrowing last Tuesday's.
    *
-   * The endpoint and the rule behind it are untouched — `/api/instructors/:id/
-   * day-subjects` still answers, and the per-entry subject is still read and
-   * stored. This screen simply stopped asking. */
+   * The endpoint is untouched — `/api/instructors/:id/day-subjects` still
+   * answers and the per-entry subject is still read and stored. This screen
+   * simply does not ask. */
 
   const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
 
@@ -917,9 +919,6 @@ export default function WorkLogHistoryPage() {
                         <td className="tabular px-4 py-4 text-content">
                           {who?.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
-                        <td className="px-4 py-4 text-content">
-                          {broadCategoryCell(who?.instructorCategory ?? null)}
-                        </td>
                         <td
                           colSpan={5}
                           className={`px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
@@ -949,9 +948,8 @@ export default function WorkLogHistoryPage() {
                           {who?.employeeCode?.trim() || NOT_PROVIDED}
                         </td>
                         <td className="px-4 py-4 text-content">
-                          {broadCategoryCell(who?.instructorCategory ?? null)}
+                          {broadCategoryCell(group.subjects)}
                         </td>
-                        <td className="px-4 py-4 text-content">{subjectsCell(group.subjects)}</td>
                         <td className="px-4 py-4 text-content">{deliverableCell(group.lines)}</td>
                         <td className="tabular px-4 py-4 text-content">
                           {quantityCell(group.lines)}

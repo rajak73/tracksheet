@@ -78,6 +78,11 @@ export type ParsedBullet = {
   /**
    * Which subject the line was about — TECH, ENGLISH, APTITUDE, MATH — judged
    * from the sentence. Null when the line names no subject at all.
+   *
+   * This is what every report prints as Broad Category. It is stored on the
+   * entry as `ActivityLog.broadCategoryId`, and the column lists the distinct
+   * subjects a period touched. Null is a real answer there and shows as an em
+   * dash — see `broadCategoryCell`.
    */
   subjectCode: string | null;
 };

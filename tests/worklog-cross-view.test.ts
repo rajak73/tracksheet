@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { buildPeriodRow, weekOf, weeksOfMonth, type RowActivity } from "@/domain/worklog-rows";
-import { deliverableCell, quantityCell, workingHours } from "@/domain/worklog-report";
+import {
+  broadCategoryCell,
+  deliverableCell,
+  quantityCell,
+  workingHours,
+} from "@/domain/worklog-report";
 
 /**
  * One instructor, one week, pulled through all six views.
@@ -289,17 +294,19 @@ describe("Part C — the missing day is missing, not blank and not future", () =
   });
 });
 
-describe("Part C — the two fields hold under real data", () => {
-  test("their assigned category is English and their work was not", async () => {
+describe("Part C — Broad Category holds under real data", () => {
+  test("their assigned category is English and the column does not say so", async () => {
     const mine = await instructorActivities(MONDAY, week.at(-1)!);
     const row = buildPeriodRow({ key: "k", label: "l", dates: week, activities: mine, today: MON });
 
     const detail = await admin.get(`/api/instructors/${instructorId}`);
-    expect(detail.body.instructor.category.code, "assigned, fixed").toBe("ENGLISH");
+    /* The assigned value still exists on the person's record; it is simply not
+     * what any sheet prints. Broad Category is the work. */
+    expect(detail.body.instructor.category.code, "assigned, and unprinted").toBe("ENGLISH");
     expect(row.subjects, "what they actually did").toEqual(["Technical", "Mathematics"]);
     expect(row.subjects, "never the assigned one").not.toContain("English");
-    console.log(`  Instructor Category: Instructor - English`);
-    console.log(`  Subjects Covered   : ${row.subjects.join(", ")}`);
+    console.log(`  Assigned (not a column): English`);
+    console.log(`  Broad Category         : ${broadCategoryCell(row.subjects)}`);
   });
 });
 

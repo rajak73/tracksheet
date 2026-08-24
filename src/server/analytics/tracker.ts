@@ -40,7 +40,6 @@ import {
   quantityCell,
   remarksCell,
   reportLines,
-  subjectsCell,
   suppliedOr,
   workedMinutesIn,
   workingHours as workingHoursCell,
@@ -121,17 +120,9 @@ export type TrackerRow = {
    * category per employee row; this derives it rather than inventing a field.
    * Null when nothing was recorded.
    */
-  /* ── Two different "categories", deliberately kept apart ─────────────────
-   * `broadCategory` is what this instructor TEACHES — Technical, Mathematics,
-   * English — set by an admin and stable across months. It is the column the
-   * client's sheet prints, and it must not move when somebody has a quiet week.
-   *
-   * `category` below is the dominant ACTIVITY category they actually spent the
-   * period on, derived from their hours. It answers a different question and
-   * legitimately changes month to month, which is exactly why it cannot be the
-   * one in the report.
-   */
-  broadCategory: { code: string; label: string } | null;
+  /* The dominant ACTIVITY category they actually spent the period on, derived
+   * from their hours. Not a column on the client's sheet — it changes month to
+   * month, which is why it never was one. */
   category: string | null;
   /** Every category they touched, so the dominant label never hides the rest. */
   categories: string[];
@@ -259,8 +250,8 @@ function dominantCategory(hours: Record<string, number>): string | null {
  * between the two exports.
  */
 export function formatTrackerAsCsv(tracker: TrackerResult): string {
-  const head1 = ["Employee Name", "Employee ID", "Instructor Category", "Status"];
-  const head2 = ["", "", "", ""];
+  const head1 = ["Employee Name", "Employee ID", "Status"];
+  const head2 = ["", "", ""];
 
   for (const week of tracker.weeks) {
     const span = `${week.labelFrom ?? week.from} to ${week.labelTo ?? week.to}`;
@@ -272,7 +263,7 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
      * two are not related by. The export and the screen now have the same
      * columns, so a screenshot and a spreadsheet cannot disagree. */
     head1.push(`Week ${week.index} [${span}]`, "", "", "", "");
-    head2.push("Subjects Covered", "Deliverable", "Deliverable Quantity", "Working Hours", "Remarks");
+    head2.push("Broad Category", "Deliverable", "Deliverable Quantity", "Working Hours", "Remarks");
   }
 
   const lines = [head1.map(csvCell).join(","), head2.map(csvCell).join(",")];
@@ -282,10 +273,6 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
       // Preserved exactly, or said to be missing. Never blank, never guessed.
       suppliedOr(row.instructorName),
       suppliedOr(row.employeeCode),
-      // The category assigned to them, matching the column on screen. Written
-      // by the one function that writes it everywhere, so the exported sheet
-      // and the rendered one cannot disagree about what this column means.
-      broadCategoryCell(row.broadCategory),
       row.isActive ? "Active" : "Former",
     ];
     for (const week of tracker.weeks) {
@@ -296,7 +283,7 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
        * step. */
       const lines = reportLines(cell?.deliverables ?? []);
       cells.push(
-        subjectsCell(cell?.subjects ?? []),
+        broadCategoryCell(cell?.subjects ?? []),
         deliverableCell(lines),
         quantityCell(countableLines(cell?.deliverables ?? [])),
         // "05h 15m" — the client specified the format to the character.
@@ -484,7 +471,6 @@ function addQuantity(total: number | null, add: number | null): number | null {
         instructorName: b.instructorName,
         employeeCode: b.employeeCode,
         isActive: b.isActive,
-        broadCategory: null,
         category: null,
         categories: [],
         cells: {},
@@ -688,30 +674,18 @@ function addQuantity(total: number | null, add: number | null): number | null {
    * property of the person, so it does not vary by week and does not belong in
    * the per-week engine pass.
    */
-  /* Read off the person, not counted from their entries.
+  /* The per-employee lookup of the ASSIGNED category is gone with the column.
    *
-   * ── This reverses an earlier decision, on the client's instruction ──────
-   * It used to call `streamsFor`, deriving the column from the dominant subject
-   * of the work somebody actually did over ninety days. That was built to a
-   * requirement that a stream should follow the work rather than be picked from
-   * a dropdown.
+   * It went back and forth: derived from the work via `streamsFor`, then read
+   * off the person after the client said "preserve it exactly, do not guess the
+   * employee's broad category from their activities", and now removed entirely
+   * because the client no longer wants that column on the sheet. Broad Category
+   * is the per-week subject read from the entries, which the cells already
+   * carry.
    *
-   * The client's rule is now the opposite one, in their own words: "preserve it
-   * exactly", and "do not guess the employee's broad category from their
-   * activities". So the column is the category assigned to the person, and
-   * "Not Provided" where nobody has assigned one.
-   *
-   * `streamsFor` is left in place and still answers — it is read elsewhere, and
-   * a derived stream is a useful thing to know. It just no longer decides the
-   * column the client's sheet is grouped by. */
-  const assigned = await prisma.instructor.findMany({
-    where: { id: { in: [...rows.keys()] } },
-    select: { id: true, category: { select: { code: true, label: true } } },
-  });
-  for (const instructor of assigned) {
-    const row = rows.get(instructor.id);
-    if (row) row.broadCategory = instructor.category;
-  }
+   * `Instructor.category` is untouched and still assignable — nothing on this
+   * report reads it, so this query and the row field it filled are gone rather
+   * than left to be ignored once a render. */
 
   // Former staff appear only where they actually have something to report.
   // Active staff always appear, so "recorded nothing this week" stays visible.

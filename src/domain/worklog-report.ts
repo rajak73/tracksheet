@@ -161,46 +161,27 @@ export function quantityCell(lines: ReportLine[]): string {
 export { UNSTATED };
 
 /**
- * The Broad Category column: the category the person was assigned.
+ * The Broad Category column: what the person actually worked on in this period.
  *
- * ── Never derived from what they did ──────────────────────────────────────
- * The client's rule, in their words: "preserve it exactly", and "do not guess
- * the employee's broad category from their activities". This column used to
- * hold the subject their work was judged to be about — inferred per entry and
- * carried forward from the last office day — which is precisely the guess that
- * rule forbids.
+ * ── This column was two columns, and is one again ─────────────────────────
+ * It began as one, holding a subject inferred from the work. The client's rule
+ * — "preserve it exactly", "do not guess the employee's broad category from
+ * their activities" — read as forbidding exactly that, so it was split: an
+ * assigned Instructor Category next to an inferred Subjects Covered.
  *
- * "Not Provided" when nobody has assigned one. An empty cell that says so is
- * honest; a subject read off a lecture is not, and it would be sitting in the
- * column the whole sheet is grouped by.
+ * The client has since asked for the assigned column to go and the inferred one
+ * to carry the Broad Category name. So there is one column again, and it is
+ * unambiguously the inferred one: read per entry from
+ * `ActivityLog.broadCategoryId`, which the model judged from the sentence, and
+ * comma-separated because a day can hold a Tech class and a Maths one.
+ *
+ * ── Empty is an answer, and it is not "Not Provided" ──────────────────────
+ * A day of meetings and admin names no subject at all, and the model is told to
+ * return null rather than reach for one. An em dash says that. "Not Provided"
+ * would be the wrong word here — it belonged to the assigned column, where a
+ * blank meant somebody had not filled a field in. Nobody fills this one in.
  */
-export function broadCategoryCell(assigned: { label: string } | null | undefined): string {
-  const label = assigned?.label?.trim();
-  return label ? `Instructor - ${label}` : NOT_PROVIDED;
-}
-
-/**
- * The Subjects Covered column: what they actually worked on in this period.
- *
- * ── A different question from Instructor Category ─────────────────────────
- * These two were one column, and the two readings of it contradicted each
- * other so directly that each spec forbade the other. They are separate fields
- * now, and neither is a fallback for the other:
- *
- *   Instructor Category   what this person IS. Assigned, fixed, never inferred,
- *                         "Not Provided" when nobody has assigned it. See
- *                         `broadCategoryCell`.
- *   Subjects Covered      what this person DID in this period. Read per entry
- *                         from `ActivityLog.broadCategoryId`, which the model
- *                         judged from the sentence, and comma-separated because
- *                         a day can hold a Tech class and a Maths one.
- *
- * Empty is a real answer and is not a failure: a day of meetings and admin
- * names no subject at all, and the model is instructed to return null rather
- * than reach for one. An em dash says that; "Not Provided" would wrongly
- * suggest somebody forgot to fill something in.
- */
-export function subjectsCell(labels: ReadonlyArray<string | null | undefined>): string {
+export function broadCategoryCell(labels: ReadonlyArray<string | null | undefined>): string {
   const seen = new Set<string>();
   const kept: string[] = [];
   for (const label of labels) {

@@ -3,18 +3,30 @@ import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 
 /**
- * Instructor Category and Subjects Covered, proved apart.
+ * Broad Category is read from the work, and the assigned category is not a
+ * report column.
  *
  * ── Why every case here uses a deliberate mismatch ────────────────────────
- * These two fields agreeing proves nothing — a single field would look
- * identical. So the fixture files somebody under ENGLISH and then has them do
- * a week of TECH work, and every assertion below turns on the two answers
- * being different.
+ * The fixture files somebody under ENGLISH and then has them do a week of TECH
+ * and MATH work, so that every assertion turns on which of the two answers a
+ * given surface gives. If a report ever went back to printing the assigned
+ * value, "English" would appear where "Technical, Mathematics" belongs and
+ * these tests would say so.
  *
  * That is not a contrived case. It is the ordinary one: an instructor is filed
  * under what they were hired to teach, and a report is read for what they
- * actually did. The single column that tried to be both is what produced the
- * contradiction these fields resolve.
+ * actually did.
+ *
+ * ── This file used to prove the opposite ──────────────────────────────────
+ * It was written when Broad Category had been split in two — an assigned
+ * "Instructor Category" beside an inferred "Subjects Covered" — and it proved
+ * the two apart. The client has since asked for the assigned column to go and
+ * the inferred one to take the Broad Category name, so the assertions now run
+ * the other way: the assigned value must NOT reach a report row.
+ *
+ * `Instructor.category` itself is untouched. It is still assigned in the admin
+ * screens and still travels on the instructor's own record; it simply is not a
+ * column on any sheet.
  */
 
 const RUN = Math.random()
@@ -126,14 +138,16 @@ describe("the instructor's own view carries both, independently", () => {
   });
 });
 
-describe("the manager's day and week sheets carry both", () => {
-  test("the roster row names the assigned category", async () => {
+describe("the manager's day and week sheets read the work", () => {
+  test("the assigned category still travels on the person's record", async () => {
     const res = await manager.get(`/api/manager/worklog?from=${DATE}&to=${DATE}`);
     expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
     const person = res.body.instructors.find(
       (i: { instructorId: string }) => i.instructorId === instructorId,
     );
     expect(person, "the instructor should be on the roster payload").toBeTruthy();
+    /* The API still carries it — it is a real property of the person, assigned
+     * in the admin screens. What changed is that no sheet prints it. */
     expect(person.category?.code).toBe("ENGLISH");
   });
 
@@ -150,9 +164,11 @@ describe("the manager's day and week sheets carry both", () => {
   });
 });
 
-describe("the manager's month spreadsheet puts each where it belongs", () => {
-  test("the assigned category is one fixed value on the row", async () => {
-    // The sticky left column: a property of the person, not of a week.
+describe("the manager's month spreadsheet reads Broad Category from the week", () => {
+  test("the row carries no assigned category at all", async () => {
+    /* The sticky identity column that held it is gone, and so is the per-render
+     * query that fetched it. A field left on the row would be one more thing a
+     * future screen could print by reaching for the wrong name. */
     const res = await admin.get(
       `/api/universities/${northId}/tracker?from=${DATE}&to=${DATE}`,
     );
@@ -161,10 +177,10 @@ describe("the manager's month spreadsheet puts each where it belongs", () => {
       (r: { instructorId: string }) => r.instructorId === instructorId,
     );
     expect(row, "the instructor should appear").toBeTruthy();
-    expect(row.broadCategory?.code, "assigned, on the row").toBe("ENGLISH");
+    expect(row.broadCategory, "the assigned category is not on the row").toBeUndefined();
   });
 
-  test("subjects covered sit inside the week, not on the row", async () => {
+  test("Broad Category sits inside the week, not on the row", async () => {
     /* They vary week to week for the same person, which is exactly why they
      * cannot live in a sticky identity column. */
     const res = await admin.get(
@@ -183,8 +199,8 @@ describe("the manager's month spreadsheet puts each where it belongs", () => {
   });
 
   test("the row carries no subjects of its own", async () => {
-    // If it did, there would be two places to read the same thing from, and
-    // one column pretending to be both fields again.
+    // If it did, there would be two places to read the same thing from, and a
+    // week-varying value frozen onto a person again.
     const res = await admin.get(
       `/api/universities/${northId}/tracker?from=${DATE}&to=${DATE}`,
     );

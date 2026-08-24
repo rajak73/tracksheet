@@ -257,16 +257,22 @@ describe("the Working Hours column", () => {
 });
 
 describe("the Broad Category column", () => {
-  test("the supplied value, preserved exactly", () => {
-    expect(broadCategoryCell({ label: "Technical" })).toBe("Instructor - Technical");
+  test("the subjects the period touched, in the order first seen", () => {
+    expect(broadCategoryCell(["Technical", "Maths"])).toBe("Technical, Maths");
   });
 
-  test("nobody assigned one, and none is invented", () => {
-    // The rule this enforces: "do not guess the employee's broad category from
-    // their activities."
-    expect(broadCategoryCell(null)).toBe(NOT_PROVIDED);
-    expect(broadCategoryCell(undefined)).toBe(NOT_PROVIDED);
-    expect(broadCategoryCell({ label: "   " })).toBe(NOT_PROVIDED);
+  test("each subject once, however many entries named it", () => {
+    expect(broadCategoryCell(["Tech", "Tech", "Maths"])).toBe("Tech, Maths");
+    expect(broadCategoryCell(["Tech", "tech"]), "case-insensitively").toBe("Tech");
+  });
+
+  test("a period that named no subject reads as empty, not Not Provided", () => {
+    /* The column is read from the work now, so a blank is not somebody failing
+     * to fill a field in — a day of meetings and admin genuinely names no
+     * subject. "Not Provided" belonged to the assigned column, which is gone. */
+    expect(broadCategoryCell([])).toBe("—");
+    expect(broadCategoryCell([null, undefined, "  "])).toBe("—");
+    expect(broadCategoryCell([])).not.toBe(NOT_PROVIDED);
   });
 });
 

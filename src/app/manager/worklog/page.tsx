@@ -28,7 +28,6 @@ import {
   deliverableCell,
   quantityCell,
   remarksCell,
-  subjectsCell,
   suppliedOr,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
@@ -291,8 +290,7 @@ export default function ManagerWorklogPage() {
         "Employee Name",
         "Employee ID",
         "Period",
-        "Instructor Category",
-        "Subjects Covered",
+        "Broad Category",
         "Deliverable",
         "Deliverable Quantity",
         "Working Hours",
@@ -303,13 +301,10 @@ export default function ManagerWorklogPage() {
       for (const period of periods) {
         const acts = period.dates.flatMap((d) => person.activitiesByDate[d] ?? []);
         const { lines, hours, remarks } = rollUp(acts);
-        /* No subject derivation here any more.
-         *
-         * This used to collect the distinct subjects the period's days were
-         * judged to be about, so that the export matched the screen. Both now
-         * print the category assigned to the person, which the client requires
-         * to be preserved rather than guessed — so there is nothing to derive
-         * and nothing for the two to disagree about. */
+        /* Broad Category is derived here, from the entries — the same source
+         * the sheet on screen reads, so the export and the screenshot cannot
+         * disagree. The assigned-category column that used to sit beside it is
+         * gone at the client's request. */
         const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
         /* Written by the same functions the sheet on screen uses, so the
          * export and the screenshot cannot say different things — and by the
@@ -324,9 +319,8 @@ export default function ManagerWorklogPage() {
           suppliedOr(person.name),
           suppliedOr(person.employeeCode),
           `${period.label} (${period.sublabel})`,
-          broadCategoryCell(person.category),
           // What the period actually touched, from the entries themselves.
-          subjectsCell(acts.map((a) => a.broadCategory?.label)),
+          broadCategoryCell(acts.map((a) => a.broadCategory?.label)),
           deliverableCell(cells),
           quantityCell(cells.filter((_, i) => lines[i]!.countable)),
           workingHoursCell(Math.round(hours * 60)),

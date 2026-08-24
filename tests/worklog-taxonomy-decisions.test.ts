@@ -7,7 +7,7 @@ import {
   quantityPhrase,
   quantityWhenUnstated,
 } from "@/domain/worklog-taxonomy";
-import { broadCategoryCell, subjectsCell, NOT_PROVIDED } from "@/domain/worklog-report";
+import { broadCategoryCell, NOT_PROVIDED } from "@/domain/worklog-report";
 
 /**
  * The five decisions, as rules rather than as prose.
@@ -25,30 +25,38 @@ import { broadCategoryCell, subjectsCell, NOT_PROVIDED } from "@/domain/worklog-
  * none.
  */
 
-describe("Decision 1 — two fields, never one", () => {
-  test("Instructor Category answers what somebody IS", () => {
-    expect(broadCategoryCell({ label: "Technical" })).toBe("Instructor - Technical");
-    // Assigned, so an absence is somebody not having filled it in.
-    expect(broadCategoryCell(null)).toBe(NOT_PROVIDED);
-  });
-
-  test("Subjects Covered answers what they DID, and lists all of it", () => {
-    expect(subjectsCell(["Tech", "Maths"])).toBe("Tech, Maths");
-    expect(subjectsCell(["Tech", "Tech", "Maths"]), "distinct, in order").toBe("Tech, Maths");
+/* ── Decision 1 was reversed by the client ─────────────────────────────────
+ * It split one column into two: an assigned "Instructor Category" beside an
+ * inferred "Subjects Covered". The client has since asked for the assigned one
+ * to go and the inferred one to carry the Broad Category name, so there is one
+ * column again and it is read from the work.
+ *
+ * These tests are kept, pointed at the rule that now holds, rather than
+ * deleted: the split existed because one column had been made to answer two
+ * questions at once, and what stops that recurring is an assertion about which
+ * question this one answers. */
+describe("Decision 1 (reversed) — one Broad Category, read from the work", () => {
+  test("it answers what they DID, and lists all of it", () => {
+    expect(broadCategoryCell(["Tech", "Maths"])).toBe("Tech, Maths");
+    expect(broadCategoryCell(["Tech", "Tech", "Maths"]), "distinct, in order").toBe("Tech, Maths");
   });
 
   test("a period that named no subject is empty, not Not Provided", () => {
     /* A day of meetings and admin names no subject and the model is told to
-     * return null rather than reach for one. "Not Provided" would say somebody
-     * forgot to fill something in; an em dash says there was nothing to fill. */
-    expect(subjectsCell([])).toBe("—");
-    expect(subjectsCell([null, undefined, "  "])).toBe("—");
+     * return null rather than reach for one. "Not Provided" said somebody
+     * forgot to fill a field in, and belonged to the assigned column; an em
+     * dash says there was nothing to fill. */
+    expect(broadCategoryCell([])).toBe("—");
+    expect(broadCategoryCell([null, undefined, "  "])).toBe("—");
+    expect(broadCategoryCell([])).not.toBe(NOT_PROVIDED);
   });
 
-  test("the two are independent — neither substitutes for the other", () => {
-    // A Technical instructor who spent the period on Maths shows both facts.
-    expect(broadCategoryCell({ label: "Technical" })).toBe("Instructor - Technical");
-    expect(subjectsCell(["Maths"])).toBe("Maths");
+  test("nothing prefixes it with the assigned column's wording", () => {
+    /* The assigned column printed "Instructor - Technical". This one prints the
+     * subject as the model named it, so a reader cannot mistake one for the
+     * other on a sheet where only this column survives. */
+    expect(broadCategoryCell(["Technical"])).toBe("Technical");
+    expect(broadCategoryCell(["Technical"])).not.toContain("Instructor - ");
   });
 });
 
