@@ -555,16 +555,27 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
      than assembled from those primitives, so the rule has to be repeated —
      `last:border-r-0` keeps the final column off the card's own edge. */
   const rule = "border-r border-line last:border-r-0";
-  const head = `${rule} px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text`;
+  const head =
+    `${rule} sticky top-0 z-10 border-b border-line bg-primary-subtle ` +
+    "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text";
+  /* Row dividers sit on the CELLS, not the row. `border-separate` below is
+     what makes the header stick — a collapsed table drops `position: sticky`
+     on its cells — and under that model a `<tr>`'s own border stops painting,
+     so every rule the rows carried had to move down a level. */
+  const cell = `${rule} border-b border-line-subtle px-3 py-2.5`;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+    /* Its own scroll box with a bounded height, so the week and month grids
+       keep their column header in view while the roster moves under it.
+       `top-0` is measured against THIS box rather than the page, which is what
+       keeps it correct without a hand-computed offset. */
+    <div className="max-h-[60vh] overflow-auto">
+      <table className="w-full border-separate border-spacing-0 text-sm">
         <caption className="sr-only-text">
           Hours and activity counts recorded by each instructor in each period.
         </caption>
         <thead>
-          <tr className="border-b border-line bg-primary-subtle">
+          <tr>
             <th scope="col" className={`${head} text-left`}>
               Instructor
             </th>
@@ -598,11 +609,8 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
             });
 
             return (
-              <tr
-                key={row.instructorId}
-                className="border-b border-line-subtle transition-colors hover:bg-hovered"
-              >
-                <th scope="row" className={`${rule} px-3 py-2.5 text-left font-normal`}>
+              <tr key={row.instructorId} className="transition-colors hover:bg-hovered">
+                <th scope="row" className={`${cell} text-left font-normal`}>
                   <span className="flex items-center gap-2">
                     <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
                     <span className="min-w-0">
@@ -617,7 +625,7 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
                 </th>
 
                 {cells.map((c) => (
-                  <td key={c.key} className={`${rule} px-3 py-2.5 text-right`}>
+                  <td key={c.key} className={`${cell} text-right`}>
                     {c.count > 0 ? (
                       <>
                         <span className="tabular block text-content">{formatDuration(c.hours)}</span>
@@ -634,10 +642,10 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
                   </td>
                 ))}
 
-                <td className={`tabular ${rule} px-3 py-2.5 text-right font-semibold text-content`}>
+                <td className={`tabular ${cell} text-right font-semibold text-content`}>
                   {formatDuration(cells.reduce((n, c) => n + c.hours, 0))}
                 </td>
-                <td className={`tabular ${rule} px-3 py-2.5 text-right font-semibold text-content`}>
+                <td className={`tabular ${cell} text-right font-semibold text-content`}>
                   {cells.reduce((n, c) => n + c.count, 0)}
                 </td>
               </tr>
