@@ -66,7 +66,7 @@ fi
 echo "pre-commit: typechecking…"
 npx tsc --noEmit
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' | grep -v '^src/generated/' || true)
 if [ -n "$STAGED" ]; then
   echo "pre-commit: linting staged files…"
   # --max-warnings=0 is load-bearing, not pedantry.

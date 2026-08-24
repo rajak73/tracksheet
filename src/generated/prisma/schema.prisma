@@ -1225,6 +1225,17 @@ model UniversityDailyMetric {
   /// Instructor-days expected on this date: the denominator of both figures.
   expectedInstructorDays Int @default(0)
 
+  /// The two numbers the Active-Instructor Average Hours feature divides.
+  ///
+  /// "Active" = this instructor's `productiveMinutes` that day was > 0. An
+  /// instructor with no submission and one whose entries summed to exactly
+  /// 0m are the same case here — both are absent from both fields below,
+  /// never present as a zero. See `src/domain/average-hours.ts` for the
+  /// confirmed formula these feed: sum every day's minutes, sum every day's
+  /// count, divide once — never an average of daily averages.
+  activeInstructorMinutes Int @default(0)
+  activeInstructorCount   Int @default(0)
+
   computedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

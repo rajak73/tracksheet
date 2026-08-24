@@ -130,6 +130,14 @@ export async function rollupUniversityDaily(
       openings: number;
       closings: number;
       workingDays: number;
+      /* The Active-Instructor Average Hours feature's own two numbers —
+       * see the schema doc on `UniversityDailyMetric` for the "active"
+       * definition. Kept apart from `activeInstructors`/`productive` above:
+       * those count and sum EVERY instructor with a day row, including the
+       * ones who logged nothing, which is precisely what this feature must
+       * not do. */
+      activeInstructorMinutes: number;
+      activeInstructorCount: number;
     }
   >();
 
@@ -148,19 +156,22 @@ export async function rollupUniversityDaily(
         openings: 0,
         closings: 0,
         workingDays: 0,
+        activeInstructorMinutes: 0,
+        activeInstructorCount: 0,
       };
 
       const missingMinutes =
         day.isWorkingDay && !day.hasData ? toMinutes(day.capacityHours) : 0;
       const unutilizedMinutes =
         day.unutilizedHours === null ? 0 : toMinutes(day.unutilizedHours);
+      const productiveMinutes = toMinutes(day.productiveHours);
 
       instructorRows.push({
         universityId,
         instructorId: instructor.instructorId,
         metricDate: toDateOnly(day.date),
         capacityMinutes: toMinutes(day.capacityHours),
-        productiveMinutes: toMinutes(day.productiveHours),
+        productiveMinutes,
         unutilizedMinutes,
         missingDataMinutes: missingMinutes,
         overlapMinutes: 0,
@@ -183,12 +194,19 @@ export async function rollupUniversityDaily(
 
       bucket.activeInstructors += 1;
       bucket.capacity += toMinutes(day.capacityHours);
-      bucket.productive += toMinutes(day.productiveHours);
+      bucket.productive += productiveMinutes;
       bucket.unutilized += unutilizedMinutes;
       bucket.missing += missingMinutes;
       if (day.isWorkingDay) bucket.workingDays += 1;
       if (day.openingLogged) bucket.openings += 1;
       if (day.closingLogged) bucket.closings += 1;
+      // Strictly greater than zero — a submission that summed to exactly 0m
+      // is the same case as no submission at all, and both are excluded here
+      // rather than folded in as a zero. See the schema doc on the column.
+      if (productiveMinutes > 0) {
+        bucket.activeInstructorMinutes += productiveMinutes;
+        bucket.activeInstructorCount += 1;
+      }
       perDate.set(day.date, bucket);
     }
   }
@@ -222,6 +240,8 @@ export async function rollupUniversityDaily(
     productiveMinutes: b.productive,
     unutilizedMinutes: b.unutilized,
     missingDataMinutes: b.missing,
+    activeInstructorMinutes: b.activeInstructorMinutes,
+    activeInstructorCount: b.activeInstructorCount,
     minutesByActivityType: b.byType,
     utilizationPercent: b.capacity > 0 ? round2((b.productive / b.capacity) * 100) : null,
     openingCompliancePct:

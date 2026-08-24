@@ -1,13 +1,21 @@
 "use client";
 
 /**
- * Average working hours per instructor, by university.
+ * Active-Instructor Average Hours, by university.
  *
  * ── What it deliberately is not ───────────────────────────────────────────
  * Not a percentage, not a comparison against a configured capacity, and not
  * coloured red, amber and green. A utilisation percentage was tried and
  * withdrawn because it scored a day of meetings exactly like a day of
  * lectures, so it moved for reasons nobody could act on.
+ *
+ * ── What "active" means here ───────────────────────────────────────────────
+ * The denominator is instructor-DAYS that were active, not the roster and not
+ * unique people. An instructor who logged time on three of the period's five
+ * days contributes three to the count and their three days' minutes to the
+ * total; a day nobody logged anything on contributes nothing to either. See
+ * `src/domain/average-hours.ts` for the confirmed formula and why the two
+ * simpler-looking alternatives were tried first and superseded.
  *
  * So: one accent, one bar, one number, and the bar is scaled against the
  * highest university on screen rather than against any target. It says which
@@ -21,6 +29,7 @@ import { Card, ErrorState, TableSkeleton } from "@/app/_components/ui";
 import { PeriodSwitch } from "@/app/_components/PeriodPicker";
 import type { View } from "@/app/_components/PeriodPicker";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { formatActiveAverage } from "@/domain/average-hours";
 import { workingHours } from "@/domain/worklog-report";
 
 type Row = {
@@ -28,8 +37,8 @@ type Row = {
   name: string;
   slug: string;
   period: { from: string; to: string };
-  totalMinutes: number;
-  roster: number;
+  activeMinutes: number;
+  activeInstructorDays: number;
   averageMinutes: number | null;
 };
 
@@ -62,11 +71,11 @@ export function AverageHoursByUniversity() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-content">
-            Average working hours per instructor
+            Average working hours per active instructor
           </h2>
           <p className="mt-0.5 text-xs text-muted">
-            Everything recorded {LABEL[view]}, divided by every instructor on the roster —
-            including those who recorded nothing.
+            Time logged {LABEL[view]}, divided by how many instructor-days were active — a day or
+            an instructor with nothing logged counts in neither.
           </p>
         </div>
         <PeriodSwitch view={view} onView={setView} />
@@ -93,9 +102,9 @@ export function AverageHoursByUniversity() {
                 <div className="min-w-0 flex-1 basis-56">
                   <p className="truncate text-sm font-semibold text-content">{row.name}</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    {row.roster === 0
-                      ? "No instructors yet"
-                      : `${row.roster} instructor${row.roster === 1 ? "" : "s"} · ${workingHours(row.totalMinutes)} recorded`}
+                    {row.activeInstructorDays === 0
+                      ? "No activity recorded"
+                      : `${row.activeInstructorDays} active instructor-day${row.activeInstructorDays === 1 ? "" : "s"} · ${workingHours(row.activeMinutes)} recorded`}
                   </p>
                 </div>
 
@@ -114,9 +123,11 @@ export function AverageHoursByUniversity() {
 
                 <div className="shrink-0 text-right">
                   <p className="tabular text-base font-semibold text-content">
-                    {row.averageMinutes === null ? "—" : workingHours(row.averageMinutes)}
+                    {row.averageMinutes === null ? "No activity recorded" : formatActiveAverage(row.averageMinutes)}
                   </p>
-                  <p className="text-xs text-subtle">per instructor</p>
+                  {row.averageMinutes !== null ? (
+                    <p className="text-xs text-subtle">per active instructor-day</p>
+                  ) : null}
                 </div>
               </Link>
             </li>

@@ -43194,6 +43194,8 @@ export namespace Prisma {
     openingsLogged: number | null
     closingsLogged: number | null
     expectedInstructorDays: number | null
+    activeInstructorMinutes: number | null
+    activeInstructorCount: number | null
   }
 
   export type UniversityDailyMetricSumAggregateOutputType = {
@@ -43208,6 +43210,8 @@ export namespace Prisma {
     openingsLogged: number | null
     closingsLogged: number | null
     expectedInstructorDays: number | null
+    activeInstructorMinutes: number | null
+    activeInstructorCount: number | null
   }
 
   export type UniversityDailyMetricMinAggregateOutputType = {
@@ -43225,6 +43229,8 @@ export namespace Prisma {
     openingsLogged: number | null
     closingsLogged: number | null
     expectedInstructorDays: number | null
+    activeInstructorMinutes: number | null
+    activeInstructorCount: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -43244,6 +43250,8 @@ export namespace Prisma {
     openingsLogged: number | null
     closingsLogged: number | null
     expectedInstructorDays: number | null
+    activeInstructorMinutes: number | null
+    activeInstructorCount: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -43264,6 +43272,8 @@ export namespace Prisma {
     openingsLogged: number
     closingsLogged: number
     expectedInstructorDays: number
+    activeInstructorMinutes: number
+    activeInstructorCount: number
     computedAt: number
     updatedAt: number
     _all: number
@@ -43282,6 +43292,8 @@ export namespace Prisma {
     openingsLogged?: true
     closingsLogged?: true
     expectedInstructorDays?: true
+    activeInstructorMinutes?: true
+    activeInstructorCount?: true
   }
 
   export type UniversityDailyMetricSumAggregateInputType = {
@@ -43296,6 +43308,8 @@ export namespace Prisma {
     openingsLogged?: true
     closingsLogged?: true
     expectedInstructorDays?: true
+    activeInstructorMinutes?: true
+    activeInstructorCount?: true
   }
 
   export type UniversityDailyMetricMinAggregateInputType = {
@@ -43313,6 +43327,8 @@ export namespace Prisma {
     openingsLogged?: true
     closingsLogged?: true
     expectedInstructorDays?: true
+    activeInstructorMinutes?: true
+    activeInstructorCount?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -43332,6 +43348,8 @@ export namespace Prisma {
     openingsLogged?: true
     closingsLogged?: true
     expectedInstructorDays?: true
+    activeInstructorMinutes?: true
+    activeInstructorCount?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -43352,6 +43370,8 @@ export namespace Prisma {
     openingsLogged?: true
     closingsLogged?: true
     expectedInstructorDays?: true
+    activeInstructorMinutes?: true
+    activeInstructorCount?: true
     computedAt?: true
     updatedAt?: true
     _all?: true
@@ -43459,6 +43479,8 @@ export namespace Prisma {
     openingsLogged: number
     closingsLogged: number
     expectedInstructorDays: number
+    activeInstructorMinutes: number
+    activeInstructorCount: number
     computedAt: Date
     updatedAt: Date
     _count: UniversityDailyMetricCountAggregateOutputType | null
@@ -43498,6 +43520,8 @@ export namespace Prisma {
     openingsLogged?: boolean
     closingsLogged?: boolean
     expectedInstructorDays?: boolean
+    activeInstructorMinutes?: boolean
+    activeInstructorCount?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43519,6 +43543,8 @@ export namespace Prisma {
     openingsLogged?: boolean
     closingsLogged?: boolean
     expectedInstructorDays?: boolean
+    activeInstructorMinutes?: boolean
+    activeInstructorCount?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43540,6 +43566,8 @@ export namespace Prisma {
     openingsLogged?: boolean
     closingsLogged?: boolean
     expectedInstructorDays?: boolean
+    activeInstructorMinutes?: boolean
+    activeInstructorCount?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -43561,11 +43589,13 @@ export namespace Prisma {
     openingsLogged?: boolean
     closingsLogged?: boolean
     expectedInstructorDays?: boolean
+    activeInstructorMinutes?: boolean
+    activeInstructorCount?: boolean
     computedAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "minutesByActivityType" | "utilizationPercent" | "openingCompliancePct" | "closingCompliancePct" | "openingsLogged" | "closingsLogged" | "expectedInstructorDays" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
+  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "minutesByActivityType" | "utilizationPercent" | "openingCompliancePct" | "closingCompliancePct" | "openingsLogged" | "closingsLogged" | "expectedInstructorDays" | "activeInstructorMinutes" | "activeInstructorCount" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
   export type UniversityDailyMetricInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
   }
@@ -43612,6 +43642,18 @@ export namespace Prisma {
        * Instructor-days expected on this date: the denominator of both figures.
        */
       expectedInstructorDays: number
+      /**
+       * The two numbers the Active-Instructor Average Hours feature divides.
+       * 
+       * "Active" = this instructor's `productiveMinutes` that day was > 0. An
+       * instructor with no submission and one whose entries summed to exactly
+       * 0m are the same case here — both are absent from both fields below,
+       * never present as a zero. See `src/domain/average-hours.ts` for the
+       * confirmed formula these feed: sum every day's minutes, sum every day's
+       * count, divide once — never an average of daily averages.
+       */
+      activeInstructorMinutes: number
+      activeInstructorCount: number
       computedAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["universityDailyMetric"]>
@@ -44053,6 +44095,8 @@ export namespace Prisma {
     readonly openingsLogged: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly closingsLogged: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly expectedInstructorDays: FieldRef<"UniversityDailyMetric", 'Int'>
+    readonly activeInstructorMinutes: FieldRef<"UniversityDailyMetric", 'Int'>
+    readonly activeInstructorCount: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly computedAt: FieldRef<"UniversityDailyMetric", 'DateTime'>
     readonly updatedAt: FieldRef<"UniversityDailyMetric", 'DateTime'>
   }
@@ -52495,6 +52539,8 @@ export namespace Prisma {
     openingsLogged: 'openingsLogged',
     closingsLogged: 'closingsLogged',
     expectedInstructorDays: 'expectedInstructorDays',
+    activeInstructorMinutes: 'activeInstructorMinutes',
+    activeInstructorCount: 'activeInstructorCount',
     computedAt: 'computedAt',
     updatedAt: 'updatedAt'
   };
@@ -55929,6 +55975,8 @@ export namespace Prisma {
     openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -55950,6 +55998,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     university?: UniversityOrderByWithRelationInput
@@ -55975,6 +56025,8 @@ export namespace Prisma {
     openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -55996,6 +56048,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     _count?: UniversityDailyMetricCountOrderByAggregateInput
@@ -56024,6 +56078,8 @@ export namespace Prisma {
     openingsLogged?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     closingsLogged?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     expectedInstructorDays?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
+    activeInstructorMinutes?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
+    activeInstructorCount?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeWithAggregatesFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"UniversityDailyMetric"> | Date | string
   }
@@ -59751,6 +59807,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutUniversityDailyMetricsInput
@@ -59772,6 +59830,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -59791,6 +59851,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutUniversityDailyMetricsNestedInput
@@ -59812,6 +59874,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -59832,6 +59896,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -59851,6 +59917,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -59871,6 +59939,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -63064,6 +63134,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -63080,6 +63152,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
   }
 
   export type UniversityDailyMetricMaxOrderByAggregateInput = {
@@ -63097,6 +63171,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -63116,6 +63192,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -63132,6 +63210,8 @@ export namespace Prisma {
     openingsLogged?: SortOrder
     closingsLogged?: SortOrder
     expectedInstructorDays?: SortOrder
+    activeInstructorMinutes?: SortOrder
+    activeInstructorCount?: SortOrder
   }
 
   export type EnumReportJobStatusFilter<$PrismaModel = never> = {
@@ -70690,6 +70770,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -70709,6 +70791,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -71621,6 +71705,8 @@ export namespace Prisma {
     openingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     closingsLogged?: IntFilter<"UniversityDailyMetric"> | number
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
+    activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
     computedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"UniversityDailyMetric"> | Date | string
   }
@@ -85174,6 +85260,8 @@ export namespace Prisma {
     openingsLogged?: number
     closingsLogged?: number
     expectedInstructorDays?: number
+    activeInstructorMinutes?: number
+    activeInstructorCount?: number
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -86256,6 +86344,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86275,6 +86365,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -86294,6 +86386,8 @@ export namespace Prisma {
     openingsLogged?: IntFieldUpdateOperationsInput | number
     closingsLogged?: IntFieldUpdateOperationsInput | number
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
+    activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
+    activeInstructorCount?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

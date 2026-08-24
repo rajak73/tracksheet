@@ -4,10 +4,10 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { workDateFor } from "@/server/time/workday";
-import { averageMinutesPerInstructor, type UniversityDay } from "@/domain/average-hours";
+import { averageActiveMinutes, type UniversityDay } from "@/domain/average-hours";
 
 /**
- * Average working hours per instructor, per university, for one period.
+ * Active-Instructor Average Hours, per university, for one period.
  *
  * ── Why an average and not a percentage ───────────────────────────────────
  * A utilisation percentage measures recorded time against a configured
@@ -15,17 +15,20 @@ import { averageMinutesPerInstructor, type UniversityDay } from "@/domain/averag
  * a day of meetings scored exactly like a day of lectures, so the number moved
  * for reasons nobody could act on and answered no question anybody had asked.
  *
- * An average states a fact and implies no target. Eleven hours across nine
- * instructors is eleven hours across nine instructors; whether that is good is
- * a judgement for the person reading it, made with everything else they know.
+ * ── Why "active" and not "the whole roster" ────────────────────────────────
+ * A full-roster denominator was built first and then explicitly superseded —
+ * see `src/domain/average-hours.ts`. The confirmed rule divides only by
+ * instructor-days that were actually active: a day with two instructors
+ * logging time and one who logged nothing contributes 2 to the count, not 3.
  *
  * ── Read from the daily metrics, never from the activity rows ─────────────
- * `UniversityDailyMetric` already holds one row per university per day with
- * the minutes and the roster size on it. Summing thirty of those is thirty
- * rows; the same question asked of `ActivityLog` at the scale the client
- * operates — a hundred universities of a hundred instructors — is over a
- * million, which is measured elsewhere in this codebase as thirty seconds and
- * a heap the container cannot hold.
+ * `UniversityDailyMetric` already holds `activeInstructorMinutes` and
+ * `activeInstructorCount`, precomputed by the rollup (`rollup.ts`) at the same
+ * time it computes everything else — see the schema doc on those columns.
+ * Week and Month here are a handful of indexed reads over that table and one
+ * division; neither ever queries `ActivityLog`. `tests/average-hours.test.ts`
+ * asserts this against Postgres's own per-table read counters, not just by
+ * reading this comment.
  *
  * ── No model call, and there could not be one ─────────────────────────────
  * Every figure here is a SUM and a division over stored rows. See the rule in
@@ -87,6 +90,9 @@ export const GET = withAuth(
         const today = anchor ?? workDateFor(now, university.timezone);
         const period = periodFor(view, today);
 
+        // The one query this view makes: a range of a single indexed table.
+        // Day, Week and Month differ only in how wide `period` is — the read
+        // shape and the formula below never change with it.
         const days = await prisma.universityDailyMetric.findMany({
           where: {
             universityId: university.id,
@@ -95,24 +101,28 @@ export const GET = withAuth(
               lte: new Date(`${period.to}T00:00:00.000Z`),
             },
           },
-          select: { metricDate: true, productiveMinutes: true, activeInstructors: true },
+          select: { metricDate: true, activeInstructorMinutes: true, activeInstructorCount: true },
           orderBy: { metricDate: "asc" },
         });
 
         const shaped: UniversityDay[] = days.map((d) => ({
           date: d.metricDate.toISOString().slice(0, 10),
-          minutes: d.productiveMinutes,
-          roster: d.activeInstructors,
+          activeMinutes: d.activeInstructorMinutes,
+          activeCount: d.activeInstructorCount,
         }));
 
-        const average = averageMinutesPerInstructor(shaped);
+        const average = averageActiveMinutes(shaped);
         return {
           id: university.id,
           name: university.name,
           slug: university.slug,
           period,
-          totalMinutes: shaped.reduce((n, d) => n + d.minutes, 0),
-          roster: average.roster,
+          // The numerator and denominator the average was taken from, kept on
+          // the payload rather than only the quotient — so a screen can say
+          // "N active instructor-days" beside the figure instead of just the
+          // number, and so this response is checkable without recomputing it.
+          activeMinutes: shaped.reduce((n, d) => n + d.activeMinutes, 0),
+          activeInstructorDays: shaped.reduce((n, d) => n + d.activeCount, 0),
           averageMinutes: average.minutes,
         };
       }),

@@ -541,6 +541,8 @@ exports.Prisma.UniversityDailyMetricScalarFieldEnum = {
   openingsLogged: 'openingsLogged',
   closingsLogged: 'closingsLogged',
   expectedInstructorDays: 'expectedInstructorDays',
+  activeInstructorMinutes: 'activeInstructorMinutes',
+  activeInstructorCount: 'activeInstructorCount',
   computedAt: 'computedAt',
   updatedAt: 'updatedAt'
 };

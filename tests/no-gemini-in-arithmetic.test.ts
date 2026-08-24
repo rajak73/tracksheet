@@ -6,7 +6,7 @@ import { buildTracker, formatTrackerAsCsv, monthBounds } from "@/server/analytic
 import { detectAnomalies } from "@/server/ai/anomalies";
 import { narrateConditionDeterministic } from "@/server/ai/narrate";
 import { rollUp } from "@/domain/rollup";
-import { averageMinutesPerInstructor } from "@/domain/average-hours";
+import { averageActiveMinutes } from "@/domain/average-hours";
 import { buildPeriodRow, weekOf, weeksOfMonth, type RowActivity } from "@/domain/worklog-rows";
 import { deliverableCell, quantityCell, workingHours } from "@/domain/worklog-report";
 import { loadUniversityConfig } from "@/server/universities/config";
@@ -176,19 +176,19 @@ describe("2 — no calculation path reaches the provider", () => {
   });
 
   test("the average-hours figure never calls it", async () => {
-    /* A SUM over `UniversityDailyMetric` and a division. Added here when the
-     * card was built, per the standing requirement that any new aggregation
-     * brings its own zero-call assertion. */
+    /* Two SUMs over `UniversityDailyMetric` and one division. Added here when
+     * the card was built, per the standing requirement that any new
+     * aggregation brings its own zero-call assertion. */
     const before = geminiCallCount();
     const days = await prisma.universityDailyMetric.findMany({
       where: { universityId },
-      select: { metricDate: true, productiveMinutes: true, activeInstructors: true },
+      select: { metricDate: true, activeInstructorMinutes: true, activeInstructorCount: true },
     });
-    averageMinutesPerInstructor(
+    averageActiveMinutes(
       days.map((d) => ({
         date: d.metricDate.toISOString().slice(0, 10),
-        minutes: d.productiveMinutes,
-        roster: d.activeInstructors,
+        activeMinutes: d.activeInstructorMinutes,
+        activeCount: d.activeInstructorCount,
       })),
     );
     expect(geminiCallCount()).toBe(before);
