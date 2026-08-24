@@ -258,21 +258,11 @@ function IdentityMenu({
               the bar and a left-anchored panel would open past the window. */}
           <div
             role="menu"
+            /* No name/photo/ID header block — the trigger this opens from
+               already shows all three, right beside it. Repeating them here
+               named the same person twice for no reason the menu needed. */
             className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
-            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-              <Avatar name={name} avatarUrl={profile?.avatarUrl ?? null} size={44} />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-content">{name}</p>
-                <p className="text-xs text-muted">Instructor</p>
-                {code ? (
-                  <p className="tabular mt-1 inline-block rounded-chip bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">
-                    ID: {code}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
             <button
               role="menuitem"
               type="button"

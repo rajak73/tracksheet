@@ -914,12 +914,12 @@ export default function WorkLogHistoryPage() {
                 Your work logs, newest first, in the columns the monthly report uses.
               </caption>
               <thead>
-                <tr className="bg-sunken">
+                <tr className="bg-sidebar-bg">
                   {COLUMNS.map((c) => (
                     <th
                       key={c}
                       scope="col"
-                      className="border-b border-line px-4 py-3.5 text-left text-sm font-semibold text-content"
+                      className="border-b border-sidebar-border px-4 py-3.5 text-left text-sm font-semibold text-sidebar-text"
                     >
                       {c}
                     </th>

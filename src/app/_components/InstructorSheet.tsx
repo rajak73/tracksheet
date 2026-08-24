@@ -72,9 +72,9 @@ const COLUMNS = [
 
 /* Sticky needs an OPAQUE background or rows scroll through it, and the corner
  * has to out-rank both the row and the column it belongs to. */
-const HEAD = "sticky top-0 z-20 bg-sunken";
+const HEAD = "sticky top-0 z-20 bg-sidebar-bg";
 const DATE_COL = "sticky left-0 z-10";
-const CORNER = "sticky left-0 top-0 z-30 bg-sunken";
+const CORNER = "sticky left-0 top-0 z-30 bg-sidebar-bg";
 
 
 export function InstructorSheet({
@@ -117,7 +117,7 @@ export function InstructorSheet({
           <tr>
             <th
               scope="col"
-              className={`${CORNER} w-36 border-b border-r border-line px-4 py-3.5 text-left text-xs font-semibold leading-snug text-muted`}
+              className={`${CORNER} w-36 border-b border-r border-sidebar-border px-4 py-3.5 text-left text-xs font-semibold leading-snug text-sidebar-text-muted`}
             >
               Date
             </th>
@@ -125,7 +125,7 @@ export function InstructorSheet({
               <th
                 key={c.key}
                 scope="col"
-                className={`${HEAD} border-b border-line px-4 py-3.5 text-xs font-semibold leading-snug text-muted ${c.align}`}
+                className={`${HEAD} border-b border-sidebar-border px-4 py-3.5 text-xs font-semibold leading-snug text-sidebar-text-muted ${c.align}`}
               >
                 {c.label}
               </th>

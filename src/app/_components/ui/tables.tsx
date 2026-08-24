@@ -55,13 +55,13 @@ export function THead({
   onSort?: (key: string) => void;
 }) {
   return (
-    <thead className="bg-sunken/50">
+    <thead className="bg-sidebar-bg">
       <tr>
         {columns.map((c) => {
           const sortable = Boolean(c.sortKey && onSort);
           const active = sort?.key === c.sortKey;
           const base = cx(
-            "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted",
+            "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-sidebar-text",
             c.align === "right" ? "text-right" : "text-left",
           );
 
@@ -85,9 +85,9 @@ export function THead({
                 onClick={() => onSort!(c.sortKey!)}
                 className={cx(
                   "flex w-full items-center gap-1 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide",
-                  "transition-colors hover:bg-hovered hover:text-content",
+                  "transition-colors hover:bg-sidebar-hover-bg",
                   c.align === "right" ? "justify-end" : "justify-start",
-                  active ? "text-content" : "text-muted",
+                  active ? "text-sidebar-text" : "text-sidebar-text-muted",
                 )}
               >
                 {c.label}

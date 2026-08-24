@@ -583,14 +583,14 @@ export function TrackerGrid({
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.name} sticky left-0 z-30 border-b border-line bg-surface px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
+                className={`${IDENTITY.name} sticky left-0 z-30 border-b border-sidebar-border bg-sidebar-bg px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-sidebar-text-muted`}
               >
                 Employee Name
               </th>
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-r border-line bg-surface px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-muted`}
+                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-r border-sidebar-border bg-sidebar-bg px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-sidebar-text-muted`}
               >
                 Employee ID
               </th>
@@ -599,11 +599,13 @@ export function TrackerGrid({
                   key={week.index}
                   scope="colgroup"
                   colSpan={WEEK_FIELDS.length}
-                  className={`border-b border-l-2 border-line px-4 py-2 text-center ${
-                    week.isCurrent ? "bg-primary-subtle" : "bg-sunken"
+                  /* A translucent wash for "current", not a second opaque
+                     background — see the identical note in `ManagerSheet.tsx`. */
+                  className={`border-b border-l-2 border-sidebar-border bg-sidebar-bg px-4 py-2 text-center ${
+                    week.isCurrent ? "bg-primary/25" : ""
                   }`}
                 >
-                  <span className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-content">
+                  <span className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-sidebar-text">
                     Week {week.index}
                     {week.isCurrent ? (
                       <Badge tone="info">
@@ -611,7 +613,7 @@ export function TrackerGrid({
                       </Badge>
                     ) : null}
                   </span>
-                  <span className="tabular mt-0.5 block text-xs font-normal text-muted">
+                  <span className="tabular mt-0.5 block text-xs font-normal text-sidebar-text-muted">
                     {weekLabel(week)}
                   </span>
                 </th>
@@ -624,9 +626,9 @@ export function TrackerGrid({
                   <th
                     key={`${week.index}-${field.key}`}
                     scope="col"
-                    className={`whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-subtle ${
-                      i === 0 ? "border-l-2" : "border-l"
-                    } ${field.align} ${week.isCurrent ? "bg-primary-subtle" : "bg-sunken"}`}
+                    className={`whitespace-nowrap border-b border-sidebar-border bg-sidebar-bg px-3 py-2 text-xs font-medium text-sidebar-text-muted ${
+                      i === 0 ? "border-l-2" : "border-l border-sidebar-border/60"
+                    } ${field.align} ${week.isCurrent ? "bg-primary/25" : ""}`}
                   >
                     {field.label}
                   </th>

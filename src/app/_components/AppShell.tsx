@@ -157,7 +157,7 @@ export function AppShell({
                 {/* The profile menu lives in the sidebar footer on desktop
                     (§7). This whole bar is mobile-only now, so no `lg:hidden`
                     is needed here any more. */}
-                <UserMenu userName={userName} role={role} account={account} />
+                <UserMenu userName={userName} account={account} />
               </div>
             </div>
           </header>
@@ -339,7 +339,6 @@ function SidebarProfile({
 }) {
   const menu = useHoverMenu();
   const name = account.profile?.name ?? userName;
-  const code = account.profile?.employeeCode ?? null;
 
   return (
     <div className="relative" {...menu.hoverProps}>
@@ -351,24 +350,10 @@ function SidebarProfile({
         <div className="absolute bottom-full left-0 z-20 w-full pb-1">
           <div
             role="menu"
+            /* No name/photo/ID header block — the trigger this opens from
+               already shows both, right below it. */
             className="overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
-            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-              <Avatar
-                name={name}
-                avatarUrl={account.profile?.avatarUrl ?? null}
-                size={40}
-              />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-content">{name}</p>
-                <p className="text-xs text-muted">{ROLE_LABEL[role]}</p>
-                {code ? (
-                  <p className="tabular mt-1 inline-block rounded-chip bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">
-                    ID: {code}
-                  </p>
-                ) : null}
-              </div>
-            </div>
             <AccountMenuItems account={account} onPicked={menu.closeNow} />
           </div>
         </div>
@@ -483,11 +468,9 @@ function useSignOut() {
 
 function UserMenu({
   userName,
-  role,
   account,
 }: {
   userName: string;
-  role: Role;
   account: AccountControls;
 }) {
   const [open, setOpen] = useState(false);
@@ -521,19 +504,10 @@ function UserMenu({
           />
           <div
             role="menu"
+            /* No name/photo header block — the trigger this opens from
+               already shows the name, right beside it. */
             className="absolute right-0 z-20 mt-1 w-60 overflow-hidden rounded-card border border-line bg-surface shadow-raised"
           >
-            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-              <Avatar
-                name={userName}
-                avatarUrl={account.profile?.avatarUrl ?? null}
-                size={40}
-              />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-content">{userName}</p>
-                <p className="text-xs text-muted">{ROLE_LABEL[role]}</p>
-              </div>
-            </div>
             <AccountMenuItems account={account} onPicked={() => setOpen(false)} />
           </div>
         </>

@@ -551,7 +551,7 @@ export default function ManagerDashboardPage() {
  * above it.
  */
 function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod[] }) {
-  const head = "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted";
+  const head = "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-sidebar-text-muted";
 
   return (
     <div className="overflow-x-auto">
@@ -560,7 +560,7 @@ function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod
           Hours and activity counts recorded by each instructor in each period.
         </caption>
         <thead>
-          <tr className="border-b border-line bg-sunken">
+          <tr className="border-b border-sidebar-border bg-sidebar-bg">
             <th scope="col" className={`${head} text-left`}>
               Instructor
             </th>

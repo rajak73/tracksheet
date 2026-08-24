@@ -102,12 +102,12 @@ export function WeekSheet({
           was recorded as.
         </caption>
         <thead>
-          <tr className="border-y border-line bg-sunken">
+          <tr className="border-y border-sidebar-border bg-sidebar-bg">
             {COLUMNS.map((label, i) => (
               <th
                 key={label}
                 scope="col"
-                className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted ${
+                className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-sidebar-text-muted ${
                   NUMERIC.has(i) ? "text-right" : "text-left"
                 }`}
               >

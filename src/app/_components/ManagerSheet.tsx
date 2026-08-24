@@ -77,7 +77,7 @@ const IDENTITY = {
   broadCategory: "w-[160px] min-w-[160px]",
 };
 
-const HEAD = "bg-sunken text-xs font-semibold leading-snug text-muted";
+const HEAD = "bg-sidebar-bg text-xs font-semibold leading-snug text-sidebar-text-muted";
 
 /* Sticky ranks, per the layer scale in globals.css: the period header row is
  * the floor, the frozen identity columns sit above it, and the corner where the
@@ -125,21 +125,21 @@ export function ManagerSheet({
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-line px-4 py-3 text-left`}
+              className={`${HEAD} ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-sidebar-border px-4 py-3 text-left`}
             >
               Employee Name
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-sidebar-border px-3 py-3 text-left`}
             >
               Employee ID
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-sidebar-border px-3 py-3 text-left`}
             >
               Broad Category
             </th>
@@ -149,12 +149,19 @@ export function ManagerSheet({
                 key={p.label}
                 scope="colgroup"
                 colSpan={FIELDS.length}
-                className={`${HEAD} sticky top-0 ${STICKY_ROW} border-b border-l-2 border-line px-3 py-2.5 text-left ${
-                  p.isCurrent ? "bg-primary-subtle" : ""
+                className={`${HEAD} sticky top-0 ${STICKY_ROW} border-b border-l-2 border-sidebar-border px-3 py-2.5 text-left ${
+                  /* A translucent wash rather than a second opaque background —
+                     `bg-primary-subtle` was tuned to sit on white and would
+                     have fought `HEAD`'s own navy for the same CSS property.
+                     A wash composites over it instead, so the highlight
+                     survives regardless of which utility Tailwind emits last. */
+                  p.isCurrent ? "bg-primary/25" : ""
                 }`}
               >
                 {p.sublabel}
-                <span className="tabular block font-normal text-subtle">{p.label}</span>
+                <span className="tabular block font-normal text-sidebar-text-muted/80">
+                  {p.label}
+                </span>
               </th>
             ))}
 
@@ -171,14 +178,14 @@ export function ManagerSheet({
               aria-sort={
                 sort === "total-desc" ? "descending" : sort === "total-asc" ? "ascending" : "none"
               }
-              className={`${HEAD} sticky top-0 ${STICKY_ROW} min-w-[9rem] border-b border-l-2 border-line p-0 text-right align-bottom`}
+              className={`${HEAD} sticky top-0 ${STICKY_ROW} min-w-[9rem] border-b border-l-2 border-sidebar-border p-0 text-right align-bottom`}
             >
               <button
                 type="button"
                 onClick={() =>
                   onSort(sort === "total-desc" ? "total-asc" : sort === "total-asc" ? "name" : "total-desc")
                 }
-                className="flex h-full w-full items-end justify-end gap-1 px-3 py-3 text-right transition-colors hover:bg-hovered hover:text-content"
+                className="flex h-full w-full items-end justify-end gap-1 px-3 py-3 text-right text-sidebar-text-muted transition-colors hover:bg-sidebar-hover-bg hover:text-sidebar-text"
                 title="Sort by total working hours"
               >
                 Total Working Hours
@@ -194,8 +201,8 @@ export function ManagerSheet({
                 <th
                   key={`${p.label}:${f.key}`}
                   scope="col"
-                  className={`${HEAD} sticky top-[3.75rem] ${STICKY_ROW} border-b px-3 py-2.5 font-normal ${
-                    i === 0 ? "border-l-2 border-line" : "border-l border-line-subtle"
+                  className={`${HEAD} sticky top-[3.75rem] ${STICKY_ROW} border-b border-sidebar-border px-3 py-2.5 font-normal ${
+                    i === 0 ? "border-l-2" : "border-l border-sidebar-border/60"
                   } ${f.align}`}
                 >
                   {f.label}
