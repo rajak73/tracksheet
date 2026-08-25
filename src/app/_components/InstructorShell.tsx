@@ -195,8 +195,18 @@ export function InstructorShell({
 /**
  * The identity chip and its menu.
  *
- * Photo, name and employee code, because "am I looking at my own dashboard?" is
- * the first question the page has to answer and an id is what settles it.
+ * Photo and name, on one line.
+ *
+ * The employee code used to sit under the name, on the reasoning that "am I
+ * looking at my own dashboard?" is the first question the page has to answer
+ * and an id is what settles it. Two lines of text set the height of the whole
+ * bar, and the bar was asked to be shorter, so the code came off.
+ *
+ * It is worth knowing what that costs: an instructor now has nowhere on their
+ * own surface to read their employee code. It briefly lived in the work log
+ * table as a column and has since been taken out of there too. If it is wanted
+ * back, the Profile dialog is the place — it already carries `employeeCode` on
+ * its type without printing it, and a field there costs this bar nothing.
  *
  * ── Click only, no hover ─────────────────────────────────────────────────
  * This used to open on hover too (`useHoverMenu`, shared with the sidebar's

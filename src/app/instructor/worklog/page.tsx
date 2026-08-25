@@ -33,7 +33,6 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
-import { useMyProfile } from "@/app/_components/AccountDialogs";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
@@ -202,13 +201,6 @@ function longDate(iso: string): string {
 
 const COLUMNS = [
   "Date",
-  /* The reader's own name and code, on every row.
-   *
-   * Constant down the whole table — this is one instructor's own history — and
-   * asked for anyway, because this sheet is printed and sent on, and a page of
-   * dates with no name on it is not evidence of anything. */
-  "Employee Name",
-  "Employee ID",
   /* One column. It holds what they DID — the subject read off each entry —
    * which is what the client asked Broad Category to mean. */
   "Broad Category",
@@ -222,13 +214,6 @@ const COLUMNS = [
 export default function WorkLogHistoryPage() {
   const toast = useToast();
 
-  /* The reader's own identity, for the two columns the client's sheet carries.
-   * Read from the same profile hook the shell's account menu uses rather than
-   * added to the worklog payload: it is one person's name, not a property of
-   * each row, and putting it in the response would have repeated it once per
-   * day fetched. */
-  const { profile } = useMyProfile();
-  const self = { name: profile?.name ?? "—", code: profile?.employeeCode ?? "—" };
 
   /* Which view, which dates, which search, which page — in the URL, so a
    * refresh comes back to the same screen instead of dropping the reader on
@@ -1080,14 +1065,8 @@ export default function WorkLogHistoryPage() {
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
-                          {self.name}
-                        </td>
-                        <td className="tabular border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
-                          {self.code}
-                        </td>
                         <td
-                          colSpan={7}
+                          colSpan={5}
                           className={`border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
@@ -1105,12 +1084,6 @@ export default function WorkLogHistoryPage() {
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
-                        </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
-                          {self.name}
-                        </td>
-                        <td className="tabular border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
-                          {self.code}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {broadCategoryCell(group.subjects)}
@@ -1183,7 +1156,7 @@ export default function WorkLogHistoryPage() {
                               {/* Skips only Broad Category to land on Deliverable —
                                   this entry's own row doesn't carry a subject of its
                                   own to show here. */}
-                              <td colSpan={3} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
+                              <td colSpan={1} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
                               <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
@@ -1250,7 +1223,7 @@ export default function WorkLogHistoryPage() {
                     </td>
                     {/* Skips Broad Category, Deliverable and Quantity to land the
                         total under Working Hours, then Remarks and Actions. */}
-                    <td colSpan={5} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td colSpan={3} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                     <td className="border-r border-line last:border-r-0 tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
