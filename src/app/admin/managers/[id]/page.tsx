@@ -129,6 +129,40 @@ export default function AdminManagerDetailPage({
             : "Manager"
         }
         description={data ? `${data.manager.university.name} (${data.manager.university.code}) · ${data.manager.user.email}` : undefined}
+        /* ── The summary, on the header's own row ─────────────────────────
+         * Beside the manager's name rather than stacked under it: these two
+         * figures are what the page is about, and `PageHeader` already lays
+         * its actions slot out top-aligned with the title, which is the
+         * alignment being asked for.
+         *
+         * They are FED by the report below through `onTotals`, because only it
+         * knows which period is selected — it owns the picker and does its own
+         * fetch. Assembled here instead they would be pinned to whatever this
+         * page loaded, which is the fault that had two Working Hours tiles on
+         * one screen disagreeing the moment somebody chose Current Month.
+         * Passing them up MOVES the row: the report drops its own when asked.
+         *
+         * Absent until the report has loaded, so the header does not reserve
+         * space for a figure it cannot yet state. Instructors is the
+         * instructors in the selected period, not the size of the roster —
+         * the better of the two questions on a page about whether a manager's
+         * roster is recording. */
+        actions={
+          totals ? (
+            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto">
+              <div className="min-w-[10rem]">
+                <StatTile label="Instructors" value={totals.instructors} emphasis />
+              </div>
+              <div className="min-w-[10rem]">
+                <StatTile
+                  label="Working Hours"
+                  value={formatHours(totals.totalWorkingHours)}
+                  emphasis
+                />
+              </div>
+            </div>
+          ) : undefined
+        }
       />
 
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
@@ -143,32 +177,7 @@ export default function AdminManagerDetailPage({
             </div>
           ) : null}
 
-          {/* The summary sits here, with the manager's name, rather than
-              inside the report below.
-
-              It is FED by that report — `onTotals` — because only the report
-              knows which period is on screen; it owns the picker and does its
-              own fetch. A row assembled here instead would be pinned to
-              whatever this page loaded, which is exactly the fault that had two
-              Working Hours tiles on this screen disagreeing the moment somebody
-              chose Current Month. Passing the totals up moves the row; it does
-              not copy it, and the report suppresses its own when asked for
-              them.
-
-              Instructors is the instructors in the selected period, not the
-              size of the roster. That is the better of the two questions on a
-              page about whether a manager's roster is recording. */}
-          {totals ? (
-            <div className="grid grid-cols-2 gap-4">
-              <StatTile label="Instructors" value={totals.instructors} emphasis />
-              <StatTile
-                label="Working Hours"
-                value={formatHours(totals.totalWorkingHours)}
-              />
-            </div>
-          ) : null}
-
-                    {data.roster.length === 0 ? (
+          {data.roster.length === 0 ? (
             <p className="text-sm text-muted">
               Nobody reports to this manager yet. Assign instructors from the{" "}
               <Link href="/admin/instructors" className="text-primary hover:underline">
