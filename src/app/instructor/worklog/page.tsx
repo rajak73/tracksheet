@@ -821,36 +821,25 @@ export default function WorkLogHistoryPage() {
         </div>
 
         {/* ── The day's state, right of the heading ─────────────────────
-            One row, not two. Edit sat under the notification and that cost the
-            header a whole band of empty space for a single small button — which
-            is also what §6 of the brief draws: the tick and the two lines on the
-            left, the action at the right END of the same box.
+            One control, and no standing message.
 
-            It keeps its own outline inside the green so it still reads as a
-            button rather than as part of the sentence beside it. */}
+            "Great job!" is a POPUP — the toast `submit()` raises, and the one
+            the edit path raises after it. A banner saying the same words was
+            printed on every load for as long as today stayed submitted, which
+            congratulates a page load rather than an action, and put the same
+            sentence on screen twice the moment the toast appeared over it.
+
+            What stays here is the thing that is still true tomorrow morning:
+            whether today needs writing, or can be corrected. */}
         {!todayInView ? null : hasSubmittedToday ? (
-          <div className="flex w-full max-w-[620px] items-center gap-3 rounded-card border border-success/25 bg-success-subtle px-4 py-3">
-            <span
-              aria-hidden
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-success text-white"
-            >
-              <Check />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-success-text">Great job!</span>
-              <span className="block truncate text-sm text-content">
-                Your work log for today has been submitted successfully.
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={openEditToday}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-control border border-success/40 bg-surface px-3 py-1.5 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
-            >
-              <Pencil />
-              Edit Today&rsquo;s Log
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openEditToday}
+            className="inline-flex h-[42px] shrink-0 items-center gap-2 rounded-[6px] border border-success/40 bg-success-subtle px-5 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
+          >
+            <Pencil />
+            Edit Today&rsquo;s Log
+          </button>
         ) : (
           <button
             type="button"
@@ -1806,13 +1795,6 @@ function Info() {
     <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4 shrink-0">
       <circle cx="10" cy="10" r="7.2" {...stroke} />
       <path d="M10 9.2v4.2M10 6.7v.1" {...stroke} strokeWidth={2} />
-    </svg>
-  );
-}
-function Check() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
-      <path d="m5 10.5 3.2 3.2L15 7" {...stroke} strokeWidth={2.2} />
     </svg>
   );
 }

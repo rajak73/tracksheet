@@ -248,12 +248,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ground the glyph alone reads as decoration, and the disc is
                   what makes the tone legible before the words are. */}
               <span
-                className={`mt-px flex size-7 shrink-0 items-center justify-center rounded-full ${discs[t.tone]}`}
+                className={`mt-px flex size-9 shrink-0 items-center justify-center rounded-full ${discs[t.tone]}`}
               >
-                <Glyph size={16} className="text-white" />
+                <Glyph size={20} className="text-white" />
               </span>
               <span className="flex-1">
-                {t.title ? <span className="block font-semibold">{t.title}</span> : null}
+                {t.title ? <span className="block font-bold">{t.title}</span> : null}
                 <span className="block text-content">{t.message}</span>
               </span>
               <button
