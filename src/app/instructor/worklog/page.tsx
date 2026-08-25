@@ -812,40 +812,40 @@ export default function WorkLogHistoryPage() {
           switch. Two headings is what the client's design shows and they are
           not a duplicate: this one names the PAGE, that one names the table and
           the control that changes it. */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] font-bold tracking-tight text-primary-text">
+          <h1 className="text-2xl font-bold tracking-tight text-primary-text">
             Work Log History
           </h1>
           <p className="mt-1 text-sm text-muted">View and manage submitted work logs</p>
         </div>
 
         {/* ── The day's state, right of the heading ─────────────────────
-            Two shapes, and the reference keeps them apart deliberately: the
-            notification is a STATEMENT and sits in its own tinted box, while
-            Edit is an ACTION and sits outside and under it. Putting the button
-            inside the green would have made the whole box read as one clickable
-            thing. */}
+            One row, not two. Edit sat under the notification and that cost the
+            header a whole band of empty space for a single small button — which
+            is also what §6 of the brief draws: the tick and the two lines on the
+            left, the action at the right END of the same box.
+
+            It keeps its own outline inside the green so it still reads as a
+            button rather than as part of the sentence beside it. */}
         {!todayInView ? null : hasSubmittedToday ? (
-          <div className="flex w-full max-w-[620px] flex-col items-end gap-2">
-            <div className="flex w-full items-center gap-3.5 rounded-card border border-success/25 bg-success-subtle px-4 py-3.5">
-              <span
-                aria-hidden
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-success text-white"
-              >
-                <Check />
+          <div className="flex w-full max-w-[620px] items-center gap-3 rounded-card border border-success/25 bg-success-subtle px-4 py-3">
+            <span
+              aria-hidden
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-success text-white"
+            >
+              <Check />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-success-text">Great job!</span>
+              <span className="block truncate text-sm text-content">
+                Your work log for today has been submitted successfully.
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold text-success-text">Great job!</span>
-                <span className="block text-sm text-content">
-                  Your work log for today has been submitted successfully.
-                </span>
-              </span>
-            </div>
+            </span>
             <button
               type="button"
               onClick={openEditToday}
-              className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-3.5 py-2 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-control border border-success/40 bg-surface px-3 py-1.5 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
             >
               <Pencil />
               Edit Today&rsquo;s Log
@@ -868,7 +868,7 @@ export default function WorkLogHistoryPage() {
           switch, the strip, the filters, the table itself and the count. One
           container, so switching Date Wise to Weekly changes what is inside it
           rather than swapping one card for another. */}
-      <div className="mt-6 rounded-card border border-line-card bg-surface shadow-card">
+      <div className="mt-5 rounded-card border border-line-card bg-surface shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
           <h2 className="text-lg font-bold tracking-tight text-primary-text">Work Log History</h2>
           <div className="flex flex-wrap items-center gap-3">
