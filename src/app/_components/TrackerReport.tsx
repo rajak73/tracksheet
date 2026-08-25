@@ -204,6 +204,40 @@ export function TrackerReport({
 
   return (
     <div className="space-y-5">
+      {/* ── The two figures, above the period control ───────────────────────
+          At the top because they are what the page is opened to read; the
+          picker underneath is how you change what they cover. They still come
+          from THIS component's own fetch, so they move with the period rather
+          than reporting a week the grid is not showing — which is why they were
+          not simply put back on the pages that embed this.
+
+          Rendered off `data` rather than inside the loaded branch below, so
+          they hold their last values while a new period loads instead of
+          collapsing the layout on every click.
+
+          ── What this row stopped reporting ─────────────────────────────────
+          Utilization went first: recorded minutes over configured capacity said
+          nothing about students — a day of back-to-back internal meetings
+          scored exactly like a day of lectures — and it ran past 100% often
+          enough to teach the reader to ignore it. The deliverable-HOURS tile
+          went with it, because one label covered two figures an order of
+          magnitude apart: hours on entries carrying any named deliverable here,
+          hours whose category was literally "Deliverable Work" on the roster
+          screens.
+
+          Deliverable QUANTITY has now gone too, at the client's request. It was
+          a sound figure and it is still in the grid below, per instructor and
+          per week, where a count of deliverables can be read against the work
+          it came from. As a single roster-wide number at the top it invited the
+          one reading it does not support — 349 of what, across sixteen people
+          and five kinds of deliverable. */}
+      {data ? (
+        <div className="grid grid-cols-2 gap-4">
+          <StatTile label="Instructors" value={data.totals.instructors} emphasis />
+          <StatTile label="Working Hours" value={formatHours(data.totals.totalWorkingHours)} />
+        </div>
+      ) : null}
+
       <Card>
         <div className="p-5">{controls}</div>
       </Card>
@@ -214,36 +248,6 @@ export function TrackerReport({
         <ErrorState message="Unable to load the report" detail={error} onRetry={reload} />
       ) : !data ? null : (
         <>
-          {/* ── What this row reports, and what it stopped reporting ────────
-              Utilization is gone. Recorded minutes over configured capacity
-              said nothing about students — a day of back-to-back internal
-              meetings scored exactly like a day of lectures — and it ran past
-              100% routinely enough that the percentage taught the reader to
-              ignore it.
-
-              The deliverable-hours tile went with it, because the label
-              covered two different figures. Here it meant hours on entries
-              carrying any named deliverable; on the roster screens it meant
-              hours whose category was literally "Deliverable Work". Same
-              underlying data, answers an order of magnitude apart, one name.
-
-              What remains is named for what it actually holds. The tracker's
-              hours come from the engine, which counts preparation, meetings
-              and admin exactly like teaching — and so, now, does Working
-              Hours. This tile said "Recorded hours" to hold those two apart
-              back when Working Hours was the student-facing subset; the client
-              has since defined every recorded minute as working time, so there
-              is nothing left to hold apart and a second name for one figure
-              was only ever going to be read as a second figure.
-
-              Quantity stays: a count of deliverables completed is its own
-              question, not an hours figure wearing a misleading name. */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-            <StatTile label="Instructors" value={data.totals.instructors} emphasis />
-            <StatTile label="Working Hours" value={formatHours(data.totals.totalWorkingHours)} />
-            <StatTile label="Deliverable quantity" value={data.totals.quantity} />
-          </div>
-
           {data.totals.formerInstructors > 0 ? (
             <Alert tone="warning" title="Includes former staff">
               {data.totals.formerInstructors} instructor

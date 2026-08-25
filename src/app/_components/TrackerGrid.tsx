@@ -30,7 +30,7 @@
  * row always says whose row it is.
  */
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, EmptyState, StatusPill } from "@/app/_components/ui";
 import { Dialog } from "@/app/_components/interactive";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
@@ -457,6 +457,27 @@ export function TrackerGrid({
   tracker: Tracker;
   showBreakdown?: boolean;
 }) {
+  /* Where the field row pins: directly under the week row, measured off it.
+   * The same problem the manager sheet had — a hard-coded offset is a guess
+   * about a height that moves with the type scale and with any week label long
+   * enough to wrap, and being six pixels wrong leaves a band of the grid
+   * visible between the two stuck rows.
+   *
+   * Declared above the empty-state return below, because a hook placed after a
+   * conditional return is a hook that sometimes does not run. */
+  const weekRow = useRef<HTMLTableRowElement>(null);
+  const [weekRowHeight, setWeekRowHeight] = useState(0);
+
+  useEffect(() => {
+    const row = weekRow.current;
+    if (!row) return;
+    const measure = () => setWeekRowHeight(row.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [tracker]);
+
   if (tracker.rows.length === 0) {
     return (
       <Card>
@@ -570,7 +591,7 @@ export function TrackerGrid({
           colSpan, and the fields are named underneath. That is the sheet the
           client actually works from, and a single stacked cell per week — the
           shape this replaced — cannot express "which column am I reading". */}
-      <div className="overflow-x-auto">
+      <div className="max-h-[70vh] overflow-auto">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only-text">
             Weekly workload by instructor for {tracker.universityName}. The first
@@ -579,18 +600,18 @@ export function TrackerGrid({
           </caption>
           <thead>
             {/* Row 1 — identity headers span both rows; each week spans four. */}
-            <tr>
+            <tr ref={weekRow}>
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.name} sticky left-0 z-30 border-b border-line bg-primary-subtle px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
+                className={`${IDENTITY.name} sticky left-0 top-0 z-30 border-b border-line bg-primary-subtle px-4 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
               >
                 Employee Name
               </th>
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.code} sticky left-[224px] z-30 border-b border-r border-line bg-primary-subtle px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
+                className={`${IDENTITY.code} sticky left-[224px] top-0 z-30 border-b border-r border-line bg-primary-subtle px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
               >
                 Employee ID
               </th>
@@ -603,7 +624,7 @@ export function TrackerGrid({
                      single property, so a second `bg-*` replaces the first
                      rather than washing over it. See the note in
                      `ManagerSheet.tsx` and the token in `globals.css`. */
-                  className={`border-b border-l-2 border-line px-4 py-2 text-center ${
+                  className={`sticky top-0 z-10 border-b border-l-2 border-line px-4 py-2 text-center ${
                     week.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
                   }`}
                 >
@@ -628,7 +649,11 @@ export function TrackerGrid({
                   <th
                     key={`${week.index}-${field.key}`}
                     scope="col"
-                    className={`whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-primary-text ${
+                    // Undefined until row 1 is measured — sticky with no offset
+                    // scrolls for a frame, which is invisible; sticking at zero
+                    // would land it on top of the row it belongs under.
+                    style={{ top: weekRowHeight || undefined }}
+                    className={`sticky z-10 whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-primary-text ${
                       i === 0 ? "border-l-2" : "border-l border-line-subtle"
                     } ${field.align} ${
                       week.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
