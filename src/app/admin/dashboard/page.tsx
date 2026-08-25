@@ -38,7 +38,7 @@
  * `averageMinutesPerInstructor`.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/app/_components/ManagerDashboard";
 import { PeriodPicker, type View } from "@/app/_components/PeriodPicker";
@@ -55,9 +55,17 @@ import {
   EmptyState,
   PageHeader,
   StatGridSkeleton,
+  Table,
   TableSkeleton,
+  TableWrap,
+  TBody,
+  TD,
+  THead,
+  TR,
+  type SortDirection,
 } from "@/app/_components/ui";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { useQueryState } from "@/app/_lib/query-state";
 import { useUniversityToday } from "@/app/_lib/zone";
 import { formatDayAs, formatHours } from "@/app/_lib/format";
 import { categoryColor } from "@/app/_components/charts";
@@ -116,7 +124,6 @@ function monthEdges(iso: string): { from: string; to: string } {
 
 
 
-const VIEW_KEY = "niat:admin:view";
 
 type Sort = "name" | "hours-desc" | "hours-asc" | "silent-desc";
 
@@ -133,31 +140,33 @@ export default function AdminDashboardPage() {
    * now, not a name.
    */
   const today = useUniversityToday();
-  const [view, setView] = useState<View>("day");
-  const [anchor, setAnchor] = useState(today);
-  /* Silent first by default. The reason to open this page is to find what is
+  /* View, date and sort live in the URL, the same as the manager's dashboard
+   * and the instructor's worklog. This was a hand-rolled localStorage restore
+   * — a key, a `restored` flag and two effects, one of them deferred by a
+   * timeout to keep a synchronous set inside an effect from cascading a second
+   * render. All of it is what `useQueryState` does, and the URL does three more
+   * things it could not: Back works, a period can be linked to somebody, and
+   * two tabs stop overwriting one shared value.
+   *
+   * The old note said the view survives a refresh but the DATE deliberately
+   * does not, so that coming back tomorrow lands on tomorrow. That still holds:
+   * `on` is absent until somebody actually moves off today, so a fresh visit
+   * resolves to today either way. What changes is that a date you DID navigate
+   * to now survives the refresh you make while reading it.
+   *
+   * Silent first by default. The reason to open this page is to find what is
    * missing, and sorting by name would bury it behind whoever is alphabetically
    * first. */
-  const [sort, setSort] = useState<Sort>("silent-desc");
-  const [restored, setRestored] = useState(false);
+  const [q, setQ] = useQueryState({ view: "day", on: "", sort: "silent-desc" });
+  const view = (["day", "week", "month"].includes(q.view) ? q.view : "day") as View;
+  const anchor = q.on || today;
+  const sort = (["name", "hours-desc", "hours-asc", "silent-desc"].includes(q.sort)
+    ? q.sort
+    : "silent-desc") as Sort;
 
-  /* The chosen view survives a refresh; the chosen DATE does not. Coming back
-   * to the page tomorrow should land on tomorrow, but it should not silently
-   * switch from the month you were reading back to a single day. */
-  useEffect(() => {
-    // Scheduled rather than set here: setting state synchronously inside an
-    // effect cascades one render into another before the first has painted.
-    const restore = setTimeout(() => {
-      const saved = window.localStorage.getItem(VIEW_KEY);
-      if (saved === "day" || saved === "week" || saved === "month") setView(saved);
-      setRestored(true);
-    }, 0);
-    return () => clearTimeout(restore);
-  }, []);
-
-  useEffect(() => {
-    if (restored) window.localStorage.setItem(VIEW_KEY, view);
-  }, [restored, view]);
+  const setView = (v: View) => setQ({ view: v });
+  const setAnchor = (v: string) => setQ({ on: v });
+  const setSort = (v: Sort) => setQ({ sort: v });
 
   const range = useMemo(() => {
     if (view === "day") return { from: anchor, to: anchor };
@@ -291,7 +300,6 @@ export default function AdminDashboardPage() {
                 : ` – ${formatDayAs(range.to, { day: "numeric", month: "short", year: "numeric" })}`}
             </p>
           </div>
-          <SortControl sort={sort} onSort={setSort} />
         </div>
 
         {network.loading && !network.data ? (
@@ -302,11 +310,25 @@ export default function AdminDashboardPage() {
             description="Add a university and its instructors before anything can be recorded."
           />
         ) : (
-          <ul>
-            {rows.map((row) => (
-              <UniversityCard key={row.id} row={row} />
-            ))}
-          </ul>
+          <TableWrap>
+            <Table caption="Every university, with what its instructors recorded in this period.">
+              <THead
+                columns={[
+                  { label: "University", sortKey: "name" },
+                  { label: "Not recording", sortKey: "silent", align: "right" },
+                  { label: "Where the hours went" },
+                  { label: "Working Hours", sortKey: "hours", align: "right" },
+                ]}
+                sort={sortColumn(sort)}
+                onSort={(key) => setSort(nextSort(key, sort))}
+              />
+              <TBody>
+                {rows.map((row) => (
+                  <UniversityRowCells key={row.id} row={row} />
+                ))}
+              </TBody>
+            </Table>
+          </TableWrap>
         )}
       </Card>
     </div>
@@ -315,112 +337,118 @@ export default function AdminDashboardPage() {
 
 /* ── Sorting ──────────────────────────────────────────────────────────────── */
 
-function SortControl({ sort, onSort }: { sort: Sort; onSort: (next: Sort) => void }) {
-  const options: Array<[Sort, string]> = [
-    ["silent-desc", "Not recording first"],
-    ["hours-desc", "Most hours"],
-    ["hours-asc", "Fewest hours"],
-    ["name", "Name"],
-  ];
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {options.map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => onSort(value)}
-          aria-pressed={sort === value}
-          className={`rounded-chip px-3 py-1.5 text-xs font-medium transition-colors ${
-            sort === value
-              ? "bg-primary-subtle text-primary-text"
-              : "text-muted hover:bg-hovered hover:text-content"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+/**
+ * The chosen sort, as the column header understands it.
+ *
+ * The page's four options are not four columns — two of them are the same
+ * column in opposite directions — so the two models have to be mapped rather
+ * than merged. Name and Not-recording each have one useful direction and do not
+ * toggle: nobody wants the university that IS recording listed first, and the
+ * point of the page is what is missing.
+ */
+function sortColumn(sort: Sort): { key: string; direction: SortDirection } {
+  if (sort === "name") return { key: "name", direction: "asc" };
+  if (sort === "silent-desc") return { key: "silent", direction: "desc" };
+  return { key: "hours", direction: sort === "hours-desc" ? "desc" : "asc" };
+}
+
+/** Clicking a column: hours flips, the other two just select. */
+function nextSort(key: string, current: Sort): Sort {
+  if (key === "name") return "name";
+  if (key === "silent") return "silent-desc";
+  return current === "hours-desc" ? "hours-asc" : "hours-desc";
 }
 
 /* ── One university ───────────────────────────────────────────────────────── */
 
-function UniversityCard({ row }: { row: UniversityRow }) {
+/**
+ * One university as a table row.
+ *
+ * This was a card in a list, sorted by a strip of chips above it. The figures
+ * it carries are all comparisons — how many are silent, how many hours, where
+ * they went — and a comparison is read down a column, not across a stack of
+ * cards. It now sits in the same table the rest of admin uses, and the chips
+ * are gone because the column headers sort.
+ */
+function UniversityRowCells({ row }: { row: UniversityRow }) {
   const nothingWritten = row.instructors > 0 && row.recording === 0;
 
   return (
-    <li className="border-b border-line last:border-b-0">
-      <Link
-        href={`/admin/universities/${row.id}`}
-        className="flex flex-wrap items-start gap-4 px-5 py-4 transition-colors hover:bg-primary-subtle"
-      >
-        {/* Identity and the recording count, fixed at the left, because these
-            are what the row is scanned for. */}
-        <div className="min-w-0 flex-1 basis-64">
-          <p className="truncate text-sm font-semibold text-content">{row.name}</p>
-          <p className="mt-1 text-xs text-muted">
-            {row.instructors === 0 ? (
-              "No instructors yet"
-            ) : (
-              <>
-                <span className={nothingWritten ? "font-medium text-warning-text" : undefined}>
-                  {row.recording} of {row.instructors}
-                </span>{" "}
-                recorded
-                {row.lastRecordedOn ? (
-                  <>
-                    {" · last on "}
-                    {formatDayAs(row.lastRecordedOn, { day: "numeric", month: "short" })}
-                  </>
-                ) : null}
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* What the hours were spent on. Muted segments are the ones that do
-            not count toward Working Hours — shown, because the work happened,
-            and muted, so nobody adds the bar up to the figure beside it. */}
-        <div className="min-w-0 flex-1 basis-72">
-          {row.lines.length === 0 ? (
-            <p className="text-xs text-subtle">Nothing recorded</p>
+    <TR>
+      <TD strong>
+        <Link
+          href={`/admin/universities/${row.id}`}
+          className="text-primary hover:underline"
+        >
+          {row.name}
+        </Link>
+        <span className="mt-0.5 block text-xs text-muted">
+          {row.instructors === 0 ? (
+            "No instructors yet"
           ) : (
             <>
-              <div className="flex h-2 overflow-hidden rounded-chip bg-sunken">
-                {row.lines.map((line) => (
-                  <span
-                    key={`${line.code}:${line.countable}`}
-                    title={`${line.label} – ${formatHours(line.hours)}${
-                      line.countable ? "" : " (not counted in Working Hours)"
-                    }`}
-                    style={{
-                      width: `${(line.hours / (row.workingHours + row.otherHours)) * 100}%`,
-                      background: categoryColor(line.code),
-                      opacity: line.countable ? 1 : 0.35,
-                    }}
-                  />
-                ))}
-              </div>
-              <p className="mt-1.5 truncate text-xs text-muted">
-                {row.lines
-                  .slice(0, 3)
-                  .map((l) => `${l.label} ${formatHours(l.hours)}`)
-                  .join(" · ")}
-                {row.lines.length > 3 ? ` · +${row.lines.length - 3} more` : ""}
-              </p>
+              {row.recording} of {row.instructors} recorded
+              {row.lastRecordedOn ? (
+                <>
+                  {" · last on "}
+                  {formatDayAs(row.lastRecordedOn, { day: "numeric", month: "short" })}
+                </>
+              ) : null}
             </>
           )}
-        </div>
+        </span>
+      </TD>
 
-        {/* The figure the table sorts on, last and right-aligned, the same
-            place the manager sheet puts it. */}
-        <div className="shrink-0 text-right">
-          <p className="tabular text-base font-semibold text-content">
-            {formatHours(row.workingHours)}
-          </p>
-          <p className="text-xs text-subtle">Working Hours</p>
-        </div>
-      </Link>
-    </li>
+      <TD align="right">
+        {row.instructors === 0 ? (
+          <span className="text-subtle">—</span>
+        ) : (
+          /* Warned only when NOBODY wrote anything. Some of a roster being
+             silent on a given day is ordinary; all of it is the thing this
+             page exists to surface. */
+          <span className={nothingWritten ? "font-medium text-warning-text" : "text-content"}>
+            {row.silent}
+          </span>
+        )}
+      </TD>
+
+      {/* Muted segments are the ones that do not count toward Working Hours —
+          shown, because the work happened, and muted, so nobody adds the bar
+          up to the figure beside it. */}
+      <TD>
+        {row.lines.length === 0 ? (
+          <span className="text-xs text-subtle">Nothing recorded</span>
+        ) : (
+          <span className="block min-w-[14rem]">
+            <span className="flex h-2 overflow-hidden rounded-chip bg-sunken">
+              {row.lines.map((line) => (
+                <span
+                  key={`${line.code}:${line.countable}`}
+                  title={`${line.label} – ${formatHours(line.hours)}${
+                    line.countable ? "" : " (not counted in Working Hours)"
+                  }`}
+                  style={{
+                    width: `${(line.hours / (row.workingHours + row.otherHours)) * 100}%`,
+                    background: categoryColor(line.code),
+                    opacity: line.countable ? 1 : 0.35,
+                  }}
+                />
+              ))}
+            </span>
+            <span className="mt-1.5 block truncate text-xs text-muted">
+              {row.lines
+                .slice(0, 3)
+                .map((l) => `${l.label} ${formatHours(l.hours)}`)
+                .join(" · ")}
+              {row.lines.length > 3 ? ` · +${row.lines.length - 3} more` : ""}
+            </span>
+          </span>
+        )}
+      </TD>
+
+      <TD align="right" strong>
+        {formatHours(row.workingHours)}
+      </TD>
+    </TR>
   );
 }
