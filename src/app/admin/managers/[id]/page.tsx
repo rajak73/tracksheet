@@ -17,7 +17,6 @@ import Link from "next/link";
 import {
   Badge,
   Breadcrumb,
-  Card,
   ErrorState,
   PageHeader,
   Section,
@@ -138,10 +137,17 @@ export default function AdminManagerDetailPage({
             </div>
           ) : null}
 
-          {/* Two KPIs for the current week. The roster count is the list
-              rendered directly below it, so the heading and the tile can never
-              disagree; the hours come from the roster aggregation the Managers
-              list quotes, so this manager reads the same on both screens.
+          {/* Two KPIs for the current week. The hours come from the roster
+              aggregation the Managers list quotes, so this manager reads the
+              same on both screens.
+
+              The roster count is a count and nothing more. The named list of
+              instructors that used to follow it has been removed: it is the
+              MANAGER's roster, it already exists on their own screens and in
+              the instructor directory, and reprinting sixteen names and email
+              addresses here told an admin nothing this page is for. What an
+              admin comes to a manager's page to see is whether their roster is
+              recording — which is the weekly report below, not a directory.
 
               Working Hours is the roster's time WITH STUDENTS — lectures,
               practice, exams, mentoring, student support — and it is the only
@@ -161,40 +167,15 @@ export default function AdminManagerDetailPage({
             />
           </div>
 
-          <Section title={`Assigned instructors (${data.roster.length})`}>
-            {data.roster.length === 0 ? (
-              <Card>
-                <p className="px-5 py-6 text-sm text-muted">
-                  Nobody reports to this manager yet. Assign instructors from the{" "}
-                  <Link href="/admin/instructors" className="text-primary hover:underline">
-                    instructor directory
-                  </Link>
-                  .
-                </p>
-              </Card>
-            ) : (
-              <Card>
-                <ul className="divide-y divide-line">
-                  {data.roster.map((i) => (
-                    <li key={i.id}>
-                      <Link
-                        href={`/admin/instructors/${i.id}/report`}
-                        className="flex items-center justify-between px-5 py-3 hover:bg-hovered"
-                      >
-                        <span>
-                          <span className="block font-medium text-content">{i.user.name}</span>
-                          <span className="tabular block text-xs text-muted">
-                            {i.employeeCode ?? "—"} · {i.user.email}
-                          </span>
-                        </span>
-                        {!i.user.isActive ? <Badge tone="warning">Former</Badge> : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-          </Section>
+          {data.roster.length === 0 ? (
+            <p className="text-sm text-muted">
+              Nobody reports to this manager yet. Assign instructors from the{" "}
+              <Link href="/admin/instructors" className="text-primary hover:underline">
+                instructor directory
+              </Link>
+              .
+            </p>
+          ) : null}
 
           <Section title="Weekly report">
             {/* The SUBJECT's zone, not the admin's — see the note on the
