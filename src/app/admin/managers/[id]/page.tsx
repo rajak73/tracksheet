@@ -20,13 +20,11 @@ import {
   ErrorState,
   PageHeader,
   Section,
-  StatTile,
   TableSkeleton,
 } from "@/app/_components/ui";
 import { TrackerReport } from "@/app/_components/TrackerReport";
 import { apiGet, useLoad } from "@/app/_lib/api";
 import { TimeZoneProvider } from "@/app/_lib/zone";
-import { formatHours } from "@/app/_lib/format";
 
 type Instructor = {
   id: string;
@@ -137,37 +135,22 @@ export default function AdminManagerDetailPage({
             </div>
           ) : null}
 
-          {/* Two KPIs for the current week. The hours come from the roster
-              aggregation the Managers list quotes, so this manager reads the
-              same on both screens.
+{/* No stat row here.
 
-              The roster count is a count and nothing more. The named list of
-              instructors that used to follow it has been removed: it is the
-              MANAGER's roster, it already exists on their own screens and in
-              the instructor directory, and reprinting sixteen names and email
-              addresses here told an admin nothing this page is for. What an
-              admin comes to a manager's page to see is whether their roster is
-              recording — which is the weekly report below, not a directory.
+              It held Assigned instructors and Working Hours, and the report
+              below opens with the same two figures. The duplication was not
+              the whole problem: these were the CURRENT WEEK, fixed, while the
+              report has its own period picker — so choosing Current Month left
+              two Working Hours tiles on one screen disagreeing, with nothing on
+              the page to say which period either belonged to.
 
-              Working Hours is the roster's time WITH STUDENTS — lectures,
-              practice, exams, mentoring, student support — and it is the only
-              hours figure the product keeps. The three that used to sit beside
-              it answered nothing about students. Utilization divided every
-              recorded minute by a configured working day, so a week of
-              internal meetings scored like a week of teaching. "Deliverable"
-              and "non-deliverable" hours split the same minutes by whether the
-              activity type was literally "Deliverable Work", which filed
-              lectures and exams under non-deliverable — the label said the
-              opposite of what it counted. */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatTile label="Assigned instructors" value={data.roster.length} />
-            <StatTile
-              label="Working Hours"
-              value={formatHours(data.perf?.workingHours ?? null)}
-            />
-          </div>
+              The report's row is the one kept. It moves with the period it
+              names and adds Deliverable quantity. Its Instructors count is the
+              instructors in that period rather than the size of the roster,
+              which is the more useful of the two here anyway: this page is
+              about whether the roster is recording. */}
 
-          {data.roster.length === 0 ? (
+                    {data.roster.length === 0 ? (
             <p className="text-sm text-muted">
               Nobody reports to this manager yet. Assign instructors from the{" "}
               <Link href="/admin/instructors" className="text-primary hover:underline">
