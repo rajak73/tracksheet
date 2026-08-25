@@ -31,13 +31,13 @@ import {
   Pagination,
   SearchInput,
   Select,
-  StatusPill,
   Table,
   TableSkeleton,
   TableWrap,
   TBody,
   TD,
   THead,
+  Toggle,
   TR,
   inputClass,
 } from "@/app/_components/ui";
@@ -232,7 +232,6 @@ export default function AdminStaffPage() {
                         { label: "University" },
                         { label: "Status" },
                         { label: "Created" },
-                        { label: "Actions", align: "right" },
                       ]}
                     />
                     <TBody>
@@ -269,7 +268,26 @@ export default function AdminStaffPage() {
                           </TD>
                           <TD>{s.universityName ?? "—"}</TD>
                           <TD>
-                            <StatusPill status={s.isActive ? "ACTIVE" : "FORMER"} />
+                            {/* The status IS the control now. It was a pill
+                                here and a Deactivate/Reactivate button in a
+                                column at the far right, which put the fact and
+                                the thing that changes it several columns
+                                apart on a table this wide.
+
+                                The switch does not move on click: it renders
+                                what the server says, and the click only opens
+                                the dialog below. Deactivating captures a
+                                leaving reason and, for a manager with a
+                                roster, a successor — so a switch that flipped
+                                itself would be showing an outcome that has not
+                                happened and may yet be cancelled. */}
+                            <Toggle
+                              checked={s.isActive}
+                              onChange={() => setPending(s)}
+                              label={`Account status for ${s.name}`}
+                              onLabel="Active"
+                              offLabel="Former"
+                            />
                             {/* When and why, on the row itself. A leavers list
                                 that only says "Former" answers half the
                                 question anybody opens it to ask. */}
@@ -285,15 +303,6 @@ export default function AdminStaffPage() {
                             ) : null}
                           </TD>
                           <TD>{formatDate(s.createdAt)}</TD>
-                          <TD align="right">
-                            <Button
-                              size="sm"
-                              variant={s.isActive ? "secondary" : "primary"}
-                              onClick={() => setPending(s)}
-                            >
-                              {s.isActive ? "Deactivate" : "Reactivate"}
-                            </Button>
-                          </TD>
                         </TR>
                       ))}
                     </TBody>
@@ -313,24 +322,27 @@ export default function AdminStaffPage() {
                           {s.universityName ? ` · ${s.universityName}` : ""}
                         </span>
                       }
+                      /* The same switch the table row uses, so the phone reads
+                         the status and changes it in one place too rather than
+                         carrying a pill on one side of the card and a button on
+                         the other. */
                       meta={
-                        <Button
-                          size="sm"
-                          variant={s.isActive ? "secondary" : "primary"}
-                          onClick={() => setPending(s)}
-                        >
-                          {s.isActive ? "Deactivate" : "Reactivate"}
-                        </Button>
+                        <Toggle
+                          checked={s.isActive}
+                          onChange={() => setPending(s)}
+                          label={`Account status for ${s.name}`}
+                          onLabel="Active"
+                          offLabel="Former"
+                        />
                       }
                       trailing={
-                        <div className="text-right">
-                          <StatusPill status={s.isActive ? "ACTIVE" : "FORMER"} />
-                          {!s.isActive && s.leftOn ? (
-                            <span className="mt-1 block text-xs text-muted">
+                        !s.isActive && s.leftOn ? (
+                          <div className="text-right">
+                            <span className="block text-xs text-muted">
                               Left {formatDate(s.leftOn)}
                             </span>
-                          ) : null}
-                        </div>
+                          </div>
+                        ) : undefined
                       }
                     />
                   ))}

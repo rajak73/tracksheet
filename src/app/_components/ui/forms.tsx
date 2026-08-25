@@ -205,3 +205,72 @@ export function Pagination({
     </div>
   );
 }
+
+/**
+ * An on/off switch.
+ *
+ * ── Why a switch and not a checkbox ───────────────────────────────────────
+ * A checkbox proposes a change that some other control commits; a switch IS
+ * the commit. Account status is the second kind — there is no Save on these
+ * rows and the change takes effect as soon as it is made — and `role="switch"`
+ * is what tells a screen reader which of the two it is looking at.
+ *
+ * ── The state is written, not only coloured ───────────────────────────────
+ * The word beside the track says which way it is set. Colour alone is not a
+ * status indicator for anyone who cannot separate the hues, and this one
+ * carries a real consequence: whether somebody can sign in.
+ *
+ * ── `onChange` is a REQUEST, not necessarily a save ───────────────────────
+ * Deactivating a manager has to capture a leaving reason and a successor for
+ * their roster, so a caller is free to answer this by opening a dialog rather
+ * than writing. The track therefore does not move on click — it renders
+ * `checked`, which is the server's answer — so it can never show a state that
+ * was asked for and then refused or cancelled.
+ */
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  onLabel = "Active",
+  offLabel = "Inactive",
+  disabled = false,
+  busy = false,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  /** The accessible name: what this switch controls, e.g. whose account. */
+  label: string;
+  onLabel?: string;
+  offLabel?: string;
+  disabled?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled || busy}
+        onClick={() => onChange(!checked)}
+        className={cx(
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-chip transition-colors",
+          checked ? "bg-primary" : "bg-line-strong",
+          disabled || busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+        )}
+      >
+        <span
+          aria-hidden
+          className={cx(
+            "inline-block h-4 w-4 rounded-full bg-white shadow-card transition-transform",
+            checked ? "translate-x-[1.125rem]" : "translate-x-0.5",
+          )}
+        />
+      </button>
+      <span className={cx("text-sm", checked ? "text-content" : "text-muted")}>
+        {checked ? onLabel : offLabel}
+      </span>
+    </span>
+  );
+}
