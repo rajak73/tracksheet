@@ -18,7 +18,7 @@
 
 import type { ReactNode } from "react";
 import { categoryColor } from "@/app/_components/charts";
-import { Badge, Button, Card } from "@/app/_components/ui";
+import { Badge, Button } from "@/app/_components/ui";
 import { Avatar } from "@/app/_components/AccountDialogs";
 import { rollUp } from "@/domain/rollup";
 import { IconArrowDown, IconArrowUp } from "@/app/_components/icons";
@@ -107,116 +107,164 @@ const STATUS_BADGE: Record<DayInstructor["status"], { label: string; tone: "succ
 };
 
 /**
- * One instructor's day: who on the left, what they did on the right.
+ * The roster's day, as a table.
  *
- * ── The identity block does not scroll ──────────────────────────────
- * Name, id and hours are pinned to the left of the card; only the timeline
- * moves. A roster is read by running down the left edge, and a name that
- * slides away with the blocks makes the reader scroll back to find out whose
- * afternoon they are looking at.
+ * ── Why a table and not a card each ───────────────────────────────────────
+ * This was a card per instructor with the day drawn to scale beside it, and
+ * proportional blocks meant every card scrolled sideways on its own. Reading
+ * "who is light today" then took sixteen separate scrolls, and comparing two
+ * people meant holding one card's afternoon in your head while you dragged
+ * another's into view. A table answers the same question by running the eye
+ * down one column, which is how the client reads their own sheet.
  *
- * ── Each instructor scrolls on their own ────────────────────────────
- * The blocks live in their own overflow, per card. One shared scrollbar would
- * mean that checking somebody's 4pm dragged every other row past it too — and
- * days are different lengths, so a common scroll position means nothing.
+ * The width is what was lost and it is not much: the blocks were proportional
+ * to duration, but every one of them also carried its length in words, so the
+ * scale was decoration over a figure already written down.
+ *
+ * ── Same treatment as `RosterGrid` ────────────────────────────────────────
+ * Same rules, same sticky header, same bounded scroll box, so switching Day →
+ * Week does not change what kind of thing you are looking at. It also shows the
+ * WHOLE roster like those two do — the "view more" that used to sit under the
+ * cards existed because cards are tall, and a scroll box has replaced it.
  *
  * ── Working Hours is the time spent WITH STUDENTS ─────────────────────
  * The same rule the sheets use, from the same `rollUp`: classes, labs,
  * mentoring, doubt sessions, evaluations. Preparation, meetings and admin still
- * appear on the timeline — they happened — but they are not what this figure
- * measures, and a manager comparing two people has to be comparing the same
- * thing they see everywhere else.
+ * appear in the Recorded work column — they happened — but they are not what
+ * this figure measures, and a manager comparing two people has to be comparing
+ * the same thing they see everywhere else.
  */
-export function DayTimelineCard({
-  row,
+export function DayTable({
+  rows,
   timeZone,
   onRemind,
   reminding,
 }: {
-  row: DayInstructor;
+  rows: DayInstructor[];
   timeZone: string;
   onRemind?: (instructorId: string) => void;
-  reminding?: boolean;
+  /** The instructor a reminder is currently being sent to, if any. */
+  reminding?: string | null;
 }) {
-  const badge = STATUS_BADGE[row.status];
-  const segments = layOutDay(row.activities, timeZone);
-  const { hours } = rollUp(row.activities);
+  /* Matches `COLUMN_RULE` in `ui/tables.tsx` and `RosterGrid` below. Both
+     tables are hand-built rather than assembled from those primitives, so the
+     rule is repeated — `last:border-r-0` keeps the final column off the card's
+     own edge. */
+  const rule = "border-r border-line last:border-r-0";
+  const head =
+    `${rule} sticky top-0 z-10 border-b border-line bg-primary-subtle ` +
+    "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text";
+  /* Row dividers sit on the CELLS, not the row: `border-separate` is what makes
+     the header stick — a collapsed table drops `position: sticky` on its cells
+     — and under that model a `<tr>`'s own border stops painting. `align-top`
+     because a row is as tall as its longest day. */
+  const cell = `${rule} border-b border-line-subtle px-3 py-2.5 align-top`;
 
   return (
-    <Card className="transition-shadow hover:shadow-raised">
-      <div className="flex items-stretch">
-        <div className="flex w-[20rem] shrink-0 items-center gap-3 border-r border-line px-4 py-4">
-          <Avatar name={row.name} avatarUrl={row.avatarUrl} size={40} />
+    <div className="max-h-[60vh] overflow-auto">
+      <table className="w-full border-separate border-spacing-0 text-sm">
+        <caption className="sr-only-text">
+          Every instructor on your roster, with what they recorded on this day.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" className={`${head} text-left`}>
+              Instructor
+            </th>
+            <th scope="col" className={`${head} text-left`}>
+              Recorded work
+            </th>
+            <th scope="col" className={`${head} text-right`}>
+              Working Hours
+            </th>
+            <th scope="col" className={`${head} text-right`}>
+              Activities
+            </th>
+            <th scope="col" className={`${head} text-left`}>
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const badge = STATUS_BADGE[row.status];
+            /* Laid out by the same function the timeline used, then stripped of
+               its gaps. That is what keeps a length-only entry reading as a
+               length here too — see `when` below. */
+            const blocks = layOutDay(row.activities, timeZone).filter(
+              (segment): segment is Extract<Segment, { kind: "block" }> =>
+                segment.kind === "block",
+            );
+            const { hours } = rollUp(row.activities);
 
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium text-content">{row.name}</span>
-            {row.employeeCode ? (
-              <span className="tabular block truncate text-xs text-muted">{row.employeeCode}</span>
-            ) : null}
-          </span>
-
-          <span className="shrink-0 text-right">
-            <span className="tabular block text-sm font-semibold text-content">
-              {formatDuration(hours)}
-            </span>
-            <span className="block text-xs text-muted">
-              {row.activityCount} {row.activityCount === 1 ? "activity" : "activities"}
-            </span>
-            <span className="mt-1 block">
-              <Badge tone={badge.tone}>{badge.label}</Badge>
-            </span>
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1 overflow-x-auto px-4 py-4">
-          {row.activities.length === 0 ? (
-            <span className="flex h-full flex-wrap items-center gap-3">
-              <span className="text-sm text-danger-text">Worklog not submitted for today.</span>
-              {onRemind ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={reminding}
-                  onClick={() => onRemind(row.instructorId)}
-                >
-                  {reminding ? "Sending…" : "Send reminder"}
-                </Button>
-              ) : null}
-            </span>
-          ) : (
-            <div className="flex min-w-max items-stretch gap-1.5">
-              {segments.map((segment) =>
-                segment.kind === "gap" ? (
-                  <span
-                    key={segment.key}
-                    aria-hidden
-                    style={{ flex: `${segment.minutes} 1 0` }}
-                    className="min-w-0"
-                  />
-                ) : (
-                  <span
-                    key={segment.key}
-                    title={`${when(segment)} · ${label(segment.activity)}`}
-                    style={{
-                      flex: `${segment.minutes} 0 ${BLOCK_MIN_REM}rem`,
-                      borderLeft: `3px solid ${categoryColor(segment.activity.activityType.code)}`,
-                    }}
-                    className="min-w-0 overflow-hidden rounded-control border border-line bg-surface px-2 py-1.5 transition-colors hover:bg-hovered"
-                  >
-                    <span className="tabular block truncate text-[11px] text-muted">
-                      {when(segment)}
-                    </span>
-                    <span className="block truncate text-xs font-medium text-content">
-                      {label(segment.activity)}
+            return (
+              <tr key={row.instructorId} className="transition-colors hover:bg-hovered">
+                <th scope="row" className={`${cell} w-[15rem] text-left font-normal`}>
+                  <span className="flex items-center gap-2">
+                    <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-content">{row.name}</span>
+                      {row.employeeCode ? (
+                        <span className="tabular block truncate text-xs text-muted">
+                          {row.employeeCode}
+                        </span>
+                      ) : null}
                     </span>
                   </span>
-                ),
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
+                </th>
+
+                <td className={cell}>
+                  {blocks.length === 0 ? (
+                    <span className="flex flex-wrap items-center gap-3">
+                      <span className="text-danger-text">Worklog not submitted.</span>
+                      {onRemind ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={reminding === row.instructorId}
+                          onClick={() => onRemind(row.instructorId)}
+                        >
+                          {reminding === row.instructorId ? "Sending…" : "Send reminder"}
+                        </Button>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {blocks.map((block) => (
+                        <li key={block.key} className="flex items-start gap-2">
+                          <span
+                            aria-hidden
+                            style={{
+                              backgroundColor: categoryColor(block.activity.activityType.code),
+                            }}
+                            className="mt-[0.4rem] h-1.5 w-1.5 shrink-0 rounded-full"
+                          />
+                          {/* A fixed column for the time, so the labels line up
+                              down the cell instead of stepping in and out with
+                              the length of each range. */}
+                          <span className="tabular w-[8.5rem] shrink-0 text-xs text-muted">
+                            {when(block)}
+                          </span>
+                          <span className="min-w-0 text-content">{label(block.activity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
+
+                <td className={`tabular ${cell} text-right font-semibold text-content`}>
+                  {formatDuration(hours)}
+                </td>
+                <td className={`tabular ${cell} text-right text-content`}>{row.activityCount}</td>
+                <td className={cell}>
+                  <Badge tone={badge.tone}>{badge.label}</Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -238,9 +286,6 @@ function when(segment: { start: number; end: number; activity: Activity }): stri
     ? `${clock(segment.start)} – ${clock(segment.end)}`
     : formatDuration((segment.end - segment.start) / 60);
 }
-
-/** Wide enough for a short "Lecture: Data Structures" before it truncates. */
-const BLOCK_MIN_REM = 9;
 
 type Segment =
   | { kind: "gap"; key: string; minutes: number }

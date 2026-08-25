@@ -38,7 +38,7 @@ import {
 } from "@/app/_components/ui";
 import {
   Change,
-  DayTimelineCard,
+  DayTable,
   HoursDonut,
   KpiCard,
   WeekBars,
@@ -48,7 +48,6 @@ import {
 } from "@/app/_components/ManagerDashboard";
 import {
   IconAlert,
-  IconChevronDown,
   IconDownload,
   IconCheck,
   IconClock,
@@ -106,7 +105,6 @@ type View = "day" | "week" | "month";
 type GridPeriod = { key: string; label: string; sublabel: string; dates: string[] };
 
 /** How many instructors the day view shows before asking. */
-const VISIBLE_INSTRUCTORS = 5;
 
 /* ── Dates ────────────────────────────────────────────────────────────────── */
 
@@ -156,9 +154,8 @@ export default function ManagerDashboardPage() {
   const today = useUniversityToday();
   /* View, date, search and sort live in the URL, so a refresh comes back to
    * the week somebody had paged to rather than to today's Day view — and so
-   * that week can be linked to. `showAll` and `reminding` stay in memory: one
-   * is how far down a list you have expanded and the other is a request in
-   * flight, and neither is a thing to restore or send to somebody.
+   * that week can be linked to. `reminding` stays in memory: it is a request in
+   * flight, not a thing to restore or send to somebody.
    * See `useQueryState`. */
   const [q, setQ] = useQueryState({ view: "day", on: "", search: "", sort: "name" });
   const view = (["day", "week", "month"].includes(q.view) ? q.view : "day") as View;
@@ -177,7 +174,6 @@ export default function ManagerDashboardPage() {
   const setSort = (v: typeof sort) => setQ({ sort: v });
 
   const [reminding, setReminding] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
   const toast = useToast();
 
   const month = anchor.slice(0, 7);
@@ -238,7 +234,6 @@ export default function ManagerDashboardPage() {
 
   /* A long roster is a wall. The first few answer "is anything wrong today?",
    * which is the question this page opens with; the rest is a click away. */
-  const visible = showAll ? roster : roster.slice(0, VISIBLE_INSTRUCTORS);
 
   /** Exactly what is on screen, as a spreadsheet. */
   const exportCsv = () => {
@@ -468,42 +463,14 @@ export default function ManagerDashboardPage() {
               }
             />
           ) : view === "day" ? (
-            <div className="space-y-3">
-              {visible.map((row) => (
-                <DayTimelineCard
-                  key={row.instructorId}
-                  row={{
-                    instructorId: row.instructorId,
-                    name: row.name,
-                    avatarUrl: row.avatarUrl,
-                    employeeCode: row.employeeCode,
-                    totalHours: row.totalHours,
-                    activityCount: row.activityCount,
-                    status: row.status,
-                    activities: row.activities,
-                  }}
-                  timeZone={timeZone}
-                  onRemind={anchor === today ? remind : undefined}
-                  reminding={reminding === row.instructorId}
-                />
-              ))}
-
-              {roster.length > VISIBLE_INSTRUCTORS ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAll((v) => !v)}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-card border border-line bg-surface py-2.5 text-sm font-medium text-muted transition hover:bg-hovered hover:text-content"
-                >
-                  {showAll
-                    ? "Show fewer instructors"
-                    : `View more instructors (${roster.length - VISIBLE_INSTRUCTORS})`}
-                  <IconChevronDown
-                    size={16}
-                    className={`transition-transform ${showAll ? "rotate-180" : ""}`}
-                  />
-                </button>
-              ) : null}
-            </div>
+            <Card>
+              <DayTable
+                rows={roster}
+                timeZone={timeZone}
+                onRemind={anchor === today ? remind : undefined}
+                reminding={reminding}
+              />
+            </Card>
           ) : (
             <Card>
               <RosterGrid rows={roster} periods={gridPeriods} />
