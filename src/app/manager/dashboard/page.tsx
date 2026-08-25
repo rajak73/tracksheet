@@ -1,641 +1,541 @@
 "use client";
 
 /**
- * The manager's dashboard.
+ * The manager's dashboard: is my team writing their work down, and how much.
  *
- * ── Four figures, then the roster, then the shape of the month ────────────
- * The order is the order the questions get asked. "Is my team in today?" is
- * answered before anything else and in four numbers; "who, exactly?" is the
- * table under them; "how has the month gone, and where did the hours go?" sits
- * beside both because it is context rather than an alert.
+ * ── The shape, and why it is this shape ───────────────────────────────────
+ * Four figures, then today's picture beside the month's, then the roster. It
+ * answers in that order because that is the order the questions arrive: how
+ * many people, how many wrote today, how many did not, how much work in total —
+ * then who, specifically, and when they last did.
  *
- * ── Today's figures never follow the table's date ─────────────────────────
- * The four cards read TODAY and keep reading today when somebody pages the
- * table back to last Tuesday. A card labelled "Logged Today" that quietly
- * became last Tuesday's count would be worse than no card: it is the number
- * people repeat without re-reading the label.
+ * ── "Pending" is not an approval ──────────────────────────────────────────
+ * There IS an approval concept in this product — a submission written outside
+ * the university's hours waits for a manager's decision — and it is NOT what
+ * this page means by pending. Here pending is simply: today is a working day
+ * for this person and they have not recorded it yet. Approvals live on
+ * `/manager/worklog`, where the decision can actually be taken.
  *
- * ── Nothing here is computed in the browser ───────────────────────────────
- * Every hour, percentage and count arrives derived from `computeAnalytics`.
- * The page arranges and formats; it never adds up a column, because a total the
- * page invents is a total that can disagree with the one the report carries.
+ * ── One fetch per month, and everything derived from it ───────────────────
+ * Every figure on this page comes from `/api/manager/worklog` over the calendar
+ * month, plus the same call for the month before it. Nothing is added up twice
+ * from two sources: the KPI row, the chart, the pending list and the table are
+ * four readings of one payload, so they cannot disagree with each other the way
+ * two endpoints eventually would.
+ *
+ * ── What is deliberately NOT here ─────────────────────────────────────────
+ * The Day/Week/Month roster grid, the period stepper and the CSV export. All
+ * three already exist on `/manager/worklog`, in fuller form, with the per
+ * activity detail this page's status column only summarises. A dashboard that
+ * reproduced them would be a second copy to keep in step.
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { useQueryState } from "@/app/_lib/query-state";
+import Link from "next/link";
 import {
+  Badge,
   Button,
-  SearchInput,
-  Select,
   Card,
   CardHeader,
   EmptyState,
   ErrorState,
   PageHeader,
-  Section,
   StatGridSkeleton,
+  StatTile,
+  Table,
   TableSkeleton,
+  TableWrap,
+  TBody,
+  TD,
+  THead,
+  TR,
 } from "@/app/_components/ui";
-import {
-  Change,
-  DayTable,
-  HoursDonut,
-  KpiCard,
-  WeekBars,
-  type DayInstructor,
-  type Slice,
-  type WeekBar,
-} from "@/app/_components/ManagerDashboard";
-import {
-  IconAlert,
-  IconDownload,
-  IconCheck,
-  IconClock,
-  IconUsers,
-} from "@/app/_components/icons";
-import { useToast } from "@/app/_components/interactive";
-import { formatDuration, type Activity } from "@/app/_components/workload";
-import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { useUniversityToday } from "@/app/_lib/zone";
-import { formatDayAs } from "@/app/_lib/format";
-import { pingNotifications } from "@/app/_components/NotificationBell";
+import { TrendLine, type TrendPoint } from "@/app/_components/charts";
 import { Avatar } from "@/app/_components/AccountDialogs";
-import { rollUp } from "@/domain/rollup";
+import { useToast } from "@/app/_components/interactive";
+import { pingNotifications } from "@/app/_components/NotificationBell";
+import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { useQueryState } from "@/app/_lib/query-state";
+import { useUniversityToday } from "@/app/_lib/zone";
+import { formatDayAs, formatHours } from "@/app/_lib/format";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 
-type Overview = {
-  timezone: string | null;
-  today: {
-    date: string;
-    instructors: number;
-    expected: number;
-    logged: number;
-    missing: number;
-    loggedPct: number | null;
-    hours: number;
-    activities: number;
-    yesterday: { hours: number | null; deltaPct: number | null; direction: string };
-  } | null;
-  month: { month: string; from: string; to: string; totalHours: number; weeks: WeekBar[] } | null;
-  distribution: Slice[];
+type DayCell = {
+  date: string;
+  hours: number;
+  activityCount: number;
+  isWorkingDay: boolean;
+  capacityHours: number;
+  status: "complete" | "partial" | "missing" | "off";
 };
 
-type WorklogRow = {
+type Row = {
   instructorId: string;
   name: string;
   avatarUrl: string | null;
   employeeCode: string | null;
   totalHours: number;
   activityCount: number;
-  status: DayInstructor["status"];
-  days: Array<{ date: string; hours: number; activityCount: number; status: string }>;
-  activities: Array<Activity & { date: string; durationHours: number }>;
+  days: DayCell[];
 };
 
 type Worklog = {
   period: { from: string; to: string };
-  timezone: string | null;
-  instructors: WorklogRow[];
+  /** Everyone on the roster, including anyone with nothing in this window. */
+  rosterTotal: number;
+  summary: {
+    instructors: number;
+    submitted: number;
+    missing: number;
+    totalHours: number;
+    totalActivities: number;
+  };
+  instructors: Row[];
 };
-
-type View = "day" | "week" | "month";
-
-/** One column of the roster grid: a day in Week view, a week in Month view. */
-type GridPeriod = { key: string; label: string; sublabel: string; dates: string[] };
-
-/** How many instructors the day view shows before asking. */
 
 /* ── Dates ────────────────────────────────────────────────────────────────── */
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + days);
+/* The CALENDAR month, not the whole-week month the roster grid uses. This page
+ * plots a point per day and names the axis by date, so a column belonging to
+ * the previous month would be a day of the wrong month sitting under a heading
+ * that names this one. */
+function monthBounds(iso: string): { from: string; to: string } {
+  const [y, m] = [Number(iso.slice(0, 4)), Number(iso.slice(5, 7))];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${iso.slice(0, 7)}-01`, to: `${iso.slice(0, 7)}-${String(last).padStart(2, "0")}` };
+}
+
+function previousMonthOf(iso: string): string {
+  const [y, m] = [Number(iso.slice(0, 4)), Number(iso.slice(5, 7))];
+  const d = new Date(Date.UTC(y, m - 2, 1));
   return d.toISOString().slice(0, 10);
 }
 
-function mondayOf(iso: string): string {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  return addDays(iso, -((d.getUTCDay() + 6) % 7));
+function datesBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = new Date(`${from}T00:00:00.000Z`); d.toISOString().slice(0, 10) <= to; ) {
+    out.push(d.toISOString().slice(0, 10));
+    d = new Date(d.getTime() + 86_400_000);
+  }
+  return out;
 }
+
+/* ── Reading one day ──────────────────────────────────────────────────────── */
+
+const cellOn = (row: Row, date: string): DayCell | null =>
+  row.days.find((d) => d.date === date) ?? null;
+
+/** Did they write anything down? `complete` and `partial` both did. */
+const recorded = (cell: DayCell | null): boolean =>
+  cell !== null && (cell.status === "complete" || cell.status === "partial");
 
 /**
- * The month, as WHOLE weeks.
+ * Are they late, or is it simply not their working day?
  *
- * A week cut off at the 1st is not comparable to the six-day column beside it —
- * the shorter total reads as a quieter week rather than a clipped one. Which is
- * why the first column can begin in the previous month. The week bars on the
- * right and the monthly tracker use the same rule, so all three agree.
+ * `off` is a Sunday or a holiday and must not count as pending — a roster shown
+ * as "16 pending" every weekend teaches the reader to ignore the figure.
  */
-function monthEdges(iso: string): { from: string; to: string } {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
-  return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
+const owing = (cell: DayCell | null): boolean => cell !== null && cell.status === "missing";
+
+/** The last day in the window they recorded on, or null if they never did. */
+function lastRecorded(row: Row): string | null {
+  for (let i = row.days.length - 1; i >= 0; i -= 1) {
+    if (recorded(row.days[i]!)) return row.days[i]!.date;
+  }
+  return null;
 }
-
-/** Today, as the browser reads it. Corrected to the tenant's zone once known. */
-
-
-const fmt = formatDayAs;
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function ManagerDashboardPage() {
-  /**
-   * Today, in the UNIVERSITY's zone.
-   *
-   * This was a hand-rolled helper reading `getFullYear()/getMonth()/getDate()` —
-   * the BROWSER's date. The audit that removed every other one of these missed
-   * all three, because it searched for the name `todayISO` and these were spelled
-   * `todayIso` and defined locally rather than imported. The guard is a pattern
-   * now, not a name.
-   */
   const today = useUniversityToday();
-  /* View, date, search and sort live in the URL, so a refresh comes back to
-   * the week somebody had paged to rather than to today's Day view — and so
-   * that week can be linked to. `reminding` stays in memory: it is a request in
-   * flight, not a thing to restore or send to somebody.
-   * See `useQueryState`. */
-  const [q, setQ] = useQueryState({ view: "day", on: "", search: "", sort: "name" });
-  const view = (["day", "week", "month"].includes(q.view) ? q.view : "day") as View;
-  const anchor = q.on || today;
-  const search = q.search;
-  /* Name first, because a roster is usually read looking for somebody. Hours
-   * is the other question — "who is light this week, who is buried" — and it
-   * only answers it if the figure sorted on is the SAME one on the cards. */
-  const sort = (["name", "hours-desc", "hours-asc"].includes(q.sort)
-    ? q.sort
-    : "name") as "name" | "hours-desc" | "hours-asc";
-
-  const setView = (v: View) => setQ({ view: v });
-  const setAnchor = (v: string) => setQ({ on: v });
-  const setSearch = (v: string) => setQ({ search: v });
-  const setSort = (v: typeof sort) => setQ({ sort: v });
-
-  const [reminding, setReminding] = useState<string | null>(null);
   const toast = useToast();
 
-  const month = anchor.slice(0, 7);
+  /* Search and sort are on the URL, so a refresh comes back to the same roster
+   * and the view can be sent to somebody. See `useQueryState`. */
+  const [q, setQ] = useQueryState({ search: "", sort: "name" });
+  const search = q.search;
+  const sort = (["name", "hours-desc", "hours-asc"].includes(q.sort) ? q.sort : "name") as
+    | "name"
+    | "hours-desc"
+    | "hours-asc";
 
-  const loadOverview = useCallback(
-    () =>
-      apiGet<Overview>(
-        `/api/manager/overview?date=${today}&month=${month}`,
-        "Could not load your dashboard.",
-      ),
-    [today, month],
-  );
-  const overview = useLoad(loadOverview, `manager-overview:${today}:${month}`);
+  const [reminding, setReminding] = useState<string | null>(null);
 
-  const range = useMemo(() => {
-    if (view === "day") return { from: anchor, to: anchor };
-    if (view === "week") {
-      const monday = mondayOf(anchor);
-      return { from: monday, to: addDays(monday, 6) };
-    }
-    return monthEdges(anchor);
-  }, [view, anchor]);
+  const thisMonth = useMemo(() => monthBounds(today), [today]);
+  const lastMonth = useMemo(() => monthBounds(previousMonthOf(today)), [today]);
 
-  const loadWorklog = useCallback(
+  const loadThis = useCallback(
     () =>
       apiGet<Worklog>(
-        `/api/manager/worklog?from=${range.from}&to=${range.to}`,
-        "Could not load your roster's worklog.",
+        `/api/manager/worklog?from=${thisMonth.from}&to=${thisMonth.to}`,
+        "Could not load your team.",
       ),
-    [range.from, range.to],
+    [thisMonth.from, thisMonth.to],
   );
-  const worklog = useLoad(loadWorklog, `manager-worklog:${range.from}:${range.to}`);
+  const current = useLoad(loadThis, `mgr-month:${thisMonth.from}`);
 
-  const timeZone = overview.data?.timezone ?? worklog.data?.timezone ?? "UTC";
-
-  /* Filtered here rather than by the endpoint: this is a roster of a size a
-   * person scans, and narrowing it should not cost a round trip while they
-   * type. */
-  const roster = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const rows = (worklog.data?.instructors ?? []).filter(
-      (r) =>
-        !needle ||
-        r.name.toLowerCase().includes(needle) ||
-        (r.employeeCode ?? "").toLowerCase().includes(needle),
-    );
-
-    if (sort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name));
-
-    /* Sorted on the SAME hours the card shows — the student-facing total from
-     * `rollUp`, not the engine's every-recorded-minute figure. Ordering by one
-     * number while displaying another is how a list stops making sense. */
-    const hoursOf = (r: WorklogRow) => rollUp(r.activities).hours;
-    return [...rows].sort((a, b) =>
-      sort === "hours-desc" ? hoursOf(b) - hoursOf(a) : hoursOf(a) - hoursOf(b),
-    );
-  }, [worklog.data, search, sort]);
-
-  /* A long roster is a wall. The first few answer "is anything wrong today?",
-   * which is the question this page opens with; the rest is a click away. */
-
-  /** Exactly what is on screen, as a spreadsheet. */
-  const exportCsv = () => {
-    if (roster.length === 0) return;
-    const rows = [
-      ["Instructor", "Employee ID", "Date", "Total hours", "Activities", "Status"],
-      ...roster.flatMap((r) =>
-        r.days.map((d) => [
-          r.name,
-          r.employeeCode ?? "",
-          d.date,
-          formatDuration(d.hours),
-          String(d.activityCount),
-          d.status,
-        ]),
+  /* The month before, for the dashed line and the hours comparison. Its failure
+   * is not this page's failure: a dashboard that refuses to render because it
+   * could not fetch LAST month would be worse than one drawn without the
+   * comparison, so this is read defensively everywhere below. */
+  const loadPrev = useCallback(
+    () =>
+      apiGet<Worklog>(
+        `/api/manager/worklog?from=${lastMonth.from}&to=${lastMonth.to}`,
+        "Could not load last month.",
       ),
-    ];
-    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `roster-${range.from}-to-${range.to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    [lastMonth.from, lastMonth.to],
+  );
+  const previous = useLoad(loadPrev, `mgr-month:${lastMonth.from}`);
 
-  /* Week gives a column per day; Month gives a column per WEEK. Thirty-one
-   * columns is not a table anybody reads a row of. */
-  const gridPeriods: GridPeriod[] = useMemo(() => {
-    if (view === "month") {
-      const out: GridPeriod[] = [];
-      for (let start = range.from, i = 1; start <= range.to; start = addDays(start, 7), i++) {
-        out.push({
-          key: start,
-          label: `Week ${i}`,
-          sublabel: `${fmt(start, { day: "numeric", month: "short" })} – ${fmt(addDays(start, 6), { day: "numeric", month: "short" })}`,
-          dates: Array.from({ length: 7 }, (_, d) => addDays(start, d)),
-        });
-      }
-      return out;
-    }
+  /* Memoised because `?? []` is a fresh array on every render, and four memos
+   * below depend on it — without this they would all recompute continuously. */
+  const rows = useMemo(() => current.data?.instructors ?? [], [current.data]);
 
-    const days = Math.round(
-      (Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86_400_000,
-    ) + 1;
-    return Array.from({ length: days }, (_, i) => {
-      const date = addDays(range.from, i);
-      return {
-        key: date,
-        label: fmt(date, { day: "numeric", month: "short" }),
-        sublabel: fmt(date, { weekday: "short" }),
-        dates: [date],
-      };
-    });
-  }, [view, range.from, range.to]);
+  /** Today, per person. */
+  const todayStats = useMemo(() => {
+    const submitted = rows.filter((r) => recorded(cellOn(r, today))).length;
+    const pending = rows.filter((r) => owing(cellOn(r, today))).length;
+    // Working today at all? If nobody is, the percentages below are meaningless
+    // rather than zero, and are suppressed.
+    const working = rows.filter((r) => cellOn(r, today)?.status !== "off").length;
+    return { submitted, pending, working };
+  }, [rows, today]);
 
-  const step = (direction: 1 | -1) => {
-    if (view === "day") return setAnchor(addDays(anchor, direction));
-    if (view === "week") return setAnchor(addDays(anchor, direction * 7));
-    const d = new Date(`${anchor}T00:00:00.000Z`);
-    d.setUTCMonth(d.getUTCMonth() + direction, 1);
-    setAnchor(d.toISOString().slice(0, 10));
-  };
+  /**
+   * Submissions per day, this month against last.
+   *
+   * A day in the future is `null`, not `0` — the difference between "nobody
+   * recorded" and "it has not happened yet" is the whole point of the gap
+   * handling in `TrendLine`, and drawing tomorrow as a zero would put a cliff
+   * at the end of every month.
+   */
+  const series = useMemo((): { points: TrendPoint[]; compare: TrendPoint[] } => {
+    const count = (source: Row[], date: string) =>
+      source.reduce((n, r) => n + (recorded(cellOn(r, date)) ? 1 : 0), 0);
+
+    const points = datesBetween(thisMonth.from, thisMonth.to).map((date) => ({
+      label: formatDayAs(date, { day: "numeric", month: "short" }),
+      value: date > today ? null : count(rows, date),
+    }));
+
+    const prevRows = previous.data?.instructors ?? [];
+    const compare = datesBetween(lastMonth.from, lastMonth.to).map((date) => ({
+      label: formatDayAs(date, { day: "numeric", month: "short" }),
+      value: count(prevRows, date),
+    }));
+
+    return { points, compare };
+  }, [rows, previous.data, thisMonth, lastMonth, today]);
+
+  /** Hours this month against last, as the client's own "+10%" reading. */
+  const hoursDelta = useMemo(() => {
+    const now = current.data?.summary.totalHours ?? 0;
+    const before = previous.data?.summary.totalHours ?? 0;
+    if (!previous.data || before <= 0) return null;
+    const pct = Math.round(((now - before) / before) * 100);
+    return { pct, up: pct >= 0 };
+  }, [current.data, previous.data]);
+
+  /** Who has not recorded today, soonest-silent first. */
+  const pending = useMemo(
+    () =>
+      rows
+        .filter((r) => owing(cellOn(r, today)))
+        .map((r) => ({ row: r, since: lastRecorded(r) }))
+        .sort((a, b) => (a.since ?? "").localeCompare(b.since ?? "") || a.row.name.localeCompare(b.row.name)),
+    [rows, today],
+  );
+
+  /** The roster table: searched, then sorted. */
+  const visible = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const matched = needle
+      ? rows.filter(
+          (r) =>
+            r.name.toLowerCase().includes(needle) ||
+            (r.employeeCode ?? "").toLowerCase().includes(needle),
+        )
+      : rows;
+
+    return [...matched].sort((a, b) =>
+      sort === "name"
+        ? a.name.localeCompare(b.name)
+        : sort === "hours-desc"
+          ? b.totalHours - a.totalHours
+          : a.totalHours - b.totalHours,
+    );
+  }, [rows, search, sort]);
 
   /** A nudge, not a record: it writes a notification and changes no hours. */
-  const remind = async (instructorId: string) => {
+  async function remind(instructorId: string) {
     setReminding(instructorId);
     try {
       await apiSend(
         `/api/instructors/${instructorId}/remind`,
         "POST",
-        { workDate: range.from },
+        { workDate: today },
         "That reminder could not be sent.",
       );
       toast("success", "Reminder sent.");
+      pingNotifications();
     } catch (e) {
       toast("danger", e instanceof Error ? e.message : "That reminder could not be sent.");
-      pingNotifications();
     } finally {
       setReminding(null);
     }
-  };
+  }
 
-  if (overview.error && !overview.data) {
+  if (current.error && !current.data) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Dashboard" />
-        <ErrorState message="Unable to load your dashboard" detail={overview.error} />
+      <div>
+        <PageHeader title="Team Dashboard" />
+        <ErrorState message={current.error} onRetry={current.reload} />
       </div>
     );
   }
 
-  const stats = overview.data?.today ?? null;
+  const monthName = formatDayAs(thisMonth.from, { month: "long", year: "numeric" });
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Dashboard" />
+    <div>
+      <PageHeader
+        title="Team Dashboard"
+        description={`${formatDayAs(today, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · ${monthName} to date`}
+      />
 
-      {/* ── The four figures ─────────────────────────────────────────────── */}
-      {overview.loading && !stats ? (
+      {/* ── The four figures ───────────────────────────────────────────────
+          Team size first because every other number on the row is read against
+          it, then today split into done and outstanding, then the month's
+          total.
+
+          Note what is NOT claimed: the roster tile carries no "+2 this month".
+          Nothing in this product records when somebody joined a roster, so that
+          delta could only have been invented. Each of the other three states a
+          comparison it can actually make. */}
+      {current.loading && !current.data ? (
         <StatGridSkeleton />
-      ) : stats ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard
-            label="Total instructors"
-            value={String(stats.instructors)}
-            icon={<IconUsers size={20} />}
-            tint="blue"
-            footnote="All active"
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile
+            label="Total team members"
+            value={current.data?.rosterTotal ?? 0}
+            emphasis
           />
-          <KpiCard
-            label="Logged today"
-            value={String(stats.logged)}
-            icon={<IconCheck size={20} />}
-            tint="green"
-            footnote={
-              stats.loggedPct === null
-                ? "No working days today"
-                : `${stats.loggedPct}% of ${stats.expected} expected · ${stats.activities} ${
-                    stats.activities === 1 ? "activity" : "activities"
-                  }`
+          <StatTile
+            label="Today's submissions"
+            value={todayStats.submitted}
+            hint={
+              todayStats.working > 0
+                ? `${Math.round((todayStats.submitted / todayStats.working) * 100)}% of those working today`
+                : "Nobody is scheduled today"
             }
           />
-          <KpiCard
-            label="Total hours today"
-            value={formatDuration(stats.hours)}
-            icon={<IconClock size={20} />}
-            tint="amber"
-            footnote={
-              <Change pct={stats.yesterday.deltaPct} direction={stats.yesterday.direction} />
+          <StatTile
+            label="Pending submissions"
+            value={todayStats.pending}
+            tone={todayStats.pending > 0 ? "warning" : "neutral"}
+            hint={
+              todayStats.working > 0
+                ? `${Math.round((todayStats.pending / todayStats.working) * 100)}% still to record`
+                : "Not a working day"
             }
           />
-          <KpiCard
-            label="Missing worklog"
-            value={String(stats.missing)}
-            icon={<IconAlert size={20} />}
-            tint="violet"
-            footnote={
-              stats.missing > 0 ? (
-                <a className="text-primary-text hover:underline" href="/manager/worklog">
-                  View instructors →
-                </a>
-              ) : (
-                "Everyone on your roster is in"
-              )
-            }
+          <StatTile
+            label={`Total work hours (${formatDayAs(thisMonth.from, { month: "short" })})`}
+            value={formatHours(current.data?.summary.totalHours ?? 0)}
+            delta={hoursDelta ? `${hoursDelta.up ? "+" : ""}${hoursDelta.pct}% vs last month` : undefined}
+            deltaTone={hoursDelta ? (hoursDelta.up ? "success" : "warning") : undefined}
           />
         </div>
-      ) : (
-        <EmptyState
-          title="No instructors assigned to you yet"
-          description="Once instructors are assigned to you, their workload appears here."
-        />
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        {/* ── The roster ─────────────────────────────────────────────────── */}
-        <Section
-          title={
-            view === "day"
-              ? fmt(anchor, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-              : view === "week"
-                ? `Week: ${fmt(range.from, { day: "numeric", month: "short" })} – ${fmt(range.to, { day: "numeric", month: "short" })}`
-                : fmt(anchor, { month: "long", year: "numeric" })
-          }
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-control border border-line p-0.5">
-                {(["day", "week", "month"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    aria-pressed={view === v}
-                    className={`rounded-[0.4rem] px-3 py-1.5 text-sm font-medium capitalize transition ${
-                      view === v ? "bg-primary text-white" : "text-muted hover:text-content"
-                    }`}
-                  >
-                    {v} view
-                  </button>
-                ))}
-              </div>
-              <Button size="sm" variant="secondary" onClick={() => setAnchor(today)}>
-                Today
-              </Button>
-              <Button size="sm" variant="ghost" aria-label={`Previous ${view}`} onClick={() => step(-1)}>
-                ←
-              </Button>
-              <Button size="sm" variant="ghost" aria-label={`Next ${view}`} onClick={() => step(1)}>
-                →
-              </Button>
-              <SearchInput
-                label="Search instructor or ID"
-                value={search}
-                onChange={setSearch}
-                placeholder="Search instructor"
-                className="w-48"
+      {/* ── Today beside the month ─────────────────────────────────────────
+          The chart is how the month has gone; the list is who is outstanding
+          right now. Side by side because the second is the reason to look at
+          the first: a dip in the line is a question, and the names answer it. */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card>
+          <CardHeader
+            title="Team submission overview"
+            description="How many of the roster recorded on each day."
+          />
+          <div className="px-5 pb-5">
+            {current.loading && !current.data ? (
+              <TableSkeleton rows={4} cols={1} />
+            ) : rows.length === 0 ? (
+              <EmptyState title="Nobody on your roster yet" />
+            ) : (
+              <TrendLine
+                points={series.points}
+                seriesLabel="This month"
+                compare={{ label: "Last month", points: series.compare }}
+                unit="submissions"
+                height={200}
               />
-              <Select
-                aria-label="Sort by"
-                value={sort}
-                onChange={(e) => setSort(e.target.value as typeof sort)}
-                className="w-auto min-w-[11rem]"
-              >
-                <option value="name">Sort: name</option>
-                <option value="hours-desc">Sort: most hours</option>
-                <option value="hours-asc">Sort: fewest hours</option>
-              </Select>
-              <Button size="sm" variant="secondary" onClick={exportCsv}>
-                <IconDownload size={16} />
-                Export
-              </Button>
-            </div>
-          }
-        >
-          {worklog.loading && !worklog.data ? (
-            <TableSkeleton cols={5} />
-          ) : worklog.error ? (
-            <ErrorState message="Unable to load the worklog" detail={worklog.error} />
-          ) : roster.length === 0 ? (
-            <EmptyState
-              title={search.trim() ? "Nobody matches that search" : "Nobody on your roster yet"}
-              description={
-                search.trim()
-                  ? "Clear the search to see the whole roster."
-                  : "Instructors assigned to you appear here with their day."
-              }
-            />
-          ) : view === "day" ? (
-            <Card>
-              <DayTable
-                rows={roster}
-                timeZone={timeZone}
-                onRemind={anchor === today ? remind : undefined}
-                reminding={reminding}
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Pending today"
+            description="Working today, nothing recorded yet."
+          />
+          <div className="px-5 pb-5">
+            {current.loading && !current.data ? (
+              <TableSkeleton rows={4} cols={1} />
+            ) : pending.length === 0 ? (
+              <EmptyState
+                title="Everybody is up to date"
+                description="Nobody working today is outstanding."
               />
-            </Card>
-          ) : (
-            <Card>
-              <RosterGrid rows={roster} periods={gridPeriods} />
-            </Card>
-          )}
-        </Section>
-
-        {/* ── The month, beside the roster rather than under it ───────────── */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader
-              title={`Month view (${fmt(`${month}-01`, { month: "long", year: "numeric" })})`}
-              description="Week-wise total hours across your whole roster."
-            />
-            <div className="px-5 pb-5">
-              {overview.data?.month ? (
-                <WeekBars weeks={overview.data.month.weeks} />
-              ) : (
-                <p className="text-sm text-muted">Nothing recorded this month.</p>
-              )}
-            </div>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Hours distribution"
-              description="Across the same weeks, so the two add up to one total."
-            />
-            <div className="px-5 pb-5">
-              {overview.data && overview.data.distribution.length > 0 ? (
-                <HoursDonut
-                  slices={overview.data.distribution}
-                  totalHours={overview.data.month?.totalHours ?? 0}
-                />
-              ) : (
-                <p className="text-sm text-muted">No hours recorded in this period yet.</p>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Week and month: instructors down, days across ────────────────────────── */
-
-/**
- * The roster as a grid: instructors down, periods across.
- *
- * ── A month is weeks, not thirty-one days ─────────────────────────────────
- * Rendering a day per column made the month view a wall about a metre wide
- * that nobody could read a row of. Weeks are the unit the report is written
- * in — the client's own sheet has four columns, not thirty — so the month
- * aggregates into them and stays legible on one screen.
- *
- * ── The hours are the ones on the cards ───────────────────────────────────
- * Computed by `rollUp`, so this grid, the day cards and both sheets show the
- * same figure: the time spent with students. A grid that quietly used the
- * engine's every-recorded-minute total would disagree with the card directly
- * above it.
- */
-function RosterGrid({ rows, periods }: { rows: WorklogRow[]; periods: GridPeriod[] }) {
-  /* Matches `COLUMN_RULE` in `ui/tables.tsx`. This table is hand-built rather
-     than assembled from those primitives, so the rule has to be repeated —
-     `last:border-r-0` keeps the final column off the card's own edge. */
-  const rule = "border-r border-line last:border-r-0";
-  const head =
-    `${rule} sticky top-0 z-10 border-b border-line bg-primary-subtle ` +
-    "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text";
-  /* Row dividers sit on the CELLS, not the row. `border-separate` below is
-     what makes the header stick — a collapsed table drops `position: sticky`
-     on its cells — and under that model a `<tr>`'s own border stops painting,
-     so every rule the rows carried had to move down a level. */
-  const cell = `${rule} border-b border-line-subtle px-3 py-2.5`;
-
-  return (
-    /* Its own scroll box with a bounded height, so the week and month grids
-       keep their column header in view while the roster moves under it.
-       `top-0` is measured against THIS box rather than the page, which is what
-       keeps it correct without a hand-computed offset. */
-    <div className="max-h-[60vh] overflow-auto">
-      <table className="w-full border-separate border-spacing-0 text-sm">
-        <caption className="sr-only-text">
-          Hours and activity counts recorded by each instructor in each period.
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col" className={`${head} text-left`}>
-              Instructor
-            </th>
-            {periods.map((p) => (
-              <th key={p.key} scope="col" className={`${head} text-right`}>
-                {p.label}
-                <span className="block font-normal normal-case">{p.sublabel}</span>
-              </th>
-            ))}
-            <th scope="col" className={`${head} text-right`}>
-              Total hours
-            </th>
-            <th scope="col" className={`${head} text-right`}>
-              Activities
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const byDate = row.activities.reduce<Record<string, typeof row.activities>>(
-              (acc, a) => {
-                (acc[a.date] ??= []).push(a);
-                return acc;
-              },
-              {},
-            );
-
-            const cells = periods.map((p) => {
-              const acts = p.dates.flatMap((d) => byDate[d] ?? []);
-              return { key: p.key, hours: rollUp(acts).hours, count: acts.length };
-            });
-
-            return (
-              <tr key={row.instructorId} className="transition-colors hover:bg-hovered">
-                <th scope="row" className={`${cell} text-left font-normal`}>
-                  <span className="flex items-center gap-2">
-                    <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium text-content">{row.name}</span>
-                      {row.employeeCode ? (
-                        <span className="tabular block truncate text-xs text-muted">
-                          {row.employeeCode}
-                        </span>
-                      ) : null}
+            ) : (
+              <ul className="divide-y divide-line">
+                {pending.map(({ row, since }) => (
+                  <li key={row.instructorId} className="flex items-center gap-3 py-3">
+                    <Avatar name={row.name} avatarUrl={row.avatarUrl} size={32} />
+                    <span className="min-w-0 flex-1">
+                      <Link
+                        href={`/manager/instructors/${row.instructorId}/report`}
+                        className="block truncate text-sm font-medium text-content hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                      {/* When they last wrote, which is what turns "pending"
+                          into "pending since when" — one day late and eleven
+                          days late are not the same problem. */}
+                      <span className="block truncate text-xs text-muted">
+                        {since
+                          ? `Last recorded ${formatDayAs(since, { day: "numeric", month: "short" })}`
+                          : `Nothing recorded in ${monthName}`}
+                      </span>
                     </span>
-                  </span>
-                </th>
-
-                {cells.map((c) => (
-                  <td key={c.key} className={`${cell} text-right`}>
-                    {c.count > 0 ? (
-                      <>
-                        <span className="tabular block text-content">{formatDuration(c.hours)}</span>
-                        <span className="tabular block text-xs text-muted">{c.count}</span>
-                      </>
-                    ) : (
-                      // A dash rather than "00h 00m": nothing recorded and
-                      // nothing done are different claims.
-                      <>
-                        <span className="block text-subtle">—</span>
-                        <span className="tabular block text-xs text-subtle">0</span>
-                      </>
-                    )}
-                  </td>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={reminding === row.instructorId}
+                      onClick={() => remind(row.instructorId)}
+                    >
+                      {reminding === row.instructorId ? "Sending…" : "Remind"}
+                    </Button>
+                  </li>
                 ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+      </div>
 
-                <td className={`tabular ${cell} text-right font-semibold text-content`}>
-                  {formatDuration(cells.reduce((n, c) => n + c.hours, 0))}
-                </td>
-                <td className={`tabular ${cell} text-right font-semibold text-content`}>
-                  {cells.reduce((n, c) => n + c.count, 0)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {/* ── The roster ─────────────────────────────────────────────────────── */}
+      <Card className="mt-6">
+        <CardHeader
+          title="Team members status"
+          description={`Today's record and the month's hours. ${monthName}.`}
+          actions={
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setQ({ search: e.target.value })}
+              placeholder="Search name or ID"
+              aria-label="Search the roster"
+              className="h-9 w-full rounded-control border border-line bg-surface px-3 text-sm text-content sm:w-56"
+            />
+          }
+        />
+
+        {current.loading && !current.data ? (
+          <TableSkeleton rows={6} cols={5} />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            title={search.trim() ? "Nobody matches that search" : "Nobody on your roster yet"}
+            description={
+              search.trim()
+                ? "Clear the search to see the whole roster."
+                : "Instructors assigned to you appear here."
+            }
+          />
+        ) : (
+          <TableWrap>
+            <Table caption="Every instructor on your roster, with today's record and this month's hours.">
+              <THead
+                columns={[
+                  { label: "Employee name", sortKey: "name" },
+                  { label: "Employee ID" },
+                  { label: "Today's status" },
+                  { label: "Last submission" },
+                  { label: "Working hours (month)", align: "right", sortKey: "hours" },
+                ]}
+                sort={
+                  sort === "name"
+                    ? { key: "name", direction: "asc" }
+                    : { key: "hours", direction: sort === "hours-desc" ? "desc" : "asc" }
+                }
+                onSort={(key) =>
+                  setQ({
+                    sort:
+                      key === "name"
+                        ? "name"
+                        : sort === "hours-desc"
+                          ? "hours-asc"
+                          : "hours-desc",
+                  })
+                }
+              />
+              <TBody>
+                {visible.map((row) => {
+                  const cell = cellOn(row, today);
+                  const since = lastRecorded(row);
+                  return (
+                    <TR key={row.instructorId}>
+                      <TD strong>
+                        <span className="flex items-center gap-2">
+                          <Avatar name={row.name} avatarUrl={row.avatarUrl} size={28} />
+                          <Link
+                            href={`/manager/instructors/${row.instructorId}/report`}
+                            className="truncate hover:underline"
+                          >
+                            {row.name}
+                          </Link>
+                        </span>
+                      </TD>
+                      <TD>
+                        <span className="tabular">{row.employeeCode ?? "—"}</span>
+                      </TD>
+                      <TD>
+                        {/* Three outcomes, not two. A day off is not a failure
+                            to submit, and colouring it like one is how a roster
+                            comes to read as half-delinquent every weekend. */}
+                        {recorded(cell) ? (
+                          <Badge tone="success">Submitted</Badge>
+                        ) : owing(cell) ? (
+                          <Badge tone="danger">Pending</Badge>
+                        ) : (
+                          <Badge tone="neutral">Not a working day</Badge>
+                        )}
+                      </TD>
+                      <TD>
+                        {since ? (
+                          <span className="tabular">
+                            {formatDayAs(since, { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        ) : (
+                          <span className="text-subtle">—</span>
+                        )}
+                      </TD>
+                      <TD align="right" strong>
+                        {formatHours(row.totalHours)}
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </TableWrap>
+        )}
+      </Card>
     </div>
   );
 }

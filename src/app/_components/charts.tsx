@@ -138,19 +138,42 @@ export type TrendPoint = { label: string; value: number | null };
  */
 export function TrendLine({
   points,
+  compare,
+  seriesLabel,
   target,
   unit = "hrs",
   tone = "var(--app-primary)",
   height = 160,
 }: {
   points: TrendPoint[];
+  /**
+   * An earlier period drawn behind the current one, for "is this better than
+   * last time".
+   *
+   * Dashed and unfilled, deliberately: two solid filled areas on one axis read
+   * as a stacked chart, and these do not stack — they are the same measurement
+   * twice. It shares the scale, so the comparison is the shape rather than a
+   * second axis nobody checks.
+   *
+   * It is aligned by INDEX, not by date, which is the only alignment that makes
+   * sense across months of different lengths: the 3rd against the 3rd. A
+   * shorter comparison simply stops early.
+   */
+  compare?: { label: string; points: TrendPoint[] };
+  /** Names the main series once a comparison makes the distinction matter. */
+  seriesLabel?: string;
   target?: number | null;
   unit?: string;
   tone?: string;
   height?: number;
 }) {
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
-  const max = Math.max(...values, target ?? 0, 1);
+  const compareValues = (compare?.points ?? [])
+    .map((p) => p.value)
+    .filter((v): v is number => v !== null);
+  // One scale for both, or the comparison would be drawn to its own height and
+  // a worse month could look identical to a better one.
+  const max = Math.max(...values, ...compareValues, target ?? 0, 1);
   const n = points.length;
 
   // Coordinate space is 0..100 in both axes; the SVG then stretches to fit.
@@ -170,19 +193,71 @@ export function TrendLine({
   });
   if (run.length) runs.push(run);
 
+  /* The comparison's runs, on the SAME x-scale as the main series so index i
+     lands in the same column. */
+  const compareRuns: Array<Array<{ i: number; v: number }>> = [];
+  {
+    let r: Array<{ i: number; v: number }> = [];
+    (compare?.points ?? []).slice(0, n).forEach((p, i) => {
+      if (p.value === null) {
+        if (r.length) compareRuns.push(r);
+        r = [];
+      } else {
+        r.push({ i, v: p.value });
+      }
+    });
+    if (r.length) compareRuns.push(r);
+  }
+
   const summary = points
     .map((p) => `${p.label}: ${p.value === null ? "no data" : `${p.value} ${unit}`}`)
     .join("; ");
 
   return (
     <div>
+      {compare || seriesLabel ? (
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-4 text-xs text-muted">
+          {seriesLabel ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="inline-block h-0.5 w-5 rounded-full"
+                style={{ background: tone }}
+              />
+              {seriesLabel}
+            </span>
+          ) : null}
+          {compare ? (
+            <span className="inline-flex items-center gap-1.5">
+              {/* Drawn as a dash so the key matches the line it names. */}
+              <span
+                aria-hidden
+                className="inline-block h-0.5 w-5 rounded-full"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(to right, var(--app-text-subtle) 0 5px, transparent 5px 9px)",
+                }}
+              />
+              {compare.label}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="relative" style={{ height }}>
         <svg
           className="size-full"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           role="img"
-          aria-label={`Trend. ${summary}${target != null ? `. Target ${target} ${unit}` : ""}`}
+          aria-label={`Trend. ${summary}${
+            compare
+              ? `. Compared with ${compare.label}: ${compare.points
+                  .slice(0, n)
+                  .map((p) => `${p.label}: ${p.value === null ? "no data" : `${p.value} ${unit}`}`)
+                  .join("; ")}`
+              : ""
+          }${target != null ? `. Target ${target} ${unit}` : ""}`}
         >
           {[0, 50, 100].map((g) => (
             <line
@@ -209,6 +284,23 @@ export function TrendLine({
               vectorEffect="non-scaling-stroke"
             />
           ) : null}
+
+          {/* Behind the current series, so the line being read is on top. */}
+          {compareRuns.map((r, ri) =>
+            r.length > 1 ? (
+              <path
+                key={`c${ri}`}
+                d={`M ${r.map((p) => `${x(p.i)} ${y(p.v)}`).join(" L ")}`}
+                fill="none"
+                stroke="var(--app-text-subtle)"
+                strokeWidth="2"
+                strokeDasharray="5 4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null,
+          )}
 
           {runs.map((r, ri) => (
             <g key={ri}>
