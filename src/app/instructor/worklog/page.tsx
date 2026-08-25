@@ -139,37 +139,8 @@ const weekRange = (date: string) => {
  * `processingState` is computed on the server from one field, and this only
  * chooses the words for it.
  */
-type ReadingState =
-  | null
-  | { phase: "sending" }
-  | { phase: "reading" }
-  | { phase: "done"; activities: number }
-  | { phase: "review"; notes: string[]; activities: number }
-  | { phase: "slow" }
-  | { phase: "failed"; message: string; submissionId: string | null };
 
-type SubmissionView = {
-  id: string;
-  processingState: "PENDING" | "PROCESSING" | "COMPLETED" | "REVIEW_REQUIRED" | "FAILED";
-  parseError: string | null;
-  reviewNotes: Array<{ kind: string; message: string }> | null;
-  rejections: Array<{ rawText: string; reason: string }> | null;
-  rawBullets: string[];
-  inputMode: "BULLETS" | "NARRATIVE";
-  activities: Array<{ id: string }>;
-};
 
-/**
- * How long the dialog waits for a reading before it lets the instructor go.
- *
- * A parse may legitimately run for nearly six minutes when the provider is
- * retrying — `MAX_PARSE_MS` — and nobody should be held at a dialog for that.
- * So the wait here is only as long as a reading normally takes; past it the
- * work carries on server-side and the instructor is told where to find it. The
- * text is already saved either way, which is what makes leaving safe.
- */
-const READING_PATIENCE_MS = 45_000;
-const READING_POLL_MS = 1_500;
 
 /** `2024-05-10` → `Friday`. Names the day a row is about, beside its date. */
 function weekdayOf(iso: string): string {
@@ -258,10 +229,6 @@ export default function WorkLogHistoryPage() {
    * boxes ask for outright. Somebody opening this box to record a day they
    * already know the shape of should not have to wait for a model to read it
    * back to them. Writing it out is one click away and unchanged. */
-  const [entryMode, setEntryMode] = useState<"write" | "fields">("fields");
-  const [narrative, setNarrative] = useState("");
-  /** Where the reading has got to, once a paragraph has been sent. */
-  const [reading, setReading] = useState<ReadingState>(null);
 
   const me = useLoad(
     useCallback(
@@ -493,9 +460,6 @@ export default function WorkLogHistoryPage() {
     setEditing(null);
     setEditingToday(false);
     setDraft(emptyDraft(today));
-    setNarrative("");
-    setEntryMode("fields");
-    setReading(null);
     setFormError(null);
     setOpen(true);
   }
@@ -503,10 +467,6 @@ export default function WorkLogHistoryPage() {
   function openEdit(row: Row) {
     setEditing(row);
     setEditingToday(false);
-    // One row is being corrected, not the day rewritten, so the fields are the
-    // only sensible shape for it.
-    setEntryMode("fields");
-    setReading(null);
     setDraft({
       date: row.workDate.slice(0, 10),
       deliverable: row.rawText ?? row.deliverableType?.label ?? "",
@@ -524,26 +484,16 @@ export default function WorkLogHistoryPage() {
    * "Edit Today's Log" — the whole day, read back and reopened for
    * correction, not a blank box.
    *
-   * Loads today's own narrative and seeds it into the same write box
-   * `openNew()` uses. Submitting from here is not a special path: it is the
-   * ordinary POST to `/worklog` for today's date, which `submitWorklog`
-   * already treats as replacing the day rather than appending to it — see
-   * the service's own comment on that. Nothing here needs to know it is an
-   * edit; the server already does.
-   *
-   * A day recorded through the manual-fields form has no `WorklogSubmission`
-   * to read back — `rawBullets` belongs to the narrative path only. That
-   * case opens blank rather than failing outright: writing a fresh narrative
-   * still records the day, it is only the pre-fill that has nothing to work
-   * from.
+   * Submitting from here is not a special path: it is the ordinary POST to
+   * `/worklog` for today's date, which `submitWorklog` already treats as
+   * replacing the day rather than appending to it — see the service's own
+   * comment on that. Nothing here needs to know it is an edit; the server
+   * already does.
    */
   function openEditToday() {
     if (!instructorId) return;
     setEditing(null);
     setEditingToday(true);
-    setEntryMode("fields");
-    setNarrative("");
-    setReading(null);
     setFormError(null);
 
     /* Today's own lines, back in the four boxes that wrote them.
@@ -573,119 +523,7 @@ export default function WorkLogHistoryPage() {
     setOpen(true);
   }
 
-  /**
-   * Sends the day as written, then watches for the reading to land.
-   *
-   * The POST answers as soon as the text is SAVED, not when it has been
-   * understood — that ordering is what makes a provider outage cost a reading
-   * rather than somebody's typing. So this polls afterwards, and every state it
-   * can end in is one the instructor can act on.
-   */
-  async function submitNarrative() {
-    if (!instructorId) return;
-    const text = narrative.trim();
-    if (!text) return setFormError("Write what you did today.");
 
-    setSaving(true);
-    setFormError(null);
-    setReading({ phase: "sending" });
-
-    try {
-      await apiSend(
-        `/api/instructors/${instructorId}/worklog`,
-        "POST",
-        { workDate: draft.date, text },
-        "Could not submit your work log.",
-      );
-    } catch (e) {
-      setReading(null);
-      setSaving(false);
-      return setFormError(e instanceof Error ? e.message : "Something went wrong.");
-    }
-
-    setReading({ phase: "reading" });
-
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < READING_PATIENCE_MS) {
-      await new Promise((r) => setTimeout(r, READING_POLL_MS));
-
-      let live: SubmissionView | undefined;
-      try {
-        const res = await apiGet<{ submissions: SubmissionView[] }>(
-          `/api/instructors/${instructorId}/worklog?date=${draft.date}`,
-          "Could not check on your work log.",
-        );
-        live = res.submissions.at(-1);
-      } catch {
-        // A failed poll is not a failed submission. The text is saved; keep
-        // asking, and the patience window below ends it either way.
-        continue;
-      }
-      if (!live) continue;
-
-      if (live.processingState === "COMPLETED") {
-        setReading({ phase: "done", activities: live.activities.length });
-        /* The inline box says the same thing, but only while this dialog
-         * stays open — this is what confirms it once it's closed. `submit()`,
-         * the manual-entry path, already does this; this path is the AI one
-         * and had gone through the whole read-back-and-confirm cycle with
-         * nothing outside the dialog to show for it. */
-        toast(
-          "success",
-          editingToday
-            ? "Your work log for today has been updated successfully."
-            : "Your work log for today has been submitted successfully.",
-          editingToday ? "Updated!" : "Great job!",
-        );
-        break;
-      }
-      if (live.processingState === "REVIEW_REQUIRED") {
-        setReading({
-          phase: "review",
-          notes: (live.reviewNotes ?? []).map((n) => n.message),
-          activities: live.activities.length,
-        });
-        break;
-      }
-      if (live.processingState === "FAILED") {
-        setReading({
-          phase: "failed",
-          message:
-            live.parseError ??
-            "We could not organise this worklog automatically. Your words are safe.",
-          submissionId: live.id,
-        });
-        break;
-      }
-    }
-
-    setSaving(false);
-    setReading((current) => (current?.phase === "reading" ? { phase: "slow" } : current));
-    logs.reload();
-  }
-
-  /** Asks for the same text to be read again. Nothing is retyped. */
-  async function retryReading(submissionId: string) {
-    if (!instructorId) return;
-    setSaving(true);
-    setReading({ phase: "reading" });
-    try {
-      await apiSend(
-        `/api/instructors/${instructorId}/worklog/${submissionId}/reparse`,
-        "POST",
-        undefined,
-        "Could not try again just yet.",
-      );
-    } catch (e) {
-      setReading({
-        phase: "failed",
-        message: e instanceof Error ? e.message : "Could not try again just yet.",
-        submissionId,
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function submit() {
     if (!instructorId) return;
@@ -761,7 +599,6 @@ export default function WorkLogHistoryPage() {
   }
 
   /** The paragraph box, rather than the four fields. Never while editing a row. */
-  const writingItOut = entryMode === "write" && !editing;
 
   /* What the four boxes currently describe, read by the same function the
    * server will use. One source for the preview, the error and the write.
@@ -1262,49 +1099,35 @@ export default function WorkLogHistoryPage() {
         icon={<Clipboard />}
         dividers={false}
         size="lg"
-        title={editing ? "Edit work log" : editingToday ? "Edit Today's Worklog" : "Today's Work Log"}
+        title={
+          editing
+            ? "Edit work log"
+            : editingToday
+              ? "Edit Today's Work Log"
+              : "Today's Work Log"
+        }
         description={
           editing
             ? `Correcting the entry from ${longDate(draft.date)}.`
-            : writingItOut
-              ? "Write your day however you like. It will be organised into the report for you."
-              : "Add your deliverables and working details for today."
+            : "Add your deliverables and working details for today."
         }
         footer={
           <>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              /* Never disabled while a reading is in flight. The text is
-                 already saved, so leaving costs nothing, and holding somebody
-                 at a dialog for work that continues without them is the thing
-                 §18 asks us not to do. */
               className="rounded-control border border-line-strong bg-surface px-4 py-2.5 text-sm font-semibold text-content transition-colors hover:bg-hovered disabled:opacity-50"
             >
-              {writingItOut && reading ? "Close" : "Cancel"}
+              Cancel
             </button>
             <button
               type="button"
-              onClick={() =>
-                writingItOut
-                  ? reading && reading.phase !== "sending" && reading.phase !== "reading"
-                    ? setOpen(false)
-                    : void submitNarrative()
-                  : void submit()
-              }
+              onClick={() => void submit()}
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover disabled:opacity-50"
             >
-              {saving
-                ? reading?.phase === "reading"
-                  ? "Organising…"
-                  : "Saving…"
-                : writingItOut && reading
-                  ? "Done"
-                  : editing
-                    ? "Update Work Log"
-                    : "Submit Work Log"}
-              {saving || (writingItOut && reading) ? null : <Send />}
+              {saving ? "Saving…" : editing ? "Update Work Log" : "Submit Work Log"}
+              {saving ? null : <Send />}
             </button>
           </>
         }
@@ -1316,69 +1139,21 @@ export default function WorkLogHistoryPage() {
             </p>
           ) : null}
 
-          {/* ── How they would rather write it ──────────────────────────────
-              Two ways of saying the same thing, and neither is a lesser one:
-              a paragraph is faster when the day was busy, the fields are surer
-              when it was one thing. Editing offers neither choice — see
-              `writingItOut`. */}
-          {editing ? null : (
-            <div
-              role="group"
-              aria-label="How to write your work log"
-              className="inline-flex w-fit rounded-control border border-line bg-sunken p-1"
-            >
-              {(
-                [
-                  ["write", "Write it out"],
-                  ["fields", "Fill in fields"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    setEntryMode(value);
-                    setFormError(null);
-                    setReading(null);
-                  }}
-                  aria-pressed={entryMode === value}
-                  className={
-                    "rounded-[calc(var(--radius-control)-2px)] px-3.5 py-1.5 text-sm font-semibold transition-colors " +
-                    (entryMode === value
-                      ? "bg-surface text-content shadow-card"
-                      : "text-muted hover:text-content")
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {writingItOut ? (
-            <NarrativeEntry
-              date={draft.date}
-              onDate={(date) => setDraft({ ...draft, date })}
-              value={narrative}
-              onChange={setNarrative}
-              reading={reading}
-              today={today}
-              onRetry={(id) => void retryReading(id)}
-            />
-          ) : (
-            <>
+          {/* ── One way in, and it is the fields ───────────────────────────
+              There used to be a choice here: a paragraph the parser read, or
+              these four boxes. The paragraph is gone from the instructor's
+              surface at the client's request — submitting and correcting both
+              use the fields now, so there is nothing to choose between and no
+              control asking. */}
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
               Deliverable
-              <span className="ml-2 font-normal text-muted">
-                one per line, or separated by commas
-              </span>
             </span>
             <textarea
               rows={3}
               value={draft.deliverable}
               onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
-              placeholder={"Live class on binary trees\nDoubt session\nChecked assignments"}
+              placeholder="Enter deliverable"
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
@@ -1386,15 +1161,12 @@ export default function WorkLogHistoryPage() {
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
               Deliverable Quantity
-              <span className="ml-2 font-normal text-muted">
-                leave empty if you did not count them
-              </span>
             </span>
             <textarea
-              rows={3}
+              rows={2}
               value={draft.quantity}
               onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-              placeholder={"1\n1\n12   — or leave empty"}
+              placeholder="Enter deliverable quantity"
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
@@ -1402,15 +1174,12 @@ export default function WorkLogHistoryPage() {
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
               Working Hours
-              <span className="ml-2 font-normal text-muted">
-                one for each deliverable, in the same order
-              </span>
             </span>
             <textarea
-              rows={3}
+              rows={2}
               value={draft.workingHours}
               onChange={(e) => setDraft({ ...draft, workingHours: e.target.value })}
-              placeholder={"2h\n45m\n1h"}
+              placeholder="Enter working hours (e.g., 8)"
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
@@ -1435,10 +1204,26 @@ export default function WorkLogHistoryPage() {
             * in COUNT but not in meaning. A reader can see "Doubt session —
             * 2h" and know the hours went to the wrong line; nothing in the
             * arithmetic can. */}
-          {draft.deliverable.trim() || draft.workingHours.trim() ? (
+          {/* Lines that do not line up, said whatever the count.
+            *
+            * This used to be the else-half of the preview below. The preview
+            * now only renders when the split succeeded, which would have left
+            * the refusal with nowhere to appear. */}
+          {!split.ok && (draft.deliverable.trim() || draft.workingHours.trim()) ? (
+            <p className="rounded-control border border-warning/30 bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-text">
+              {split.reason}
+            </p>
+          ) : null}
+
+          {/* Only once the day has more than one line in it.
+            *
+            * The check this exists for is three deliverables against three
+            * durations that line up in COUNT but not in meaning — "Doubt
+            * session — 2h" where the 2h belonged to the class above it. A
+            * single deliverable cannot make that mistake, so on the ordinary
+            * day the form is the four boxes the brief draws and nothing else. */}
+          {split.ok && split.entries.length > 1 ? (
             <div className="rounded-control border border-line bg-sunken px-3.5 py-3">
-              {split.ok ? (
-                <>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                     {split.entries.length === 1
                       ? "This will be recorded as"
@@ -1467,178 +1252,14 @@ export default function WorkLogHistoryPage() {
                       </li>
                     ))}
                   </ul>
-                  {split.entries.length > 1 ? (
-                    <p className="mt-2 text-xs text-muted">
-                      Placed one after another from the start of your working day.
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p className="text-sm text-warning-text">{split.reason}</p>
-              )}
+                  <p className="mt-2 text-xs text-muted">
+                    Placed one after another from the start of your working day.
+                  </p>
             </div>
           ) : null}
-            </>
-          )}
         </div>
       </Dialog>
     </div>
-  );
-}
-
-/**
- * The day in one box, and what became of it.
- *
- * ── Why the states are spelled out ────────────────────────────────────────
- * The reading takes a few seconds and happens after the request that saved the
- * text has already answered. A screen that says nothing during that is a screen
- * that looks broken, and one that says "saved!" and shows an empty day is
- * worse. So every state a submission can be in has words here, and the two that
- * matter most say the same thing in different ways: your words are safe.
- */
-function NarrativeEntry({
-  date,
-  onDate,
-  today,
-  value,
-  onChange,
-  reading,
-  onRetry,
-}: {
-  date: string;
-  onDate: (date: string) => void;
-  value: string;
-  onChange: (value: string) => void;
-  reading: ReadingState;
-  onRetry: (submissionId: string) => void;
-  /** The latest day that may be written up — the UNIVERSITY's today. */
-  today: string;
-}) {
-  const busy = reading?.phase === "sending" || reading?.phase === "reading";
-
-  return (
-    <div className="grid gap-5">
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold text-content">Date</span>
-        {/* Pinned to today, both ends. `max` alone let a past date be picked and
-            then refused on submit — a date field that offers a day the server
-            will not take is a field that exists to waste somebody's typing. */}
-        <input
-          type="date"
-          value={date}
-          min={today}
-          max={today}
-          onChange={(e) => onDate(e.target.value)}
-          disabled={busy || reading !== null}
-          className="h-11 w-full rounded-control border border-line bg-surface px-3 text-sm text-content disabled:opacity-60"
-        />
-        <span className="mt-1.5 block text-xs text-muted">
-          You record today. Ask your manager to record an earlier day.
-        </span>
-      </label>
-
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold text-content">
-          What did you do today?
-        </span>
-        <textarea
-          rows={7}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={busy || reading !== null}
-          placeholder={
-            "9 AM to 11 AM took DSA lecture on binary trees for section A, " +
-            "11:15 to 12 doubt clearing session, 1 to 2 checked 12 assignments, " +
-            "3:15 to 4 prepared slides for next week"
-          }
-          className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm leading-relaxed text-content disabled:opacity-60"
-        />
-        <span className="mt-1.5 block text-xs text-muted">
-          Write it however you like — one line or ten. Include the times you started and
-          finished each thing, and any counts (&ldquo;12 assignments&rdquo;). Nothing is
-          filled in for you if you leave it out.
-        </span>
-      </label>
-
-      {reading === null ? null : (
-        <div
-          role="status"
-          aria-live="polite"
-          className={
-            "rounded-control border px-3.5 py-3 text-sm " +
-            (reading.phase === "failed"
-              ? "border-danger/30 bg-danger-subtle text-danger-text"
-              : reading.phase === "review"
-                ? "border-warning/30 bg-warning-subtle text-warning-text"
-                : reading.phase === "done"
-                  ? "border-success/30 bg-success-subtle text-success-text"
-                  : "border-line bg-sunken text-muted")
-          }
-        >
-          {reading.phase === "sending" ? (
-            <span>Saving your worklog…</span>
-          ) : reading.phase === "reading" ? (
-            <span className="inline-flex items-center gap-2">
-              <Spinner />
-              Analysing and organising your worklog…
-            </span>
-          ) : reading.phase === "done" ? (
-            <span>
-              Worklog organised successfully — {reading.activities}{" "}
-              {reading.activities === 1 ? "activity" : "activities"} recorded. It is in the
-              table behind this box.
-            </span>
-          ) : reading.phase === "review" ? (
-            <div className="grid gap-1.5">
-              <span className="font-semibold">
-                We organised your worklog, but some details need your review.
-              </span>
-              <ul className="grid gap-1 pl-4">
-                {reading.notes.map((note) => (
-                  <li key={note} className="list-disc text-[13px]">
-                    {note}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : reading.phase === "slow" ? (
-            <span>
-              Still organising. Your worklog is saved — close this box and it will appear in
-              the table shortly. You will get a notification when it is ready.
-            </span>
-          ) : (
-            <div className="grid gap-2">
-              <span>{reading.message}</span>
-              {reading.submissionId ? (
-                <button
-                  type="button"
-                  onClick={() => onRetry(reading.submissionId!)}
-                  className="w-fit rounded-control border border-danger/40 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-danger/10"
-                >
-                  Try reading it again
-                </button>
-              ) : null}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      className="size-4 animate-spin motion-reduce:animate-none"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <circle cx="8" cy="8" r="6" opacity="0.25" />
-      <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round" />
-    </svg>
   );
 }
 
