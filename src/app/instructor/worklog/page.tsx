@@ -33,6 +33,7 @@
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
+import { useMyProfile } from "@/app/_components/AccountDialogs";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
@@ -201,6 +202,13 @@ function longDate(iso: string): string {
 
 const COLUMNS = [
   "Date",
+  /* The reader's own name and code, on every row.
+   *
+   * Constant down the whole table — this is one instructor's own history — and
+   * asked for anyway, because this sheet is printed and sent on, and a page of
+   * dates with no name on it is not evidence of anything. */
+  "Employee Name",
+  "Employee ID",
   /* One column. It holds what they DID — the subject read off each entry —
    * which is what the client asked Broad Category to mean. */
   "Broad Category",
@@ -213,6 +221,14 @@ const COLUMNS = [
 
 export default function WorkLogHistoryPage() {
   const toast = useToast();
+
+  /* The reader's own identity, for the two columns the client's sheet carries.
+   * Read from the same profile hook the shell's account menu uses rather than
+   * added to the worklog payload: it is one person's name, not a property of
+   * each row, and putting it in the response would have repeated it once per
+   * day fetched. */
+  const { profile } = useMyProfile();
+  const self = { name: profile?.name ?? "—", code: profile?.employeeCode ?? "—" };
 
   /* Which view, which dates, which search, which page — in the URL, so a
    * refresh comes back to the same screen instead of dropping the reader on
@@ -840,7 +856,7 @@ export default function WorkLogHistoryPage() {
                     : "text-muted hover:bg-primary-subtle hover:text-primary-text"
                 }`}
               >
-                {v === "date" ? "Day Wise" : "Week Wise"}
+                {v === "date" ? "Date Wise" : "Weekly"}
               </button>
             ))}
           </div>
@@ -862,26 +878,61 @@ export default function WorkLogHistoryPage() {
               contain — and, worse, guessing its state from rows that could not
               answer. See `todayInView`. */}
           {!todayInView ? null : hasSubmittedToday ? (
-            <button
-              type="button"
-              onClick={openEditToday}
-              className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-4 py-2.5 text-sm font-semibold text-success-text shadow-card transition-colors hover:bg-success/10"
-            >
-              <Pencil />
-              Edit Today&rsquo;s Log
-            </button>
+            /* ── §6 The submitted state ──────────────────────────────────
+               A standing bar rather than the toast alone. The toast says it
+               once, at the moment it happens; this says it to somebody who
+               arrives later, and carries the only action left for today.
+
+               Sized to the spec's 520–620px and allowed to shrink below it,
+               because at a phone's width a fixed 520 would push the card
+               sideways. */
+            <div className="flex w-full max-w-[620px] items-center gap-3 rounded-control border border-success/30 bg-success-subtle px-4 py-3 sm:min-w-[min(520px,100%)]">
+              <span
+                aria-hidden
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-success text-white"
+              >
+                <Check />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-success-text">Great job!</span>
+                <span className="block text-xs text-muted">
+                  Your work log for today has been submitted successfully.
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={openEditToday}
+                className="shrink-0 rounded-control border border-success/40 bg-surface px-3 py-2 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
+              >
+                Edit Today&rsquo;s Log
+              </button>
+            </div>
           ) : (
             <button
               type="button"
               onClick={openNew}
-              className="inline-flex shrink-0 items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
+              className="inline-flex h-[42px] shrink-0 items-center gap-2 rounded-[6px] bg-primary px-5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
             >
               <Plus />
-              Add Today&rsquo;s Worklog
+              Today&rsquo;s Work Log
             </button>
           )}
         </div>
       </div>
+
+      {/* ── §10 The Date Wise strip ─────────────────────────────────────
+          Date Wise only, because it is the one thing it says: that the other
+          view exists. In Weekly it would be telling somebody about the view
+          they are already in. */}
+      {view === "date" ? (
+        <div className="mt-5 flex items-center gap-2.5 rounded-[6px] border border-primary/25 bg-primary-subtle px-3.5 py-2.5 text-[13px] text-primary-text">
+          <Info />
+          <span>
+            You are viewing your work logs date wise. Weekly view is also available in this
+            section.
+          </span>
+        </div>
+      ) : null}
 
       {/* ── Filters ───────────────────────────────────────────────────────
         * One row: each label sits BESIDE its input rather than above it, which
@@ -1033,8 +1084,14 @@ export default function WorkLogHistoryPage() {
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
                         </td>
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                          {self.name}
+                        </td>
+                        <td className="tabular border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                          {self.code}
+                        </td>
                         <td
-                          colSpan={5}
+                          colSpan={7}
                           className={`border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
@@ -1052,6 +1109,12 @@ export default function WorkLogHistoryPage() {
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
+                        </td>
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                          {self.name}
+                        </td>
+                        <td className="tabular border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                          {self.code}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
                           {broadCategoryCell(group.subjects)}
@@ -1124,7 +1187,7 @@ export default function WorkLogHistoryPage() {
                               {/* Skips only Broad Category to land on Deliverable —
                                   this entry's own row doesn't carry a subject of its
                                   own to show here. */}
-                              <td colSpan={1} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
+                              <td colSpan={3} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
                               <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
                                 {e.rawText ?? e.deliverableType?.label ?? "—"}
                               </td>
@@ -1191,7 +1254,7 @@ export default function WorkLogHistoryPage() {
                     </td>
                     {/* Skips Broad Category, Deliverable and Quantity to land the
                         total under Working Hours, then Remarks and Actions. */}
-                    <td colSpan={3} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td colSpan={5} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                     <td className="border-r border-line last:border-r-0 tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
@@ -1215,7 +1278,7 @@ export default function WorkLogHistoryPage() {
       {rows.length > 0 ? (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted">
-            Showing {firstShown} to {lastShown} of {total} rows
+            Showing {firstShown} to {lastShown} of {total} entries
           </p>
           <Pager page={page} lastPage={lastPage} onPage={setPage} />
         </div>
@@ -1267,7 +1330,7 @@ export default function WorkLogHistoryPage() {
                 : writingItOut && reading
                   ? "Done"
                   : editing
-                    ? "Save changes"
+                    ? "Update Work Log"
                     : "Submit Work Log"}
               {saving || (writingItOut && reading) ? null : <Send />}
             </button>
@@ -1725,6 +1788,21 @@ function Bin() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
       <path d="M4 6h12M8 6V4h4v2m-6 0 .7 9.1a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L14 6" {...stroke} />
+    </svg>
+  );
+}
+function Info() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4 shrink-0">
+      <circle cx="10" cy="10" r="7.2" {...stroke} />
+      <path d="M10 9.2v4.2M10 6.7v.1" {...stroke} strokeWidth={2} />
+    </svg>
+  );
+}
+function Check() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
+      <path d="m5 10.5 3.2 3.2L15 7" {...stroke} strokeWidth={2.2} />
     </svg>
   );
 }
