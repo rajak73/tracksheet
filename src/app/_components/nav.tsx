@@ -17,7 +17,6 @@ import {
   IconAnalytics,
   IconOverview,
   IconSettings,
-  IconUser,
   IconUsers,
 } from "@/app/_components/icons";
 
@@ -32,27 +31,39 @@ export type NavItem = {
 export type Role = "ADMIN" | "MANAGER" | "INSTRUCTOR";
 
 const ADMIN_NAV: NavItem[] = [
-  // Four items. The admin's work is: see whether the institute is recording its
-  // day (Dashboard), operate on the people who own rosters (Managers) and the
-  // people on them (Instructors), and configure the tenant (Settings).
-  // Universities, Staff, Reports and Insights all still exist and are still
-  // reachable — from manager and university context, where they carry meaning —
-  // but none of them is a destination an admin starts from, and a sidebar that
-  // lists everything makes the ones that matter harder to find.
-  //
-  // Activity Tracker, Audit Logs and Analytics were removed outright rather
-  // than demoted: the raw entry list and the analytics page both restated what
-  // Dashboard and the university pages already show, in a vocabulary the rest
-  // of the product had moved off — Analytics was still leading with a
-  // utilization percentage over every recorded minute. The audit trail itself
-  // is untouched: thirty-two server paths still write it, and
-  // `GET /api/universities/[id]/audit` still serves it.
+  /* Three items: is the institute recording its day, who are the people, and
+   * how is the tenant configured.
+   *
+   * ── Why one Employees list and not Managers + Instructors ───────────────
+   * They were two sidebar entries onto the same population, split by a field
+   * that is a COLUMN — and a filter — on either of them. An admin thinks
+   * "find Priya", not "find Priya, who is a manager, therefore the second
+   * list"; getting it wrong meant a search that returned nothing on a screen
+   * that looked right. One list, with Role beside Status and University, is
+   * what a staff console normally is.
+   *
+   * Both detail pages survive and are still linked from the rows and the
+   * breadcrumbs — /admin/managers/[id] for a roster and its weekly report,
+   * /admin/instructors/[id] for one person's days. What they stopped being is
+   * places you START from.
+   *
+   * Broad Category moved with the list: it is SUPPLIED on the client's report
+   * rather than derived, so somebody has to be able to set it, and it is now
+   * editable on the Employees row instead of only on the directory that left
+   * the sidebar.
+   *
+   * Universities, Reports and Insights are unchanged and still reachable from
+   * the context where they mean something. Activity Tracker, Audit Logs and
+   * Analytics were removed outright: they restated what Dashboard and the
+   * university pages already show, in a vocabulary the rest of the product had
+   * moved off. The audit trail itself is untouched — thirty-two server paths
+   * still write it and `GET /api/universities/[id]/audit` still serves it. */
   { href: "/admin/dashboard", label: "Dashboard", icon: IconOverview, group: "main" },
-  { href: "/admin/managers", label: "Managers", icon: IconUsers, group: "main" },
-  // The instructor directory was reachable only by following a link from a
-  // manager's page, which meant the one screen where an instructor's Broad
-  // Category is set could not be found from the sidebar at all.
-  { href: "/admin/instructors", label: "Instructors", icon: IconUser, group: "main" },
+  { href: "/admin/staff", label: "Employees", icon: IconUsers, group: "main" },
+  /* The same sheet the manager reads, scoped to the whole network by the
+     server rather than by a second page — see `WorklogScreen`. Day, Week and
+     Month all work here as they do there. */
+  { href: "/admin/worklog", label: "Worklog", icon: IconActivity, group: "main" },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, group: "admin" },
 ];
 

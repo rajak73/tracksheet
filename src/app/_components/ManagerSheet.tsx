@@ -22,12 +22,11 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { categoryColor } from "@/app/_components/charts";
 import {
   broadCategoryCell,
   compactDuration,
   countableLines,
-  quantityCell,
+  quantityLines,
   suppliedOr,
 } from "@/domain/worklog-report";
 import { formatDuration, type Activity } from "@/app/_components/workload";
@@ -76,13 +75,14 @@ const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
   broadCategory: "w-[160px] min-w-[160px]",
+  total: "w-[144px] min-w-[144px]",
 };
 
 /* Carries no background: every header cell picks its own, because the current
  * period takes a stronger one and two `bg-*` utilities on one cell is not a
  * layering — `background-color` is a single property, so one silently replaces
  * the other and which one wins is down to stylesheet order. */
-const HEAD = "text-xs font-semibold leading-snug text-primary-text";
+const HEAD = "text-[11px] font-semibold uppercase leading-snug tracking-wide text-primary-text";
 
 /* Sticky ranks, per the layer scale in globals.css: the period header row is
  * the floor, the frozen identity columns sit above it, and the corner where the
@@ -141,7 +141,7 @@ export function ManagerSheet({
 
   return (
     <div className="max-h-[70vh] overflow-auto rounded-card border border-line bg-surface shadow-card">
-      <table className="border-separate border-spacing-0 text-sm">
+      <table className="border-separate border-spacing-0 text-[13px]">
         <caption className="sr-only-text">
           Every instructor on your roster, with what they recorded in each period.
         </caption>
@@ -153,23 +153,62 @@ export function ManagerSheet({
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-line px-4 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-2 text-left`}
             >
               Employee Name
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-2 text-left`}
             >
               Employee ID
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-2 text-left`}
             >
               Broad Category
+            </th>
+
+            {/* ── The total, PINNED with the identity block ─────────────────
+             * It is the figure a manager compares people on, and it used to sit
+             * at the far right — past four columns for every period on screen,
+             * so on a week it was three screens of horizontal scrolling away
+             * from the name it belonged to. Scrolling to read it lost sight of
+             * everything else; scrolling back lost the figure.
+             *
+             * It is now the fourth frozen column, so name, id, category and
+             * total all stay put while the periods move under them.
+             * `left-[512px]` is 224 + 128 + 160 — the three widths before it,
+             * which is why those are fixed pixels rather than content-sized.
+             *
+             * Clicking still sorts, because "who is buried this week" is the
+             * question the column exists to answer. */}
+            <th
+              scope="col"
+              rowSpan={2}
+              /* `aria-sort` belongs on the column header, not on the button
+                 inside it — the header is what is sorted. */
+              aria-sort={
+                sort === "total-desc" ? "descending" : sort === "total-asc" ? "ascending" : "none"
+              }
+              className={`${HEAD} ${IDENTITY.total} bg-primary-subtle sticky left-[512px] top-0 ${STICKY_CORNER} border-b border-r-2 border-line p-0 text-right align-bottom`}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  onSort(sort === "total-desc" ? "total-asc" : sort === "total-asc" ? "name" : "total-desc")
+                }
+                className="flex h-full w-full items-end justify-end gap-1 px-3 py-2 text-right text-primary-text transition-colors hover:bg-primary/10"
+                title="Sort by total working hours"
+              >
+                Total Working Hours
+                <span aria-hidden className="text-sm leading-none">
+                  {sort === "total-desc" ? "\u25be" : sort === "total-asc" ? "\u25b4" : "\u21c5"}
+                </span>
+              </button>
             </th>
 
             {periods.map((p) => (
@@ -184,40 +223,24 @@ export function ManagerSheet({
                   p.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
                 }`}
               >
-                {p.sublabel}
-                <span className="tabular block font-normal text-primary-text">{p.label}</span>
+                {/* The label travels with its own group.
+                  *
+                  * This cell spans four columns, so scrolling into the middle
+                  * of a day pushed "Tuesday 25 Aug" off the left edge and left
+                  * a blank blue band above columns nobody could name any more.
+                  *
+                  * Sticky at the right edge of the frozen block — 224 + 128 +
+                  * 160 + 144 — so the label parks there while any part of its
+                  * day is in view, then leaves with the last of its columns.
+                  * Sticky is bounded by its containing block, which is this
+                  * cell, so it cannot wander over the next day's header. */}
+                <span className="sticky left-[656px] inline-block align-top">
+                  {p.sublabel}
+                  <span className="tabular block font-normal text-primary-text">{p.label}</span>
+                </span>
               </th>
             ))}
 
-            {/* ── The total, last, and the one thing you can order by ────────
-             * It is the figure a manager compares people on, so it sits at the
-             * end of every row regardless of how many periods are on screen —
-             * and clicking it sorts, because "who is buried this week" is the
-             * question the column exists to answer. */}
-            <th
-              scope="col"
-              rowSpan={2}
-              /* `aria-sort` belongs on the column header, not on the button
-                 inside it — the header is what is sorted. */
-              aria-sort={
-                sort === "total-desc" ? "descending" : sort === "total-asc" ? "ascending" : "none"
-              }
-              className={`${HEAD} bg-primary-subtle sticky top-0 ${STICKY_ROW} min-w-[9rem] border-b border-l-2 border-line p-0 text-right align-bottom`}
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  onSort(sort === "total-desc" ? "total-asc" : sort === "total-asc" ? "name" : "total-desc")
-                }
-                className="flex h-full w-full items-end justify-end gap-1 px-3 py-3 text-right text-primary-text transition-colors hover:bg-primary/10"
-                title="Sort by total working hours"
-              >
-                Total Working Hours
-                <span aria-hidden className="text-sm leading-none">
-                  {sort === "total-desc" ? "\u25be" : sort === "total-asc" ? "\u25b4" : "\u21c5"}
-                </span>
-              </button>
-            </th>
           </tr>
           <tr>
             {periods.flatMap((p) =>
@@ -247,17 +270,17 @@ export function ManagerSheet({
               <tr key={person.instructorId} className="group transition-colors hover:bg-hovered">
                 <th
                   scope="row"
-                  className={`${IDENTITY.name} sticky left-0 ${STICKY_COL} border-b border-r border-line bg-surface px-4 py-4 text-left align-top font-normal transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.name} sticky left-0 ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-2 text-left align-top font-normal transition-colors group-hover:bg-hovered`}
                 >
                   <span className="block truncate font-medium text-content">{person.name}</span>
                 </th>
                 <td
-                  className={`${IDENTITY.code} tabular sticky left-[224px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.code} tabular sticky left-[224px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
                   {suppliedOr(person.employeeCode)}
                 </td>
                 <td
-                  className={`${IDENTITY.broadCategory} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-4 align-top text-content transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.broadCategory} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
                   {/* What they actually worked on across the range shown, read
                       from the entries. The assigned-category column that used to
@@ -272,13 +295,20 @@ export function ManagerSheet({
                   )}
                 </td>
 
+                {/* Frozen with the three identity cells above it, so the
+                    figure and the name it belongs to are never on different
+                    screens. `bg-surface` is not optional here: a sticky cell
+                    paints over what it passes, and a transparent one would let
+                    the period columns scroll through it. */}
+                <td
+                  className={`${IDENTITY.total} tabular sticky left-[512px] ${STICKY_COL} border-b border-r-2 border-line bg-surface px-3 py-2 text-right align-top text-[13px] font-semibold text-content transition-colors group-hover:bg-hovered`}
+                >
+                  {formatDuration(totalHours(person, periods))}
+                </td>
+
                 {periods.map((period) => (
                   <PeriodCells key={period.label} period={period} person={person} />
                 ))}
-
-                <td className="tabular border-b border-l-2 border-line px-3 py-4 text-right align-top text-base font-semibold text-content">
-                  {formatDuration(totalHours(person, periods))}
-                </td>
               </tr>
             );
           })}
@@ -298,7 +328,12 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
   const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
 
   const bg = period.isCurrent ? "bg-primary-subtle/25" : "";
-  const cell = `border-b border-line px-3 py-4 align-top leading-relaxed ${bg}`;
+  /* `leading-snug`, not `leading-relaxed`. Relaxed leading is right for a
+   * paragraph and wrong for a column of short lines: with the deliverables now
+   * listed one per row it added half a line of air between each of them, and a
+   * week merging seven days turned that into a cell tall enough to leave the
+   * name beside it stranded at the top of an empty box. */
+  const cell = `border-b border-line px-3 py-2 align-top leading-snug ${bg}`;
   const empty = <span className="text-xs text-subtle">—</span>;
 
   if (activities.length === 0) {
@@ -323,32 +358,47 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
 
   return (
     <>
-      {/* "Live Class - 2h, Department Meeting - 45m" — everything with its own
-          duration, in the client's format. The muted ones do not count toward
-          Working Hours. */}
-      <td className={`${cell} min-w-[15rem] max-w-[20rem] border-l-2 border-line text-content`}>
-        {lines.map((l, i) => (
-          <span key={l.key} className={l.countable ? undefined : "text-muted"}>
-            {i > 0 ? ", " : ""}
-            <span
-              aria-hidden
-              className="mr-1 inline-block size-2 rounded-full align-middle"
-              style={{
-                background: categoryColor(activities[0]!.activityType.code),
-                opacity: l.countable ? 1 : 0.45,
-              }}
-            />
-            <span title={l.countable ? undefined : "Not counted in Working Hours"}>
-              {l.label} - {compactDuration(l.minutes)}
-            </span>
-          </span>
-        ))}
+      {/* One deliverable per line, not a comma-spliced sentence.
+          
+          Four deliverables ran together wrapped across three rows of the cell
+          and had to be read to be counted; as a list they are counted at a
+          glance, and they line up with the four figures in the column beside
+          them.
+          
+          The bullet is ONE colour. It used to be the day's category colour,
+          which put three or four hues in a row and read as a status the table
+          does not have — the categories are already named in the text. */}
+      <td className={`${cell} min-w-[14rem] max-w-[18rem] border-l-2 border-line text-content`}>
+        <ul className="space-y-1">
+          {lines.map((l) => (
+            <li
+              key={l.key}
+              className={`flex items-start gap-1.5 ${l.countable ? "" : "text-muted"}`}
+              title={l.countable ? undefined : "Not counted in Working Hours"}
+            >
+              <span
+                aria-hidden
+                className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
+                style={{ opacity: l.countable ? 1 : 0.45 }}
+              />
+              <span>
+                {l.label} - {compactDuration(l.minutes)}
+              </span>
+            </li>
+          ))}
+        </ul>
       </td>
 
-      <td className={`${cell} min-w-[11rem] max-w-[14rem] border-l border-line-subtle text-right text-content`}>
+      <td className={`${cell} min-w-[10rem] max-w-[13rem] border-l border-line-subtle text-right text-content`}>
         {/* One function writes this column everywhere, the client's `?`
-            included — an unstated count stays visible instead of vanishing. */}
-        {quantityCell(countableLines(cells))}
+            included — an unstated count stays visible instead of vanishing.
+            Listed rather than joined so each figure sits on the row of the
+            deliverable it belongs to. */}
+        <ul className="space-y-1">
+          {quantityLines(countableLines(cells)).map((q, i) => (
+            <li key={i}>{q}</li>
+          ))}
+        </ul>
       </td>
 
       <td

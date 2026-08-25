@@ -119,6 +119,19 @@ export function deliverableCell(lines: ReportLine[]): string {
 }
 
 /**
+ * The same lines, one per entry, for a cell that lists them instead of running
+ * them together.
+ *
+ * A day with four deliverables read as one long comma-spliced sentence that
+ * wrapped across three rows of a cell; four short lines are read at a glance
+ * and line up with the four counts in the column beside them. The joined form
+ * above is kept because the CSV export and the AI prompts want one string.
+ */
+export function deliverableLines(lines: ReportLine[]): string[] {
+  return ordered(lines).map((l) => `${l.name} - ${compactDuration(l.minutes)}`);
+}
+
+/**
  * `"1 Class, ? Assignments, 1 Department Meeting"`
  *
  * ── Three different things a missing number can mean ──────────────────────
@@ -139,6 +152,12 @@ export function deliverableCell(lines: ReportLine[]): string {
  * The unit comes from the taxonomy, never from pluralising the name — "1 Doubt
  * Clearings" is what that produced.
  */
+/** The quantity column, one line per entry — the list form of `quantityCell`. */
+export function quantityLines(lines: ReportLine[]): string[] {
+  const joined = quantityCell(lines);
+  return joined === NOTHING ? [] : joined.split(", ");
+}
+
 export function quantityCell(lines: ReportLine[]): string {
   const parts: string[] = [];
   for (const line of ordered(lines)) {

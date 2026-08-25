@@ -2,32 +2,28 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 
 /**
- * An instructor records TODAY — on the worklog routes, and on the routes the
- * worklog screen mutates through.
+ * An instructor records a day that HAS HAPPENED — never one still to come.
  *
- * ── The shape of the bug this pins ────────────────────────────────────────
- * The rule is old and was always documented — see the header of
- * `src/server/worklog/window.ts`: "An instructor writes up TODAY. Not
- * yesterday, not last week." What was not true is that it applied everywhere.
- * `verifyEntry` enforced it for the narrative paragraph, and the four-field
- * quick entry, its per-row edit, and the activity edit/delete routes grew up
- * beside it without ever picking it up. So the same past day was refused by
- * the paragraph box and freely rewritten by the pencil on the row next to it.
+ * ── What changed, and what the file used to pin ──────────────────────────
+ * This was the today-only rule: an instructor could write today and nothing
+ * else, and a missed Tuesday had to go through a manager. The client has
+ * dropped that half. People miss days, and routing every one of them through a
+ * manager makes the manager the bottleneck on their own roster's paperwork.
+ * The audit trail survives it — `createdAt` says when a row was written,
+ * `workDate` says which day it describes, and the two differing is visible to
+ * anyone reading the record.
  *
- * ── Where the line was drawn, and where it was not ───────────────────────
- * Guarded: the two worklog quick-entry routes, and activity PATCH/DELETE —
- * which is what the worklog screen's own edit and delete buttons call, so the
- * screen and the server now agree about which rows are writable.
+ * The future half is unchanged and is a different kind of rule: a day that has
+ * not happened cannot be reported on by anybody, at any level, however they
+ * ask. That is what these tests are now mostly about.
  *
- * Not guarded: `POST /api/instructors/:id/activities`. See the second describe
- * below for why that is a decision rather than an omission.
- *
- * ── Why the manager cases are here too ───────────────────────────────────
- * The refusal's own wording — "Ask your manager to record anything from an
- * earlier day" — makes a manager's ability to backdate part of the rule rather
- * than a gap in it. If a later tightening took that away, the message would be
- * telling instructors to ask for something nobody could do, so it is pinned
- * from both sides: refused for the instructor, allowed for the admin.
+ * ── Why both the entry route and the activity routes ─────────────────────
+ * The reason the file exists at all: the rule was once enforced by
+ * `verifyEntry` for the narrative paragraph while the four-field quick entry
+ * and the activity edit/delete routes grew up beside it without picking it up,
+ * so one screen refused what the pencil next to it allowed. Whatever the rule
+ * says, every route that writes a day has to say the same thing — so each is
+ * exercised here rather than trusted.
  */
 
 const RUN = Math.random()
@@ -86,11 +82,14 @@ describe("the four-field quick entry", () => {
     expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
-  test("yesterday is refused, and says to ask a manager", async () => {
+  test("yesterday is accepted — a missed day is the instructor's own to file", async () => {
     const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, entry(YESTERDAY));
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
-    expect(res.body.error.message).toContain("manager");
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+  });
+
+  test("a day last week is accepted too — the rule is not a grace period", async () => {
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, entry(shift(-7)));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
   test("tomorrow is refused as not having happened", async () => {
@@ -98,19 +97,23 @@ describe("the four-field quick entry", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
   });
+
+  test("and the refusal no longer tells them to ask a manager", async () => {
+    /* The message was "ask your manager to record anything from an earlier
+     * day". For the future that advice was never true — a manager cannot
+     * record tomorrow either — and now that the past is allowed there is
+     * nothing left to ask anybody for. */
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, entry(TOMORROW));
+    expect(res.body.error.message).not.toContain("manager");
+  });
 });
 
-describe("the activity create route is deliberately NOT held to today", () => {
-  /* Stated as a test rather than left as a silence, because the asymmetry
-   * looks exactly like a route somebody forgot. It is not: this is the
-   * general activity API, it is how a manager records hours and how history
-   * gets built, and a route that only accepts today cannot express "last week
-   * against the week before". Holding it to today broke twenty-six suites,
-   * several of them legitimately about multi-day arithmetic.
-   *
-   * The instructor-facing consequence is bounded in the UI instead — no
-   * instructor screen offers a non-today date into it. If that ever changes,
-   * this test says out loud what the server does and does not promise. */
+describe("the activity routes take any day that has happened", () => {
+  /* This asymmetry used to need explaining: the create route accepted a past
+   * day while PATCH and DELETE refused one, so an instructor could put a row
+   * on yesterday and then not be able to touch it. That was the cost of a
+   * today-only rule applied to some verbs and not others, and it is gone —
+   * every verb now draws the line in the same place, at the future. */
   const local = (date: string) => ({
     activityTypeCode: "TEACHING",
     local: { date, start: "14:00", end: "15:00" },
@@ -121,74 +124,88 @@ describe("the activity create route is deliberately NOT held to today", () => {
     expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
-  test("a past day is still accepted here — and cannot then be edited or deleted", async () => {
+  test("a past day is accepted, and the same caller can then edit it", async () => {
     const res = await instructor.post(`/api/instructors/${myId}/activities`, local(YESTERDAY));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
 
-    // The wart, pinned: created, then immovable by the same caller.
+    // What used to be the wart: created, then immovable. Now symmetrical.
     const edit = await instructor.patch(
       `/api/instructors/${myId}/activities/${res.body.activity.id}`,
-      local(YESTERDAY),
+      { activityTypeCode: "RESEARCH", local: { date: YESTERDAY, start: "14:00", end: "15:00" } },
     );
-    expect(edit.status).toBe(400);
-    expect(edit.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
+    expect(edit.status, JSON.stringify(edit.body)).toBe(200);
+  });
+
+  test("a future day is NOT refused by create — stated, not silently true", async () => {
+    /* The one hole left, pinned so it cannot widen unnoticed. Guarding this
+     * route was tried and broke thirteen suites: fixtures across the codebase
+     * use a far-future date as an isolated sandbox, and this is also the route
+     * a manager records history through. No instructor SCREEN offers a future
+     * date into it, so reaching this needs a hand-written call against one's
+     * own record. If that ever stops being true, this test is where to look. */
+    const res = await instructor.post(`/api/instructors/${myId}/activities`, local(TOMORROW));
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 });
 
 describe("editing and removing a day that is not today", () => {
-  /** An activity on YESTERDAY, put there by an admin — who is allowed to. */
+  /* Its own date and its own late slot, deliberately. The describes above now
+   * WRITE to yesterday and today — that is the point of them — and a fixture
+   * sharing either would collide with the overlap rule and fail for a reason
+   * that has nothing to do with what is being tested here. */
+  const DAY = shift(-3);
+
+  /** An activity on DAY, put there by an admin. */
   let past = "";
 
   beforeAll(async () => {
     const res = await admin.post(`/api/instructors/${myId}/activities`, {
       activityTypeCode: "TEACHING",
-      local: { date: YESTERDAY, start: "09:00", end: "10:00" },
+      local: { date: DAY, start: "21:00", end: "22:00" },
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     past = res.body.activity.id;
   });
 
-  test("an admin may record an earlier day — the escape hatch the refusal names", () => {
-    // Established by the beforeAll above; asserted so the rule's own advice
-    // ("ask your manager") cannot quietly stop being true.
-    expect(past).toBeTruthy();
-  });
-
-  test("the instructor cannot edit it", async () => {
+  test("the instructor may now edit a past day", async () => {
     const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
       activityTypeCode: "RESEARCH",
-      local: { date: YESTERDAY, start: "09:00", end: "10:00" },
+      local: { date: DAY, start: "21:00", end: "22:00" },
     });
-    expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 
-  test("nor drag it onto today to get around that", async () => {
-    /* The check that is easy to miss. Guarding only the date being saved TO
-     * would pass this — it writes today — while quietly removing work from a
-     * day the same caller was just refused. Both ends of a move are checked. */
+  test("moving it onto today is allowed — both ends have happened", async () => {
     const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
       activityTypeCode: "TEACHING",
-      local: { date: TODAY, start: "17:00", end: "18:00" },
+      local: { date: TODAY, start: "22:00", end: "23:00" },
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+  });
+
+  test("moving it into the future is not — and BOTH ends are still checked", async () => {
+    /* The check that is easy to lose when a rule is relaxed. Guarding only the
+     * date being written FROM would pass this. Both ends of a move go through
+     * the same assertion, which is why widening the rule did not need either
+     * end special-cased. */
+    const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
+      activityTypeCode: "TEACHING",
+      local: { date: TOMORROW, start: "22:00", end: "23:00" },
     });
     expect(res.status, JSON.stringify(res.body)).toBe(400);
     expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
   });
 
-  test("nor delete it", async () => {
+  test("and it may be deleted", async () => {
     const res = await instructor.delete(`/api/instructors/${myId}/activities/${past}`);
-    expect(res.status, JSON.stringify(res.body)).toBe(400);
-    expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 
-  test("and it is still there afterwards", async () => {
+  test("after which it is really gone", async () => {
     const list = await admin.get(
-      `/api/activities?instructorId=${myId}&from=${YESTERDAY}&to=${YESTERDAY}&limit=50`,
+      `/api/activities?instructorId=${myId}&from=${DAY}&to=${TODAY}&limit=50`,
     );
     expect(list.status).toBe(200);
-    expect(
-      list.body.activities.some((a: { id: string }) => a.id === past),
-      "a refused delete must not have deleted anything",
-    ).toBe(true);
+    expect(list.body.activities.some((a: { id: string }) => a.id === past)).toBe(false);
   });
 });

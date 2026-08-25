@@ -30,11 +30,10 @@
  * reproduced them would be a second copy to keep in step.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Badge,
-  Button,
   Card,
   CardHeader,
   EmptyState,
@@ -52,9 +51,7 @@ import {
 } from "@/app/_components/ui";
 import { TrendLine, type TrendPoint } from "@/app/_components/charts";
 import { Avatar } from "@/app/_components/AccountDialogs";
-import { useToast } from "@/app/_components/interactive";
-import { pingNotifications } from "@/app/_components/NotificationBell";
-import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { apiGet, useLoad } from "@/app/_lib/api";
 import { useQueryState } from "@/app/_lib/query-state";
 import { useUniversityToday } from "@/app/_lib/zone";
 import { formatDayAs, formatHours } from "@/app/_lib/format";
@@ -150,7 +147,6 @@ function lastRecorded(row: Row): string | null {
 
 export default function ManagerDashboardPage() {
   const today = useUniversityToday();
-  const toast = useToast();
 
   /* Search and sort are on the URL, so a refresh comes back to the same roster
    * and the view can be sent to somebody. See `useQueryState`. */
@@ -161,7 +157,6 @@ export default function ManagerDashboardPage() {
     | "hours-desc"
     | "hours-asc";
 
-  const [reminding, setReminding] = useState<string | null>(null);
 
   const thisMonth = useMemo(() => monthBounds(today), [today]);
   const lastMonth = useMemo(() => monthBounds(previousMonthOf(today)), [today]);
@@ -269,24 +264,6 @@ export default function ManagerDashboardPage() {
     );
   }, [rows, search, sort]);
 
-  /** A nudge, not a record: it writes a notification and changes no hours. */
-  async function remind(instructorId: string) {
-    setReminding(instructorId);
-    try {
-      await apiSend(
-        `/api/instructors/${instructorId}/remind`,
-        "POST",
-        { workDate: today },
-        "That reminder could not be sent.",
-      );
-      toast("success", "Reminder sent.");
-      pingNotifications();
-    } catch (e) {
-      toast("danger", e instanceof Error ? e.message : "That reminder could not be sent.");
-    } finally {
-      setReminding(null);
-    }
-  }
 
   if (current.error && !current.data) {
     return (
@@ -318,11 +295,10 @@ export default function ManagerDashboardPage() {
       {current.loading && !current.data ? (
         <StatGridSkeleton />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
             label="Total team members"
             value={current.data?.rosterTotal ?? 0}
-            emphasis
           />
           <StatTile
             label="Today's submissions"
@@ -356,7 +332,7 @@ export default function ManagerDashboardPage() {
           The chart is how the month has gone; the list is who is outstanding
           right now. Side by side because the second is the reason to look at
           the first: a dip in the line is a question, and the names answer it. */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader
             title="Team submission overview"
@@ -373,7 +349,7 @@ export default function ManagerDashboardPage() {
                 seriesLabel="This month"
                 compare={{ label: "Last month", points: series.compare }}
                 unit="submissions"
-                height={200}
+                height={150}
               />
             )}
           </div>
@@ -413,14 +389,6 @@ export default function ManagerDashboardPage() {
                           : `Nothing recorded in ${monthName}`}
                       </span>
                     </span>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={reminding === row.instructorId}
-                      onClick={() => remind(row.instructorId)}
-                    >
-                      {reminding === row.instructorId ? "Sending…" : "Remind"}
-                    </Button>
                   </li>
                 ))}
               </ul>
@@ -430,7 +398,7 @@ export default function ManagerDashboardPage() {
       </div>
 
       {/* ── The roster ─────────────────────────────────────────────────────── */}
-      <Card className="mt-6">
+      <Card className="mt-4">
         <CardHeader
           title="Team members status"
           description={`Today's record and the month's hours. ${monthName}.`}

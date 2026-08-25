@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { ApiError } from "@/server/http/errors";
 import { logActivity, updateActivity } from "@/server/activities/logger";
-import { loadTaxonomy } from "@/server/worklog/taxonomy";
+import { loadTaxonomy, type Taxonomy } from "@/server/worklog/taxonomy";
 import { parseBullets } from "@/server/worklog/parse";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { dayOfWeekFor } from "@/server/time/schedule-windows";
@@ -189,6 +189,88 @@ const hhmm = (minutes: number) =>
  * with no subject, which is exactly what a line naming no subject would have
  * produced anyway.
  */
+/**
+ * Words that say nothing about WHICH deliverable a line is.
+ *
+ * "Session", "work" and "task" appear in half the taxonomy's own labels, so
+ * matching on them would make every line look like every deliverable.
+ */
+const NOISE = new Set([
+  "a", "an", "the", "on", "for", "of", "and", "to", "with", "in", "at",
+  "session", "sessions", "work", "task", "tasks", "my", "today", "todays",
+]);
+
+const normalise = (text: string) =>
+  text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+const significantWords = (text: string) =>
+  normalise(text).split(" ").filter((w) => w.length > 1 && !NOISE.has(w));
+
+/**
+ * The deliverable a line names outright, or null.
+ *
+ * ── Why this exists ───────────────────────────────────────────────────────
+ * Classification was one provider call per submission, always — five seconds
+ * on a good day and half a minute on a bad one, on every press of Submit, to
+ * decide that "Live Class" is a live class. The instructor is typing the
+ * taxonomy's own vocabulary most of the time, because it is the vocabulary the
+ * report prints back at them.
+ *
+ * So the obvious cases are settled here, in memory, and the provider is asked
+ * only about text this cannot place. Nothing about the ANSWER changes — the
+ * ids come from the same taxonomy the model's reply is resolved against.
+ *
+ * ── Two names per deliverable, and the second is the one people type ─────
+ * The stored label is the taxonomy's own — "Student Query Resolution". The
+ * report prints the CLIENT's name for the same thing — "Doubt Clearing" — and
+ * that is the vocabulary an instructor has in front of them, so it is the one
+ * they write back. Matching only the stored label missed the commonest lines
+ * on the page. Both names are tried; `deliverableFor` is the same map the
+ * report reads.
+ *
+ * ── Longest label wins ────────────────────────────────────────────────────
+ * "Revision Class" and "Live Class" both match a line containing the first,
+ * and the more specific one is the right answer. Word count is the tiebreak
+ * rather than string length, so a two-word label beats a one-word label
+ * regardless of spelling.
+ */
+function matchDeliverable(
+  text: string,
+  taxonomy: Taxonomy,
+): { categoryCode: string; deliverableId: string; deliverableCode: string } | null {
+  const haystack = normalise(text);
+  const words = new Set(significantWords(text));
+  if (words.size === 0) return null;
+
+  let best: { categoryCode: string; deliverableId: string; deliverableCode: string } | null = null;
+  let bestScore = 0;
+
+  for (const deliverable of taxonomy.deliverableByCode.values()) {
+    const names = [
+      deliverable.label,
+      deliverableFor(deliverable.code, deliverable.categoryCode).name,
+    ];
+
+    for (const name of names) {
+      const labelWords = significantWords(name);
+      if (labelWords.length === 0) continue;
+
+      // The whole name as a phrase, or every significant word of it present.
+      const hit = haystack.includes(normalise(name)) || labelWords.every((w) => words.has(w));
+      if (!hit || labelWords.length <= bestScore) continue;
+
+      bestScore = labelWords.length;
+      best = {
+        categoryCode: deliverable.categoryCode,
+        deliverableId: deliverable.id,
+        deliverableCode: deliverable.code,
+      };
+    }
+  }
+
+  return best;
+}
+
 export async function classifyLines(
   lines: Array<{ deliverable: string; quantity: number | null }>,
 ): Promise<Classification[]> {
@@ -202,6 +284,24 @@ export async function classifyLines(
 
   try {
     const taxonomy = await loadTaxonomy();
+
+    /* Settled without the provider when every line names its own deliverable,
+     * which is the ordinary case. One line this cannot place sends the whole
+     * submission to the model as before — the alternative is two sources of
+     * truth for one day's classification, and a day whose lines were decided
+     * partly here and partly there is harder to reason about than a day that
+     * waited. `broadCategoryId` stays null: the subject is a separate judgement
+     * and this does not attempt it. */
+    const local = lines.map((l) => matchDeliverable(l.deliverable, taxonomy));
+    if (local.every((m) => m !== null)) {
+      return local.map((m) => ({
+        activityTypeCode: m!.categoryCode,
+        deliverableTypeId: m!.deliverableId,
+        deliverableCode: m!.deliverableCode,
+        broadCategoryId: null,
+      }));
+    }
+
     const parsed = await parseBullets(
       lines.map((l) =>
         l.quantity !== null && l.quantity > 1 ? `${l.deliverable} (${l.quantity})` : l.deliverable,

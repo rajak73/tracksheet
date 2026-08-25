@@ -53,6 +53,7 @@ export function Dialog({
   footer,
   dividers = true,
   size = "md",
+  dismissible = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -70,6 +71,16 @@ export function Dialog({
   dividers?: boolean;
   /** `lg` for a form with four fields in it; `md` for a question or a confirm. */
   size?: "md" | "lg";
+  /**
+   * Whether a click on the backdrop, or Escape, closes this.
+   *
+   * On by default, which is right for a question. A dialog holding a form that
+   * has been typed into should set it false: a stray click beside the box, or
+   * an Escape aimed at a date picker, then discards work with no warning and no
+   * way back. Those close through the X and Cancel — deliberate targets — and
+   * nothing else.
+   */
+  dismissible?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -85,12 +96,28 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      /* Escape fires `cancel` BEFORE `close`, so refusing it there is what
+         stops the dialog going away — and it stops it without the element ever
+         closing, which is the only version that works.
+         
+         Re-opening from `onClose` instead was a bug: the X and Cancel close by
+         asking the PARENT to set `open` to false, the effect above then calls
+         `el.close()`, and re-opening on that event put the dialog straight back
+         up. It could not be closed at all. */
+      onCancel={(e) => {
+        if (!dismissible) e.preventDefault();
+      }}
+      /* Only forwarded when this dialog can be dismissed by the browser. A
+         non-dismissible one only ever closes because the parent already set
+         `open` to false, so telling it again is at best redundant. */
+      onClose={() => {
+        if (dismissible) onClose();
+      }}
       // A click on the backdrop lands on the dialog element itself, never on
       // its content — so this closes on backdrop click without a second
       // listener on the page.
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (dismissible && e.target === ref.current) onClose();
       }}
       // `m-auto` is load-bearing: a native modal <dialog> centres itself via
       // `margin: auto`, and Tailwind's preflight resets every margin to 0 —

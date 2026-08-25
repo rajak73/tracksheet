@@ -35,8 +35,29 @@ const COLUMN_RULE = "border-r border-line last:border-r-0";
  * screen with the page. A short table is unaffected — the cap only engages once
  * there is more table than room.
  */
-export function TableWrap({ children }: { children: ReactNode }) {
-  return <div className="max-h-[70vh] overflow-auto">{children}</div>;
+export function TableWrap({
+  children,
+  maxHeight = "70vh",
+}: {
+  children: ReactNode;
+  /**
+   * How tall the box may get before it scrolls instead.
+   *
+   * 70vh suits a table that IS the page. A table sharing a screen with other
+   * panels wants a shorter one, so its height is set by the layout rather than
+   * by how much data happens to be in it — a card that grows with its contents
+   * pushes everything below it around.
+   *
+   * An inline style rather than a class: Tailwind cannot generate a utility for
+   * a value that only exists at runtime.
+   */
+  maxHeight?: string;
+}) {
+  return (
+    <div className="overflow-auto" style={{ maxHeight }}>
+      {children}
+    </div>
+  );
 }
 
 export function Table({ caption, children }: { caption?: string; children: ReactNode }) {

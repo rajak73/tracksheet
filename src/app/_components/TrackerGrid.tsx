@@ -628,16 +628,28 @@ export function TrackerGrid({
                     week.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
                   }`}
                 >
-                  <span className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary-text">
-                    Week {week.index}
-                    {week.isCurrent ? (
-                      <Badge tone="info">
-                        <span className="text-[10px]">Current</span>
-                      </Badge>
-                    ) : null}
-                  </span>
-                  <span className="tabular mt-0.5 block text-xs font-normal text-primary-text">
-                    {weekLabel(week)}
+                  {/* The label travels with its own week — the same reason as
+                      the day header in `ManagerSheet`. This cell spans five
+                      columns, so scrolling into the middle of a week left a
+                      heading band above columns nobody could name.
+
+                      Sticky at 352px, the width of the two frozen identity
+                      columns (224 + 128), and bounded by this cell, so it parks
+                      beside them while its week is in view and leaves with it.
+                      `text-left` because a centred label that is also sticky
+                      slides against its own centring as you scroll. */}
+                  <span className="sticky left-[352px] inline-block text-left align-top">
+                    <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary-text">
+                      Week {week.index}
+                      {week.isCurrent ? (
+                        <Badge tone="info">
+                          <span className="text-[10px]">Current</span>
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="tabular mt-0.5 block text-xs font-normal text-primary-text">
+                      {weekLabel(week)}
+                    </span>
                   </span>
                 </th>
               ))}

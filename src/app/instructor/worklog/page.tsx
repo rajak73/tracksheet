@@ -37,9 +37,8 @@ import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
 import {
   broadCategoryCell,
-  deliverableCell,
-  quantityCell,
-  UNSTATED,
+  deliverableLines,
+  quantityLines,
   workingHours as workingHoursCell,
 } from "@/domain/worklog-report";
 import {
@@ -132,6 +131,26 @@ const weekRange = (date: string) => {
 };
 
 /**
+ * One page of WEEKS, ending with the week in progress.
+ *
+ * Weekly used to open on a single week and lay it out as its seven days, which
+ * made it Day Wise with a narrower window rather than a different reading. It
+ * now works the way Day Wise does — this week at the top, the weeks before it
+ * underneath — so the two views differ in the UNIT they accumulate into, which
+ * is the only reason to have both.
+ */
+const defaultWeekRange = (zone?: string | null, count = PAGE_SIZE) => {
+  const current = weekOf(todayIn(zone));
+  return { from: addDays(current[0]!, -7 * (count - 1)), to: current.at(-1)! };
+};
+
+/** "18 – 24 Aug 2026", from the Monday of a week. */
+const weekLabel = (monday: string) => {
+  const days = weekOf(monday);
+  return `${longDate(days[0]!).slice(0, 6)} – ${longDate(days.at(-1)!)}`;
+};
+
+/**
  * What the screen says while a paragraph is being read, and afterwards.
  *
  * Null until a paragraph is sent. The states after that are the submission's
@@ -170,6 +189,15 @@ function longDate(iso: string): string {
  * reader to add them up themselves.
  */
 
+/**
+ * The sheet's columns.
+ *
+ * Actions is the last one and Date Wise's alone — a week row is an
+ * accumulation of up to seven days with nothing for a pencil to open, so in
+ * Weekly the column is not emptied, it is not there. An empty column with a
+ * heading over it reads as a feature that is broken rather than one that does
+ * not apply.
+ */
 const COLUMNS = [
   "Date",
   /* One column. It holds what they DID — the subject read off each entry —
@@ -205,7 +233,6 @@ export default function WorkLogHistoryPage() {
 
   const setPage = (n: number) => setQ({ page: String(n) });
   /** The day whose individual entries are open, when it was written in several. */
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -264,12 +291,10 @@ export default function WorkLogHistoryPage() {
   // What the filters actually resolve to right now.
   const fromAt = inRange(from ?? defaultDayRange(zone).from);
   const toAt = to ?? today;
-  /* Week Wise shows the week CONTAINING the From date, rather than carrying a
-   * separate anchor of its own. It used to have one, stepped by a pair of
-   * arrows above the filters; with those gone the anchor had nothing to move
-   * it, so it would have pinned Week Wise to the current week forever. Deriving
-   * it from a filter the reader can actually see keeps the two agreeing. */
-  const weekAt = fromAt;
+  /* Weekly has no anchor of its own. It reads the same two date filters Day
+   * Wise reads and simply rounds them out to whole weeks — so the filters and
+   * the table always describe the same period, and there is no second source of
+   * truth to drift from them. */
 
 
   /* No `page` here, deliberately — see `ENTRY_FETCH_LIMIT`. The window's
@@ -281,12 +306,10 @@ export default function WorkLogHistoryPage() {
    * filter to the whole week it falls in, so a week always shows seven days
    * rather than the ragged slice the filters happen to describe. */
   const [windowFrom, windowTo] = useMemo<[string, string]>(() => {
-    if (view === "week") {
-      const week = weekOf(weekAt);
-      return [week[0]!, week.at(-1)!];
-    }
+    // Whole weeks, so a row is never a ragged slice of one.
+    if (view === "week") return [weekOf(fromAt)[0]!, weekOf(toAt).at(-1)!];
     return [fromAt, toAt];
-  }, [view, weekAt, fromAt, toAt]);
+  }, [view, fromAt, toAt]);
 
   const query = `from=${windowFrom}&to=${windowTo}&limit=${ENTRY_FETCH_LIMIT}${
     search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""
@@ -425,10 +448,25 @@ export default function WorkLogHistoryPage() {
       buildPeriodRow({ key, label, sublabel, dates, activities, dayNotes: notes, today });
 
     if (view === "week") {
-      // Calendar order. A week is read forwards, whatever Day Wise does.
-      return weekOf(weekAt).map((date) =>
-        build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
-      );
+      /* One row per WEEK, newest first — the week in progress at the top and
+         the weeks before it under, which is the order Day Wise reads days in.
+         Each row accumulates its seven days: `buildPeriodRow` merges the
+         deliverables, sums the hours and totals the quantities across whatever
+         dates it is handed, so a week is one line rather than seven. */
+      const earliest = weekOf(fromAt)[0]!;
+      const weeks: PeriodRow[] = [];
+      for (let monday = weekOf(toAt)[0]!; monday >= earliest; monday = addDays(monday, -7)) {
+        const days = weekOf(monday);
+        weeks.push(
+          build(
+            monday,
+            days.includes(today) ? `This week — ${weekLabel(monday)}` : weekLabel(monday),
+            undefined,
+            days,
+          ),
+        );
+      }
+      return weeks;
     }
 
     /* Day Wise: every day in the range asked for, newest first — including
@@ -453,29 +491,21 @@ export default function WorkLogHistoryPage() {
     return span.map((date) =>
       build(date, date === today ? `Today — ${longDate(date)}` : longDate(date), weekdayOf(date), [date]),
     );
-  }, [rows, view, today, weekAt, fromAt, dayNotes.data]);
+  }, [rows, view, today, fromAt, toAt, dayNotes.data]);
 
 
-  function openNew() {
+  /**
+   * A blank box for a day that has happened.
+   *
+   * Defaults to today, which is the header button's case. A missed day is the
+   * reason it takes an argument at all: editing a past row is no use when the
+   * row is empty, and "I forgot Tuesday" is the whole point of being allowed to
+   * write days other than this one.
+   */
+  function openNew(date: string = today) {
     setEditing(null);
     setEditingToday(false);
-    setDraft(emptyDraft(today));
-    setFormError(null);
-    setOpen(true);
-  }
-
-  function openEdit(row: Row) {
-    setEditing(row);
-    setEditingToday(false);
-    setDraft({
-      date: row.workDate.slice(0, 10),
-      deliverable: row.rawText ?? row.deliverableType?.label ?? "",
-      quantity: String(row.quantity ?? ""),
-      // Loaded back the way the table prints it, so an edit does not silently
-      // turn "8h 30m" into "8.5" in front of the person correcting it.
-      workingHours: formatHours(row.durationHours).replace(/^0/, ""),
-      remarks: row.remarks ?? "",
-    });
+    setDraft(emptyDraft(date));
     setFormError(null);
     setOpen(true);
   }
@@ -490,10 +520,22 @@ export default function WorkLogHistoryPage() {
    * comment on that. Nothing here needs to know it is an edit; the server
    * already does.
    */
+  /** The header's button: today, which is the common case. */
   function openEditToday() {
+    openEditDay(today);
+  }
+
+  /**
+   * A whole day, back in the four boxes, ready to be rewritten.
+   *
+   * Takes the date rather than assuming today, because the Actions column now
+   * offers this on every day that has happened — a day with five entries in it
+   * is edited as a day, not as five separate rows.
+   */
+  function openEditDay(date: string) {
     if (!instructorId) return;
     setEditing(null);
-    setEditingToday(true);
+    setEditingToday(date === today);
     setFormError(null);
 
     /* Today's own lines, back in the four boxes that wrote them.
@@ -508,9 +550,9 @@ export default function WorkLogHistoryPage() {
      * The lists stay index-aligned, empties included, because `splitEntries`
      * pairs them by position — dropping a blank quantity would shift every
      * hour after it onto the wrong deliverable. */
-    const todays = rows.filter((r) => r.workDate.slice(0, 10) === today);
+    const todays = rows.filter((r) => r.workDate.slice(0, 10) === date);
     setDraft({
-      date: today,
+      date,
       deliverable: todays.map((r) => r.rawText ?? r.deliverableType?.label ?? "").join("\n"),
       quantity: todays.map((r) => String(r.quantity ?? "")).join("\n"),
       // Printed the way the table prints it, so an edit does not turn
@@ -582,19 +624,44 @@ export default function WorkLogHistoryPage() {
     }
   }
 
-  async function remove(row: Row) {
-    if (!instructorId) return;
+  /**
+   * Every entry on one day.
+   *
+   * Asked about first when there is more than one, because the button sits on a
+   * row that prints a day and deleting five things from one click is not what
+   * "remove" looks like it will do. Deleted one at a time — there is no
+   * day-level DELETE — and the reload comes once at the end rather than after
+   * each, so the table does not flicker through four intermediate states.
+   */
+  async function removeDay(label: string, entries: Row[]) {
+    if (!instructorId || entries.length === 0) return;
+    if (
+      entries.length > 1 &&
+      !window.confirm(`Remove all ${entries.length} entries recorded on ${label}?`)
+    ) {
+      return;
+    }
     try {
-      await apiSend(
-        `/api/instructors/${instructorId}/activities/${row.id}`,
-        "DELETE",
-        undefined,
-        "Could not remove that entry.",
+      for (const entry of entries) {
+        await apiSend(
+          `/api/instructors/${instructorId}/activities/${entry.id}`,
+          "DELETE",
+          undefined,
+          "Could not remove that entry.",
+        );
+      }
+      toast(
+        "success",
+        entries.length === 1
+          ? "Entry removed successfully."
+          : `${entries.length} entries removed from ${label}.`,
       );
-      toast("success", "Entry removed successfully.");
-      logs.reload();
-        } catch (e) {
+    } catch (e) {
       toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");
+    } finally {
+      // Whatever happened, the table is refetched: a partial delete must not
+      // leave rows on screen that are no longer in the database.
+      logs.reload();
     }
   }
 
@@ -626,6 +693,9 @@ export default function WorkLogHistoryPage() {
    * from the report entirely. Said out loud rather than left to be noticed: a
    * silently short report is the one failure mode a reader cannot detect. */
   const truncated = (logs.data?.total ?? 0) > rows.length;
+
+  /** Weekly drops the last column — see `COLUMNS`. */
+  const columns = view === "date" ? COLUMNS : COLUMNS.slice(0, -1);
 
   return (
     <div>
@@ -665,7 +735,7 @@ export default function WorkLogHistoryPage() {
         ) : (
           <button
             type="button"
-            onClick={openNew}
+            onClick={() => openNew()}
             className="inline-flex h-[42px] shrink-0 items-center gap-2 rounded-[6px] bg-primary px-5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
           >
             <Plus />
@@ -679,9 +749,14 @@ export default function WorkLogHistoryPage() {
           switch, the strip, the filters, the table itself and the count. One
           container, so switching Date Wise to Weekly changes what is inside it
           rather than swapping one card for another. */}
-      <div className="mt-5 rounded-card border border-line-card bg-surface shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
-          <h2 className="text-lg font-bold tracking-tight text-primary-text">Work Log History</h2>
+      {/* `border-line`, the real token. This said `border-line-card`, which is
+          not one — so Tailwind generated no colour and `border` fell back to
+          its default of `currentColor`, drawing the card's outline in the dark
+          text colour. A black box around a white card, from a typo in a name
+          nothing validates. */}
+      <div className="mt-5 rounded-card border border-line bg-surface shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 sm:px-6">
+          <h2 className="text-base font-bold tracking-tight text-primary-text">Work Log History</h2>
           <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
             {(["date", "week"] as const).map((v) => (
@@ -693,7 +768,6 @@ export default function WorkLogHistoryPage() {
                      new question starts at now — so both views reset the filters
                      to today rather than carrying a date the reader chose while
                      asking something else. */
-                  setExpanded(null);
                   /* Each view sets the calendar to the range it is about to
                      show: Week Wise to this week's Monday and Sunday, Day Wise
                      to one page of days ending today. The filters and the table
@@ -703,11 +777,12 @@ export default function WorkLogHistoryPage() {
                      All four in ONE patch: `router.replace` does not update the
                      address synchronously, so four calls here would each read
                      the same URL and the last would be the only one kept. */
-                  const range = v === "week" ? weekRange(today) : defaultDayRange(zone);
+                  const range =
+                    v === "week" ? defaultWeekRange(zone) : defaultDayRange(zone);
                   setQ({ view: v, from: range.from, to: range.to, page: "1" });
                 }}
                 aria-pressed={view === v}
-                className={`rounded-[calc(var(--radius-control)-2px)] px-5 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-[calc(var(--radius-control)-2px)] px-4 py-1.5 text-sm font-semibold transition-colors ${
                   view === v
                     ? "bg-primary text-white"
                     : "text-muted hover:bg-primary-subtle hover:text-primary-text"
@@ -738,20 +813,6 @@ export default function WorkLogHistoryPage() {
         </div>
 
         <div className="px-5 pb-5 sm:px-6 sm:pb-6">
-      {/* ── §10 The Date Wise strip ─────────────────────────────────────
-          Date Wise only, because it is the one thing it says: that the other
-          view exists. In Weekly it would be telling somebody about the view
-          they are already in. */}
-      {view === "date" ? (
-        <div className="mt-5 flex items-center gap-2.5 rounded-[6px] border border-primary/25 bg-primary-subtle px-3.5 py-2.5 text-[13px] text-primary-text">
-          <Info />
-          <span>
-            You are viewing your work logs date wise. Weekly view is also available in this
-            section.
-          </span>
-        </div>
-      ) : null}
-
       {/* ── Filters ───────────────────────────────────────────────────────
         * One row: each label sits BESIDE its input rather than above it, which
         * is what the client's design shows and what lets the whole bar fit on
@@ -762,7 +823,7 @@ export default function WorkLogHistoryPage() {
         * `flex-wrap` stays. At a phone's width four controls cannot share a
         * line whatever the labels do, and wrapping is the only alternative to
         * the page itself scrolling sideways. */}
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2">
           <span className="shrink-0 text-sm font-medium text-content">From Date</span>
           <input
@@ -817,7 +878,8 @@ export default function WorkLogHistoryPage() {
             // Reset means "back to this view's own default range", not
             // always Day Wise's — resetting inside Week Wise used to hand back
             // a range that was not a week.
-            const range = view === "week" ? weekRange(today) : defaultDayRange(zone);
+            const range =
+              view === "week" ? defaultWeekRange(zone) : defaultDayRange(zone);
             setQ({ from: range.from, to: range.to, search: "", page: "1" });
           }}
           className="inline-flex h-11 shrink-0 items-center gap-2 rounded-control border border-primary/40 px-4 text-sm font-semibold text-primary-text transition-colors hover:bg-primary-subtle"
@@ -832,7 +894,7 @@ export default function WorkLogHistoryPage() {
         {logs.error ? (
           <ErrorState message={logs.error} onRetry={logs.reload} />
         ) : logs.loading ? (
-          <TableSkeleton rows={PAGE_SIZE} cols={COLUMNS.length} />
+          <TableSkeleton rows={PAGE_SIZE} cols={columns.length} />
         ) : rows.length === 0 ? (
           <EmptyState
             title="Nothing recorded in this period"
@@ -858,13 +920,13 @@ export default function WorkLogHistoryPage() {
              * table would silently lose its lines. */
             className="max-h-[60vh] overflow-auto rounded-card border border-line"
           >
-            <table className="w-full min-w-[68rem] border-separate border-spacing-0 text-sm">
+            <table className="w-full min-w-[68rem] border-separate border-spacing-0 text-[13px]">
               <caption className="sr-only-text">
                 Your work logs, newest first, in the columns the monthly report uses.
               </caption>
               <thead>
                 <tr>
-                  {COLUMNS.map((c) => (
+                  {columns.map((c) => (
                     <th
                       key={c}
                       scope="col"
@@ -883,9 +945,12 @@ export default function WorkLogHistoryPage() {
                   const entries = rows.filter((r) =>
                     group.dates.includes(r.workDate.slice(0, 10)),
                   );
-                  const isOpen = expanded === group.key;
-                  const first = entries[0];
                   const isToday = group.dates.includes(today);
+                  /* A row the instructor cannot write to: every date it covers
+                     is still ahead. A WEEK row is editable as soon as any day
+                     in it has arrived, which is the same test the day rows make
+                     one date at a time. */
+                  const isFuture = group.dates.every((d) => d > today);
 
                   /* ── Nothing recorded, and the two reasons are different ──
                    * A day that has passed with nothing on it is somebody not
@@ -896,7 +961,7 @@ export default function WorkLogHistoryPage() {
                     const future = group.state === "future";
                     return (
                       <tr key={group.key} className={future ? "" : "bg-warning-subtle/30"}>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
@@ -904,11 +969,30 @@ export default function WorkLogHistoryPage() {
                         </td>
                         <td
                           colSpan={5}
-                          className={`border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 ${future ? "text-subtle" : "font-medium text-warning-text"}`}
+                          className={`border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4" />
+                        {view !== "date" ? null : (
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
+                          {/* Only where there is a single day to fill. A WEEK
+                              row with nothing on it covers up to seven empty
+                              days and one button cannot say which of them this
+                              would be — those are reached by switching to Date
+                              Wise, where each has a row of its own. */}
+                          {!future && group.dates.length === 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => openNew(group.dates[0]!)}
+                              aria-label={`Record the work log for ${group.label}`}
+                              title="Record this day"
+                              className="inline-flex size-9 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
+                            >
+                              <Plus />
+                            </button>
+                          ) : null}
+                        </td>
+                        )}
                       </tr>
                     );
                   }
@@ -916,127 +1000,104 @@ export default function WorkLogHistoryPage() {
                   return (
                     <Fragment key={group.key}>
                       <tr className={isToday ? "bg-primary-subtle/25" : ""}>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.label}
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {broadCategoryCell(group.subjects)}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
-                          {deliverableCell(group.lines)}
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
+                          {/* One per line, with a single-colour bullet — the
+                              same treatment the manager's sheet uses, so the
+                              two read as one report. */}
+                          <ul className="space-y-1">
+                            {deliverableLines(group.lines).map((d, i) => (
+                              <li key={i} className="flex items-start gap-1.5">
+                                <span
+                                  aria-hidden
+                                  className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
+                                />
+                                <span>{d}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </td>
-                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-4 text-content">
-                          {quantityCell(group.lines)}
+                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
+                          <ul className="space-y-1">
+                            {quantityLines(group.lines).map((q, i) => (
+                              <li key={i}>{q}</li>
+                            ))}
+                          </ul>
                         </td>
-                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-4 font-medium text-content">
+                        <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug font-medium text-content">
                           {workingHoursCell(group.totalMinutes)}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4 text-content">
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.remarks || "—"}
                         </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-4">
+                        {view !== "date" ? null : (
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
                           <span className="inline-flex items-center gap-2">
-                            {entries.length > 1 || view !== "date" ? (
-                              /* What the row was made FROM. The row is the
-                                 reading of the period; this is the record it
-                                 was read from, which is what somebody checking
-                                 a figure actually wants to see. */
-                              <button
-                                type="button"
-                                onClick={() => setExpanded(isOpen ? null : group.key)}
-                                aria-expanded={isOpen}
-                                aria-label={`${isOpen ? "Hide" : "Show"} what ${group.label} was made of — ${entries.length} entries as recorded`}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-control border border-line px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-hovered hover:text-content"
-                              >
-                                {entries.length} {entries.length === 1 ? "entry" : "entries"}
-                                <Chevron open={isOpen} />
-                              </button>
-                            ) : first && isToday ? (
-                              /* Today only. An instructor records the day they
-                                 are in — the server refuses anything else, so
-                                 offering a pencil on last Tuesday was offering
-                                 a button whose only outcome was a refusal. */
+                            {/* Date Wise only. A week row is an accumulation
+                                of up to seven days: there is no single day for
+                                Edit to open, and Delete would clear a week from
+                                one click. Both live on the day rows, which is
+                                where the record actually is. */}
+                            {view !== "date" || isFuture ? null : (
+                              /* The same two actions in both views, and in both
+                                 they act on the whole row.
+                                 
+                                 A WEEK row is the awkward one: it covers up to
+                                 seven days, and the four boxes hold ONE date,
+                                 so there is no honest form to open for it.
+                                 Edit therefore takes the reader to that week in
+                                 Date Wise, where each day has a row and an Edit
+                                 of its own — one click, and it lands on
+                                 something that can actually be edited. Delete
+                                 does work on the week directly, because
+                                 clearing every entry in it is a thing that CAN
+                                 be expressed. */
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => openEdit(first)}
-                                  aria-label={`Edit the entry from ${group.label}`}
-                                  title="Edit"
+                                  onClick={() =>
+                                    view === "date"
+                                      ? openEditDay(group.dates[0]!)
+                                      : setQ({
+                                          view: "date",
+                                          from: group.dates[0]!,
+                                          to: group.dates[group.dates.length - 1]!,
+                                          page: "1",
+                                        })
+                                  }
+                                  aria-label={
+                                    view === "date"
+                                      ? `Edit the work log for ${group.label}`
+                                      : `Open ${group.label} day by day to edit it`
+                                  }
+                                  title={view === "date" ? "Edit" : "Edit day by day"}
                                   className="inline-flex size-9 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
                                 >
                                   <Pencil />
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void remove(first)}
-                                  aria-label={`Remove the entry from ${group.label}`}
+                                  onClick={() => void removeDay(group.label, entries)}
+                                  aria-label={`Remove the work log for ${group.label}`}
                                   title="Remove"
                                   className="inline-flex size-9 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
                                 >
                                   <Bin />
                                 </button>
                               </>
-                            ) : null}
+                            )}
                           </span>
                         </td>
+                        )}
                       </tr>
-
-                      {isOpen
-                        ? entries.map((e) => (
-                            <tr key={e.id} className="bg-sunken/50">
-                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-muted">
-                                {view === "date" ? "" : longDate(e.workDate.slice(0, 10))}
-                              </td>
-                              {/* Skips only Broad Category to land on Deliverable —
-                                  this entry's own row doesn't carry a subject of its
-                                  own to show here. */}
-                              <td colSpan={1} className="border-r border-line last:border-r-0 border-b border-line-subtle" />
-                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
-                                {e.rawText ?? e.deliverableType?.label ?? "—"}
-                              </td>
-                              <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
-                                {e.quantity ?? UNSTATED}
-                              </td>
-                              <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-4 py-3 text-sm text-content">
-                                {formatHours(e.durationHours)}
-                              </td>
-                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3 text-sm text-content">
-                                {e.remarks ?? "—"}
-                              </td>
-                              <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-4 py-3">
-                                {/* Per ENTRY, not per row: an expanded week can
-                                    hold entries from seven different days, and
-                                    only the ones on today are the instructor's
-                                    to change. */}
-                                {e.workDate.slice(0, 10) === today ? (
-                                  <span className="inline-flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => openEdit(e)}
-                                      aria-label={`Edit "${e.rawText ?? "this entry"}"`}
-                                      title="Edit"
-                                      className="inline-flex size-8 items-center justify-center rounded-control border border-primary/40 text-primary-text transition-colors hover:bg-primary-subtle"
-                                    >
-                                      <Pencil />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => void remove(e)}
-                                      aria-label={`Remove "${e.rawText ?? "this entry"}"`}
-                                      title="Remove"
-                                      className="inline-flex size-8 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
-                                    >
-                                      <Bin />
-                                    </button>
-                                  </span>
-                                ) : null}
-                              </td>
-                            </tr>
-                          ))
-                        : null}
                     </Fragment>
                   );
                 })}
@@ -1058,13 +1119,15 @@ export default function WorkLogHistoryPage() {
                     <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       Week total
                     </td>
-                    {/* Skips Broad Category, Deliverable and Quantity to land the
-                        total under Working Hours, then Remarks and Actions. */}
+                    {/* Skips Broad Category, Deliverable and Quantity to land
+                        the total under Working Hours, then Remarks. This row is
+                        Weekly's alone, and Weekly has no Actions column — so
+                        the trailing spacer is one cell, not two. */}
                     <td colSpan={3} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                     <td className="border-r border-line last:border-r-0 tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
-                    <td colSpan={2} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                   </tr>
                 ) : null}
               </tbody>
@@ -1099,17 +1162,28 @@ export default function WorkLogHistoryPage() {
         icon={<Clipboard />}
         dividers={false}
         size="lg"
+        /* Closed by the X or Cancel, and nothing else. This box is typed into,
+           and a click landing beside it — or an Escape meant for the date
+           picker inside it — used to throw the whole entry away silently. */
+        dismissible={false}
         title={
           editing
             ? "Edit work log"
             : editingToday
               ? "Edit Today's Work Log"
-              : "Today's Work Log"
+              : draft.date === today
+                ? "Today's Work Log"
+                : "Work Log"
         }
+        /* The date is stated whenever it is not today. A box that says "for
+           today" while writing last Tuesday is the one mistake this whole
+           screen is arranged to prevent. */
         description={
           editing
             ? `Correcting the entry from ${longDate(draft.date)}.`
-            : "Add your deliverables and working details for today."
+            : draft.date === today
+              ? "Add your deliverables and working details for today."
+              : `Add your deliverables and working details for ${longDate(draft.date)}.`
         }
         footer={
           <>
@@ -1334,30 +1408,10 @@ function Bin() {
     </svg>
   );
 }
-function Info() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4 shrink-0">
-      <circle cx="10" cy="10" r="7.2" {...stroke} />
-      <path d="M10 9.2v4.2M10 6.7v.1" {...stroke} strokeWidth={2} />
-    </svg>
-  );
-}
 function Send() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden className="size-4">
       <path d="m17 3-7 14-2-6-6-2 15-6Z" {...stroke} />
-    </svg>
-  );
-}
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden
-      className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-    >
-      <path d="M5 7.5 10 12.5 15 7.5" {...stroke} />
     </svg>
   );
 }

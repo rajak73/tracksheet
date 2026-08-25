@@ -1,60 +1,42 @@
 "use client";
 
 /**
- * The admin's dashboard: the network, one row per university.
+ * The admin's dashboard: is the institute writing its work down.
  *
- * ── The question this page answers ────────────────────────────────────────
- * A manager asks "how is MY roster doing". An admin is not managing a roster
- * and cannot usefully read thirty of them; the admin's question is whether the
- * day is being RECORDED across the institute, and where it is not. So the
- * centrepiece is a league table of universities, and the loudest figure on the
- * page is the count of people who wrote nothing.
+ * ── The shape ─────────────────────────────────────────────────────────────
+ * Four figures, then the month's curve beside what just happened, then the
+ * people who have not filed. It reads top-down as the questions arrive: how
+ * many people, how many wrote today, how many did not, how much work
+ * altogether — then the trend, then the names.
  *
- * ── Why it was rewritten ──────────────────────────────────────────────────
- * The previous version led with a Utilization percentage taken from the
- * engine's `productiveMinutes` — every recorded minute, meetings and
- * preparation included — and ranked "top performing managers" by it. Working
- * Hours had since been defined as time spent WITH STUDENTS, and the instructor
- * sheet, the manager sheet, the manager dashboard and the client's tracker were
- * all rebuilt around that. This page was the last one still adding up a
- * different number and calling it the same thing, and it also still spoke the
- * old vocabulary: "Teaching" hours after that category was renamed Lecture,
- * bare decimal hours after the product settled on `01h 30m`.
+ * ── One payload ───────────────────────────────────────────────────────────
+ * Everything comes from `/api/admin/dashboard`. Four endpoints answering four
+ * corners of one screen eventually disagree, because each answers as of its
+ * own moment with its own idea of which people count. See the route's own
+ * note.
  *
- * Ranking people by that figure was the part that had to go rather than be
- * relabelled. It rewarded whoever recorded the most minutes of anything.
+ * ── What is deliberately not here ─────────────────────────────────────────
+ * A Remind action on the outstanding list. The client removed it from the
+ * manager's dashboard, and an admin nudging somebody else's instructor over
+ * their manager's head is the version of it with the least standing.
  *
- * ── What is deliberately absent ───────────────────────────────────────────
- * No utilization percentage. It needs a capacity to divide by, and capacity is
- * configured per university — an institute-wide percentage would be dividing by
- * a number that means something different in each row. The drill-through leads
- * to the university's own page, where capacity is known.
- *
- * The average hours per instructor IS here, and the distinction is the
- * denominator: it divides by headcount, which counts the same thing everywhere,
- * rather than by capacity, which does not. That also fixes what it is an
- * average OF — the divisor is the whole roster, so an instructor who logged
- * nothing is a zero in the average rather than absent from it. See
- * `averageMinutesPerInstructor`.
+ * The per-university breakdown, the period picker and the average-hours card
+ * moved off this screen rather than being deleted: they answer "which campus"
+ * and this one answers "which person". `/admin/universities` still carries
+ * them.
  */
 
 import { useCallback, useMemo } from "react";
 import Link from "next/link";
-import { KpiCard } from "@/app/_components/ManagerDashboard";
-import { PeriodPicker, type View } from "@/app/_components/PeriodPicker";
-import { AverageHoursByUniversity } from "@/app/_components/AverageHoursByUniversity";
 import {
-  IconUniversity,
-  IconUsers,
-  IconActivity,
-  IconAlert,
-} from "@/app/_components/icons";
-import {
+  Badge,
   Card,
-  ErrorState,
+  CardHeader,
   EmptyState,
+  ErrorState,
   PageHeader,
   StatGridSkeleton,
+  StatTile,
   Table,
   TableSkeleton,
   TableWrap,
@@ -62,269 +44,286 @@ import {
   TD,
   THead,
   TR,
-  type SortDirection,
 } from "@/app/_components/ui";
+import { TrendLine, type TrendPoint } from "@/app/_components/charts";
+import { Avatar } from "@/app/_components/AccountDialogs";
 import { apiGet, useLoad } from "@/app/_lib/api";
-import { useQueryState } from "@/app/_lib/query-state";
 import { useUniversityToday } from "@/app/_lib/zone";
 import { formatDayAs, formatHours } from "@/app/_lib/format";
-import { categoryColor } from "@/app/_components/charts";
 
 /* ── What the endpoint returns ────────────────────────────────────────────── */
 
-type Line = { code: string; label: string; hours: number; countable: boolean };
-
-type UniversityRow = {
-  id: string;
-  name: string;
-  slug: string;
-  instructors: number;
-  recording: number;
-  silent: number;
-  workingHours: number;
-  otherHours: number;
-  lines: Line[];
-  lastRecordedOn: string | null;
-};
-
-type Network = {
-  period: { from: string; to: string };
-  universities: UniversityRow[];
+type Dashboard = {
+  date: string;
+  month: { from: string; to: string };
   totals: {
-    universities: number;
-    silentUniversities: number;
+    employees: number;
     instructors: number;
-    recording: number;
-    silent: number;
-    workingHours: number;
-    otherHours: number;
+    submittedToday: number;
+    pendingToday: number;
+    monthHours: number;
+    lastMonthHours: number;
   };
+  /** `count` is null for a day still ahead — see the route. */
+  series: Array<{ date: string; count: number | null }>;
+  compare: Array<{ date: string; count: number }>;
+  recent: Array<{
+    id: string;
+    name: string;
+    employeeCode: string | null;
+    at: string;
+    workDate: string;
+    label: string;
+  }>;
+  outstanding: Array<{
+    instructorId: string;
+    name: string;
+    employeeCode: string | null;
+    category: string | null;
+    universityName: string;
+    lastRecordedOn: string | null;
+  }>;
 };
 
-/* ── Dates. The same rules as the manager dashboard, so the two agree. ────── */
+const shortDay = (iso: string) => formatDayAs(iso, { day: "numeric", month: "short" });
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+/** "10 May 2026, 06:15 PM" — when an entry was written, not the day it covers. */
+function writtenAt(iso: string): string {
+  const at = new Date(iso);
+  return `${formatDayAs(at.toISOString().slice(0, 10), { day: "numeric", month: "short", year: "numeric" })}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
 }
-
-function mondayOf(iso: string): string {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  return addDays(iso, -((d.getUTCDay() + 6) % 7));
-}
-
-/** The month as WHOLE weeks — a week clipped at the 1st is not comparable. */
-function monthEdges(iso: string): { from: string; to: string } {
-  const d = new Date(`${iso}T00:00:00.000Z`);
-  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
-  return { from: mondayOf(first), to: addDays(mondayOf(last), 6) };
-}
-
-
-
-
-type Sort = "name" | "hours-desc" | "hours-asc" | "silent-desc";
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  /**
-   * Today, in the UNIVERSITY's zone.
-   *
-   * This was a hand-rolled helper reading `getFullYear()/getMonth()/getDate()` —
-   * the BROWSER's date. The audit that removed every other one of these missed
-   * all three, because it searched for the name `todayISO` and these were spelled
-   * `todayIso` and defined locally rather than imported. The guard is a pattern
-   * now, not a name.
-   */
   const today = useUniversityToday();
-  /* View, date and sort live in the URL, the same as the manager's dashboard
-   * and the instructor's worklog. This was a hand-rolled localStorage restore
-   * — a key, a `restored` flag and two effects, one of them deferred by a
-   * timeout to keep a synchronous set inside an effect from cascading a second
-   * render. All of it is what `useQueryState` does, and the URL does three more
-   * things it could not: Back works, a period can be linked to somebody, and
-   * two tabs stop overwriting one shared value.
-   *
-   * The old note said the view survives a refresh but the DATE deliberately
-   * does not, so that coming back tomorrow lands on tomorrow. That still holds:
-   * `on` is absent until somebody actually moves off today, so a fresh visit
-   * resolves to today either way. What changes is that a date you DID navigate
-   * to now survives the refresh you make while reading it.
-   *
-   * Silent first by default. The reason to open this page is to find what is
-   * missing, and sorting by name would bury it behind whoever is alphabetically
-   * first. */
-  const [q, setQ] = useQueryState({ view: "day", on: "", sort: "silent-desc" });
-  const view = (["day", "week", "month"].includes(q.view) ? q.view : "day") as View;
-  const anchor = q.on || today;
-  const sort = (["name", "hours-desc", "hours-asc", "silent-desc"].includes(q.sort)
-    ? q.sort
-    : "silent-desc") as Sort;
-
-  const setView = (v: View) => setQ({ view: v });
-  const setAnchor = (v: string) => setQ({ on: v });
-  const setSort = (v: Sort) => setQ({ sort: v });
-
-  const range = useMemo(() => {
-    if (view === "day") return { from: anchor, to: anchor };
-    if (view === "week") {
-      const monday = mondayOf(anchor);
-      return { from: monday, to: addDays(monday, 6) };
-    }
-    return monthEdges(anchor);
-  }, [view, anchor]);
 
   const load = useCallback(
     () =>
-      apiGet<Network>(
-        `/api/admin/network?from=${range.from}&to=${range.to}`,
-        "Could not load the network.",
+      apiGet<Dashboard>(
+        `/api/admin/dashboard?date=${today}`,
+        "Could not load the dashboard.",
       ),
-    [range.from, range.to],
+    [today],
   );
-  const network = useLoad(load, `admin-network:${range.from}:${range.to}`);
+  const { data, error, loading, reload } = useLoad(load, `admin-dashboard:${today}`);
 
-  const rows = useMemo(() => {
-    const all = network.data?.universities ?? [];
-    if (sort === "name") return [...all].sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "silent-desc") {
-      // Ties broken by name, so the order is stable rather than incidental.
-      return [...all].sort((a, b) => b.silent - a.silent || a.name.localeCompare(b.name));
-    }
-    return [...all].sort((a, b) =>
-      sort === "hours-desc"
-        ? b.workingHours - a.workingHours
-        : a.workingHours - b.workingHours,
-    );
-  }, [network.data, sort]);
+  const series = useMemo<TrendPoint[]>(
+    () => (data?.series ?? []).map((p) => ({ label: shortDay(p.date), value: p.count })),
+    [data],
+  );
+  const compare = useMemo<TrendPoint[]>(
+    () => (data?.compare ?? []).map((p) => ({ label: shortDay(p.date), value: p.count })),
+    [data],
+  );
 
-  const totals = network.data?.totals ?? null;
+  /** Hours this month against last, as a percentage the tile can print. */
+  const hoursDelta = useMemo(() => {
+    const before = data?.totals.lastMonthHours ?? 0;
+    if (!data || before <= 0) return null;
+    const pct = Math.round(((data.totals.monthHours - before) / before) * 100);
+    return { pct, up: pct >= 0 };
+  }, [data]);
 
-  if (network.error && !network.data) {
+  if (error && !data) {
     return (
-      <div className="space-y-6">
+      <div>
         <PageHeader title="Dashboard" />
-        <ErrorState message="Unable to load the dashboard" detail={network.error} />
+        <ErrorState message={error} onRetry={reload} />
       </div>
     );
   }
 
+  const monthName = data ? formatDayAs(data.month.from, { month: "long", year: "numeric" }) : "";
+
   return (
-    <div className="space-y-6">
+    <div>
       <PageHeader
         title="Dashboard"
-        description="Every university delivering the programme, in the period you are looking at."
-        actions={
-          <PeriodPicker
-            view={view}
-            onView={setView}
-            selected={anchor}
-            onSelect={setAnchor}
-            today={today}
-          />
-        }
+        description={`${formatDayAs(today, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · ${monthName} to date`}
       />
 
-      {/* ── What each university averages per active instructor-day ────────
-        * Shown first, ahead of the network totals below: it is the one figure
-        * on this page an admin reads university-by-university rather than as
-        * a single network-wide number, so it leads rather than follows.
-        * Σ(active minutes) ÷ Σ(active instructor-count) — see
-        * `src/domain/average-hours.ts` for the confirmed formula. Its own
-        * Day/Week/Month switch, because the question "what are we averaging"
-        * is asked at a granularity of its own rather than whatever the page
-        * below happens to be showing. */}
-      <AverageHoursByUniversity />
+      {/* ── The four figures ───────────────────────────────────────────────
+          Head count first, because the three after it are read against it.
 
-      {/* ── The four figures ─────────────────────────────────────────────── */}
-      {network.loading && !totals ? (
+          No "+12 this month" under the head count: nothing in this product
+          records when somebody joined, so that comparison could only have been
+          invented. The three that CAN be compared say so. */}
+      {loading && !data ? (
         <StatGridSkeleton />
-      ) : totals ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard
-            label="Universities"
-            value={String(totals.universities)}
-            icon={<IconUniversity size={20} />}
-            tint="blue"
-            footnote={
-              totals.silentUniversities > 0
-                ? `${totals.silentUniversities} recorded nothing`
-                : "All recorded something"
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile label="Total employees" value={data?.totals.employees ?? 0} />
+          <StatTile
+            label="Today's submissions"
+            value={data?.totals.submittedToday ?? 0}
+            hint={
+              data && data.totals.instructors > 0
+                ? `${Math.round((data.totals.submittedToday / data.totals.instructors) * 100)}% of instructors`
+                : undefined
             }
           />
-          <KpiCard
-            label="Instructors"
-            value={String(totals.instructors)}
-            icon={<IconUsers size={20} />}
-            tint="violet"
-            footnote={`${totals.recording} recorded in this period`}
-          />
-          <KpiCard
-            label="Working Hours"
-            value={formatHours(totals.workingHours)}
-            icon={<IconActivity size={20} />}
-            tint="green"
-            footnote={
-              /* Stated, not hidden. The two figures do not add up to a day's
-               * work by accident — one of them is deliberately excluded, and a
-               * total with no explanation invites the arithmetic anyway. */
-              <>Time with students. {formatHours(totals.otherHours)} recorded elsewhere.</>
+          <StatTile
+            label="Pending submissions"
+            value={data?.totals.pendingToday ?? 0}
+            tone={(data?.totals.pendingToday ?? 0) > 0 ? "warning" : "neutral"}
+            hint={
+              data && data.totals.instructors > 0
+                ? `${Math.round((data.totals.pendingToday / data.totals.instructors) * 100)}% still to record`
+                : undefined
             }
           />
-          <KpiCard
-            label="Recorded nothing"
-            value={String(totals.silent)}
-            icon={<IconAlert size={20} />}
-            tint="amber"
-            footnote={
-              totals.silent === 0
-                ? "Everyone wrote something"
-                : "Not the same as zero hours — nothing was written"
-            }
+          <StatTile
+            label={`Total work hours (${formatDayAs(data?.month.from ?? today, { month: "short" })})`}
+            value={formatHours(data?.totals.monthHours ?? 0)}
+            delta={hoursDelta ? `${hoursDelta.up ? "+" : ""}${hoursDelta.pct}% vs last month` : undefined}
+            deltaTone={hoursDelta ? (hoursDelta.up ? "success" : "warning") : undefined}
           />
         </div>
-      ) : null}
+      )}
 
-      {/* ── The network ──────────────────────────────────────────────────── */}
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-content">Universities</h2>
-            <p className="mt-0.5 text-sm text-muted">
-              {formatDayAs(range.from, { day: "numeric", month: "short", year: "numeric" })}
-              {range.from === range.to
-                ? null
-                : ` – ${formatDayAs(range.to, { day: "numeric", month: "short", year: "numeric" })}`}
-            </p>
+      {/* ── The month, and what just happened ──────────────────────────────
+          The curve is the shape of the month; the list beside it is the last
+          few things anybody wrote. Together they answer "is it working" and
+          "is it working right now", which are different questions. */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card>
+          <CardHeader
+            title="Submission overview"
+            description="How many instructors recorded on each day."
+          />
+          <div className="px-5 pb-5">
+            {loading && !data ? (
+              <TableSkeleton rows={4} cols={1} />
+            ) : series.length === 0 ? (
+              <EmptyState title="Nothing recorded yet" />
+            ) : (
+              <TrendLine
+                points={series}
+                seriesLabel="This month"
+                compare={{ label: "Last month", points: compare }}
+                unit="submissions"
+                height={170}
+              />
+            )}
           </div>
-        </div>
+        </Card>
 
-        {network.loading && !network.data ? (
-          <TableSkeleton rows={5} cols={4} />
-        ) : rows.length === 0 ? (
+        <Card>
+          <CardHeader title="Recent activity" description="The latest entries written." />
+          {/* A fixed box that scrolls, not a list that grows.
+            *
+            * Eight entries made this card taller than the chart beside it, so
+            * the row below was pushed down by however busy the last hour
+            * happened to be. Bounded to roughly the chart's height: the panel
+            * is now the same size whatever it holds, and the rest is reached by
+            * scrolling inside it.
+            *
+            * `max-h` rather than `h`, so a quiet morning with two entries does
+            * not leave a card two thirds empty. */}
+          <div className="max-h-[15.5rem] overflow-y-auto px-5 pb-5">
+            {loading && !data ? (
+              <TableSkeleton rows={5} cols={1} />
+            ) : (data?.recent.length ?? 0) === 0 ? (
+              <EmptyState title="Nothing recorded yet" />
+            ) : (
+              <ul className="divide-y divide-line">
+                {data!.recent.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 py-2.5">
+                    <Avatar name={r.name} avatarUrl={null} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-content">
+                        <span className="font-medium">{r.name}</span> recorded {r.label}
+                      </span>
+                      {/* When it was WRITTEN, and — only when they differ — the
+                          day it was written ABOUT. A backdated entry filed this
+                          morning is this morning's news, and saying so is the
+                          difference between the two dates being visible and
+                          being a discrepancy somebody has to notice. */}
+                      <span className="block truncate text-xs text-muted">
+                        {writtenAt(r.at)}
+                        {r.workDate !== r.at.slice(0, 10) ? ` · for ${shortDay(r.workDate)}` : ""}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Who has not filed ─────────────────────────────────────────────── */}
+      <Card className="mt-4">
+        <CardHeader
+          title="Pending submissions"
+          description={`Instructors with nothing recorded for ${formatDayAs(today, { day: "numeric", month: "long" })}. Longest silent first.`}
+        />
+
+        {loading && !data ? (
+          <TableSkeleton rows={5} cols={6} />
+        ) : (data?.outstanding.length ?? 0) === 0 ? (
           <EmptyState
-            title="No universities yet"
-            description="Add a university and its instructors before anything can be recorded."
+            title="Everybody is up to date"
+            description="Every active instructor has recorded today."
           />
         ) : (
-          <TableWrap>
-            <Table caption="Every university, with what its instructors recorded in this period.">
+          <TableWrap
+            /* Bounded and scrolling, like the activity panel above it: the
+               table is as tall as the layout says, not as tall as the number of
+               people who have not filed. */
+            maxHeight="22rem"
+          >
+            <Table caption="Instructors with nothing recorded today, longest silent first.">
               <THead
                 columns={[
-                  { label: "University", sortKey: "name" },
-                  { label: "Not recording", sortKey: "silent", align: "right" },
-                  { label: "Where the hours went" },
-                  { label: "Working Hours", sortKey: "hours", align: "right" },
+                  { label: "Employee name" },
+                  { label: "Employee ID" },
+                  { label: "Broad Category" },
+                  { label: "University" },
+                  { label: "Last submission" },
+                  { label: "Status" },
                 ]}
-                sort={sortColumn(sort)}
-                onSort={(key) => setSort(nextSort(key, sort))}
               />
               <TBody>
-                {rows.map((row) => (
-                  <UniversityRowCells key={row.id} row={row} />
+                {data!.outstanding.map((p) => (
+                  <TR key={p.instructorId}>
+                    <TD strong>
+                      <span className="flex items-center gap-2">
+                        <Avatar name={p.name} avatarUrl={null} size={28} />
+                        <Link
+                          href={`/admin/instructors/${p.instructorId}/report`}
+                          className="truncate hover:underline"
+                        >
+                          {p.name}
+                        </Link>
+                      </span>
+                    </TD>
+                    <TD>
+                      <span className="tabular">{p.employeeCode ?? "—"}</span>
+                    </TD>
+                    <TD>{p.category ?? <span className="text-subtle">—</span>}</TD>
+                    <TD>{p.universityName}</TD>
+                    <TD>
+                      {p.lastRecordedOn ? (
+                        <span className="tabular">
+                          {formatDayAs(p.lastRecordedOn, {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      ) : (
+                        /* Never, which is not the same as a long time ago —
+                           one is somebody who has stopped, the other is
+                           somebody who never started. */
+                        <span className="text-subtle">Never</span>
+                      )}
+                    </TD>
+                    <TD>
+                      <Badge tone="warning">Pending</Badge>
+                    </TD>
+                  </TR>
                 ))}
               </TBody>
             </Table>
@@ -332,123 +331,5 @@ export default function AdminDashboardPage() {
         )}
       </Card>
     </div>
-  );
-}
-
-/* ── Sorting ──────────────────────────────────────────────────────────────── */
-
-/**
- * The chosen sort, as the column header understands it.
- *
- * The page's four options are not four columns — two of them are the same
- * column in opposite directions — so the two models have to be mapped rather
- * than merged. Name and Not-recording each have one useful direction and do not
- * toggle: nobody wants the university that IS recording listed first, and the
- * point of the page is what is missing.
- */
-function sortColumn(sort: Sort): { key: string; direction: SortDirection } {
-  if (sort === "name") return { key: "name", direction: "asc" };
-  if (sort === "silent-desc") return { key: "silent", direction: "desc" };
-  return { key: "hours", direction: sort === "hours-desc" ? "desc" : "asc" };
-}
-
-/** Clicking a column: hours flips, the other two just select. */
-function nextSort(key: string, current: Sort): Sort {
-  if (key === "name") return "name";
-  if (key === "silent") return "silent-desc";
-  return current === "hours-desc" ? "hours-asc" : "hours-desc";
-}
-
-/* ── One university ───────────────────────────────────────────────────────── */
-
-/**
- * One university as a table row.
- *
- * This was a card in a list, sorted by a strip of chips above it. The figures
- * it carries are all comparisons — how many are silent, how many hours, where
- * they went — and a comparison is read down a column, not across a stack of
- * cards. It now sits in the same table the rest of admin uses, and the chips
- * are gone because the column headers sort.
- */
-function UniversityRowCells({ row }: { row: UniversityRow }) {
-  const nothingWritten = row.instructors > 0 && row.recording === 0;
-
-  return (
-    <TR>
-      <TD strong>
-        <Link
-          href={`/admin/universities/${row.id}`}
-          className="text-primary hover:underline"
-        >
-          {row.name}
-        </Link>
-        <span className="mt-0.5 block text-xs text-muted">
-          {row.instructors === 0 ? (
-            "No instructors yet"
-          ) : (
-            <>
-              {row.recording} of {row.instructors} recorded
-              {row.lastRecordedOn ? (
-                <>
-                  {" · last on "}
-                  {formatDayAs(row.lastRecordedOn, { day: "numeric", month: "short" })}
-                </>
-              ) : null}
-            </>
-          )}
-        </span>
-      </TD>
-
-      <TD align="right">
-        {row.instructors === 0 ? (
-          <span className="text-subtle">—</span>
-        ) : (
-          /* Warned only when NOBODY wrote anything. Some of a roster being
-             silent on a given day is ordinary; all of it is the thing this
-             page exists to surface. */
-          <span className={nothingWritten ? "font-medium text-warning-text" : "text-content"}>
-            {row.silent}
-          </span>
-        )}
-      </TD>
-
-      {/* Muted segments are the ones that do not count toward Working Hours —
-          shown, because the work happened, and muted, so nobody adds the bar
-          up to the figure beside it. */}
-      <TD>
-        {row.lines.length === 0 ? (
-          <span className="text-xs text-subtle">Nothing recorded</span>
-        ) : (
-          <span className="block min-w-[14rem]">
-            <span className="flex h-2 overflow-hidden rounded-chip bg-sunken">
-              {row.lines.map((line) => (
-                <span
-                  key={`${line.code}:${line.countable}`}
-                  title={`${line.label} – ${formatHours(line.hours)}${
-                    line.countable ? "" : " (not counted in Working Hours)"
-                  }`}
-                  style={{
-                    width: `${(line.hours / (row.workingHours + row.otherHours)) * 100}%`,
-                    background: categoryColor(line.code),
-                    opacity: line.countable ? 1 : 0.35,
-                  }}
-                />
-              ))}
-            </span>
-            <span className="mt-1.5 block truncate text-xs text-muted">
-              {row.lines
-                .slice(0, 3)
-                .map((l) => `${l.label} ${formatHours(l.hours)}`)
-                .join(" · ")}
-              {row.lines.length > 3 ? ` · +${row.lines.length - 3} more` : ""}
-            </span>
-          </span>
-        )}
-      </TD>
-
-      <TD align="right" strong>
-        {formatHours(row.workingHours)}
-      </TD>
-    </TR>
   );
 }

@@ -51,13 +51,13 @@ export function StatTile({
   // the loudest thing on the page. Emphasis is carried by the figure's size
   // and tone alone — which is also what the reference design does.
   return (
-    <div className="flex flex-col rounded-card border border-line bg-surface p-5 shadow-card">
+    <div className="flex flex-col rounded-card border border-line bg-surface p-4 shadow-card">
       <p className="truncate text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
 
       <p
         className={cx(
-          "tabular mt-2 font-semibold",
-          emphasis ? "text-3xl" : "text-2xl",
+          "tabular mt-1.5 font-semibold",
+          emphasis ? "text-2xl" : "text-xl",
           value === null ? "text-subtle" : TONE_TEXT[tone],
         )}
       >

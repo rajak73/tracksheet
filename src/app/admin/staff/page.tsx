@@ -43,7 +43,7 @@ import {
 } from "@/app/_components/ui";
 import { ConfirmDialog, Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { InstructorStream } from "@/app/_components/InstructorStream";
+import { InstructorCategoryPicker } from "@/app/_components/InstructorStream";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { formatDate } from "@/app/_lib/format";
 
@@ -115,6 +115,20 @@ export default function AdminStaffPage() {
   const { data, error, loading, reload } = useLoad(
     load,
     `admin-staff:${page}:${status}:${query}:${role}:${universityId}`,
+  );
+
+  /* The categories somebody may assign, from the same table the write is
+   * checked against — so the list offered and the list accepted are one list. */
+  const categories = useLoad(
+    useCallback(
+      () =>
+        apiGet<{ categories: Array<{ code: string; label: string }> }>(
+          "/api/instructor-categories",
+          "Could not load the broad categories.",
+        ).then((r) => r.categories),
+      [],
+    ),
+    "instructor-categories",
   );
 
   async function setActive(
@@ -189,8 +203,8 @@ export default function AdminStaffPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Staff"
-        description="Instructors and managers across every university. Deactivating someone revokes access and keeps all of their history."
+        title="Employees"
+        description="Everybody at every university — managers and instructors in one list. Deactivating somebody revokes access and keeps all of their history."
         actions={<Button onClick={() => setCreating(true)}>Add employee</Button>}
       />
 
@@ -252,11 +266,32 @@ export default function AdminStaffPage() {
                           </TD>
                           <TD>{s.employeeCode ?? "—"}</TD>
                           <TD>
-                            {/* Read-only: counted from their entries. A manager
-                                has none — they do not teach a stream — and that
-                                is an em dash, not "not yet determined". */}
+                            {/* Editable here, because this is now the only
+                                people list in the sidebar and the Broad
+                                Category on the client's report is SUPPLIED —
+                                somebody has to be able to supply it. It moved
+                                from the instructor directory, which was a
+                                second list of the same people.
+
+                                A manager has none: they do not teach a stream,
+                                and that is an em dash rather than an empty
+                                picker inviting somebody to file them under
+                                Maths. */}
                             {s.instructorId ? (
-                              <InstructorStream stream={s.category ?? null} />
+                              <InstructorCategoryPicker
+                                value={s.category ?? null}
+                                stream={s.category ?? null}
+                                options={categories.data ?? []}
+                                onSave={async (code) => {
+                                  await apiSend(
+                                    `/api/instructors/${s.instructorId}`,
+                                    "PATCH",
+                                    { categoryCode: code },
+                                    "Could not save that broad category.",
+                                  );
+                                  reload();
+                                }}
+                              />
                             ) : (
                               <span className="text-subtle">—</span>
                             )}

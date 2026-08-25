@@ -74,27 +74,26 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
    * primary manager standing in for an unassigned instructor. */
   assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
 
-  /* ── Why the today-only rule is NOT applied here ────────────────────────
-   * The worklog routes hold an instructor to today, and the activity edit and
-   * delete routes beside this one do too. This one deliberately does not, and
-   * the distinction is worth stating because the asymmetry looks like an
-   * oversight and is not.
+  /* ── Why the day rule is still NOT applied here ─────────────────────────
+   * The worklog routes hold an instructor to days that have happened, and the
+   * activity edit and delete routes beside this one do too. This one does not,
+   * and the asymmetry is a decision rather than an oversight.
    *
-   * This is the general activity API. It predates the worklog feature, it is
-   * how a manager records somebody's hours, and it is how history gets built
-   * at all — a comparison of this week against last week cannot be expressed
-   * by a route that only accepts today. Holding it to today broke twenty-six
-   * suites, several of which are legitimately about multi-day arithmetic
-   * rather than about lax fixtures.
+   * It was tried. The rule now refuses only the FUTURE, which looked harmless
+   * enough to apply here — and it broke thirteen suites, because a great many
+   * fixtures use a far-future date (2033-05-01 and friends) precisely as an
+   * isolated sandbox no other test writes to. Guarding this route takes that
+   * technique away and buys very little: this is the general activity API, it
+   * is how a manager records somebody's hours, and it is how history is built.
    *
-   * What that leaves: an instructor can still create a past-dated row through
-   * this route directly, and then be refused permission to edit or delete it.
-   * That is a real wart. It is bounded rather than open — no instructor screen
-   * offers a non-today date into it any more (the date fields on
-   * instructor/activities and instructor/activity-tracker are pinned to today)
-   * — and closing it properly means deciding what a manager-built history is
-   * supposed to look like, which is a product question rather than a patch. */
-
+   * What that leaves, stated plainly: an instructor can POST a future-dated
+   * activity through this route directly. No instructor screen offers one —
+   * the work log's own buttons are gated on the day having happened, and the
+   * date fields elsewhere are pinned — so it is reachable only by calling the
+   * API by hand, against one's own record. The far larger wart this used to
+   * carry is gone: a past-dated row created here can now be edited and deleted
+   * by the same caller, because the rule the other verbs enforce no longer
+   * refuses the past. */
   const log = await logActivity({
     instructorId: instructor.id,
     universityId: instructor.universityId,

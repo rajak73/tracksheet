@@ -44,7 +44,21 @@ const MAX_REMARK_CHARS = 80;
 
 /** Generous: eleven categories in, one small object per bullet out. */
 const MAX_OUTPUT_TOKENS = 4096;
-const TIMEOUT_MS = Number(process.env.GEMINI_WORKLOG_TIMEOUT_MS ?? 45_000);
+/**
+ * How long a submission waits on the parser before taking the fallback.
+ *
+ * Twelve seconds, not forty-five. A normal reply lands in about five, and the
+ * only caller left is the four-field quick entry — which now settles the
+ * ordinary line in memory (see `matchDeliverable`) and reaches the provider
+ * only for wording the taxonomy cannot place. That case ends in a classified
+ * entry or an "unclassified" one either way; making somebody watch a spinner
+ * for three quarters of a minute to find out which does not improve the
+ * answer, and the entry itself is recorded regardless.
+ *
+ * Still env-overridable: a deployment on a slower link can raise it without a
+ * code change.
+ */
+const TIMEOUT_MS = Number(process.env.GEMINI_WORKLOG_TIMEOUT_MS ?? 12_000);
 
 export type ParsedBullet = {
   /** Position in the submission. The bullet's identity, and its raw text's. */

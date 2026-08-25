@@ -3,11 +3,22 @@
  *
  * ── Three rules, and why each is a different kind of answer ───────────────
  *
- *   THE DAY        An instructor writes up TODAY. Not yesterday, not last week.
- *                  A refusal, not a request — a timesheet whose entries can be
- *                  backdated at will stops being a record of when work happened
- *                  and becomes a record of what somebody remembered later, and
- *                  no approval makes that untrue.
+ *   THE DAY        An instructor writes up a day that has HAPPENED. Today or
+ *                  any day before it; never a day still to come.
+ *
+ *                  It was today-only, on the reasoning that a timesheet whose
+ *                  entries can be backdated at will records what somebody
+ *                  remembered later rather than when the work happened. The
+ *                  client has decided otherwise: people miss a day, and a rule
+ *                  that sends every one of those to a manager makes the manager
+ *                  the bottleneck on their own roster's paperwork. The record
+ *                  keeps its own audit trail either way — `createdAt` is when
+ *                  it was written, `workDate` is the day it describes, and the
+ *                  two being different is visible to anybody reading it.
+ *
+ *                  The future half stays a refusal, and it is not the same
+ *                  kind of rule: a day that has not happened cannot be
+ *                  reported on by anybody, at any level, however they ask.
  *
  *   THE SUBMISSION Written during the university's working hours. Staying late
  *                  and writing up at nine is a real thing that really happens,
@@ -59,7 +70,7 @@ export type EntryVerdict =
  */
 const APPROVAL_REQUIRED = false;
 
-/** The date an instructor is currently allowed to write up. */
+/** The latest date an instructor may write up: their university's today. */
 export function todayFor(config: UniversityConfig, now: Date = new Date()): string {
   return workDateFor(now, config.timezone);
 }
@@ -77,13 +88,11 @@ export function todayFor(config: UniversityConfig, now: Date = new Date()): stri
  * either applying it or dropping it, because the screen offered one answer and
  * the server gave another.
  *
- * ── Scoped to SELF, deliberately ─────────────────────────────────────────
- * Only the instructor is held to today. The refusal `verifyEntry` writes says
- * so in as many words — "Ask your manager to record anything from an earlier
- * day" — so a manager or an admin backdating is the escape hatch the rule
- * itself points at, not a hole in it. Passing the caller's scope rather than a
- * boolean keeps that decision here, in one place, instead of at four call
- * sites that could each read it differently.
+ * ── Still scoped to SELF, and now only about the future ──────────────────
+ * The check is kept scoped rather than deleted. What it refuses has narrowed
+ * to one thing — a date that has not arrived — but that thing is worth a hard
+ * refusal at every level, and keeping the function is what stops the four call
+ * sites growing four different opinions about it again.
  *
  * `workDate` is a YYYY-MM-DD in the university's own zone, which is the only
  * zone any day boundary in this product is judged in.
@@ -97,14 +106,13 @@ export function assertSelfMayWriteDay(input: {
   if (input.scope.kind !== "self") return;
 
   const today = todayFor(input.config, input.now ?? new Date());
-  if (input.workDate === today) return;
+  // Today and everything before it. Only the future is refused.
+  if (input.workDate <= today) return;
 
   throw new ApiError(
     400,
     "WORKLOG_DATE_NOT_ALLOWED",
-    input.workDate < today
-      ? "You can only change today's work. Ask your manager to record or correct anything from an earlier day."
-      : "You cannot record a day that has not happened yet.",
+    "You cannot record a day that has not happened yet.",
   );
 }
 
@@ -126,23 +134,17 @@ export function verifyEntry(input: {
   const { config, workDate, now, activityWindows } = input;
 
   // 1. The day. A refusal, and it is checked first because nothing else about a
-  //    submission for the wrong date is worth computing.
+  //    submission for a date that cannot be written is worth computing.
   const today = todayFor(config, now);
-  if (workDate !== today) {
-    return {
-      kind: "blocked",
-      message:
-        workDate < today
-          ? "You can only write up today's work. Ask your manager to record anything from an earlier day."
-          : "You cannot write up a day that has not happened yet.",
-    };
+  if (workDate > today) {
+    return { kind: "blocked", message: "You cannot write up a day that has not happened yet." };
   }
 
   const windows = computeDayWindows(config, workDate);
 
-  // With approval switched off, the only rule left is the DAY — a backdated or
-  // future entry is still refused, because that is about what happened rather
-  // than about when somebody is allowed to be working.
+  // With approval switched off, the only rule left is the DAY, and it now
+  // refuses the future alone — a past day is a day that happened, which is the
+  // only question this rule was ever really asking.
   if (!APPROVAL_REQUIRED) return { kind: "allowed" };
 
   // A non-working day has no window to be inside, so everything about it is an
