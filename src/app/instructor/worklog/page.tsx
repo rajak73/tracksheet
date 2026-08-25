@@ -806,26 +806,72 @@ export default function WorkLogHistoryPage() {
   const truncated = (logs.data?.total ?? 0) > rows.length;
 
   return (
-    <div className="rounded-card border border-line bg-surface p-6 shadow-card sm:p-8">
-      {/* ── Title and the way in ──────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      {/* ── The page's own heading, outside the card ────────────────────────
+          The card below carries its own, quieter heading beside the view
+          switch. Two headings is what the client's design shows and they are
+          not a duplicate: this one names the PAGE, that one names the table and
+          the control that changes it. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-content">Work Log History</h1>
-          <p className="mt-1 text-sm text-muted">View and manage your submitted work logs</p>
+          <h1 className="text-[26px] font-bold tracking-tight text-primary-text">
+            Work Log History
+          </h1>
+          <p className="mt-1 text-sm text-muted">View and manage submitted work logs</p>
         </div>
 
-        {/* The view switch and the day's action share the header's right-hand
-            side rather than each claiming a row of their own. Two full-width
-            rows for two small controls pushed the table down a whole band of
-            empty space, and the switch — right-aligned under a right-aligned
-            button — read as a second, unrelated header.
+        {/* ── The day's state, right of the heading ─────────────────────
+            Two shapes, and the reference keeps them apart deliberately: the
+            notification is a STATEMENT and sits in its own tinted box, while
+            Edit is an ACTION and sits outside and under it. Putting the button
+            inside the green would have made the whole box read as one clickable
+            thing. */}
+        {!todayInView ? null : hasSubmittedToday ? (
+          <div className="flex w-full max-w-[620px] flex-col items-end gap-2">
+            <div className="flex w-full items-center gap-3.5 rounded-card border border-success/25 bg-success-subtle px-4 py-3.5">
+              <span
+                aria-hidden
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-success text-white"
+              >
+                <Check />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-bold text-success-text">Great job!</span>
+                <span className="block text-sm text-content">
+                  Your work log for today has been submitted successfully.
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={openEditToday}
+              className="inline-flex shrink-0 items-center gap-2 rounded-control border border-success/40 bg-success-subtle px-3.5 py-2 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
+            >
+              <Pencil />
+              Edit Today&rsquo;s Log
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={openNew}
+            className="inline-flex h-[42px] shrink-0 items-center gap-2 rounded-[6px] bg-primary px-5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
+          >
+            <Plus />
+            Today&rsquo;s Work Log
+          </button>
+        )}
+      </div>
 
-            ── Date Wise / Weekly ──────────────────────────────────────────
-            A segmented control of solid blue pills, matching the client's
-            reference: the selected view is filled, the rest are quiet. This
-            was an underlined tab strip, which read as navigation between
-            pages rather than as one control with two settings. */}
-        <div className="flex flex-wrap items-center gap-3">
+      {/* ── The one card ────────────────────────────────────────────────────
+          Everything that reads the table lives in it: its heading, the view
+          switch, the strip, the filters, the table itself and the count. One
+          container, so switching Date Wise to Weekly changes what is inside it
+          rather than swapping one card for another. */}
+      <div className="mt-6 rounded-card border border-line-card bg-surface shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+          <h2 className="text-lg font-bold tracking-tight text-primary-text">Work Log History</h2>
+          <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex gap-1 rounded-control border border-line bg-surface p-1">
             {(["date", "week"] as const).map((v) => (
               <button
@@ -877,49 +923,10 @@ export default function WorkLogHistoryPage() {
               a table of last April was offering the one day that table does not
               contain — and, worse, guessing its state from rows that could not
               answer. See `todayInView`. */}
-          {!todayInView ? null : hasSubmittedToday ? (
-            /* ── §6 The submitted state ──────────────────────────────────
-               A standing bar rather than the toast alone. The toast says it
-               once, at the moment it happens; this says it to somebody who
-               arrives later, and carries the only action left for today.
-
-               Sized to the spec's 520–620px and allowed to shrink below it,
-               because at a phone's width a fixed 520 would push the card
-               sideways. */
-            <div className="flex w-full max-w-[620px] items-center gap-3 rounded-control border border-success/30 bg-success-subtle px-4 py-3 sm:min-w-[min(520px,100%)]">
-              <span
-                aria-hidden
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-success text-white"
-              >
-                <Check />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-success-text">Great job!</span>
-                <span className="block text-xs text-muted">
-                  Your work log for today has been submitted successfully.
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={openEditToday}
-                className="shrink-0 rounded-control border border-success/40 bg-surface px-3 py-2 text-sm font-semibold text-success-text transition-colors hover:bg-success/10"
-              >
-                Edit Today&rsquo;s Log
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={openNew}
-              className="inline-flex h-[42px] shrink-0 items-center gap-2 rounded-[6px] bg-primary px-5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover"
-            >
-              <Plus />
-              Today&rsquo;s Work Log
-            </button>
-          )}
+          </div>
         </div>
-      </div>
 
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
       {/* ── §10 The Date Wise strip ─────────────────────────────────────
           Date Wise only, because it is the one thing it says: that the other
           view exists. In Weekly it would be telling somebody about the view
@@ -1283,6 +1290,9 @@ export default function WorkLogHistoryPage() {
           <Pager page={page} lastPage={lastPage} onPage={setPage} />
         </div>
       ) : null}
+
+        </div>
+      </div>
 
       <Dialog
         open={open}
