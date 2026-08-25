@@ -16,7 +16,7 @@
  * question nobody asked.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUniversityToday } from "@/app/_lib/zone";
 import {
   Alert,
@@ -70,11 +70,23 @@ export function TrackerReport({
   managerId,
   /** Shown above the grid; the caller knows whether this is a team or a person. */
   emptyHint,
+  /**
+   * Hands the selected period's totals up to the page.
+   *
+   * Only this component knows which period is on screen — it owns the picker
+   * and does its own fetch — so a page that wants the summary somewhere of its
+   * own, beside a person's name rather than under a section heading, cannot
+   * work it out for itself. Supplying this MOVES the summary rather than
+   * copying it: the internal row below is suppressed, because two rows on one
+   * screen is the thing that was just removed from three pages.
+   */
+  onTotals,
 }: {
   universityId: string;
   instructorId?: string;
   managerId?: string;
   emptyHint?: string;
+  onTotals?: (totals: Tracker["totals"]) => void;
 }) {
   /* The UNIVERSITY's today. This seeds the year, the month and the date
    * filters, so a browser a day out opens the report on the wrong month at the
@@ -113,6 +125,12 @@ export function TrackerReport({
   );
 
   const { data, error, loading, reload } = useLoad(load, `tracker:${universityId}:${query}`);
+
+  /* `data` keeps its identity between renders, so this fires when the period's
+   * figures actually change and not on every parent re-render it causes. */
+  useEffect(() => {
+    if (data) onTotals?.(data.totals);
+  }, [data, onTotals]);
 
   // The export must cover exactly the period on screen, so it reuses the same
   // query string rather than rebuilding one that could drift out of step.
@@ -231,7 +249,7 @@ export function TrackerReport({
           it came from. As a single roster-wide number at the top it invited the
           one reading it does not support — 349 of what, across sixteen people
           and five kinds of deliverable. */}
-      {data ? (
+      {data && !onTotals ? (
         <div className="grid grid-cols-2 gap-4">
           <StatTile label="Instructors" value={data.totals.instructors} emphasis />
           <StatTile label="Working Hours" value={formatHours(data.totals.totalWorkingHours)} />

@@ -12,7 +12,7 @@
  * page cannot drift apart.
  */
 
-import { use, useCallback } from "react";
+import { use, useCallback, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -20,10 +20,13 @@ import {
   ErrorState,
   PageHeader,
   Section,
+  StatTile,
   TableSkeleton,
 } from "@/app/_components/ui";
 import { TrackerReport } from "@/app/_components/TrackerReport";
+import type { Tracker } from "@/app/_components/TrackerGrid";
 import { apiGet, useLoad } from "@/app/_lib/api";
+import { formatHours } from "@/app/_lib/format";
 import { TimeZoneProvider } from "@/app/_lib/zone";
 
 type Instructor = {
@@ -93,6 +96,11 @@ export default function AdminManagerDetailPage({
 
   const { data, error, loading, reload } = useLoad(load, `admin-manager:${id}`);
 
+  /* Filled by the report below, which owns the period picker. `setTotals` is
+   * stable, so passing it straight down does not re-fire the effect that
+   * feeds it. */
+  const [totals, setTotals] = useState<Tracker["totals"] | null>(null);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -135,20 +143,30 @@ export default function AdminManagerDetailPage({
             </div>
           ) : null}
 
-{/* No stat row here.
+          {/* The summary sits here, with the manager's name, rather than
+              inside the report below.
 
-              It held Assigned instructors and Working Hours, and the report
-              below opens with the same two figures. The duplication was not
-              the whole problem: these were the CURRENT WEEK, fixed, while the
-              report has its own period picker — so choosing Current Month left
-              two Working Hours tiles on one screen disagreeing, with nothing on
-              the page to say which period either belonged to.
+              It is FED by that report — `onTotals` — because only the report
+              knows which period is on screen; it owns the picker and does its
+              own fetch. A row assembled here instead would be pinned to
+              whatever this page loaded, which is exactly the fault that had two
+              Working Hours tiles on this screen disagreeing the moment somebody
+              chose Current Month. Passing the totals up moves the row; it does
+              not copy it, and the report suppresses its own when asked for
+              them.
 
-              The report's row is the one kept. It moves with the period it
-              names and adds Deliverable quantity. Its Instructors count is the
-              instructors in that period rather than the size of the roster,
-              which is the more useful of the two here anyway: this page is
-              about whether the roster is recording. */}
+              Instructors is the instructors in the selected period, not the
+              size of the roster. That is the better of the two questions on a
+              page about whether a manager's roster is recording. */}
+          {totals ? (
+            <div className="grid grid-cols-2 gap-4">
+              <StatTile label="Instructors" value={totals.instructors} emphasis />
+              <StatTile
+                label="Working Hours"
+                value={formatHours(totals.totalWorkingHours)}
+              />
+            </div>
+          ) : null}
 
                     {data.roster.length === 0 ? (
             <p className="text-sm text-muted">
@@ -167,6 +185,7 @@ export default function AdminManagerDetailPage({
               <TrackerReport
                 universityId={data.universityId}
                 managerId={id}
+                onTotals={setTotals}
                 emptyHint="Nothing was recorded by this manager's instructors in the selected period."
               />
             </TimeZoneProvider>
