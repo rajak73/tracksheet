@@ -102,19 +102,21 @@ export function InstructorShell({
            * text here is full white, made secondary by SIZE rather than by
            * opacity — every tint of white on this blue, up to 90%, lands
            * under 4.5:1. Icons take a tint (3:1 is their bar) and the wordmark
-           * takes one too, since at 24px bold it counts as large text. */
+           * takes one too, since at 20px bold it still counts as large text —
+           * 4.11:1 against a 3:1 bar. The name beside the avatar is full white
+           * at 5.08:1, which clears the 4.5:1 body-text bar. */
           className="sticky top-0 z-50 bg-primary"
         >
-          <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-4 sm:px-6 lg:px-10">
+          <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-10">
             {/* The client's mark for this product: a clipboard tile, then the
                 wordmark with the second half in the brand blue. */}
             <span className="flex shrink-0 items-center gap-2.5">
               <span
                 aria-hidden
                 /* Inverted: a blue tile on a blue bar is not a tile. */
-                className="inline-flex size-10 items-center justify-center rounded-[10px] bg-white text-primary"
+                className="inline-flex size-9 items-center justify-center rounded-[9px] bg-white text-primary"
               >
-                <svg viewBox="0 0 24 24" fill="none" className="size-6">
+                <svg viewBox="0 0 24 24" fill="none" className="size-5">
                   <rect
                     x="5"
                     y="4"
@@ -139,7 +141,7 @@ export function InstructorShell({
                   />
                 </svg>
               </span>
-              <span className="font-display text-2xl font-bold tracking-tight text-white">
+              <span className="font-display text-xl font-bold tracking-tight text-white">
                 Work<span className="text-white/85">Log</span>
               </span>
             </span>
@@ -225,7 +227,6 @@ function IdentityMenu({
   const [open, setOpen] = useState(false);
 
   const name = profile?.name ?? userName;
-  const code = profile?.employeeCode ?? null;
 
   // ~46px tall: py-3 (24px) plus a 16px icon/text line plus its leading.
   const item =
@@ -238,22 +239,15 @@ function IdentityMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2.5 rounded-card py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:bg-white/15"
+        className="flex items-center gap-2 rounded-card py-1 pl-1 pr-2 text-left transition-colors hover:bg-white/15"
       >
         <Avatar
           name={name}
           avatarUrl={profile?.avatarUrl ?? null}
-          size={36}
+          size={30}
           className="bg-white/20 text-white"
         />
-        <span className="min-w-0">
-          <span className="block max-w-[9rem] truncate text-sm font-semibold text-white">
-            {name}
-          </span>
-          {code ? (
-            <span className="tabular block truncate text-xs text-white">{code}</span>
-          ) : null}
-        </span>
+        <span className="max-w-[9rem] truncate text-sm font-semibold text-white">{name}</span>
         <IconChevronDown
           size={16}
           className={`shrink-0 text-white/80 transition-transform ${open ? "rotate-180" : ""}`}
