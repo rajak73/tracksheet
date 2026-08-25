@@ -25,14 +25,28 @@ import {
  */
 const COLUMN_RULE = "border-r border-line last:border-r-0";
 
+/**
+ * The box a table scrolls inside — both ways.
+ *
+ * Wide tables scroll sideways in here so the page body never does. It is also
+ * height-bounded, which is what lets `THead` stick: `top-0` is measured against
+ * the nearest scrolling ancestor, so without a bound here the header would be
+ * pinned to a box that never scrolls and would simply travel off the top of the
+ * screen with the page. A short table is unaffected — the cap only engages once
+ * there is more table than room.
+ */
 export function TableWrap({ children }: { children: ReactNode }) {
-  // Wide tables scroll inside their own container so the page body never does.
-  return <div className="overflow-x-auto">{children}</div>;
+  return <div className="max-h-[70vh] overflow-auto">{children}</div>;
 }
 
 export function Table({ caption, children }: { caption?: string; children: ReactNode }) {
   return (
-    <table className="min-w-full divide-y divide-line text-sm">
+    /* `border-separate` rather than the default collapse, because a collapsed
+       table drops `position: sticky` on its cells and the header would not
+       stick at all. The cost is that `<tr>` borders stop painting under that
+       model, which is why the row rules live on `TD` below and why `divide-y`
+       is gone from here and from `TBody`. */
+    <table className="min-w-full border-separate border-spacing-0 text-sm">
       {caption ? <caption className="sr-only-text">{caption}</caption> : null}
       {children}
     </table>
@@ -65,20 +79,32 @@ export function THead({
   onSort?: (key: string) => void;
 }) {
   return (
-    <thead className="bg-primary-subtle">
+    <thead>
       <tr>
         {columns.map((c) => {
           const sortable = Boolean(c.sortKey && onSort);
           const active = sort?.key === c.sortKey;
           const base = cx(
             COLUMN_RULE,
-            "px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-text",
+            /* `bg-primary-subtle` sits on the CELL, not on the `<thead>`: a
+               thead's background does not paint behind a sticky cell, so the
+               header would be transparent and the rows would scroll visibly
+               through it rather than under it. */
+            "sticky top-0 z-10 border-b border-line bg-primary-subtle",
+            "text-xs font-semibold uppercase tracking-wide text-primary-text",
             c.align === "right" ? "text-right" : "text-left",
           );
+          /* Padding is NOT in `base`. A sortable header puts it on the button
+             inside instead, so that the whole cell is the click target — and
+             the cell used to say `p-0` beside `base`'s `px-4` to cancel it,
+             which is not a cancellation: both are padding, `.px-4` is emitted
+             after `.p-0`, so the cell kept its 16px and the button added
+             another 16 on top. Sortable columns sat a step further in than the
+             rest of the header. Each branch now names its own. */
 
           if (!sortable) {
             return (
-              <th key={c.label} scope="col" className={base}>
+              <th key={c.label} scope="col" className={cx(base, "px-4 py-2.5")}>
                 {c.label}
               </th>
             );
@@ -88,7 +114,7 @@ export function THead({
             <th
               key={c.label}
               scope="col"
-              className={cx(base, "p-0")}
+              className={base}
               aria-sort={active ? (sort!.direction === "asc" ? "ascending" : "descending") : "none"}
             >
               <button
@@ -118,7 +144,8 @@ export function THead({
 }
 
 export function TBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y divide-line">{children}</tbody>;
+  // Row rules are on the cells — see the note in `Table`.
+  return <tbody>{children}</tbody>;
 }
 
 export function TR({
@@ -162,6 +189,8 @@ export function TD({
       colSpan={colSpan}
       className={cx(
         COLUMN_RULE,
+        // The row rule, which used to be `divide-y` on `TBody` — see `Table`.
+        "border-b border-line",
         "px-4 py-3",
         align === "right" ? "text-right tabular" : "",
         strong ? "font-medium text-content" : "text-muted",
