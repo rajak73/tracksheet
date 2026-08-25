@@ -1195,68 +1195,18 @@ export default function WorkLogHistoryPage() {
             />
           </label>
 
-          {/* ── What will actually be recorded ─────────────────────────────
-            * Built by the same function the server will run, so the preview
-            * cannot promise something different from what is written.
+          {/* Nothing after Remarks.
             *
-            * It is also the only defence against the one mistake no counting
-            * rule catches: three deliverables and three durations that line up
-            * in COUNT but not in meaning. A reader can see "Doubt session —
-            * 2h" and know the hours went to the wrong line; nothing in the
-            * arithmetic can. */}
-          {/* Lines that do not line up, said whatever the count.
-            *
-            * This used to be the else-half of the preview below. The preview
-            * now only renders when the split succeeded, which would have left
-            * the refusal with nowhere to appear. */}
-          {!split.ok && (draft.deliverable.trim() || draft.workingHours.trim()) ? (
-            <p className="rounded-control border border-warning/30 bg-warning-subtle px-3.5 py-2.5 text-sm text-warning-text">
-              {split.reason}
-            </p>
-          ) : null}
+            * A preview of the entries about to be written used to sit here,
+            * and a warning beside it when the deliverable lines and the hour
+            * lines did not pair up. Both are gone at the client's request; the
+            * box is the four fields and the buttons.
 
-          {/* Only once the day has more than one line in it.
-            *
-            * The check this exists for is three deliverables against three
-            * durations that line up in COUNT but not in meaning — "Doubt
-            * session — 2h" where the 2h belonged to the class above it. A
-            * single deliverable cannot make that mistake, so on the ordinary
-            * day the form is the four boxes the brief draws and nothing else. */}
-          {split.ok && split.entries.length > 1 ? (
-            <div className="rounded-control border border-line bg-sunken px-3.5 py-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                    {split.entries.length === 1
-                      ? "This will be recorded as"
-                      : `${split.entries.length} entries will be recorded`}
-                  </p>
-                  <ul className="grid gap-1">
-                    {split.entries.map((entry, i) => (
-                      <li key={i} className="text-sm text-content">
-                        <span className="tabular text-muted">{formatHours(entry.workingHours)}</span>
-                        {"  "}
-                        {entry.deliverable}
-                        {entry.quantity !== null ? (
-                          <span className="text-muted"> · {entry.quantity}</span>
-                        ) : (
-                          <span
-                            className="text-muted"
-                            title="No count given — the report will show ? unless this is a class, meeting or session, which counts as one"
-                          >
-                            {" "}
-                            · not counted
-                          </span>
-                        )}
-                        {entry.remarks ? (
-                          <span className="text-muted"> · {entry.remarks}</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">
-                    Placed one after another from the start of your working day.
-                  </p>
-            </div>
-          ) : null}
+            * The pairing is still checked — `submit()` refuses on `!split.ok`
+            * and puts the reason in the error line at the top of this dialog,
+            * which is where every other refusal in it already appears. What is
+            * lost is only the chance to see the mistake BEFORE pressing
+            * Submit. */}
         </div>
       </Dialog>
     </div>
