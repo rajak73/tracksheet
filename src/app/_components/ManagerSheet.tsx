@@ -77,7 +77,11 @@ const IDENTITY = {
   broadCategory: "w-[160px] min-w-[160px]",
 };
 
-const HEAD = "bg-primary-subtle text-xs font-semibold leading-snug text-primary-text";
+/* Carries no background: every header cell picks its own, because the current
+ * period takes a stronger one and two `bg-*` utilities on one cell is not a
+ * layering — `background-color` is a single property, so one silently replaces
+ * the other and which one wins is down to stylesheet order. */
+const HEAD = "text-xs font-semibold leading-snug text-primary-text";
 
 /* Sticky ranks, per the layer scale in globals.css: the period header row is
  * the floor, the frozen identity columns sit above it, and the corner where the
@@ -125,21 +129,21 @@ export function ManagerSheet({
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-line px-4 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.name} sticky left-0 top-0 ${STICKY_CORNER} border-b border-r border-line px-4 py-3 text-left`}
             >
               Employee Name
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
             >
               Employee ID
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-3 text-left`}
             >
               Broad Category
             </th>
@@ -150,14 +154,14 @@ export function ManagerSheet({
                 scope="colgroup"
                 colSpan={FIELDS.length}
                 className={`${HEAD} sticky top-0 ${STICKY_ROW} border-b border-l-2 border-line px-3 py-2.5 text-left ${
-                  // A stronger wash of the same blue on top of HEAD's own
-                  // pale one, so "current" reads as more saturated rather
-                  // than a second, competing background colour.
-                  p.isCurrent ? "bg-primary/15" : ""
+                  // A stronger step of the same blue, so "current" reads as
+                  // more saturated rather than as a second, competing colour.
+                  // Opaque, not an alpha — see the token's own note.
+                  p.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
                 }`}
               >
                 {p.sublabel}
-                <span className="tabular block font-normal text-primary-text/70">{p.label}</span>
+                <span className="tabular block font-normal text-primary-text">{p.label}</span>
               </th>
             ))}
 
@@ -174,7 +178,7 @@ export function ManagerSheet({
               aria-sort={
                 sort === "total-desc" ? "descending" : sort === "total-asc" ? "ascending" : "none"
               }
-              className={`${HEAD} sticky top-0 ${STICKY_ROW} min-w-[9rem] border-b border-l-2 border-line p-0 text-right align-bottom`}
+              className={`${HEAD} bg-primary-subtle sticky top-0 ${STICKY_ROW} min-w-[9rem] border-b border-l-2 border-line p-0 text-right align-bottom`}
             >
               <button
                 type="button"
@@ -197,7 +201,7 @@ export function ManagerSheet({
                 <th
                   key={`${p.label}:${f.key}`}
                   scope="col"
-                  className={`${HEAD} sticky top-[3.75rem] ${STICKY_ROW} border-b border-line px-3 py-2.5 font-normal ${
+                  className={`${HEAD} bg-primary-subtle sticky top-[3.75rem] ${STICKY_ROW} border-b border-line px-3 py-2.5 font-normal ${
                     i === 0 ? "border-l-2" : "border-l border-line-subtle"
                   } ${f.align}`}
                 >

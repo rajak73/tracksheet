@@ -117,6 +117,19 @@
   --app-primary: #1467e8;
   --app-primary-hover: #0f52c4;
   --app-primary-subtle: #eff6ff;
+  /* The same pale blue, one step stronger, for the "you are here" period on a
+     sheet header. It is `--app-primary` washed over `--app-primary-subtle` and
+     RESOLVED to an opaque colour rather than left as an alpha over it — those
+     header cells are `position: sticky`, and a translucent background lets the
+     rows scroll visibly through the header instead of under it.
+
+     Written out rather than left as a `color-mix()` of the two tokens above:
+     the build's CSS minifier flattens a `color-mix` whose arguments are
+     custom properties down to its first argument, which silently turned this
+     header into full-strength `--app-primary`. This IS that mix — 15% #1467e8
+     over #eff6ff — resolved by hand. If either token above changes, recompute
+     it. #0f52c4 label text reads 5.22:1 on it. */
+  --app-primary-subtle-strong: #cee1fc;
   --app-primary-text: #0f52c4;
   /* A lighter step of the same family, for a second data series or a
      secondary interactive emphasis. Never a second brand colour. UI-scale
@@ -244,6 +257,7 @@
   --color-primary: var(--app-primary);
   --color-primary-hover: var(--app-primary-hover);
   --color-primary-subtle: var(--app-primary-subtle);
+  --color-primary-subtle-strong: var(--app-primary-subtle-strong);
   --color-primary-text: var(--app-primary-text);
   --color-primary-bright: var(--app-primary-bright);
 

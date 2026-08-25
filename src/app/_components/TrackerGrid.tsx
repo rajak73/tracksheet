@@ -599,10 +599,12 @@ export function TrackerGrid({
                   key={week.index}
                   scope="colgroup"
                   colSpan={WEEK_FIELDS.length}
-                  /* A translucent wash for "current", not a second opaque
-                     background — see the identical note in `ManagerSheet.tsx`. */
-                  className={`border-b border-l-2 border-line bg-primary-subtle px-4 py-2 text-center ${
-                    week.isCurrent ? "bg-primary/15" : ""
+                  /* One background, never two — `background-color` is a
+                     single property, so a second `bg-*` replaces the first
+                     rather than washing over it. See the note in
+                     `ManagerSheet.tsx` and the token in `globals.css`. */
+                  className={`border-b border-l-2 border-line px-4 py-2 text-center ${
+                    week.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
                   }`}
                 >
                   <span className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary-text">
@@ -613,7 +615,7 @@ export function TrackerGrid({
                       </Badge>
                     ) : null}
                   </span>
-                  <span className="tabular mt-0.5 block text-xs font-normal text-primary-text/70">
+                  <span className="tabular mt-0.5 block text-xs font-normal text-primary-text">
                     {weekLabel(week)}
                   </span>
                 </th>
@@ -626,9 +628,11 @@ export function TrackerGrid({
                   <th
                     key={`${week.index}-${field.key}`}
                     scope="col"
-                    className={`whitespace-nowrap border-b border-line bg-primary-subtle px-3 py-2 text-xs font-medium text-primary-text ${
+                    className={`whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-primary-text ${
                       i === 0 ? "border-l-2" : "border-l border-line-subtle"
-                    } ${field.align} ${week.isCurrent ? "bg-primary/15" : ""}`}
+                    } ${field.align} ${
+                      week.isCurrent ? "bg-primary-subtle-strong" : "bg-primary-subtle"
+                    }`}
                   >
                     {field.label}
                   </th>
