@@ -229,31 +229,20 @@ export function TrackerReport({
 
               What remains is named for what it actually holds. The tracker's
               hours come from the engine, which counts preparation, meetings
-              and admin exactly like teaching, so this tile says "Recorded
-              hours" — not "Working Hours", which counts only student-facing
-              time and is the smaller figure the grid below totals out of the
-              same response. Quantity stays: a count of deliverables completed
-              is its own question, not an hours figure wearing a misleading
-              name. */}
+              and admin exactly like teaching — and so, now, does Working
+              Hours. This tile said "Recorded hours" to hold those two apart
+              back when Working Hours was the student-facing subset; the client
+              has since defined every recorded minute as working time, so there
+              is nothing left to hold apart and a second name for one figure
+              was only ever going to be read as a second figure.
+
+              Quantity stays: a count of deliverables completed is its own
+              question, not an hours figure wearing a misleading name. */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <StatTile label="Instructors" value={data.totals.instructors} emphasis />
-            <StatTile label="Recorded hours" value={formatHours(data.totals.totalWorkingHours)} />
+            <StatTile label="Working Hours" value={formatHours(data.totals.totalWorkingHours)} />
             <StatTile label="Deliverable quantity" value={data.totals.quantity} />
           </div>
-
-          {/* Both figures are on THIS screen — this tile above, the grid's
-              Working Hours column below — and the tile is the larger of the
-              two, so a reader who conflates them overstates teaching load.
-              The difference is therefore stated once, plainly, between them
-              rather than left to a tooltip. It must not send the reader off to
-              some other page: the smaller figure is a scroll away, not a
-              screen away. */}
-          <Alert tone="info" title="Recorded hours is not Working Hours">
-            <strong>Recorded hours</strong> is every minute logged in this period — preparation,
-            meetings, reporting and admin included. <strong>Working Hours</strong>, the column in
-            the grid below, counts only time spent with students, so it is the smaller figure.
-            They answer different questions and are never added together.
-          </Alert>
 
           {data.totals.formerInstructors > 0 ? (
             <Alert tone="warning" title="Includes former staff">

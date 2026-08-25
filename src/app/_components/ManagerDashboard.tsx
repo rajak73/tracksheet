@@ -127,12 +127,12 @@ const STATUS_BADGE: Record<DayInstructor["status"], { label: string; tone: "succ
  * WHOLE roster like those two do — the "view more" that used to sit under the
  * cards existed because cards are tall, and a scroll box has replaced it.
  *
- * ── Working Hours is the time spent WITH STUDENTS ─────────────────────
- * The same rule the sheets use, from the same `rollUp`: classes, labs,
- * mentoring, doubt sessions, evaluations. Preparation, meetings and admin still
- * appear in the Recorded work column — they happened — but they are not what
- * this figure measures, and a manager comparing two people has to be comparing
- * the same thing they see everywhere else.
+ * ── Working Hours is every hour recorded ──────────────────────────────
+ * The same rule the sheets use, from the same `rollUp`: classes and labs and
+ * mentoring, and equally preparation, meetings and admin. The client defines an
+ * instructor's working time as what they wrote down. Taking it from `rollUp`
+ * rather than adding it up here is what keeps a manager comparing two people on
+ * the same figure they see everywhere else.
  */
 export function DayTable({
   rows,

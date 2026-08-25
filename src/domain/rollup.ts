@@ -73,7 +73,14 @@ export type RollupLine = {
 
 export type Rollup = {
   lines: RollupLine[];
-  /** Time spent WITH STUDENTS. Preparation, meetings and admin are excluded. */
+  /**
+   * Every hour that happened. Preparation, meetings and admin included.
+   *
+   * This doc used to read "time spent WITH STUDENTS ... excluded", which is the
+   * rule `countsAsWorkingHours` was changed away from — see the note there. It
+   * is left explicit because a stale definition at the definition site is how
+   * the old rule gets written back in.
+   */
   hours: number;
   remarks: string[];
 };
@@ -105,12 +112,19 @@ const distinct = (values: Array<string | null | undefined>) => [
  * exactly the same entries. A total that changes with how you group it is not
  * a total. Summing per activity, as below, cannot do that.
  *
- * ── Working Hours is the time spent with students ─────────────────────────
- * Classes, labs, mentoring, doubt sessions, evaluations, workshops. Everything
- * else keeps its hours on its own line — it happened, and the sheet says so —
- * but it is not what that figure measures. Which means the Deliverable column
- * deliberately does NOT add up to Working Hours; the lines that do not count
- * are shown muted so nobody attempts the arithmetic.
+ * ── Working Hours is everything that happened ─────────────────────────────
+ * Classes and labs and mentoring, and equally preparation, meetings, reporting
+ * and admin. The client defines an instructor's working time as what they wrote
+ * down, so there is no judgement left about which of their hours count. It used
+ * to be the student-facing subset — see `countsAsWorkingHours` for what changed
+ * and why.
+ *
+ * The countable/uncountable split below therefore no longer divides the hours;
+ * `countsAsWorkingHours` returns true for everything, so no line is muted in
+ * practice and the Deliverable column does add up to Working Hours. The
+ * machinery is kept because it is still what would express the old rule if the
+ * client ever asks for it back, and because quantity still rides on it — a
+ * count of deliverables is not a count of meetings.
  */
 export function rollUp(activities: RollupActivity[]): Rollup {
   const byCategory = new Map<string, RollupLine>();
@@ -181,9 +195,10 @@ export function rollUp(activities: RollupActivity[]): Rollup {
 
   return {
     lines,
-    // Every hour inside a counted line is student-facing now, so this is the
-    // same figure as adding up the countable activities one by one — which is
-    // what makes it independent of the grouping.
+    // Summed per line from per-activity hours, which is what keeps this
+    // independent of how the period is grouped — see the defect described
+    // above. Every line is countable under the current rule, so this is the
+    // whole period; the reduce is written to survive the rule changing back.
     hours: lines.reduce((n, l) => n + (l.countable ? l.hours : 0), 0),
     /* `subjects` used to be returned here — the distinct subject labels of the
      * entries in this period.

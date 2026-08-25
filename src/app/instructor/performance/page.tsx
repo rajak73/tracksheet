@@ -216,17 +216,17 @@ export default function InstructorPerformancePage() {
               working day: how much of a configured day was filled is not a
               measure of teaching, and it is not what an instructor is asking
               this page. */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          {/* One tile, not two. These were "Working Hours" — hinted as time
+              with students — beside "Recorded hours", hinted as everything
+              logged. Under the client's current rule those are the same
+              minutes, so the screen was printing one number twice with two
+              hints insisting it was two different things. */}
+          <div className="grid gap-4 sm:grid-cols-2">
             <StatTile
               label="Working Hours"
               value={formatHours(view.totals.workingHours)}
-              hint="Time spent with students."
+              hint="Every hour you logged — teaching, preparation, meetings and admin alike."
               emphasis
-            />
-            <StatTile
-              label="Recorded hours"
-              value={formatHours(view.totals.recordedHours)}
-              hint="All the work you logged, students or not."
             />
             <StatTile label="Deliverable quantity" value={view.totals.quantity ?? UNSTATED} />
           </div>

@@ -148,17 +148,18 @@ export default function InstructorAnalyticsPage() {
       />
 
       {/*
-        Three tiles, and the lead one is a count rather than a ratio. Its name
-        carries the caveat: this is logged time, teaching and admin alike,
-        which is why the tile says "Recorded hours" and not "Working Hours" —
-        that figure counts only time with students and is not in this response.
+        Three tiles, and the lead one is a count rather than a ratio. It is
+        logged time, teaching and admin alike — which is what Working Hours now
+        means, so the tile says so. It said "Recorded hours" while Working Hours
+        was the narrower student-facing figure; that distinction is gone and two
+        names for one number only ever read as two numbers.
         Every hour on this page goes through `formatHours`, so the tiles and
         the table below read as hours and minutes rather than as a decimal,
         matching the manager's copy of this screen.
       */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile
-          label="Recorded hours"
+          label="Working Hours"
           value={formatHours(m.productiveHours)}
           emphasis
           hint="Logged activity, preparation and meetings included"
