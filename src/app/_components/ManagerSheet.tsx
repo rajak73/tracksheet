@@ -21,6 +21,7 @@
  * figure the manager is themselves measured on is derived from that record.
  */
 
+import { useEffect, useRef, useState } from "react";
 import { categoryColor } from "@/app/_components/charts";
 import {
   broadCategoryCell,
@@ -115,6 +116,29 @@ export function ManagerSheet({
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
 }) {
+  /* ── Where the second header row pins ──────────────────────────────────
+   * Directly under the first, and the only reliable answer to "how tall is the
+   * first" is the first. The offset was hard-coded at 3.75rem, a guess the row
+   * does not actually render at — it comes out near 54px, six short of the 60
+   * it was pinned below, and those six pixels were a band of the sheet visible
+   * BETWEEN the two stuck rows as it scrolled past.
+   *
+   * Measured rather than corrected to 54px, because the number is not a
+   * constant: it moves with the type scale, and with any period label long
+   * enough to wrap. */
+  const periodRow = useRef<HTMLTableRowElement>(null);
+  const [periodRowHeight, setPeriodRowHeight] = useState(0);
+
+  useEffect(() => {
+    const row = periodRow.current;
+    if (!row) return;
+    const measure = () => setPeriodRowHeight(row.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="max-h-[70vh] overflow-auto rounded-card border border-line bg-surface shadow-card">
       <table className="border-separate border-spacing-0 text-sm">
@@ -125,7 +149,7 @@ export function ManagerSheet({
         <thead>
           {/* Two header rows: the period spans its four fields, and the fields
               are named underneath. That is the sheet the client already reads. */}
-          <tr>
+          <tr ref={periodRow}>
             <th
               scope="col"
               rowSpan={2}
@@ -201,7 +225,12 @@ export function ManagerSheet({
                 <th
                   key={`${p.label}:${f.key}`}
                   scope="col"
-                  className={`${HEAD} bg-primary-subtle sticky top-[3.75rem] ${STICKY_ROW} border-b border-line px-3 py-2.5 font-normal ${
+                  /* Undefined until the row above has been measured, which
+                     leaves the cell sticky with no offset — so it scrolls
+                     for one frame rather than sticking at zero and landing
+                     on top of the row it belongs under. */
+                  style={{ top: periodRowHeight || undefined }}
+                  className={`${HEAD} bg-primary-subtle sticky ${STICKY_ROW} border-b border-line px-3 py-2.5 font-normal ${
                     i === 0 ? "border-l-2" : "border-l border-line-subtle"
                   } ${f.align}`}
                 >
