@@ -25,9 +25,16 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-6">
-      {breadcrumb ? <div className="mb-3 text-sm text-muted">{breadcrumb}</div> : null}
+      {/* The breadcrumb sits INSIDE the left column rather than in a band above
+          the whole row, so `items-start` aligns the actions with the very top
+          of the header instead of with the title underneath it. A page whose
+          actions are figures rather than buttons — see the manager detail
+          page — wants them level with the first line, not indented a
+          breadcrumb's height down the page. With no breadcrumb the two are the
+          same thing, which is every other caller. */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
+          {breadcrumb ? <div className="mb-3 text-sm text-muted">{breadcrumb}</div> : null}
           {/* Sans, not the display serif. The serif is reserved for the
               NIAT wordmark alone — a serif page title inside a data
               dashboard reads editorial rather than operational, and left the

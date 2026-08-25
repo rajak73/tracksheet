@@ -131,9 +131,9 @@ export default function AdminManagerDetailPage({
         description={data ? `${data.manager.university.name} (${data.manager.university.code}) · ${data.manager.user.email}` : undefined}
         /* ── The summary, on the header's own row ─────────────────────────
          * Beside the manager's name rather than stacked under it: these two
-         * figures are what the page is about, and `PageHeader` already lays
-         * its actions slot out top-aligned with the title, which is the
-         * alignment being asked for.
+         * figures are what the page is about, and `PageHeader` aligns its
+         * actions slot with the top of the header — the breadcrumb line, not
+         * the title beneath it.
          *
          * They are FED by the report below through `onTotals`, because only it
          * knows which period is selected — it owns the picker and does its own
