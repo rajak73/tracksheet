@@ -152,10 +152,39 @@ describe("every insight is traceable to a condition and a number", () => {
     for (const period of [S.overload, S.under, S.compliance, S.learningNow]) {
       const insights = await generate(period.from, period.to);
       for (const i of insights) {
+        /* The allowed figures are the METRICS and the THRESHOLD — not the whole
+         * snapshot.
+         *
+         * This regexed `JSON.stringify(supportingData)`, which includes
+         * `instructorId`. A cuid is two dozen random alphanumerics, so any digit
+         * it happened to contain silently became an "allowed" number: the test
+         * passed or failed depending on the id generated that run. It was the
+         * only non-deterministic test in the suite, and it failed in the
+         * dangerous direction too — an invented figure passed whenever the id
+         * happened to contain it. */
+        const data = i.supportingData as Record<string, unknown>;
+        const { metrics, threshold } = data;
         const snapshot = new Set(
-          JSON.stringify(i.supportingData).match(/\d+(\.\d+)?/g) ?? [],
+          JSON.stringify({ metrics, threshold }).match(/\d+(\.\d+)?/g) ?? [],
         );
-        const quoted = `${i.summary} ${i.recommendation}`.match(/\d+(\.\d+)?/g) ?? [];
+        /* The subject's NAME comes out of the prose before the figures are
+         * read, and this is the whole reason the test used to be flaky.
+         *
+         * A sentence opens with whoever it is about, and `average-hours.test.ts`
+         * creates instructors called "Roster Inst 0", "Roster Inst 1" and so on.
+         * The digit in that name looked like a quoted figure. It was tolerated
+         * only because the old snapshot regexed `instructorId` too — a cuid of
+         * two dozen random characters — so the test passed on the runs whose id
+         * happened to contain that digit and failed on the rest. It was the one
+         * non-deterministic test in the suite, and it failed in the dangerous
+         * direction as well: an invented figure passed whenever a random id
+         * happened to contain it.
+         *
+         * What this test is for is that no FIGURE is invented. A name is not a
+         * figure. */
+        const subject = typeof data.instructorName === "string" ? data.instructorName : "";
+        const prose = `${i.summary} ${i.recommendation}`.split(subject || "\u0000").join(" ");
+        const quoted = prose.match(/\d+(\.\d+)?/g) ?? [];
         for (const n of quoted) {
           expect(
             snapshot.has(n),
@@ -263,9 +292,16 @@ describe("the model boundary", () => {
     // have to appear here.
     const insights = await generate(S.overload.from, S.overload.to);
     for (const i of insights) {
+      /* `instructorName` is on this list deliberately, and adding it required
+       * changing this line — which is the point of pinning the exact key set.
+       *
+       * A name is not an activity row. The narration already puts it in the
+       * sentence ("Roster Inst 1 recorded utilisation of…"), so it was reaching
+       * the reader either way; what it was NOT doing was appearing in the
+       * snapshot that is supposed to support the sentence. */
       const keys = Object.keys(i.supportingData);
       expect(keys.sort()).toEqual(
-        ["conditionType", "instructorId", "metrics", "scope", "threshold"].sort(),
+        ["conditionType", "instructorId", "instructorName", "metrics", "scope", "threshold"].sort(),
       );
       // No activity log identifiers, timestamps, or remarks anywhere.
       const blob = JSON.stringify(i.supportingData);

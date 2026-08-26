@@ -23,7 +23,7 @@
     "worklog:sample": "tsx scripts/worklog-sample.ts",
     "demo:roster": "tsx scripts/demo-roster.ts",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "test:gate": "vitest run tests/phase1-tenant-isolation.test.ts tests/phase9-instructor-isolation.test.ts tests/no-gemini-in-arithmetic.test.ts tests/worklog-taxonomy-decisions.test.ts tests/worklog-report-format.test.ts tests/worklog-views.test.ts"
+    "test:gate": "vitest run tests/phase1-tenant-isolation.test.ts tests/phase9-instructor-isolation.test.ts tests/no-gemini-in-arithmetic.test.ts tests/worklog-taxonomy-decisions.test.ts tests/worklog-report-format.test.ts tests/worklog-views.test.ts tests/design-tokens.test.ts tests/worklog-replace-rollback.test.ts"
   },
   "engines": {
     "node": ">=20.9.0 <25"

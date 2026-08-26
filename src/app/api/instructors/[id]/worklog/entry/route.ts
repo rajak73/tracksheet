@@ -119,11 +119,29 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
    * its way to being refused. Before, so the new entries are placed against an
    * empty day — `recordQuickEntry` lays each one after whatever is already
    * there, and replacing eight hours with eight more would otherwise run the
-   * day past midnight and be refused for it. */
+   * day past midnight and be refused for it.
+   *
+   * ── The day is kept, in case none of the new lines lands ────────────────
+   * Parsing is not the only way a rewrite can fail. A line can parse perfectly
+   * and still be refused by the WRITER — "that would run past midnight" is the
+   * easy one to hit, because an instructor correcting 3h to 20h types
+   * something the parser is happy with. By then the delete has happened, every
+   * line is refused, `NOTHING_RECORDED` is thrown, and the instructor sees an
+   * error and reasonably believes nothing changed.
+   *
+   * Their day was destroyed. Confirmed against the database: a day holding one
+   * valid entry came back holding none, with a 400 on screen.
+   *
+   * A transaction around the whole thing is the textbook fix and is not
+   * available here — `logActivity` opens its own, taking a transaction-scoped
+   * advisory lock, and nesting it inside another would have the inner write
+   * waiting on a lock the outer transaction holds. So the rows are snapshotted
+   * instead and put back if nothing survives; see the restore below. */
+  let cleared: Array<Record<string, unknown>> = [];
   if (input.replace) {
-    await prisma.activityLog.deleteMany({
-      where: { instructorId: instructor.id, workDate: toDateOnly(input.date) },
-    });
+    const where = { instructorId: instructor.id, workDate: toDateOnly(input.date) };
+    cleared = await prisma.activityLog.findMany({ where });
+    await prisma.activityLog.deleteMany({ where });
   }
 
   /* Written in order, one at a time, through the same writer a single entry
@@ -165,6 +183,22 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
   }
 
   if (activities.length === 0) {
+    /* Nothing was written, so whatever was cleared above is put back exactly as
+     * it was — same ids, same times, same everything. `createMany` because the
+     * rows are already complete: they are not being re-derived, they are being
+     * restored.
+     *
+     * `skipDuplicates` guards the one case where a line DID land on an id that
+     * already exists; it cannot happen on this path, since a single success
+     * would mean `activities.length` is not zero, but a restore that throws
+     * would leave the day empty AND hide the real refusal behind a second
+     * error. */
+    if (cleared.length > 0) {
+      await prisma.activityLog.createMany({
+        data: cleared as never,
+        skipDuplicates: true,
+      });
+    }
     throw new ApiError(400, "NOTHING_RECORDED", refused.join(" "));
   }
 

@@ -63,11 +63,16 @@ export async function deriveInsights(analytics: AnalyticsResult): Promise<DraftI
       summary: narration.summary,
       recommendation: narration.recommendation,
       condition,
-      // The snapshot is exactly what the sentence was derived from.
+      /* The snapshot is exactly what the sentence was derived from — which
+       * includes WHO it is about. The name was missing: the sentence opens with
+       * it ("Roster Inst 1 recorded utilisation of…"), so a snapshot without it
+       * did not fully support its own prose, and an id is not a substitute
+       * because nobody reading the sentence can resolve one. */
       supportingData: {
         conditionType: condition.type,
         scope: condition.scope,
         instructorId: condition.instructorId ?? null,
+        instructorName: condition.instructorName ?? null,
         metrics: condition.metrics,
         threshold: condition.threshold,
       },
