@@ -105,7 +105,7 @@ export function InstructorShell({
            * takes one too, since at 20px bold it still counts as large text —
            * 4.11:1 against a 3:1 bar. The name beside the avatar is full white
            * at 5.08:1, which clears the 4.5:1 body-text bar. */
-          className="sticky top-0 z-50 bg-primary"
+          className="sticky top-0 z-50 bg-brand-navy"
         >
           <div className="mx-auto flex w-full max-w-[96rem] items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-10">
             {/* The client's mark for this product: a clipboard tile, then the

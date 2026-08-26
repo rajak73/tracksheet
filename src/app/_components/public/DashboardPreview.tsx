@@ -26,10 +26,17 @@ import type { ReactNode } from "react";
 
 /* ── Shared chrome ─────────────────────────────────────────────────────── */
 
+/* Copied from the product's real navigation — see `nav.tsx`.
+ *
+ * These listed six items each, most of which have since been removed:
+ * Analytics and AI Insights are gone from the admin rail, Managers and
+ * Instructors collapsed into one Employees list, and the manager's rail is two
+ * items rather than six. A marketing site advertising screens the product no
+ * longer has is worse than one showing fewer. */
 const NAV_ITEMS: Record<PreviewRole, string[]> = {
-  admin: ["Overview", "Universities", "Managers", "Instructors", "Analytics", "AI Insights"],
-  manager: ["Overview", "Instructors", "Schedule", "Workload", "Deliverables", "Analytics"],
-  instructor: ["Today", "Schedule", "Activities", "Learning", "Deliverables", "Analytics"],
+  admin: ["Dashboard", "Employees", "Worklog", "Settings"],
+  manager: ["Dashboard", "Worklog"],
+  instructor: ["Work Log", "Activity Tracker", "My Performance", "Settings"],
 };
 
 export type PreviewRole = "admin" | "manager" | "instructor";
@@ -88,10 +95,49 @@ function PreviewSidebar({ role }: { role: PreviewRole }) {
 }
 
 function PreviewShell({ role, children }: { role: PreviewRole; children: ReactNode }) {
+  /* ── An instructor has no sidebar ──────────────────────────────────────
+   * Admin and manager sit inside `AppShell`, which is a fixed navy rail.
+   * An instructor sits inside `InstructorShell`, which is a full-width BLUE
+   * BAR across the top and no rail at all — a different chrome entirely.
+   * Drawing all three with a sidebar showed instructors a screen the product
+   * has never had. */
+  if (role === "instructor") {
+    return (
+      <div className="min-h-72 bg-canvas">
+        <PreviewTopBar />
+        <div className="min-w-0">{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-72 bg-canvas">
       <PreviewSidebar role={role} />
       <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+/** The instructor's blue bar: clipboard tile, WorkLog wordmark, identity chip. */
+function PreviewTopBar() {
+  return (
+    <div className="flex items-center justify-between bg-primary px-3.5 py-2">
+      <span className="flex items-center gap-2">
+        <span className="inline-flex size-6 items-center justify-center rounded-[6px] bg-white text-primary">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-3.5">
+            <rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
+            <path d="M9 3.5h6v2H9z" fill="currentColor" />
+            <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </span>
+        <span className="font-display text-sm font-bold tracking-tight text-white">WorkLog</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-flex size-5 items-center justify-center rounded-full bg-white/25 text-[8px] font-semibold text-white">
+          AV
+        </span>
+        <span className="text-[10px] font-semibold text-white">Arun Verma</span>
+      </span>
     </div>
   );
 }
@@ -205,35 +251,48 @@ function BarRow({
 
 /* ── Admin ─────────────────────────────────────────────────────────────── */
 
+/**
+ * The three previews below mirror the REAL screens, figure for figure.
+ *
+ * They used to show Avg. utilization, Compliance and a "Network utilization
+ * trend" — three metrics the product does not have any more. Utilization was
+ * removed because it divided every recorded minute by a configured day, so a
+ * week of internal meetings scored like a week of teaching; compliance went
+ * with it. A public site is the last place those should have survived, because
+ * it is the one surface nobody signs in to check.
+ *
+ * What is shown now is what the screens show: head count, today's submissions,
+ * what is outstanding, hours for the month, the submission curve, and the list
+ * of who has not filed. Figures are representative — every call site publishes
+ * `IllustrativeNote` beside them saying so.
+ */
 export function AdminPreview() {
   return (
     <PreviewShell role="admin">
       <div className="space-y-3 p-4">
         <div>
-          <h3 className="text-sm font-semibold text-content">Admin Overview</h3>
-          <p className="text-[10px] text-muted">
-            Real-time overview of the NIAT university network
-          </p>
+          <h3 className="text-sm font-semibold text-content">Dashboard</h3>
+          <p className="text-[10px] text-muted">Tuesday, 25 August 2026 · August to date</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Kpi label="Universities" value="12" />
-          <Kpi label="Instructors" value="1,284" />
-          <Kpi label="Avg. utilization" value="87" suffix="%" delta="↑ 3.2%" deltaTone="up" />
-          <Kpi label="Compliance" value="94" suffix="%" delta="↑ 1.1%" deltaTone="up" />
+          <Kpi label="Total employees" value="128" />
+          <Kpi label="Today's submissions" value="112" />
+          <Kpi label="Pending submissions" value="16" />
+          <Kpi label="Total work hours" value="1,248" delta="↑ 10%" deltaTone="up" />
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           <div className="rounded-[6px] border border-line bg-surface p-3 lg:col-span-3">
-            <PanelTitle>Network utilization trend</PanelTitle>
-            <MiniAreaChart points={[62, 68, 65, 74, 78, 76, 83, 87]} />
+            <PanelTitle>Submission overview</PanelTitle>
+            <MiniAreaChart points={[42, 58, 51, 74, 66, 88, 79, 96]} />
           </div>
           <div className="space-y-2.5 rounded-[6px] border border-line bg-surface p-3 lg:col-span-2">
-            <PanelTitle>Utilization by university</PanelTitle>
-            <BarRow label="Northfield University" pct={92} />
-            <BarRow label="Riverstone University" pct={88} />
-            <BarRow label="Westbrook Institute" pct={81} />
-            <BarRow label="Ashcombe College" pct={74} />
+            <PanelTitle>Pending submissions</PanelTitle>
+            <BarRow label="Northfield University" pct={94} value="94%" />
+            <BarRow label="Riverstone University" pct={88} value="88%" />
+            <BarRow label="Westbrook Institute" pct={81} value="81%" />
+            <BarRow label="Ashcombe College" pct={76} value="76%" />
           </div>
         </div>
       </div>
@@ -248,44 +307,28 @@ export function ManagerPreview() {
     <PreviewShell role="manager">
       <div className="space-y-3 p-4">
         <div>
-          <h3 className="text-sm font-semibold text-content">Manager Dashboard</h3>
-          <p className="text-[10px] text-muted">Northfield University · this week</p>
+          <h3 className="text-sm font-semibold text-content">Team Dashboard</h3>
+          <p className="text-[10px] text-muted">16 instructors · August to date</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Kpi label="Instructors" value="128" />
-          <Kpi label="Avg. utilization" value="92" suffix="%" delta="↑ 2.4%" deltaTone="up" />
-          <Kpi label="Compliance" value="95" suffix="%" />
-          <Kpi label="Open alerts" value="3" delta="Needs review" deltaTone="down" />
+          <Kpi label="Team members" value="16" />
+          <Kpi label="Today's submissions" value="15" />
+          <Kpi label="Pending" value="1" />
+          <Kpi label="Work hours" value="167" />
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-          <div className="space-y-2.5 rounded-[6px] border border-line bg-surface p-3 lg:col-span-3">
-            <PanelTitle>Workload overview</PanelTitle>
-            <BarRow label="Teaching" pct={78} color="var(--cat-teaching)" value="29h" />
-            <BarRow label="Learning" pct={42} color="var(--cat-learning)" value="16h" />
-            <BarRow label="Meetings" pct={28} color="var(--cat-meeting)" value="11h" />
-            <BarRow label="Administrative" pct={19} color="var(--cat-admin)" value="7h" />
-            <BarRow label="Support" pct={14} color="var(--cat-support)" value="5h" />
+          <div className="rounded-[6px] border border-line bg-surface p-3 lg:col-span-3">
+            <PanelTitle>Team submission overview</PanelTitle>
+            <MiniAreaChart points={[11, 14, 12, 15, 13, 16, 15, 16]} />
           </div>
-          <div className="space-y-2 rounded-[6px] border border-line bg-surface p-3 lg:col-span-2">
-            <PanelTitle>Needs attention</PanelTitle>
-            {[
-              { name: "A. Thompson", detail: "128% workload", tone: "danger" },
-              { name: "J. Okafor", detail: "Missing activity", tone: "warning" },
-              { name: "M. Lin", detail: "54% utilization", tone: "warning" },
-            ].map((row) => (
-              <div key={row.name} className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className={`size-1.5 shrink-0 rounded-full ${
-                    row.tone === "danger" ? "bg-danger" : "bg-warning"
-                  }`}
-                />
-                <span className="truncate text-[10px] font-medium text-content">{row.name}</span>
-                <span className="ml-auto shrink-0 text-[10px] text-muted">{row.detail}</span>
-              </div>
-            ))}
+          <div className="space-y-2.5 rounded-[6px] border border-line bg-surface p-3 lg:col-span-2">
+            <PanelTitle>Working hours by instructor</PanelTitle>
+            <BarRow label="Aditi Rao" pct={88} value="10h 15m" />
+            <BarRow label="Ananya Bose" pct={79} value="09h 15m" />
+            <BarRow label="Arjun Kapoor" pct={73} value="08h 30m" />
+            <BarRow label="Arun Verma" pct={52} value="06h 00m" />
           </div>
         </div>
       </div>
@@ -295,78 +338,137 @@ export function ManagerPreview() {
 
 /* ── Instructor ────────────────────────────────────────────────────────── */
 
-/**
- * Note the timeline's first and last entries: opening and closing are ONE
- * pair bracketing the university workday, not a pair around every class.
- * That business rule is easy to misrepresent in a marketing visual, so the
- * preview encodes it correctly.
- */
 export function InstructorPreview() {
-  const timeline = [
-    { time: "9:00 – 9:15", title: "Opening & team brief", state: "done" },
-    { time: "9:15 – 10:15", title: "CS101 · Data Structures", state: "done" },
-    { time: "10:30 – 11:30", title: "CS201 · Algorithms", state: "done" },
-    { time: "11:45 – 12:30", title: "Department meeting", state: "now" },
-    { time: "14:00 – 15:00", title: "Student advising", state: "next" },
-    { time: "16:45 – 17:00", title: "Closing & review", state: "next" },
-  ];
-
   return (
     <PreviewShell role="instructor">
-      <div className="space-y-3 p-4">
-        <div>
-          <h3 className="text-sm font-semibold text-content">Today</h3>
-          <p className="text-[10px] text-muted">Tuesday, 12 May · Northfield University</p>
+      <div className="space-y-2.5 p-3.5">
+        {/* Page heading, then the card — the two levels the real screen has. */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[15px] font-bold tracking-tight text-primary-text">
+              Work Log History
+            </h3>
+            <p className="text-[10px] text-muted">View and manage submitted work logs</p>
+          </div>
+          <span className="shrink-0 rounded-[5px] bg-primary px-2.5 py-1.5 text-[10px] font-semibold text-white">
+            + Today&rsquo;s Work Log
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Kpi label="Scheduled" value="6" suffix="items" />
-          <Kpi label="Teaching" value="4.5" suffix="h" />
-          <Kpi label="Learning" value="1.5" suffix="h" />
-          <Kpi label="Tasks" value="3" delta="1 due today" deltaTone="neutral" />
-        </div>
+        <div className="overflow-hidden rounded-[6px] border border-line bg-surface">
+          {/* Card header: its own quieter heading, and the view switch. */}
+          <div className="flex items-center justify-between gap-3 border-b border-line px-3 py-2">
+            <span className="text-[11px] font-bold tracking-tight text-primary-text">
+              Work Log History
+            </span>
+            <span className="inline-flex gap-0.5 rounded-[5px] border border-line p-0.5">
+              <span className="rounded-[3px] bg-primary px-2 py-0.5 text-[9px] font-semibold text-white">
+                Date Wise
+              </span>
+              <span className="px-2 py-0.5 text-[9px] font-semibold text-muted">Weekly</span>
+            </span>
+          </div>
 
-        <div className="rounded-[6px] border border-line bg-surface p-3">
-          <PanelTitle>Today&rsquo;s timeline</PanelTitle>
-          <ol className="mt-2.5 space-y-2">
-            {timeline.map((row) => (
-              <li key={row.time} className="flex items-start gap-2.5">
-                <span
-                  aria-hidden
-                  className={`mt-1 size-1.5 shrink-0 rounded-full ${
-                    row.state === "done"
-                      ? "bg-success"
-                      : row.state === "now"
-                        ? "bg-primary"
-                        : "bg-line-strong"
-                  }`}
-                />
-                <span className="tabular w-20 shrink-0 text-[10px] text-muted">{row.time}</span>
-                <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-content">
-                  {row.title}
+          {/* Filters: two dates, a search, a reset. */}
+          <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
+            <span className="text-[9px] text-muted">From</span>
+            <span className="rounded-[4px] border border-line px-1.5 py-0.5 text-[9px] text-content">
+              17/08/2026
+            </span>
+            <span className="text-[9px] text-muted">To</span>
+            <span className="rounded-[4px] border border-line px-1.5 py-0.5 text-[9px] text-content">
+              25/08/2026
+            </span>
+            <span className="ml-1 flex-1 rounded-[4px] border border-line px-1.5 py-0.5 text-[9px] text-subtle">
+              Search by deliverable, remarks…
+            </span>
+            <span className="rounded-[4px] border border-primary/40 px-1.5 py-0.5 text-[9px] font-semibold text-primary-text">
+              Reset Filters
+            </span>
+          </div>
+
+          {/* The sheet, in the client's own columns. */}
+          <div className="grid grid-cols-[0.95fr_0.7fr_1.35fr_0.8fr_0.55fr_0.9fr_0.45fr] gap-1.5 border-b border-line bg-primary-subtle px-3 py-1.5 text-[8px] font-semibold uppercase tracking-wide text-primary-text">
+            <span>Date</span>
+            <span>Broad Category</span>
+            <span>Deliverable</span>
+            <span>Deliv. Qty</span>
+            <span>Hours</span>
+            <span>Remarks</span>
+            <span>Actions</span>
+          </div>
+
+          {[
+            {
+              date: "Today — 25 Aug",
+              cat: "Technical",
+              lines: ["Live Class - 4h", "Doubt Clearing - 45m"],
+              qty: ["2 Classes", "1 Doubt Session"],
+              hours: "06h 15m",
+              remark: "Binary trees, section A",
+            },
+            {
+              date: "24 Aug 2026",
+              cat: "Technical",
+              lines: ["Live Class - 2h", "Documentation - 1h"],
+              qty: ["1 Class"],
+              hours: "05h 00m",
+              remark: "Slide deck for next week",
+            },
+            {
+              date: "23 Aug 2026",
+              cat: "Mathematics",
+              lines: ["Practical / Lab Session - 3h"],
+              qty: ["1 Lab Session"],
+              hours: "04h 30m",
+              remark: "Unit 3 practicals",
+            },
+          ].map((r) => (
+            <div
+              key={r.date}
+              className="grid grid-cols-[0.95fr_0.7fr_1.35fr_0.8fr_0.55fr_0.9fr_0.45fr] gap-1.5 border-b border-line-subtle px-3 py-1.5 text-[9px] leading-snug text-content last:border-b-0"
+            >
+              <span>{r.date}</span>
+              <span className="text-muted">{r.cat}</span>
+              <span>
+                {r.lines.map((l) => (
+                  <span key={l} className="flex items-start gap-1">
+                    <span aria-hidden className="mt-[0.45em] size-1 shrink-0 rounded-full bg-primary" />
+                    {l}
+                  </span>
+                ))}
+              </span>
+              <span className="text-muted">
+                {r.qty.map((q) => (
+                  <span key={q} className="block">
+                    {q}
+                  </span>
+                ))}
+              </span>
+              <span className="tabular font-semibold">{r.hours}</span>
+              <span className="truncate text-muted">{r.remark}</span>
+              {/* Edit and delete, the two the row actually offers. */}
+              <span className="flex gap-1">
+                <span className="inline-flex size-3.5 items-center justify-center rounded-[3px] border border-primary/40 text-[7px] text-primary-text">
+                  &#9998;
                 </span>
-                <span
-                  className={`shrink-0 rounded-pill px-1.5 py-px text-[9px] font-medium ${
-                    row.state === "done"
-                      ? "bg-success-subtle text-success-text"
-                      : row.state === "now"
-                        ? "bg-primary-subtle text-primary-text"
-                        : "bg-sunken text-muted"
-                  }`}
-                >
-                  {row.state === "done" ? "Completed" : row.state === "now" ? "In progress" : "Upcoming"}
+                <span className="inline-flex size-3.5 items-center justify-center rounded-[3px] border border-danger/40 text-[7px] text-danger-text">
+                  &#128465;
                 </span>
-              </li>
-            ))}
-          </ol>
+              </span>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between px-3 py-1.5 text-[8px] text-muted">
+            <span>Showing 1 to 3 of 9 entries</span>
+            <span className="flex gap-1">
+              <span className="rounded-[3px] bg-primary px-1.5 py-0.5 font-semibold text-white">1</span>
+              <span className="rounded-[3px] border border-line px-1.5 py-0.5">2</span>
+              <span className="rounded-[3px] border border-line px-1.5 py-0.5">Next</span>
+            </span>
+          </div>
         </div>
       </div>
     </PreviewShell>
   );
 }
-
-export const PREVIEW_BY_ROLE: Record<PreviewRole, () => React.ReactElement> = {
-  admin: AdminPreview,
-  manager: ManagerPreview,
-  instructor: InstructorPreview,
-};

@@ -140,8 +140,18 @@
      structural/brand-level can reach them, but in practice this is
      navigation — the workspace itself stays light. Same value as
      `--app-sidebar-bg` below: one navy, not two that happen to look close. */
-  --app-brand-navy: #162238;
-  --app-brand-navy-dark: #0e1723;
+  /* ── Why the chrome is NOT the brand blue ────────────────────────────────
+     The sidebar was `--app-primary`, the same blue as the buttons, the links,
+     the active nav item and every table header. At that point colour had
+     stopped distinguishing anything: structure and action looked identical, so
+     neither read as itself.
+
+     Prussian blue takes the structural half back — dark is where you ARE, blue
+     is what you can CLICK. The accent is untouched, so no button, badge, chart
+     series or status colour moved with it. White nav text goes from 5.08:1 to
+     12.72:1 against it. */
+  --app-brand-navy: #123456;
+  --app-brand-navy-dark: #0b2440;
 
   /* Status. Restrained semantic colours — used for data (utilisation,
      compliance, severity), never for brand emphasis. */
@@ -170,7 +180,7 @@
      surface, so it does not participate in light/dark switching. The active
      item is a SOLID blue pill against the navy: at that contrast a
      translucent wash reads as a smudge rather than a selection. */
-  --app-sidebar-bg: #162238;
+  --app-sidebar-bg: #123456;
   --app-sidebar-text: #ffffff;
   --app-sidebar-text-muted: #94a3b8;
   --app-sidebar-border: rgb(255 255 255 / 0.08);

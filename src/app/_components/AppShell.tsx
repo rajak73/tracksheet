@@ -79,7 +79,7 @@ export function AppShell({
             not walked through nine nav items to reach the content (§36). */}
         <a
           href="#main"
-          className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-brand-navy focus:px-4 focus:py-2 focus:text-sm focus:text-white"
         >
           Skip to content
         </a>
@@ -93,7 +93,7 @@ export function AppShell({
             marketing bands still use them and are still navy — so the colours
             here are named outright rather than by repointing a token that other
             surfaces depend on. */}
-        <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 bg-primary lg:flex lg:flex-col">
+        <aside className="fixed inset-y-0 left-0 z-50 hidden w-60 bg-brand-navy lg:flex lg:flex-col">
           <SidebarContent
             role={role}
             nav={nav}
@@ -111,7 +111,7 @@ export function AppShell({
               onClick={() => setDrawerOpen(false)}
               className="absolute inset-0 bg-black/40"
             />
-            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-primary">
+            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand-navy">
               <SidebarContent
                 role={role}
                 nav={nav}
@@ -145,7 +145,7 @@ export function AppShell({
                why the `sidebar-*` tokens cannot come along. The desktop
                SIDEBAR stays navy: it is a vertical rail, not this bar, and the
                two are never on screen together. */
-            className="sticky top-0 z-50 bg-primary lg:hidden"
+            className="sticky top-0 z-50 bg-brand-navy lg:hidden"
           >
             <div className="flex h-14 items-center gap-2 px-4 sm:px-6 lg:px-8">
               <IconButton
