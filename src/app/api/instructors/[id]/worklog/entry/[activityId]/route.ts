@@ -7,6 +7,7 @@ import { assertValidDate } from "@/server/time/schedule-windows";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
 import { recordQuickEntry } from "@/server/worklog/quick-entry";
+import { analyseDayInBackground } from "@/server/worklog/analysis";
 import { QuickEntry, requireWritableInstructor } from "../route";
 import { splitEntries } from "@/domain/worklog-entry-lines";
 
@@ -82,6 +83,10 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(
       quantity: entry.quantity,
       workingHours: entry.workingHours,
       remarks: entry.remarks,
+      // The two boxes as typed, stored beside the parsed values so the
+      // table can print what was written rather than what it parsed to.
+      rawQuantity: entry.rawQuantity,
+      rawWorkingHours: entry.rawWorkingHours,
       activityId: existing.id,
     });
 
@@ -91,6 +96,15 @@ export const PATCH = withAuth<{ id: string; activityId: string }>(
       entityId: activity.id,
       universityId: instructor.universityId,
       metadata: { instructorId: instructor.id, via: "quick-entry" },
+    });
+
+    /* Re-read the day now that one of its entries has changed. Not awaited —
+       an edit is somebody watching the screen, and the model belongs nowhere
+       near that wait. See `analyseDayInBackground`. */
+    analyseDayInBackground({
+      instructorId: instructor.id,
+      universityId: instructor.universityId,
+      workDate: input.date,
     });
 
     return NextResponse.json({ activity });

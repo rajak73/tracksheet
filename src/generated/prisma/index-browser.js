@@ -270,6 +270,8 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   createdById: 'createdById',
   isOncePerDay: 'isOncePerDay',
   rawText: 'rawText',
+  rawQuantity: 'rawQuantity',
+  rawWorkingHours: 'rawWorkingHours',
   submissionId: 'submissionId',
   broadCategoryId: 'broadCategoryId',
   deliverableTypeId: 'deliverableTypeId',

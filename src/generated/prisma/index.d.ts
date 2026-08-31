@@ -19994,6 +19994,8 @@ export namespace Prisma {
     createdById: string | null
     isOncePerDay: boolean | null
     rawText: string | null
+    rawQuantity: string | null
+    rawWorkingHours: string | null
     submissionId: string | null
     broadCategoryId: string | null
     deliverableTypeId: string | null
@@ -20019,6 +20021,8 @@ export namespace Prisma {
     createdById: string | null
     isOncePerDay: boolean | null
     rawText: string | null
+    rawQuantity: string | null
+    rawWorkingHours: string | null
     submissionId: string | null
     broadCategoryId: string | null
     deliverableTypeId: string | null
@@ -20044,6 +20048,8 @@ export namespace Prisma {
     createdById: number
     isOncePerDay: number
     rawText: number
+    rawQuantity: number
+    rawWorkingHours: number
     submissionId: number
     broadCategoryId: number
     deliverableTypeId: number
@@ -20079,6 +20085,8 @@ export namespace Prisma {
     createdById?: true
     isOncePerDay?: true
     rawText?: true
+    rawQuantity?: true
+    rawWorkingHours?: true
     submissionId?: true
     broadCategoryId?: true
     deliverableTypeId?: true
@@ -20104,6 +20112,8 @@ export namespace Prisma {
     createdById?: true
     isOncePerDay?: true
     rawText?: true
+    rawQuantity?: true
+    rawWorkingHours?: true
     submissionId?: true
     broadCategoryId?: true
     deliverableTypeId?: true
@@ -20129,6 +20139,8 @@ export namespace Prisma {
     createdById?: true
     isOncePerDay?: true
     rawText?: true
+    rawQuantity?: true
+    rawWorkingHours?: true
     submissionId?: true
     broadCategoryId?: true
     deliverableTypeId?: true
@@ -20241,6 +20253,8 @@ export namespace Prisma {
     createdById: string | null
     isOncePerDay: boolean
     rawText: string | null
+    rawQuantity: string | null
+    rawWorkingHours: string | null
     submissionId: string | null
     broadCategoryId: string | null
     deliverableTypeId: string | null
@@ -20285,6 +20299,8 @@ export namespace Prisma {
     createdById?: boolean
     isOncePerDay?: boolean
     rawText?: boolean
+    rawQuantity?: boolean
+    rawWorkingHours?: boolean
     submissionId?: boolean
     broadCategoryId?: boolean
     deliverableTypeId?: boolean
@@ -20319,6 +20335,8 @@ export namespace Prisma {
     createdById?: boolean
     isOncePerDay?: boolean
     rawText?: boolean
+    rawQuantity?: boolean
+    rawWorkingHours?: boolean
     submissionId?: boolean
     broadCategoryId?: boolean
     deliverableTypeId?: boolean
@@ -20353,6 +20371,8 @@ export namespace Prisma {
     createdById?: boolean
     isOncePerDay?: boolean
     rawText?: boolean
+    rawQuantity?: boolean
+    rawWorkingHours?: boolean
     submissionId?: boolean
     broadCategoryId?: boolean
     deliverableTypeId?: boolean
@@ -20387,6 +20407,8 @@ export namespace Prisma {
     createdById?: boolean
     isOncePerDay?: boolean
     rawText?: boolean
+    rawQuantity?: boolean
+    rawWorkingHours?: boolean
     submissionId?: boolean
     broadCategoryId?: boolean
     deliverableTypeId?: boolean
@@ -20395,7 +20417,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "timesStated" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
+  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "timesStated" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "rawQuantity" | "rawWorkingHours" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
   export type ActivityLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -20498,6 +20520,31 @@ export namespace Prisma {
        * other path — a manager logging on somebody's behalf, or the importer.
        */
       rawText: string | null
+      /**
+       * The Deliverable Quantity box, exactly as typed — "2", "2 classes", "?".
+       * 
+       * Beside `quantity`, not instead of it. `quantity` is the integer every
+       * total is summed from; this is what the person actually wrote, and the
+       * table prints it verbatim. They answer different questions: "how many"
+       * against "what did they say".
+       * 
+       * It exists because the two are not recoverable from each other. "2
+       * classes" and "2" both parse to 2, and printing the parse back meant an
+       * instructor could not find their own words on the screen — the same
+       * failure `rawText` was added for.
+       * 
+       * Null for rows created by any path that has no box: a manager logging on
+       * somebody's behalf, the importer, the seed.
+       */
+      rawQuantity: string | null
+      /**
+       * The Working Hours box, exactly as typed — "6h 00m", "6 hours 30 minutes".
+       * 
+       * Beside `startTime`/`endTime`, which remain the authority for every
+       * computed duration. Same reasoning as `rawQuantity`: the clock positions
+       * are what the arithmetic uses, and this is what was written.
+       */
+      rawWorkingHours: string | null
       /**
        * Which press of Submit produced this row. Null for non-worklog entries.
        */
@@ -20995,6 +21042,8 @@ export namespace Prisma {
     readonly createdById: FieldRef<"ActivityLog", 'String'>
     readonly isOncePerDay: FieldRef<"ActivityLog", 'Boolean'>
     readonly rawText: FieldRef<"ActivityLog", 'String'>
+    readonly rawQuantity: FieldRef<"ActivityLog", 'String'>
+    readonly rawWorkingHours: FieldRef<"ActivityLog", 'String'>
     readonly submissionId: FieldRef<"ActivityLog", 'String'>
     readonly broadCategoryId: FieldRef<"ActivityLog", 'String'>
     readonly deliverableTypeId: FieldRef<"ActivityLog", 'String'>
@@ -52243,6 +52292,8 @@ export namespace Prisma {
     createdById: 'createdById',
     isOncePerDay: 'isOncePerDay',
     rawText: 'rawText',
+    rawQuantity: 'rawQuantity',
+    rawWorkingHours: 'rawWorkingHours',
     submissionId: 'submissionId',
     broadCategoryId: 'broadCategoryId',
     deliverableTypeId: 'deliverableTypeId',
@@ -54208,6 +54259,8 @@ export namespace Prisma {
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
     rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
+    rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
@@ -54242,6 +54295,8 @@ export namespace Prisma {
     createdById?: SortOrderInput | SortOrder
     isOncePerDay?: SortOrder
     rawText?: SortOrderInput | SortOrder
+    rawQuantity?: SortOrderInput | SortOrder
+    rawWorkingHours?: SortOrderInput | SortOrder
     submissionId?: SortOrderInput | SortOrder
     broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
@@ -54279,6 +54334,8 @@ export namespace Prisma {
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
     rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
+    rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
@@ -54313,6 +54370,8 @@ export namespace Prisma {
     createdById?: SortOrderInput | SortOrder
     isOncePerDay?: SortOrder
     rawText?: SortOrderInput | SortOrder
+    rawQuantity?: SortOrderInput | SortOrder
+    rawWorkingHours?: SortOrderInput | SortOrder
     submissionId?: SortOrderInput | SortOrder
     broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
@@ -54346,6 +54405,8 @@ export namespace Prisma {
     createdById?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolWithAggregatesFilter<"ActivityLog"> | boolean
     rawText?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    rawQuantity?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
+    rawWorkingHours?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
@@ -57944,6 +58005,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -57975,6 +58038,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -57994,6 +58059,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -58025,6 +58092,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -58050,6 +58119,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -58069,6 +58140,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -58091,6 +58164,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -61859,6 +61934,8 @@ export namespace Prisma {
     createdById?: SortOrder
     isOncePerDay?: SortOrder
     rawText?: SortOrder
+    rawQuantity?: SortOrder
+    rawWorkingHours?: SortOrder
     submissionId?: SortOrder
     broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
@@ -61888,6 +61965,8 @@ export namespace Prisma {
     createdById?: SortOrder
     isOncePerDay?: SortOrder
     rawText?: SortOrder
+    rawQuantity?: SortOrder
+    rawWorkingHours?: SortOrder
     submissionId?: SortOrder
     broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
@@ -61913,6 +61992,8 @@ export namespace Prisma {
     createdById?: SortOrder
     isOncePerDay?: SortOrder
     rawText?: SortOrder
+    rawQuantity?: SortOrder
+    rawWorkingHours?: SortOrder
     submissionId?: SortOrder
     broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
@@ -69219,6 +69300,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -69248,6 +69331,8 @@ export namespace Prisma {
     deliverableId?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -69762,6 +69847,8 @@ export namespace Prisma {
     createdById?: StringNullableFilter<"ActivityLog"> | string | null
     isOncePerDay?: BoolFilter<"ActivityLog"> | boolean
     rawText?: StringNullableFilter<"ActivityLog"> | string | null
+    rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
+    rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
     broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
@@ -70076,6 +70163,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -70105,6 +70194,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -73134,6 +73225,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -73164,6 +73257,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
@@ -73438,6 +73533,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -73467,6 +73564,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -74499,6 +74598,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -74528,6 +74629,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -76385,6 +76488,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -76414,6 +76519,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -80941,6 +81048,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -80970,6 +81079,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -83501,6 +83612,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -83531,6 +83644,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     quantity?: number | null
@@ -83837,6 +83952,8 @@ export namespace Prisma {
     source?: $Enums.ActivitySource
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -83867,6 +83984,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
@@ -84566,6 +84685,8 @@ export namespace Prisma {
     deliverableId?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -84888,6 +85009,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -84917,6 +85040,8 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -84941,6 +85066,8 @@ export namespace Prisma {
     deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -85076,6 +85203,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -85620,6 +85749,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -85649,6 +85780,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -85673,6 +85806,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -86763,6 +86898,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
@@ -86839,6 +86976,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -86869,6 +87008,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
@@ -86893,6 +87034,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
@@ -86916,6 +87059,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -87129,6 +87274,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -87158,6 +87305,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87182,6 +87331,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87798,6 +87949,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -87855,6 +88008,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -87884,6 +88039,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -87908,6 +88065,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -88062,6 +88221,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -88117,6 +88278,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -88146,6 +88309,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -88170,6 +88335,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -88614,6 +88781,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
@@ -88633,6 +88802,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -88662,6 +88833,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -88686,6 +88859,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -88711,6 +88886,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     submissionId?: string | null
     broadCategoryId?: string | null
     quantity?: number | null
@@ -88729,6 +88906,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -88759,6 +88938,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
@@ -88783,6 +88964,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
@@ -88807,6 +88990,8 @@ export namespace Prisma {
     createdById?: string | null
     isOncePerDay?: boolean
     rawText?: string | null
+    rawQuantity?: string | null
+    rawWorkingHours?: string | null
     broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
@@ -88825,6 +89010,8 @@ export namespace Prisma {
     source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -88855,6 +89042,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
@@ -88879,6 +89068,8 @@ export namespace Prisma {
     createdById?: NullableStringFieldUpdateOperationsInput | string | null
     isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
+    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null

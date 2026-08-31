@@ -59,7 +59,7 @@ import { ConfirmDialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, fetchMe, useLoad } from "@/app/_lib/api";
 import { formatHours, humanizeCode } from "@/app/_lib/format";
 import { type InstructorPerf } from "@/app/_components/PerformanceLists";
-import { AiRecommendations } from "@/app/_components/AiRecommendations";
+import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
 
 type Instructor = {
   id: string;
@@ -97,7 +97,7 @@ export default function ManagerInstructorsPage() {
     // "my instructors" and being given someone else's is impossible by
     // construction rather than by convention.
     const [roster, perf] = await Promise.all([
-      apiGet<{ instructors: Instructor[] }>(
+      apiGet<{ instructors: Instructor[]; insights?: Record<string, CellInsight> }>(
         "/api/instructors?limit=200",
         "Could not load your instructors.",
       ),
@@ -124,7 +124,7 @@ export default function ManagerInstructorsPage() {
       };
     });
 
-    return { rows, managerName: me.user.name };
+    return { rows, managerName: me.user.name, insights: roster.insights ?? {} };
   }, []);
 
   const { data, error, loading, reload } = useLoad(load, "manager-roster");
@@ -275,6 +275,10 @@ export default function ManagerInstructorsPage() {
                       { label: "Working Hours", align: "right" },
                       { label: "Status" },
                       { label: "Action" },
+                      /* After the action, which is where the client asked for
+                         it: the row's figures and its controls first, then the
+                         reading of them. */
+                      { label: "AI Insight" },
                     ]}
                   />
                   <TBody>
@@ -322,6 +326,9 @@ export default function ManagerInstructorsPage() {
                               Remove
                             </Button>
                           </span>
+                        </TD>
+                        <TD>
+                          <AiInsightCell insight={data?.insights[r.id] ?? null} />
                         </TD>
                       </TR>
                     ))}
@@ -387,7 +394,6 @@ export default function ManagerInstructorsPage() {
 
       {/* Scoped to this manager's own roster by the endpoint, not by anything
           this page sends. */}
-      <AiRecommendations title="AI recommendations for your roster" />
     </div>
   );
 }

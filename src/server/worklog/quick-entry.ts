@@ -2,7 +2,6 @@ import { prisma } from "@/server/db";
 import { ApiError } from "@/server/http/errors";
 import { logActivity, updateActivity } from "@/server/activities/logger";
 import { loadTaxonomy, type Taxonomy } from "@/server/worklog/taxonomy";
-import { parseBullets } from "@/server/worklog/parse";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { dayOfWeekFor } from "@/server/time/schedule-windows";
 import { toDateOnly, zonedParts } from "@/server/time/workday";
@@ -59,6 +58,17 @@ export type QuickEntryInput = {
   workingHours: number;
   remarks?: string | null;
   /**
+   * The Quantity and Working Hours boxes for this entry, exactly as typed.
+   *
+   * Stored beside the parsed values, never instead of them: the number and the
+   * clock range remain the authority for every total, and these are what the
+   * table prints. Optional because callers with no boxes — a manager logging on
+   * somebody's behalf, the importer — have nothing to record here, and a row
+   * without them falls back to the computed figure.
+   */
+  rawQuantity?: string | null;
+  rawWorkingHours?: string | null;
+  /**
    * Set when EDITING an existing row. The overlap check ignores it — an entry
    * must never be reported as conflicting with itself — and the row is updated
    * in place rather than replaced, so its id, its audit trail and anything
@@ -86,52 +96,28 @@ export type Classification = {
 };
 
 /**
- * Reads the deliverable line and answers with the columns the form does not ask
+ * Reads one deliverable line and answers with the columns the form does not ask
  * for.
  *
- * Never throws. A provider outage must not stop somebody recording their day —
- * the entry is saved with `OTHER` and no subject, and the day inherits its
- * Broad Category from the last one that had a subject, which is the same answer
- * a line naming no subject would have produced anyway.
+ * The single-entry twin of {@link classifyLines}, and provider-free for the
+ * same reason: this runs when somebody EDITS one row, and an edit is a person
+ * fixing something while watching the screen — the least forgivable place to
+ * put a network call to a model.
+ *
+ * Never throws. A line that cannot be placed records as `OTHER` with no
+ * subject, and the day inherits its Broad Category from the last one that had
+ * a subject — the same answer a line naming no subject would have produced.
  */
 async function classify(deliverable: string, quantity: number | null): Promise<Classification> {
-  const fallback: Classification = {
-    activityTypeCode: "OTHER",
-    deliverableTypeId: null,
-    deliverableCode: null,
-    broadCategoryId: null,
-  };
-
-  try {
-    const taxonomy = await loadTaxonomy();
-    // Phrased as one worklog line so the existing instruction applies unchanged.
-    // Phrased as one worklog line so the existing instruction applies unchanged.
-    // A count nobody stated adds nothing to the sentence.
-    const line = quantity !== null && quantity > 1 ? `${deliverable} (${quantity})` : deliverable;
-    const parsed = await parseBullets([line], taxonomy);
-    if (!parsed.ok || parsed.bullets.length === 0) return fallback;
-
-    const bullet = parsed.bullets[0]!;
-    const deliverableType = bullet.deliverableCode
-      ? taxonomy.deliverableByCode.get(bullet.deliverableCode)
-      : undefined;
-    const subject = bullet.subjectCode
-      ? taxonomy.subjectByCode.get(bullet.subjectCode)
-      : undefined;
-
-    return {
-      // The parser answers from the closed list, but a code it invented would
-      // fail the write — so an unknown one falls back rather than throwing.
-      activityTypeCode: taxonomy.categoryByCode.has(bullet.categoryCode)
-        ? bullet.categoryCode
-        : fallback.activityTypeCode,
-      deliverableTypeId: deliverableType?.id ?? null,
-      deliverableCode: deliverableType?.code ?? null,
-      broadCategoryId: subject?.id ?? null,
-    };
-  } catch {
-    return fallback;
-  }
+  const [only] = await classifyLines([{ deliverable, quantity }]);
+  return (
+    only ?? {
+      activityTypeCode: "OTHER",
+      deliverableTypeId: null,
+      deliverableCode: null,
+      broadCategoryId: null,
+    }
+  );
 }
 
 /**
@@ -271,6 +257,30 @@ function matchDeliverable(
   return best;
 }
 
+/**
+ * Places each line against the taxonomy, WITHOUT calling the model.
+ *
+ * ── Why nothing here talks to a provider any more ─────────────────────────
+ * This used to hand the whole submission to Gemini whenever one line could not
+ * be matched locally, and the instructor waited for it. Measured, that was
+ * THIRTY-FOUR SECONDS for a save that does about a second of real work — on
+ * the one screen every instructor uses every day, at the one moment they are
+ * waiting to leave.
+ *
+ * A save is now a write and nothing else. Every line is matched against the
+ * taxonomy in memory; a line that cannot be placed becomes OTHER, keeps the
+ * exact words the instructor typed, and stays completely correctable from the
+ * table afterwards. The reading of what the day MEANS still happens — it just
+ * happens after the row is safely stored, off the critical path, and its
+ * conclusions land in `AiInsight` rather than being held in front of a person
+ * with a cursor blinking at them. See `analyseDay`.
+ *
+ * ── OTHER is an honest answer ─────────────────────────────────────────────
+ * The alternative to guessing locally is guessing remotely, and the model was
+ * wrong often enough to need correcting anyway. OTHER says "nobody has
+ * classified this yet", which is true, is visible in the table, and is one
+ * click to fix. A confident wrong category is none of those things.
+ */
 export async function classifyLines(
   lines: Array<{ deliverable: string; quantity: number | null }>,
 ): Promise<Classification[]> {
@@ -285,48 +295,21 @@ export async function classifyLines(
   try {
     const taxonomy = await loadTaxonomy();
 
-    /* Settled without the provider when every line names its own deliverable,
-     * which is the ordinary case. One line this cannot place sends the whole
-     * submission to the model as before — the alternative is two sources of
-     * truth for one day's classification, and a day whose lines were decided
-     * partly here and partly there is harder to reason about than a day that
-     * waited. `broadCategoryId` stays null: the subject is a separate judgement
-     * and this does not attempt it. */
-    const local = lines.map((l) => matchDeliverable(l.deliverable, taxonomy));
-    if (local.every((m) => m !== null)) {
-      return local.map((m) => ({
-        activityTypeCode: m!.categoryCode,
-        deliverableTypeId: m!.deliverableId,
-        deliverableCode: m!.deliverableCode,
-        broadCategoryId: null,
-      }));
-    }
-
-    const parsed = await parseBullets(
-      lines.map((l) =>
-        l.quantity !== null && l.quantity > 1 ? `${l.deliverable} (${l.quantity})` : l.deliverable,
-      ),
-      taxonomy,
-    );
-    if (!parsed.ok) return lines.map(() => fallback);
-
-    return lines.map((_, i) => {
-      const bullet = parsed.bullets[i];
-      if (!bullet) return fallback;
-      const deliverableType = bullet.deliverableCode
-        ? taxonomy.deliverableByCode.get(bullet.deliverableCode)
-        : undefined;
-      const subject = bullet.subjectCode ? taxonomy.subjectByCode.get(bullet.subjectCode) : undefined;
+    /* `broadCategoryId` stays null: the subject is a separate judgement from
+     * the deliverable, `recordQuickEntry` carries it forward from the last day
+     * that named one, and this does not attempt it. */
+    return lines.map((line) => {
+      const match = matchDeliverable(line.deliverable, taxonomy);
+      if (!match) return fallback;
       return {
-        activityTypeCode: taxonomy.categoryByCode.has(bullet.categoryCode)
-          ? bullet.categoryCode
-          : fallback.activityTypeCode,
-        deliverableTypeId: deliverableType?.id ?? null,
-        deliverableCode: deliverableType?.code ?? null,
-        broadCategoryId: subject?.id ?? null,
+        activityTypeCode: match.categoryCode,
+        deliverableTypeId: match.deliverableId,
+        deliverableCode: match.deliverableCode,
+        broadCategoryId: null,
       };
     });
   } catch {
+    // The taxonomy could not be read. Every line still records, as OTHER.
     return lines.map(() => fallback);
   }
 }
@@ -384,6 +367,11 @@ export async function recordQuickEntry(input: QuickEntryInput) {
     local: { date: input.date, start: hhmm(startMinute), end: hhmm(endMinute) },
     // Their words, kept exactly. The sheet shows this as the Deliverable.
     rawText: deliverable,
+    /* The other two boxes, also kept exactly. Blank is normalised to null so
+       "nobody typed anything" is one value rather than two that every reader
+       would have to test for separately. */
+    rawQuantity: input.rawQuantity?.trim() || null,
+    rawWorkingHours: input.rawWorkingHours?.trim() || null,
     quantity,
     remarks: input.remarks ?? null,
     deliverableTypeId: classification.deliverableTypeId,

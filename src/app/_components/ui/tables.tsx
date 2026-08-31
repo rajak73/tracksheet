@@ -60,14 +60,37 @@ export function TableWrap({
   );
 }
 
-export function Table({ caption, children }: { caption?: string; children: ReactNode }) {
+export function Table({
+  caption,
+  children,
+  stickyFirstColumn = true,
+}: {
+  caption?: string;
+  children: ReactNode;
+  /**
+   * Whether the first column stays put while the rest scrolls sideways.
+   *
+   * On by default, because every table here is wide enough to lose its own
+   * labels. Turned off for the few that are narrow enough never to scroll, or
+   * whose first column is a checkbox or an avatar that says nothing on its own
+   * — pinning those costs a layer and buys no orientation.
+   */
+  stickyFirstColumn?: boolean;
+}) {
   return (
     /* `border-separate` rather than the default collapse, because a collapsed
        table drops `position: sticky` on its cells and the header would not
        stick at all. The cost is that `<tr>` borders stop painting under that
        model, which is why the row rules live on `TD` below and why `divide-y`
        is gone from here and from `TBody`. */
-    <table className="min-w-full border-separate border-spacing-0 text-sm">
+    <table
+      className={cx(
+        "min-w-full border-separate border-spacing-0 text-sm",
+        // The rule itself is in globals.css — it styles descendants, which is
+        // not something a utility on this element can reach.
+        stickyFirstColumn && "sticky-col",
+      )}
+    >
       {caption ? <caption className="sr-only-text">{caption}</caption> : null}
       {children}
     </table>
@@ -181,6 +204,11 @@ export function TR({
   return (
     <tr
       onClick={onClick}
+      /* Read by the pinned-column rule in globals.css, which has to repaint
+         the frozen cell's background itself and would otherwise have no way to
+         know this row is selected. An attribute rather than a second class so
+         the two cannot drift apart. */
+      data-selected={selected ? "true" : undefined}
       className={cx(
         "transition-colors",
         selected ? "bg-primary-subtle" : "hover:bg-hovered",

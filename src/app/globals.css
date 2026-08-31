@@ -371,6 +371,61 @@ body {
   );
 }
 
+/* ── The frozen first column ─────────────────────────────────────────────
+   A workload table is wide — a fortnight of dates, or twelve columns of hours
+   — and scrolling it sideways carries the names off the screen, leaving a grid
+   of numbers belonging to nobody. The first column stays put so a row always
+   says who it is about, while everything after it moves.
+
+   The background cannot be inherited. A sticky cell paints OVER the cells
+   sliding beneath it, and a transparent one lets them show through — the same
+   lesson the sticky header taught, where a `<thead>` background never reaches
+   a sticky cell. So the pinned cell carries its own, which means the row's
+   hover and selected states have to be restated here instead of being left on
+   the `<tr>` where the rest of the row reads them.
+
+   Three layers, and the order matters: ordinary body cells sit under the
+   pinned column, which sits under the header, and the top-left corner is above
+   all of it because it is the one cell sticky in both directions at once.
+
+   `:not([colspan])` keeps a full-width row out of it. An empty state spans
+   every column, and pinning that cell would leave the message floating over
+   the table as it scrolled. */
+.sticky-col thead tr > *:first-child:not([colspan]) {
+  position: sticky;
+  left: 0;
+  /* Above the rest of the header, which is z-10 from its own utility. */
+  z-index: 20;
+}
+
+.sticky-col tbody tr > *:first-child:not([colspan]) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: var(--app-surface);
+}
+
+.sticky-col tbody tr:hover > *:first-child:not([colspan]) {
+  background-color: var(--app-surface-hover);
+}
+
+/* A totals row is pinned to the bottom of its scroll box, so its first cell is
+   sticky in both directions at once — the bottom-left corner. No background is
+   set here on purpose: the row already paints its own darker ground to mark it
+   as a total, and repainting it would erase exactly the thing that separates it
+   from the data above. */
+.sticky-col tfoot tr > *:first-child:not([colspan]) {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+}
+
+/* Selected is an attribute rather than a class so this rule and the `<tr>`'s
+   own Tailwind class cannot drift apart — both read the same source. */
+.sticky-col tbody tr[data-selected="true"] > *:first-child:not([colspan]) {
+  background-color: var(--app-primary-subtle);
+}
+
 /* Screen-reader-only, for the text half of every status that also uses colour. */
 .sr-only-text {
   position: absolute;

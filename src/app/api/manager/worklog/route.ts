@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
@@ -235,6 +236,9 @@ export const GET = withAuth(async ({ scope, req }) => {
       rosterTotal: 0,
       summary: { instructors: 0, submitted: 0, missing: 0, totalHours: 0, totalActivities: 0 },
       instructors: [],
+      // Same shape on the empty path as on the full one: a screen that reads
+      // `insights[id]` must not have to check whether the key exists at all.
+      insights: {},
     });
   }
 
@@ -449,5 +453,9 @@ export const GET = withAuth(async ({ scope, req }) => {
       totalActivities: rows.reduce((n, r) => n + r.activityCount, 0),
     },
     instructors: rows,
+    /* The latest stored reading per instructor, for the sheet's last column.
+       A read of what was written when each day was submitted — nothing here
+       calls a model. See `day-insights`. */
+    insights: await latestDayInsightByInstructor(rows.map((r) => r.instructorId)),
   });
 }, { roles: ["MANAGER", "ADMIN"] });

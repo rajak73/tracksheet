@@ -63,7 +63,6 @@ import {
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
 import { isStudentFacingCategory } from "@/domain/working-hours";
-import { AiRecommendations } from "@/app/_components/AiRecommendations";
 
 type Week = { index: number; from: string; to: string; labelFrom: string | null; labelTo: string | null };
 
@@ -330,7 +329,6 @@ export default function InstructorPerformancePage() {
       ) : null}
 
       {/* About this person only. */}
-      <AiRecommendations title="AI recommendations for you" />
     </div>
   );
 }

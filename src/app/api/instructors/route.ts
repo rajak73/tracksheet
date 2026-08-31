@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { streamsFor } from "@/server/instructors/stream";
+import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 import type { Prisma } from "@/generated/prisma/client";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
@@ -96,7 +97,12 @@ export const GET = withAuth(async ({ scope, req }) => {
    * work is absent from the map and comes back as null. */
   const streams = await streamsFor(instructors.map((i) => i.id));
 
+  /* The latest stored reading per instructor, so a roster can carry the AI
+     Insight column without a request per row. Read-only — see `day-insights`. */
+  const insights = await latestDayInsightByInstructor(instructors.map((i) => i.id));
+
   return NextResponse.json({
+    insights,
     // `manager` is flattened to the three fields a roster UI needs, and stays
     // explicitly null when nobody leads this instructor yet — "unassigned" is a
     // state to render, not an absence to hide.

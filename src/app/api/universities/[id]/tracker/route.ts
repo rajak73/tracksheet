@@ -12,6 +12,7 @@ import { prisma } from "@/server/db";
 import { parseDateParam } from "@/server/http/params";
 import { logAudit } from "@/server/audit/logger";
 import { workDateFor } from "@/server/time/workday";
+import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 
 /**
  * The weekly workload tracker, one period at a time.
@@ -117,7 +118,14 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
   });
 
   if (req.nextUrl.searchParams.get("export") !== "csv") {
-    return NextResponse.json({ tracker });
+    /* The latest stored reading per instructor on the grid, so the AI Insight
+       column can be rendered from the same response the figures came in. The
+       CSV export deliberately does not carry it: an export is the measured
+       record, and a generated sentence is not part of that record. */
+    const insights = await latestDayInsightByInstructor(
+      tracker.rows.map((r) => r.instructorId),
+    );
+    return NextResponse.json({ tracker, insights });
   }
 
   // Exports are recorded events, like the workload report's — who exported

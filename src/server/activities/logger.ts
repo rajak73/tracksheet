@@ -55,6 +55,15 @@ export type LogActivityInput = {
    */
   /** The bullet this was parsed from, exactly as written. Never rewritten. */
   rawText?: string;
+  /**
+   * The Quantity and Working Hours boxes, exactly as typed.
+   *
+   * Beside the parsed `quantity` and the clock range, never instead of them —
+   * those stay the authority for every computed figure. `null` means the row
+   * came from a path with no such box, and readers fall back to the parse.
+   */
+  rawQuantity?: string | null;
+  rawWorkingHours?: string | null;
   /** The submission the bullet belonged to. */
   submissionId?: string;
   /** The deliverable within the category, from the closed taxonomy. */
@@ -294,6 +303,10 @@ async function writeActivity(input: LogActivityInput, targetId: string | null) {
       timesStated: input.timesStated ?? false,
       isOncePerDay: activityType.isOncePerDay,
       ...(input.rawText !== undefined ? { rawText: input.rawText } : {}),
+      ...(input.rawQuantity !== undefined ? { rawQuantity: input.rawQuantity } : {}),
+      ...(input.rawWorkingHours !== undefined
+        ? { rawWorkingHours: input.rawWorkingHours }
+        : {}),
       ...(input.submissionId !== undefined ? { submissionId: input.submissionId } : {}),
       ...(input.deliverableTypeId !== undefined
         ? { deliverableTypeId: input.deliverableTypeId }

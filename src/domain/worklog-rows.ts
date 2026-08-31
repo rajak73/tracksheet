@@ -31,6 +31,35 @@ export type PeriodState = "recorded" | "missing" | "future";
 export type RowActivity = RollupActivity & {
   /** YYYY-MM-DD in the university's zone. */
   workDate: string;
+  /**
+   * Exactly what the instructor typed for this entry.
+   *
+   * Optional because entries predating the four-field form have none. Where it
+   * is absent the report falls back to the classified name, which is the only
+   * record of the line that exists.
+   */
+  rawText?: string | null;
+  /** The Quantity box for this entry, exactly as typed. */
+  rawQuantity?: string | null;
+  /** The Working Hours box for this entry, exactly as typed. */
+  rawWorkingHours?: string | null;
+};
+
+/**
+ * One entry exactly as it was written, before anything interpreted it.
+ *
+ * The three boxes travel together because the columns that print them must
+ * line up: deliverable one, quantity one and hours one describe the same
+ * entry, and de-duplicating or re-ordering any of them independently is how a
+ * count ends up beside the wrong piece of work.
+ */
+export type RawEntry = {
+  /** What they said they did. Empty only if the row never captured it. */
+  text: string;
+  /** As typed — "2", "2 classes", "?". Null where the row has none. */
+  quantity: string | null;
+  /** As typed — "6h 00m", "6 hours 30 minutes". Null where the row has none. */
+  workingHours: string | null;
 };
 
 export type PeriodRow = {
@@ -42,6 +71,24 @@ export type PeriodRow = {
   dates: string[];
   /** Merged deliverables, ready for `deliverableCell` / `quantityCell`. */
   lines: ReportLine[];
+  /**
+   * Every entry exactly as it was written, in the order the day happened.
+   *
+   * The Deliverable, Deliverable Quantity and Working Hours columns all print
+   * from here rather than from `lines`. The two are different answers: `lines`
+   * is the INTERPRETATION — merged by deliverable, counts summed, "Other /
+   * Unclassified Work" — and this is what somebody actually typed. Showing
+   * only the interpretation meant an instructor could not find their own words
+   * or their own numbers anywhere on the screen.
+   *
+   * Not de-duplicated and not merged, deliberately: an entry is a row, and
+   * collapsing two of them would silently drop one of the counts beside it.
+   *
+   * Empty for a period with nothing recorded, and for entries written before
+   * the raw boxes were captured; every column falls back to the computed
+   * figure there, which is what it showed before.
+   */
+  rawEntries: RawEntry[];
   totalMinutes: number;
   /** Distinct subjects the period touched, in the order first seen. */
   subjects: string[];
@@ -49,6 +96,34 @@ export type PeriodRow = {
   remarks: string;
   state: PeriodState;
 };
+
+/**
+ * Every entry of a period as it was written, in the order the day happened.
+ *
+ * Ordered by `startTime` so a day reads the way it was lived. NOT
+ * de-duplicated: two entries that happen to share a deliverable are still two
+ * entries with two counts and two durations, and folding them together would
+ * leave one count printed beside work it does not describe.
+ *
+ * An entry that captured no raw text at all is skipped — it would render as an
+ * empty bullet with a number beside it, which reads as a fault rather than as
+ * missing data.
+ */
+function rawEntriesOf(activities: readonly RowActivity[]): RawEntry[] {
+  return [...activities]
+    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))
+    .flatMap((a) => {
+      const text = (a.rawText ?? "").trim();
+      if (!text) return [];
+      return [
+        {
+          text,
+          quantity: (a.rawQuantity ?? "").trim() || null,
+          workingHours: (a.rawWorkingHours ?? "").trim() || null,
+        },
+      ];
+    });
+}
 
 /**
  * The Remarks column, composed from the two places a remark can live.
@@ -146,6 +221,7 @@ export function buildPeriodRow(input: {
       quantity: l.quantity,
       firstAt: l.firstAt,
     })),
+    rawEntries: rawEntriesOf(mine),
     totalMinutes: Math.round(hours * 60),
     subjects: subjectsIn(mine),
     remarks: remarksFor(dates, mine, input.dayNotes ?? {}),

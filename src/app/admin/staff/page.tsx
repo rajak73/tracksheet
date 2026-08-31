@@ -43,6 +43,7 @@ import {
 } from "@/app/_components/ui";
 import { ConfirmDialog, Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
 import { InstructorCategoryPicker } from "@/app/_components/InstructorStream";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { formatDate } from "@/app/_lib/format";
@@ -71,6 +72,8 @@ type Staff = {
 
 type StaffResponse = {
   staff: Staff[];
+  /** Keyed by instructor id. Managers have none — see the staff route. */
+  insights?: Record<string, CellInsight>;
   page: number;
   limit: number;
   total: number;
@@ -246,6 +249,9 @@ export default function AdminStaffPage() {
                         { label: "University" },
                         { label: "Status" },
                         { label: "Created" },
+                        /* Last. The reader reaches it having seen the row it
+                           describes — see `AiInsightCell`. */
+                        { label: "AI Insight" },
                       ]}
                     />
                     <TBody>
@@ -338,6 +344,17 @@ export default function AdminStaffPage() {
                             ) : null}
                           </TD>
                           <TD>{formatDate(s.createdAt)}</TD>
+                          <TD>
+                            {/* A manager records no days, so there is nothing
+                                to read about one. An em dash rather than a
+                                blank, so the column reads as "not applicable"
+                                rather than as a rendering fault. */}
+                            <AiInsightCell
+                              insight={
+                                s.instructorId ? (data.insights?.[s.instructorId] ?? null) : null
+                              }
+                            />
+                          </TD>
                         </TR>
                       ))}
                     </TBody>

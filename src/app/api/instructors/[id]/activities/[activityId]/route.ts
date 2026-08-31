@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { analyseDayInBackground } from "@/server/worklog/analysis";
 import { ApiError } from "@/server/http/errors";
 import { updateActivity } from "@/server/activities/logger";
 import { logAudit } from "@/server/audit/logger";
@@ -290,6 +291,16 @@ export const DELETE = withAuth<Params>(async ({ scope, params, principal }) => {
 
   // The stored metrics for that day are now out of date. See `recomputeDay`.
   await recomputeDay(activity.universityId, workDateFor(activity.workDate, "UTC"));
+
+  /* And so is the stored reading of it. A day that loses an entry can change
+     verdict — and a day that loses its LAST entry must lose the verdict
+     entirely, or the table would go on reporting on work that is no longer
+     there. `analyseDay` clears an emptied day rather than leaving it. */
+  analyseDayInBackground({
+    instructorId: activity.instructorId,
+    universityId: activity.universityId,
+    workDate: activity.workDate.toISOString().slice(0, 10),
+  });
 
   return NextResponse.json({ ok: true });
 });

@@ -51,6 +51,7 @@ import {
 import { splitEntries } from "@/domain/worklog-entry-lines";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
+import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
 
 /** Rows on a page of the report. A ROW is a day, a week or a month. */
 const PAGE_SIZE = 10;
@@ -208,7 +209,19 @@ const COLUMNS = [
   "Working Hours",
   "Remarks",
   "Actions",
+  /* Last, after the actions, on purpose. The reader reaches it having already
+     seen the hours and deliverables it is describing — which is the only order
+     in which a summary can be checked rather than just believed. */
+  "AI Insight",
 ];
+
+/** Which severity outranks which, for a row that covers more than one day. */
+const SEVERITY_ORDER: Record<CellInsight["severity"], number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+};
 
 export default function WorkLogHistoryPage() {
   const toast = useToast();
@@ -275,6 +288,32 @@ export default function WorkLogHistoryPage() {
   const zone = me.data?.timezone ?? null;
   const today = todayIn(zone);
 
+  /**
+   * The stored reading for a row.
+   *
+   * A Date row is one day and takes that day's. A WEEK row covers up to seven,
+   * and takes the MOST SEVERE of them rather than the newest or an average: a
+   * week holding one critical day is a week worth opening, and any other rule
+   * hides exactly the row somebody needed to see.
+   *
+   * Returns null freely. A day recorded a moment ago has not been analysed yet
+   * — analysis happens after the write — and the column prints an em dash for
+   * it, which is true.
+   */
+  const insightFor = (dates: string[]): CellInsight | null => {
+    if (!instructorId) return null;
+    const found = logs.data?.insights;
+    if (!found) return null;
+
+    let worst: CellInsight | null = null;
+    for (const date of dates) {
+      const hit = found[`${instructorId}:${date}`];
+      if (!hit) continue;
+      if (!worst || SEVERITY_ORDER[hit.severity] > SEVERITY_ORDER[worst.severity]) worst = hit;
+    }
+    return worst;
+  };
+
   /* The earliest day there could be anything to look at: the day this
    * instructor's record was created, read in the university's own zone.
    *
@@ -318,7 +357,15 @@ export default function WorkLogHistoryPage() {
   const logs = useLoad(
     useCallback(
       () =>
-        apiGet<{ activities: Row[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        apiGet<{
+          activities: Row[];
+          /** Keyed `instructorId:YYYY-MM-DD`. Absent for a day not yet analysed. */
+          insights?: Record<string, CellInsight>;
+          page: number;
+          limit: number;
+          total: number;
+          hasMore: boolean;
+        }>(
           `/api/activities?${query}`,
           "Could not load your work logs.",
         ),
@@ -695,7 +742,10 @@ export default function WorkLogHistoryPage() {
   const truncated = (logs.data?.total ?? 0) > rows.length;
 
   /** Weekly drops the last column — see `COLUMNS`. */
-  const columns = view === "date" ? COLUMNS : COLUMNS.slice(0, -1);
+  /* Weekly has no Actions — a week row covers up to seven days and one button
+     cannot say which. It KEEPS AI Insight, so this filters by name rather than
+     slicing off the end, which would now take the wrong column. */
+  const columns = view === "date" ? COLUMNS : COLUMNS.filter((c) => c !== "Actions");
 
   return (
     <div>
@@ -920,7 +970,7 @@ export default function WorkLogHistoryPage() {
              * table would silently lose its lines. */
             className="max-h-[60vh] overflow-auto rounded-card border border-line"
           >
-            <table className="w-full min-w-[68rem] border-separate border-spacing-0 text-[13px]">
+            <table className="sticky-col w-full min-w-[68rem] border-separate border-spacing-0 text-[13px]">
               <caption className="sr-only-text">
                 Your work logs, newest first, in the columns the monthly report uses.
               </caption>
@@ -993,6 +1043,9 @@ export default function WorkLogHistoryPage() {
                           ) : null}
                         </td>
                         )}
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
+                          <AiInsightCell insight={insightFor(group.dates)} />
+                        </td>
                       </tr>
                     );
                   }
@@ -1010,11 +1063,31 @@ export default function WorkLogHistoryPage() {
                           {broadCategoryCell(group.subjects)}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
-                          {/* One per line, with a single-colour bullet — the
+                          {/* ── The instructor's own words ──────────────────
+                              What was TYPED, not what it was classified as.
+                              The classification lives in the AI Insight column
+                              at the end of the row, which is where a reading of
+                              the data belongs — this column is the data.
+
+                              It used to show the classified name, so a line the
+                              matcher could not place read "Other / Unclassified
+                              Work" and the sentence the instructor actually
+                              wrote appeared nowhere on the screen. They could
+                              not find their own entry.
+
+                              `rawLines` is empty for entries written before the
+                              four-field form captured raw text; those fall back
+                              to the classified names, which are then the only
+                              record of the line that exists.
+
+                              One per line with a single-colour bullet — the
                               same treatment the manager's sheet uses, so the
                               two read as one report. */}
                           <ul className="space-y-1">
-                            {deliverableLines(group.lines).map((d, i) => (
+                            {(group.rawEntries.length > 0
+                              ? group.rawEntries.map((e) => e.text)
+                              : deliverableLines(group.lines)
+                            ).map((d, i) => (
                               <li key={i} className="flex items-start gap-1.5">
                                 <span
                                   aria-hidden
@@ -1026,14 +1099,54 @@ export default function WorkLogHistoryPage() {
                           </ul>
                         </td>
                         <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
+                          {/* ── As typed, one line per entry ────────────────
+                              Aligned with the Deliverable lines beside it,
+                              which is why `rawEntries` is neither merged nor
+                              de-duplicated: line three here has to be the count
+                              for line three there.
+
+                              It used to print `quantityLines`, the taxonomy's
+                              reading — "1 Class" where somebody wrote "2
+                              classes taken". A row that restates your work in
+                              its own vocabulary is one you cannot check.
+
+                              An entry whose box was left blank shows the
+                              client's `?`: nobody stated a count, which is a
+                              real answer and not zero. */}
                           <ul className="space-y-1">
-                            {quantityLines(group.lines).map((q, i) => (
-                              <li key={i}>{q}</li>
-                            ))}
+                            {group.rawEntries.length > 0
+                              ? group.rawEntries.map((e, i) => (
+                                  <li key={i}>
+                                    {e.quantity ?? <span className="text-subtle">?</span>}
+                                  </li>
+                                ))
+                              : quantityLines(group.lines).map((q, i) => <li key={i}>{q}</li>)}
                           </ul>
                         </td>
                         <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug font-medium text-content">
-                          {workingHoursCell(group.totalMinutes)}
+                          {/* As typed, one line per entry — and the measured
+                              total underneath when there is more than one, so
+                              the row still answers "how long altogether"
+                              without that being the only thing it can say. */}
+                          {group.rawEntries.length > 0 &&
+                          group.rawEntries.some((e) => e.workingHours) ? (
+                            <>
+                              <ul className="space-y-1">
+                                {group.rawEntries.map((e, i) => (
+                                  <li key={i}>
+                                    {e.workingHours ?? <span className="text-subtle">—</span>}
+                                  </li>
+                                ))}
+                              </ul>
+                              {group.rawEntries.length > 1 ? (
+                                <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
+                                  {workingHoursCell(group.totalMinutes)} total
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            workingHoursCell(group.totalMinutes)
+                          )}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.remarks || "—"}
@@ -1097,16 +1210,28 @@ export default function WorkLogHistoryPage() {
                           </span>
                         </td>
                         )}
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
+                          <AiInsightCell insight={insightFor(group.dates)} />
+                        </td>
                       </tr>
                     </Fragment>
                   );
                 })}
 
-                {/* ── The period total ───────────────────────────────────
-                  * A week's rows are days and a month's are weeks, so neither
-                  * table adds up to anything on its own. This is the line the
-                  * client reconciles against. */}
-                {view !== "date" && groups.some((g) => g.state === "recorded") ? (
+              </tbody>
+
+              {/* ── The period total ───────────────────────────────────────
+                * A week's rows are days and a month's are weeks, so neither
+                * table adds up to anything on its own. This is the line the
+                * client reconciles against.
+                *
+                * A `<tfoot>` rather than the body's last row, and not only
+                * because that is what the element is for: the frozen-column
+                * rule in globals.css repaints the first cell of every BODY row
+                * so the pinned column stays opaque, and a total sitting in the
+                * body would have its darker ground repainted white by it. */}
+              {view !== "date" && groups.some((g) => g.state === "recorded") ? (
+                <tfoot>
                   <tr
                     /* Pinned to the BOTTOM of the scroll box, for the same
                        reason the header is pinned to the top: it is the line
@@ -1128,9 +1253,11 @@ export default function WorkLogHistoryPage() {
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
                     <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    {/* Under AI Insight. A week has no single verdict to total. */}
+                    <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                   </tr>
-                ) : null}
-              </tbody>
+                </tfoot>
+              ) : null}
             </table>
           </div>
         )}

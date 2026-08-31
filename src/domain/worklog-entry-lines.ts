@@ -50,6 +50,18 @@ export type EntryDraft = {
   quantity: number | null;
   workingHours: number;
   remarks: string | null;
+  /**
+   * The Quantity box for THIS entry, exactly as typed — "2", "2 classes", "".
+   *
+   * Carried beside the parsed number rather than instead of it. The number is
+   * what every total is summed from; this is what the person wrote, and it is
+   * what the table prints. Neither is recoverable from the other: "2" and
+   * "2 classes" parse identically, and printing the parse back is how an
+   * instructor ends up unable to find their own words on the screen.
+   */
+  rawQuantity: string;
+  /** The Working Hours box for this entry, exactly as typed — "6h 00m". */
+  rawWorkingHours: string;
 };
 
 export type SplitResult =
@@ -101,7 +113,52 @@ export function parseHours(raw: string): number | null {
   const whole = text.match(/^(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?$/);
   if (whole) return Number(whole[1]);
 
+  /* ── Time written as a sentence ──────────────────────────────────────────
+   * Everything above requires the WHOLE box to be a duration and nothing else,
+   * which refuses the way most people actually write one: "6 hours 30
+   * minutes", "6 hours and 30 mins", "about 2 hours". Each was rejected with a
+   * message telling the instructor to write it a way they had not chosen to.
+   *
+   * So as a last resort the units are read out of the text wherever they sit,
+   * and anything around them is ignored as context. A unit is REQUIRED — this
+   * never guesses that a bare number in a sentence was hours — which is what
+   * keeps "2 classes" refused here rather than silently becoming two hours.
+   *
+   * Deliberately after the exact forms above: `8:30` and the bare-number-over-
+   * twelve guard must keep answering first, or this would loosen rules they
+   * exist to enforce. */
+  const hourToken = text.match(/(\d+(?:\.\d+)?)\s*(?:h\b|hr|hrs|hour|hours)/);
+  const minuteToken = text.match(/(\d+)\s*(?:m\b|min|mins|minute|minutes)/);
+  if (hourToken || minuteToken) {
+    const h = hourToken ? Number(hourToken[1]) : 0;
+    const m = minuteToken ? Number(minuteToken[1]) : 0;
+    if (m > 59 && hourToken) return null;
+    const total = h + m / 60;
+    return total > 0 ? total : null;
+  }
+
   return null;
+}
+
+/**
+ * The count inside a Quantity box that also carries context.
+ *
+ * "2" and "2 classes" and "2 classes taken" are all two. The box is labelled
+ * Deliverable Quantity and people answer it in words, so the first whole number
+ * is taken as the count and the rest is kept as the context it is — stored
+ * verbatim on the row and printed unchanged in the table.
+ *
+ * Text with no digit at all returns null, which is the client's `?`: "some
+ * classes" is an honest statement that they did not count, and refusing it
+ * would only teach people to leave the box empty. Nothing is lost by being
+ * lenient here — the raw words are stored either way, so the reader always
+ * sees exactly what was written.
+ */
+function parseQuantity(raw: string): number | null {
+  const found = raw.match(/\d+/);
+  if (!found) return null;
+  const n = Number(found[0]);
+  return Number.isInteger(n) && n >= 0 && n <= 10_000 ? n : null;
 }
 
 /**
@@ -237,22 +294,16 @@ export function splitEntries(input: {
     };
   } else {
     quantities = [];
-    for (const [i, value] of quantityParts.entries()) {
+    for (const value of quantityParts) {
       if (UNSTATED_MARKS.has(value.toLowerCase())) {
         quantities.push(null);
         continue;
       }
-      const n = Number(value);
-      if (!Number.isInteger(n) || n < 0 || n > 10_000) {
-        return {
-          ok: false,
-          reason:
-            count === 1
-              ? `"${value}" is not a whole number. Leave it empty if you did not count them.`
-              : `Quantity ${i + 1} of ${count} — "${value}" is not a whole number.`,
-        };
-      }
-      quantities.push(n);
+      /* Context is allowed and no longer a refusal — "2 classes" is two. Text
+         carrying no number at all is `?`, not an error; see `parseQuantity`.
+         The words are preserved on the row regardless, so nothing a person
+         wrote is lost by this being lenient. */
+      quantities.push(parseQuantity(value));
     }
   }
 
@@ -288,6 +339,12 @@ export function splitEntries(input: {
     remarks = remarkParts;
   }
 
+  /* The raw boxes, aligned to the entries they produced.
+   *
+   * `quantityParts` is empty when the box was left blank, and one shorter than
+   * `count` is impossible by the check above — so the index either hits a part
+   * or the box had none, which is an empty string rather than a missing one.
+   * The table prints these verbatim; nothing downstream re-parses them. */
   return {
     ok: true,
     entries: deliverables.map((deliverable, i) => ({
@@ -295,6 +352,8 @@ export function splitEntries(input: {
       quantity: quantities[i]!,
       workingHours: parsedHours[i]!,
       remarks: remarks[i]!,
+      rawQuantity: quantityParts[i] ?? "",
+      rawWorkingHours: hours[i] ?? "",
     })),
   };
 }

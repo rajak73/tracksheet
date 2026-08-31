@@ -31,6 +31,7 @@ import {
 } from "@/domain/worklog-report";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { rollUp } from "@/domain/rollup";
+import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
 
 export type ManagerPeriod = {
   /** Every date this column covers. */
@@ -109,12 +110,20 @@ export function ManagerSheet({
   periods,
   sort,
   onSort,
+  insights,
 }: {
   people: ManagerPerson[];
   /** Oldest first, so the columns read left to right like a calendar. */
   periods: ManagerPeriod[];
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
+  /**
+   * The stored reading per instructor id, for the final column.
+   *
+   * Optional so a caller that has not been updated still compiles and renders
+   * the column with an em dash in every row, rather than breaking the sheet.
+   */
+  insights?: Record<string, CellInsight>;
 }) {
   /* ── Where the second header row pins ──────────────────────────────────
    * Directly under the first, and the only reliable answer to "how tall is the
@@ -241,6 +250,20 @@ export function ManagerSheet({
               </th>
             ))}
 
+            {/* ── The reading, last ────────────────────────────────────────
+              * Past every period column, at the far end of the row: the reader
+              * arrives having already passed all the hours it describes.
+              *
+              * `rowSpan={2}` because the period headers above split into field
+              * columns below and this one does not — it is a single column, not
+              * a group, so it occupies both header rows itself. */}
+            <th
+              scope="col"
+              rowSpan={2}
+              className={`${HEAD} bg-primary-subtle sticky top-0 ${STICKY_ROW} min-w-[16rem] border-b border-l-2 border-line px-3 py-2 text-left align-bottom`}
+            >
+              AI Insight
+            </th>
           </tr>
           <tr>
             {periods.flatMap((p) =>
@@ -309,6 +332,10 @@ export function ManagerSheet({
                 {periods.map((period) => (
                   <PeriodCells key={period.label} period={period} person={person} />
                 ))}
+
+                <td className="border-b border-l-2 border-line px-3 py-2 align-top">
+                  <AiInsightCell insight={insights?.[person.instructorId] ?? null} />
+                </td>
               </tr>
             );
           })}

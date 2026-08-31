@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { instructorOwnedWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
+import { dayInsightsForPairs } from "@/server/worklog/day-insights";
 import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
 
 /**
@@ -97,6 +98,8 @@ export const GET = withAuth(async ({ scope, req }) => {
         broadCategory: { select: { code: true, label: true } },
         quantity: true,
         rawText: true,
+        rawQuantity: true,
+        rawWorkingHours: true,
         instructor: {
           select: {
             id: true,
@@ -121,7 +124,19 @@ export const GET = withAuth(async ({ scope, req }) => {
     prisma.activityLog.count({ where }),
   ]);
 
+  /* The stored reading of each day these rows fall on, so the AI Insight
+     column joins in the page instead of costing a request per row. Read-only:
+     a day nobody has analysed yet simply has no entry here, and the column
+     prints an em dash. See `analyseDay` for who writes them. */
+  const insights = await dayInsightsForPairs(
+    activities.map((a) => ({
+      instructorId: a.instructor.id,
+      date: a.workDate.toISOString().slice(0, 10),
+    })),
+  );
+
   return NextResponse.json({
+    insights,
     activities: activities.map((a) => ({
       id: a.id,
       workDate: a.workDate,
@@ -138,6 +153,11 @@ export const GET = withAuth(async ({ scope, req }) => {
       broadCategory: a.broadCategory,
       quantity: a.quantity,
       rawText: a.rawText,
+      /* The other two boxes as typed. Null on rows written before these were
+         captured, and on rows from any path with no boxes — the table falls
+         back to the computed figure there. */
+      rawQuantity: a.rawQuantity,
+      rawWorkingHours: a.rawWorkingHours,
       instructorId: a.instructor.id,
       instructorName: a.instructor.user.name,
       employeeCode: a.instructor.employeeCode,

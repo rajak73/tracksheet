@@ -542,6 +542,29 @@ model ActivityLog {
   /// other path — a manager logging on somebody's behalf, or the importer.
   rawText String?
 
+  /// The Deliverable Quantity box, exactly as typed — "2", "2 classes", "?".
+  ///
+  /// Beside `quantity`, not instead of it. `quantity` is the integer every
+  /// total is summed from; this is what the person actually wrote, and the
+  /// table prints it verbatim. They answer different questions: "how many"
+  /// against "what did they say".
+  ///
+  /// It exists because the two are not recoverable from each other. "2
+  /// classes" and "2" both parse to 2, and printing the parse back meant an
+  /// instructor could not find their own words on the screen — the same
+  /// failure `rawText` was added for.
+  ///
+  /// Null for rows created by any path that has no box: a manager logging on
+  /// somebody's behalf, the importer, the seed.
+  rawQuantity String?
+
+  /// The Working Hours box, exactly as typed — "6h 00m", "6 hours 30 minutes".
+  ///
+  /// Beside `startTime`/`endTime`, which remain the authority for every
+  /// computed duration. Same reasoning as `rawQuantity`: the clock positions
+  /// are what the arithmetic uses, and this is what was written.
+  rawWorkingHours String?
+
   /// Which press of Submit produced this row. Null for non-worklog entries.
   submissionId String?
   submission   WorklogSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)

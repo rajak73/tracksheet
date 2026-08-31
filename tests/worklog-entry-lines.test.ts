@@ -27,7 +27,16 @@ describe("one entry still behaves exactly as it did", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.entries).toEqual([
-      { deliverable: "Live class on binary trees", quantity: 1, workingHours: 2, remarks: "section A" },
+      {
+        deliverable: "Live class on binary trees",
+        quantity: 1,
+        workingHours: 2,
+        remarks: "section A",
+        // The boxes as typed, carried beside the parsed values. The table
+        // prints these; the numbers above are what totals are summed from.
+        rawQuantity: "1",
+        rawWorkingHours: "2h",
+      },
     ]);
   });
 
@@ -183,11 +192,53 @@ describe("a quantity nobody stated, in a list", () => {
     expect(r.entries.map((e) => e.quantity)).toEqual([1, null, 1]);
   });
 
-  test("a quantity that is not a whole number is refused", () => {
+  /**
+   * ── This used to be a refusal, and is deliberately no longer one ────────
+   * The box is labelled Deliverable Quantity and people answer it in words:
+   * "2 classes", "1 doubt session", "twelve". Refusing those taught nothing
+   * except to leave the box empty, which loses the words as well as the count.
+   *
+   * The rule now: the first whole number is the count, and everything else is
+   * context. Text carrying no digit at all is the client's `?` — an honest
+   * "they did not give a number" — rather than an error.
+   *
+   * Being lenient costs nothing, and that is the whole reason it is safe:
+   * `rawQuantity` stores the box verbatim and the table prints it, so a reader
+   * always sees exactly what was written. The parse is only ever used for
+   * arithmetic, and refusing to guess is the correct arithmetic here.
+   */
+  test("a quantity written in words is kept, and counts as unstated", () => {
     const r = split("Marking", "1h", "twelve");
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.reason).toMatch(/whole number/);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // No digit, so no count is asserted — but the word survives verbatim.
+    expect(r.entries[0]!.quantity).toBeNull();
+    expect(r.entries[0]!.rawQuantity).toBe("twelve");
+  });
+
+  test("a count with context keeps both halves", () => {
+    const r = split("Live class", "6h", "2 classes taken");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries[0]!.quantity).toBe(2);
+    expect(r.entries[0]!.rawQuantity).toBe("2 classes taken");
+  });
+
+  test("hours may be written as a sentence, and are still measured exactly", () => {
+    const r = split("Live class", "6 hours 30 minutes", "1");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries[0]!.workingHours).toBe(6.5);
+    expect(r.entries[0]!.rawWorkingHours).toBe("6 hours 30 minutes");
+  });
+
+  /* The loosened parsing must not loosen the guards it sits behind. A bare
+     number over twelve is still refused, and text with no unit at all is still
+     not a duration — otherwise "2 classes" in the hours box would quietly
+     become two hours. */
+  test("context does not make anything a duration", () => {
+    expect(split("Marking", "45", "1").ok).toBe(false);
+    expect(split("Marking", "2 classes", "1").ok).toBe(false);
   });
 });
 

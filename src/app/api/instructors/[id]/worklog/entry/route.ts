@@ -10,6 +10,7 @@ import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
 import { classifyLines, recordQuickEntry } from "@/server/worklog/quick-entry";
+import { analyseDayInBackground } from "@/server/worklog/analysis";
 import { splitEntries } from "@/domain/worklog-entry-lines";
 
 /**
@@ -152,7 +153,8 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
    * entry after whatever is already on the day, so the second has to see the
    * first. Racing them would put two activities at the same start time, and the
    * overlap rule would refuse one of the instructor's own lines. */
-  // One provider call for the whole submission, not one per entry.
+  /* Matched against the taxonomy in memory — no provider, no network. What a
+     line MEANS is read afterwards by `analyseDayInBackground`, off this path. */
   const classifications = await classifyLines(split.entries);
 
   const activities = [];
@@ -168,6 +170,10 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
           quantity: entry.quantity,
           workingHours: entry.workingHours,
           remarks: entry.remarks,
+          // The two boxes as typed, stored beside the parsed values so the
+          // table can print what was written rather than what it parsed to.
+          rawQuantity: entry.rawQuantity,
+          rawWorkingHours: entry.rawWorkingHours,
           classification: classifications[i],
         }),
       );
@@ -208,6 +214,21 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     entityId: activities[0]!.id,
     universityId: instructor.universityId,
     metadata: { instructorId: instructor.id, via: "quick-entry", entries: activities.length },
+  });
+
+  /* ── The reading of the day, started but not waited for ─────────────────
+   * Not awaited, and that is the whole point. Classification used to happen
+   * inline and a save took thirty-four seconds; the day is now written first
+   * and interpreted afterwards, so the instructor gets their response as soon
+   * as their work is safe. The insight lands seconds later and the tables pick
+   * it up on their next read.
+   *
+   * Placed after the audit entry so that a day is recorded as logged whether
+   * or not anything ever manages to analyse it. */
+  analyseDayInBackground({
+    instructorId: instructor.id,
+    universityId: instructor.universityId,
+    workDate: input.date,
   });
 
   // `activity` stays for callers that sent one and expect one back.
