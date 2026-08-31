@@ -34,7 +34,7 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { dateIn, formatHours, todayIn, todayISO } from "@/app/_lib/format";
+import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/format";
 import {
   broadCategoryCell,
   deliverableLines,
@@ -255,7 +255,20 @@ export default function WorkLogHistoryPage() {
   /** True while the dialog holds today's own narrative for correction, rather
    *  than a blank one — distinct from `editing`, which is the single-entry
    *  manual-fields correction, not the whole day's. */
-  const [editingToday, setEditingToday] = useState(false);
+  /**
+   * Whether this dialog was opened on a day that ALREADY has entries.
+   *
+   * It decides whether saving REPLACES the day or adds to it, so it has to mean
+   * "an existing day is being corrected" and nothing narrower.
+   *
+   * It used to be `editingToday`, set only when the day being edited was today
+   * — which was right while today was the only editable day. Once any past day
+   * became editable the flag stayed behind: the pencil on last Tuesday opened
+   * the day's own lines, and saving them ADDED them a second time. A day with
+   * room silently doubled; a day near full was refused with "that would run
+   * past midnight", which is how this was noticed.
+   */
+  const [editingDay, setEditingDay] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -563,7 +576,7 @@ export default function WorkLogHistoryPage() {
    */
   function openNew(date: string = today) {
     setEditing(null);
-    setEditingToday(false);
+    setEditingDay(false);
     setDraft(emptyDraft(date));
     setFormError(null);
     setOpen(true);
@@ -594,7 +607,8 @@ export default function WorkLogHistoryPage() {
   function openEditDay(date: string) {
     if (!instructorId) return;
     setEditing(null);
-    setEditingToday(date === today);
+    /* Any existing day, not just today. See `editingDay`. */
+    setEditingDay(true);
     setFormError(null);
 
     /* Today's own lines, back in the four boxes that wrote them.
@@ -652,7 +666,10 @@ export default function WorkLogHistoryPage() {
           /* Rewriting the whole day, not adding to it — every line of it is
            * in the boxes, so appending would duplicate the ones left alone.
            * The server does the clearing; see `replace` on the entry route. */
-          ...(editingToday ? { replace: true } : {}),
+          /* Replace the day rather than add to it. The server does the
+             clearing and the restore if nothing lands; see `replace` on the
+             entry route. */
+          ...(editingDay ? { replace: true } : {}),
         },
         editing ? "Could not save that change." : "Could not submit your work log.",
       );
@@ -662,16 +679,23 @@ export default function WorkLogHistoryPage() {
        * they want to know the day went in, and the table behind the dialog is
        * already showing them what it became. */
       /* Correcting, by either route: one row through the pencil (`editing`)
-       * or the whole day through "Edit Today's Log" (`editingToday`). Only
-       * the first was checked, so rewriting the day — which REPLACES it —
-       * congratulated the instructor for submitting something they had
-       * already submitted. */
-      const correcting = Boolean(editing || editingToday);
+       * or a whole day reopened (`editingDay`). Only the first was checked, so
+       * rewriting a day — which REPLACES it — congratulated the instructor for
+       * submitting something they had already submitted. */
+      const correcting = Boolean(editing || editingDay);
+      /* Names the DAY, not "today". The box writes any past day now, and
+         telling somebody their log "for today" was saved while they were
+         correcting last Tuesday is the one confusion this screen is arranged
+         to prevent. */
+      const forDay =
+        draft.date === today
+          ? "for today"
+          : `for ${formatDayAs(draft.date, { day: "numeric", month: "short" })}`;
       toast(
         "success",
         correcting
-          ? "Your work log for today has been updated successfully."
-          : "Your work log for today has been submitted successfully.",
+          ? `Your work log ${forDay} has been updated successfully.`
+          : `Your work log ${forDay} has been submitted successfully.`,
         correcting ? "Updated!" : "Great job!",
       );
       setOpen(false);
@@ -1308,8 +1332,10 @@ export default function WorkLogHistoryPage() {
         title={
           editing
             ? "Edit work log"
-            : editingToday
-              ? "Edit Today's Work Log"
+            : editingDay
+              ? draft.date === today
+                ? "Edit Today's Work Log"
+                : "Edit Work Log"
               : draft.date === today
                 ? "Today's Work Log"
                 : "Work Log"
