@@ -182,6 +182,41 @@ export async function dayInsightsForPairs(
 }
 
 /**
+ * Stored readings for several instructors across a date range, keyed by
+ * {@link dayInsightKey}.
+ *
+ * For a sheet showing a PERIOD: the column beside a week of figures has to
+ * describe that week. `latestDayInsightByInstructor` answers a different
+ * question — "what is the most recent thing known about this person" — which is
+ * right for a roster list and wrong here, where it would caption August with a
+ * reading of September.
+ */
+export async function dayInsightsInRange(
+  instructorIds: string[],
+  from: string,
+  to: string,
+): Promise<Record<string, DayInsight>> {
+  if (instructorIds.length === 0) return {};
+
+  const rows = await prisma.aiInsight.findMany({
+    where: {
+      instructorId: { in: instructorIds },
+      type: DAY_INSIGHT_TYPE,
+      periodStart: { gte: toDateOnly(from), lte: toDateOnly(to) },
+    },
+    select: SELECT,
+  });
+
+  const out: Record<string, DayInsight> = {};
+  for (const row of rows) {
+    if (!row.instructorId) continue;
+    const insight = shape(row as Row);
+    out[dayInsightKey(row.instructorId, insight.date)] = insight;
+  }
+  return out;
+}
+
+/**
  * The most recent reading for each of several instructors, keyed by instructor.
  *
  * For a roster or a staff list, where a row is a PERSON and the useful answer

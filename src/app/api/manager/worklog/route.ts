@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
-import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
+import { dayInsightsInRange } from "@/server/worklog/day-insights";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
@@ -288,6 +288,8 @@ export const GET = withAuth(async ({ scope, req }) => {
         broadCategory: { select: { code: true, label: true } },
       quantity: true,
       rawText: true,
+      rawQuantity: true,
+      rawWorkingHours: true,
       // Where the row came from, and whether anybody has looked at it since.
       // This is what the entry table's Status column is derived from — see
       // `entryStatus`. Nothing is stored per activity; the answer belongs to
@@ -413,6 +415,10 @@ export const GET = withAuth(async ({ scope, req }) => {
           broadCategory: log.broadCategory,
           quantity: log.quantity,
           rawText: log.rawText,
+          /* As typed. The sheet prints these; the parsed quantity and the
+             clock range above stay the authority for every total. */
+          rawQuantity: log.rawQuantity,
+          rawWorkingHours: log.rawWorkingHours,
           entryStatus: entryStatus(log),
           // Overdue rather than merely unreviewed. Kept separate from the
           // status so a manager can tell "nobody has checked this yet" from
@@ -453,9 +459,14 @@ export const GET = withAuth(async ({ scope, req }) => {
       totalActivities: rows.reduce((n, r) => n + r.activityCount, 0),
     },
     instructors: rows,
-    /* The latest stored reading per instructor, for the sheet's last column.
-       A read of what was written when each day was submitted — nothing here
-       calls a model. See `day-insights`. */
-    insights: await latestDayInsightByInstructor(rows.map((r) => r.instructorId)),
+    /* The stored readings for the range ON SCREEN, keyed `instructorId:date`.
+       Scoped to the period rather than "the latest known", because the column
+       sits beside that period's figures and has to describe them — the sheet
+       picks the most severe day a row covers. Nothing here calls a model. */
+    insights: await dayInsightsInRange(
+      rows.map((r) => r.instructorId),
+      from,
+      to,
+    ),
   });
 }, { roles: ["MANAGER", "ADMIN"] });

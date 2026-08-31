@@ -83,6 +83,15 @@ export type Activity = {
   /** `null` is the client's `?` — nobody said how many. See `worklog-taxonomy`. */
   quantity?: number | null;
   rawText?: string | null;
+  /**
+   * The Quantity and Working Hours boxes, exactly as typed.
+   *
+   * Every sheet prints these rather than the parse — see `ActivityLog`. Absent
+   * on rows written before they were captured, and on any path with no boxes,
+   * where the sheet falls back to the computed figure.
+   */
+  rawQuantity?: string | null;
+  rawWorkingHours?: string | null;
 };
 
 export type ActivityTypeOption = {

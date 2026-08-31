@@ -59,11 +59,43 @@ export type DayAnalysisInput = {
  * somebody times a save again.
  */
 export function analyseDayInBackground(input: DayAnalysisInput): void {
+  if (!backgroundAnalysisEnabled()) return;
   void analyseDay(input).catch(() => {
     /* Unreachable — `analyseDay` swallows its own failures. Here so that a
        future edit which lets one escape cannot become an unhandled rejection
        that takes the process down. */
   });
+}
+
+/**
+ * Whether writes may start analysis of their own.
+ *
+ * On everywhere except the test suite.
+ *
+ * ── What it is for ────────────────────────────────────────────────────────
+ * This work is fire-and-forget: it outlives the request that started it, and
+ * it writes — `AiInsight` rows here, a `WorklogDaySummary` cache row inside
+ * `summariseDays`. Under a suite that shares one database across files, that
+ * means writes from one file can land while another is asserting, and there is
+ * no moment at which a test may say "the background work has finished".
+ *
+ * Switching it off makes the suite deterministic about when a day is analysed,
+ * and `analyseDay` is called directly in `worklog-day-analysis.test.ts`, so
+ * nothing about what the analysis DOES loses coverage. What is no longer
+ * covered end to end is the one-line decision to start it, which is this
+ * function.
+ *
+ * ── What it is NOT ────────────────────────────────────────────────────────
+ * Not a fix for the intermittent failure in `ai-assistant.test.ts`. That was
+ * the first theory — the assistant's tests point a fake provider at
+ * `GEMINI_BASE_URL` and assert on the first request it receives, and this path
+ * reaches a provider too — but the test server is started with an empty
+ * `GEMINI_API_KEY`, so server-side analysis never makes a call at all, and the
+ * failure recurred with this switch already off. It is recorded here so the
+ * next person does not spend the same afternoon proving the same thing twice.
+ */
+function backgroundAnalysisEnabled(): boolean {
+  return process.env.WORKLOG_ANALYSIS_BACKGROUND !== "off";
 }
 
 /**

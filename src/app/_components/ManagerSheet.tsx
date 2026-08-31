@@ -98,6 +98,40 @@ const STICKY_CORNER = "z-30";
 export type SheetSort = "name" | "total-desc" | "total-asc";
 
 /** The time this person spent with students across every period on screen. */
+/** Which severity outranks which, for a row covering more than one day. */
+const SEVERITY_ORDER: Record<CellInsight["severity"], number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+};
+
+/**
+ * The reading for a row: the most severe day it covers.
+ *
+ * Not the newest and not an average. A fortnight holding one critical day is a
+ * fortnight worth opening, and any other rule hides exactly the row somebody
+ * needed to see. Null when nothing in the range has been analysed, which the
+ * cell prints as an em dash — honestly, since analysis happens after a day is
+ * written and a day recorded moments ago has not been read yet.
+ */
+function worstInsight(
+  insights: Record<string, CellInsight> | undefined,
+  instructorId: string,
+  periods: ManagerPeriod[],
+): CellInsight | null {
+  if (!insights) return null;
+  let worst: CellInsight | null = null;
+  for (const period of periods) {
+    for (const date of period.dates) {
+      const hit = insights[`${instructorId}:${date}`];
+      if (!hit) continue;
+      if (!worst || SEVERITY_ORDER[hit.severity] > SEVERITY_ORDER[worst.severity]) worst = hit;
+    }
+  }
+  return worst;
+}
+
 export function totalHours(person: ManagerPerson, periods: ManagerPeriod[]): number {
   return periods.reduce(
     (n, p) => n + rollUp(p.dates.flatMap((d) => person.activitiesByDate[d] ?? [])).hours,
@@ -118,7 +152,13 @@ export function ManagerSheet({
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
   /**
-   * The stored reading per instructor id, for the final column.
+   * The stored readings for the period on screen, keyed `instructorId:date`.
+   *
+   * Keyed by day rather than by person because the column has to describe the
+   * period beside it: a row covering a fortnight takes the most severe day in
+   * that fortnight, which is the same rule the instructor's own weekly rows
+   * use. Captioning August with September's reading is the failure this shape
+   * prevents.
    *
    * Optional so a caller that has not been updated still compiles and renders
    * the column with an em dash in every row, rather than breaking the sheet.
@@ -334,7 +374,7 @@ export function ManagerSheet({
                 ))}
 
                 <td className="border-b border-l-2 border-line px-3 py-2 align-top">
-                  <AiInsightCell insight={insights?.[person.instructorId] ?? null} />
+                  <AiInsightCell insight={worstInsight(insights, person.instructorId, periods)} />
                 </td>
               </tr>
             );
@@ -383,6 +423,33 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
     countable: l.countable,
   }));
 
+  /* ── What the instructor actually WROTE ──────────────────────────────────
+   * The manager reads the same words their instructor typed, not a
+   * re-description of them. This sheet used to print `lines` — the merged,
+   * classified reading — so an entry recorded as "Investigate intermittent
+   * OAuth token expiry" reached the manager as "Other / Unclassified Work",
+   * and the two people looking at one day saw different text.
+   *
+   * Ordered by start time and NOT de-duplicated, for the reason the
+   * instructor's own row model gives: the three columns have to line up, and
+   * folding two entries together leaves a count beside work it does not
+   * describe. An entry with no captured raw text drops out rather than
+   * rendering an empty bullet with a number next to it. */
+  const raw = [...activities]
+    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))
+    .flatMap((a) => {
+      const text = (a.rawText ?? "").trim();
+      if (!text) return [];
+      return [
+        {
+          text,
+          quantity: (a.rawQuantity ?? "").trim() || null,
+          workingHours: (a.rawWorkingHours ?? "").trim() || null,
+        },
+      ];
+    });
+  const hasRaw = raw.length > 0;
+
   return (
     <>
       {/* One deliverable per line, not a comma-spliced sentence.
@@ -397,22 +464,32 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
           does not have — the categories are already named in the text. */}
       <td className={`${cell} min-w-[14rem] max-w-[18rem] border-l-2 border-line text-content`}>
         <ul className="space-y-1">
-          {lines.map((l) => (
-            <li
-              key={l.key}
-              className={`flex items-start gap-1.5 ${l.countable ? "" : "text-muted"}`}
-              title={l.countable ? undefined : "Not counted in Working Hours"}
-            >
-              <span
-                aria-hidden
-                className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
-                style={{ opacity: l.countable ? 1 : 0.45 }}
-              />
-              <span>
-                {l.label} - {compactDuration(l.minutes)}
-              </span>
-            </li>
-          ))}
+          {hasRaw
+            ? raw.map((e, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span
+                    aria-hidden
+                    className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
+                  />
+                  <span>{e.text}</span>
+                </li>
+              ))
+            : lines.map((l) => (
+                <li
+                  key={l.key}
+                  className={`flex items-start gap-1.5 ${l.countable ? "" : "text-muted"}`}
+                  title={l.countable ? undefined : "Not counted in Working Hours"}
+                >
+                  <span
+                    aria-hidden
+                    className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
+                    style={{ opacity: l.countable ? 1 : 0.45 }}
+                  />
+                  <span>
+                    {l.label} - {compactDuration(l.minutes)}
+                  </span>
+                </li>
+              ))}
         </ul>
       </td>
 
@@ -422,16 +499,36 @@ function PeriodCells({ period, person }: { period: ManagerPeriod; person: Manage
             Listed rather than joined so each figure sits on the row of the
             deliverable it belongs to. */}
         <ul className="space-y-1">
-          {quantityLines(countableLines(cells)).map((q, i) => (
-            <li key={i}>{q}</li>
-          ))}
+          {hasRaw
+            ? raw.map((e, i) => (
+                <li key={i}>{e.quantity ?? <span className="text-subtle">?</span>}</li>
+              ))
+            : quantityLines(countableLines(cells)).map((q, i) => <li key={i}>{q}</li>)}
         </ul>
       </td>
 
       <td
         className={`${cell} tabular min-w-[8rem] border-l border-line-subtle text-right font-semibold text-content`}
       >
-        {formatDuration(hours)}
+        {/* As typed, one line per entry, with the measured total beneath when
+            there is more than one — so the column still answers "how long
+            altogether" without that being all it can say. */}
+        {hasRaw && raw.some((e) => e.workingHours) ? (
+          <>
+            <ul className="space-y-1">
+              {raw.map((e, i) => (
+                <li key={i}>{e.workingHours ?? <span className="text-subtle">—</span>}</li>
+              ))}
+            </ul>
+            {raw.length > 1 ? (
+              <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
+                {formatDuration(hours)} total
+              </span>
+            ) : null}
+          </>
+        ) : (
+          formatDuration(hours)
+        )}
       </td>
 
       <td className={`${cell} min-w-[12rem] max-w-[16rem] border-l border-line-subtle`}>

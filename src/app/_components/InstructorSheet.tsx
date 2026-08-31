@@ -193,6 +193,23 @@ function PeriodRow({
   onAdd: (date: string) => void;
   onNote: (date: string, note: string) => Promise<void>;
 }) {
+  /* The entries as they were written. `rows` arrives already sorted by start
+     time, so this keeps the order the day happened, and it is deliberately NOT
+     de-duplicated: the count in the Quantity column is per entry, and folding
+     two of them together would leave a number describing work that no longer
+     has a line of its own. An entry with no captured raw text drops out rather
+     than rendering as an empty bullet with a figure beside it. */
+  const raw = rows.flatMap((a) => {
+    const text = (a.rawText ?? "").trim();
+    if (!text) return [];
+    return [
+      {
+        text,
+        quantity: (a.rawQuantity ?? "").trim() || null,
+        workingHours: (a.rawWorkingHours ?? "").trim() || null,
+      },
+    ];
+  });
   /* Generous rows and horizontal rules only.
    *
    * The deliverable cell holds a sentence's worth of text and has to WRAP, not
@@ -255,21 +272,43 @@ function PeriodRow({
               )}
             </td>
 
-            {/* "Lecture – 1h 30m, Department Meeting – 1h" */}
+            {/* ── What was written, not what it was classified as ────────
+              * Their own sentence, the same one the worklog table and the
+              * manager's sheet now show. This printed `lines` — the merged,
+              * classified reading — so the same day read differently depending
+              * on which screen you opened it from.
+              *
+              * Ordered by start time and not de-duplicated: the count in the
+              * column beside this one is per entry, and folding two entries
+              * together would leave a number describing work that is no longer
+              * on its own line. Rows written before raw text was captured fall
+              * back to the classified names. */}
             <td className={`${cell} max-w-[22rem] text-content`}>
-              {lines.map((l, i) => (
-                <span key={l.key} className={l.countable ? undefined : "text-muted"}>
-                  {i > 0 ? ", " : ""}
-                  <span
-                    aria-hidden
-                    className="mr-1 inline-block size-2 rounded-full align-middle"
-                    style={{ background: categoryColor(rows[0]!.activityType.code) }}
-                  />
-                  <span title={l.countable ? undefined : "Not counted in Working Hours"}>
-                    {l.label} - {compactDuration(l.minutes)}
-                  </span>
-                </span>
-              ))}
+              {raw.length > 0
+                ? raw.map((e, i) => (
+                    <span key={i}>
+                      {i > 0 ? ", " : ""}
+                      <span
+                        aria-hidden
+                        className="mr-1 inline-block size-2 rounded-full align-middle"
+                        style={{ background: categoryColor(rows[0]!.activityType.code) }}
+                      />
+                      <span>{e.text}</span>
+                    </span>
+                  ))
+                : lines.map((l, i) => (
+                    <span key={l.key} className={l.countable ? undefined : "text-muted"}>
+                      {i > 0 ? ", " : ""}
+                      <span
+                        aria-hidden
+                        className="mr-1 inline-block size-2 rounded-full align-middle"
+                        style={{ background: categoryColor(rows[0]!.activityType.code) }}
+                      />
+                      <span title={l.countable ? undefined : "Not counted in Working Hours"}>
+                        {l.label} - {compactDuration(l.minutes)}
+                      </span>
+                    </span>
+                  ))}
             </td>
 
             {/* Only what a count means something for. */}
@@ -278,20 +317,35 @@ function PeriodRow({
                   everywhere, so this sheet, the manager's, the monthly tracker
                   and both exports say the same thing — including the client's
                   `?` where somebody never said how many. */}
-              {quantityCell(
-                countableLines(
-                  lines.map((l) => ({
-                    title: l.label,
-                    minutes: l.minutes,
-                    quantity: l.quantity,
-                    countable: l.countable,
-                  })),
-                ),
-              )}
+              {raw.length > 0
+                ? raw.map((e) => e.quantity ?? "?").join(", ")
+                : quantityCell(
+                    countableLines(
+                      lines.map((l) => ({
+                        title: l.label,
+                        minutes: l.minutes,
+                        quantity: l.quantity,
+                        countable: l.countable,
+                      })),
+                    ),
+                  )}
             </td>
 
             <td className={`${cell} tabular text-right font-semibold text-content`}>
-              {formatDuration(hours)}
+              {/* As typed, with the measured total beside it when the day holds
+                  more than one entry. */}
+              {raw.length > 0 && raw.some((e) => e.workingHours) ? (
+                <>
+                  {raw.map((e) => e.workingHours ?? "—").join(", ")}
+                  {raw.length > 1 ? (
+                    <span className="block text-xs font-normal text-muted">
+                      {formatDuration(hours)} total
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                formatDuration(hours)
+              )}
             </td>
 
             {/* ── The instructor's own word on how the day went ─────────────

@@ -225,6 +225,10 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
         select: {
           id: true,
           rawText: true,
+          // The other two boxes as typed — every sheet prints these rather
+          // than the parse. See `ActivityLog.rawQuantity`.
+          rawQuantity: true,
+          rawWorkingHours: true,
           startTime: true,
           endTime: true,
           quantity: true,

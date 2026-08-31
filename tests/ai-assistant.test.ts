@@ -274,6 +274,34 @@ function labelsIn(body: string): string[] {
   return [...new Set(body.match(/Person [A-Z]+/g) ?? [])];
 }
 
+/**
+ * How many labels a set of people can produce.
+ *
+ * `pseudonymise` keys its map by the REAL NAME, so two people called the same
+ * thing share one label — which is correct behaviour, and means a count of
+ * labels is a count of distinct names rather than of people.
+ *
+ * These assertions used to compare the label count against the LENGTH of the
+ * context's arrays, which holds only while every person in the suite happens to
+ * be named differently. They were not: one file creates several managers per
+ * run from a small pool of names, and once enough of those existed the admin
+ * case failed by exactly the number of collisions — twenty managers, eleven
+ * distinct names, nine short — on roughly one full-suite run in three, and
+ * never when the file was run alone.
+ *
+ * The guarantee being tested is unchanged and still strict: nobody is named,
+ * and the prompt describes no more people than the caller may see. This just
+ * counts the right thing.
+ */
+const distinctNames = (...groups: Array<Array<{ name: string }> | string>): number => {
+  const names = new Set<string>();
+  for (const group of groups) {
+    if (typeof group === "string") names.add(group);
+    else for (const p of group) names.add(p.name);
+  }
+  return names.size;
+};
+
   test("a manager's prompt contains their roster and nobody else's", async () => {
     const context = await buildInsightContext(northManagerScope);
     replyPayload = truthfulReply(context);
@@ -288,7 +316,7 @@ function labelsIn(body: string): string[] {
     // their roster. A label for somebody else's instructor would mean the
     // context was built too wide, pseudonyms or not.
     if (context.audience !== "MANAGER") throw new Error("expected a MANAGER context");
-    expect(labelsIn(body)).toHaveLength(1 + context.roster.length);
+    expect(labelsIn(body)).toHaveLength(distinctNames(context.roster, context.managerName));
   });
 
   test("the other manager gets the mirror image, from the same code path", async () => {
@@ -305,7 +333,7 @@ function labelsIn(body: string): string[] {
     // their roster. A label for somebody else's instructor would mean the
     // context was built too wide, pseudonyms or not.
     if (context.audience !== "MANAGER") throw new Error("expected a MANAGER context");
-    expect(labelsIn(body)).toHaveLength(1 + context.roster.length);
+    expect(labelsIn(body)).toHaveLength(distinctNames(context.roster, context.managerName));
   });
 
   test("an admin's prompt spans every manager, and still carries no secrets", async () => {
@@ -326,7 +354,7 @@ function labelsIn(body: string): string[] {
     for (const n of [...northRosterNames, ...westRosterNames]) expect(body).not.toContain(n);
     // One label per person the context actually carries, and no more.
     expect(labelsIn(body)).toHaveLength(
-      context.managers.length + context.worstInstructors.length,
+      distinctNames(context.managers, context.worstInstructors),
     );
 
     expect(body).not.toContain("@example.edu");

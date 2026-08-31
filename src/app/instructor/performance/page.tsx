@@ -61,10 +61,45 @@ import {
   TR,
 } from "@/app/_components/ui";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
+import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
 import { formatDateShort, formatHours, humanizeCode } from "@/app/_lib/format";
 import { isStudentFacingCategory } from "@/domain/working-hours";
 
 type Week = { index: number; from: string; to: string; labelFrom: string | null; labelTo: string | null };
+
+/** Which severity outranks which, for a row covering several days. */
+const SEVERITY_ORDER: Record<CellInsight["severity"], number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+};
+
+/**
+ * The most severe stored reading between two dates, inclusive.
+ *
+ * Walks the calendar rather than the insight keys so a week with nothing
+ * recorded answers null rather than reaching for the nearest day outside it.
+ * Null prints as an em dash, which honestly means "not analysed": analysis
+ * happens after a day is written, so a day recorded moments ago has none yet.
+ */
+function worstInsightBetween(
+  insights: Record<string, CellInsight>,
+  instructorId: string,
+  from: string,
+  to: string,
+): CellInsight | null {
+  let worst: CellInsight | null = null;
+  for (let at = new Date(`${from}T00:00:00.000Z`); ; at.setUTCDate(at.getUTCDate() + 1)) {
+    const date = at.toISOString().slice(0, 10);
+    if (date > to) break;
+    const hit = insights[`${instructorId}:${date}`];
+    if (hit && (!worst || SEVERITY_ORDER[hit.severity] > SEVERITY_ORDER[worst.severity])) {
+      worst = hit;
+    }
+  }
+  return worst;
+}
 
 type Entry = {
   title: string;
@@ -134,11 +169,15 @@ export default function InstructorPerformancePage() {
     const from = fromDate.toISOString().slice(0, 10);
 
     // Self-scoped: the route pins the row to this instructor, so no id is sent.
-    const { tracker } = await apiGet<{ tracker: Tracker }>(
+    const { tracker, insights } = await apiGet<{
+      tracker: Tracker;
+      /** Keyed `instructorId:YYYY-MM-DD`, scoped to the range asked for. */
+      insights?: Record<string, CellInsight>;
+    }>(
       `/api/universities/${universityId}/tracker?from=${from}&to=${to}`,
       "Could not load your performance.",
     );
-    return tracker;
+    return { ...tracker, insights: insights ?? {} };
   }, [span]);
 
   const { data, error, loading, reload } = useLoad(load, `instructor-performance:${span}`);
@@ -157,6 +196,12 @@ export default function InstructorPerformancePage() {
           /* `?? 0` read "nobody said" as "none". A missing cell genuinely is
              none; an unknown count is not, and must stay unknown. */
           quantity: cell === undefined ? 0 : cell.quantity,
+          /* The stored reading for this week: the most severe day in it.
+             Insights are per DAY — analysis runs when a day is written — and a
+             week holding one critical day is a week worth opening, so taking
+             the worst is the only rule that does not hide the row somebody
+             needed to see. */
+          insight: worstInsightBetween(data.insights, row.instructorId, w.from, w.to),
         };
       })
       .reverse(); // newest first — the week you are in matters most.
@@ -243,6 +288,9 @@ export default function InstructorPerformancePage() {
                         { label: "Working Hours", align: "right" },
                         { label: "Recorded hours", align: "right" },
                         { label: "Deliverable qty", align: "right" },
+                        /* Last, past the figures it describes. This table has
+                           no Actions column, so the end of the row is here. */
+                        { label: "AI Insight" },
                       ]}
                     />
                     <TBody>
@@ -262,6 +310,9 @@ export default function InstructorPerformancePage() {
                           </TD>
                           <TD align="right">
                             <span className="tabular">{w.quantity ?? UNSTATED}</span>
+                          </TD>
+                          <TD>
+                            <AiInsightCell insight={w.insight} />
                           </TD>
                         </TR>
                       ))}
