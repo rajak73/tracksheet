@@ -350,6 +350,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── The page never scrolls sideways ──────────────────────────────────────
+   Every wide surface in this product carries its own horizontal scroller: the
+   manager's sheet, the tracker grid, and every table through `TableWrap`. When
+   something ALSO pushed the document wide, the reader got two horizontal bars
+   doing different things — and dragging the outer one carried the whole card
+   left, taking the frozen Employee Name column with it, because `position:
+   sticky` pins a cell inside its own scroll container and not to the screen.
+
+   `clip`, not `hidden`, and the difference matters here: `overflow: hidden`
+   would make the root a scroll container, which re-parents every `position:
+   sticky` descendant to it and would break the sticky headers and frozen
+   columns this exists to protect. `clip` only clips.
+
+   Vertical is untouched — pages scroll down as they always did.
+
+   On `html` alone, deliberately. An overflow value on `body` PROPAGATES to the
+   viewport, and the pair disagreeing is a well-known source of layout and
+   sticky oddities; one element owns this. */
+html {
+  overflow-x: clip;
+}
+
 /* Numbers in tables and stat tiles must line up column to column, otherwise
    scanning a workload table means re-reading every row. */
 .tabular {
@@ -424,6 +446,38 @@ body {
    own Tailwind class cannot drift apart — both read the same source. */
 .sticky-col tbody tr[data-selected="true"] > *:first-child:not([colspan]) {
   background-color: var(--app-primary-subtle);
+}
+
+/* ── A denser table, for a panel rather than a page ───────────────────────
+   A table that IS the page can afford 12px of vertical padding a cell. One
+   sharing a dashboard row with a chart cannot: at that size three rows fill the
+   card and the reader scrolls to learn anything, which defeats putting a list
+   there at all.
+
+   Padding and type only. The rules, alignment, sticky header and frozen first
+   column are untouched, so a dense table is the same table — it just fits more
+   of itself on screen. Set with `<Table dense>`. */
+.table-dense th,
+.table-dense td {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+}
+
+.table-dense td {
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+}
+
+.table-dense th {
+  font-size: 0.6875rem;
+}
+
+/* The header's click target is a button that carries its own padding, so the
+   cell rule above cannot reach it. */
+.table-dense th button {
+  padding: 0.375rem 0.625rem;
 }
 
 /* Screen-reader-only, for the text half of every status that also uses colour. */

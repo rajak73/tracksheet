@@ -72,6 +72,13 @@ const FIELDS = [
 
 /* Fixed pixel widths, because `position: sticky` offsets have to be
  * arithmetic: the second column starts where the first ends. */
+/* ── Only the NAME is frozen ──────────────────────────────────────────────
+ * Employee ID, Broad Category and Total Working Hours used to be pinned too,
+ * which spent 656px — a third of a laptop screen — on columns that repeat the
+ * same few values down every row. What a reader needs while scrolling a
+ * fortnight sideways is WHOSE row this is; the rest is reference they can
+ * scroll back to. The widths stay, so the columns keep their shape; only the
+ * pinning is gone. */
 const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
@@ -209,14 +216,14 @@ export function ManagerSheet({
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky left-[224px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-2 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky top-0 ${STICKY_ROW} border-b border-r border-line px-3 py-2 text-left`}
             >
               Employee ID
             </th>
             <th
               scope="col"
               rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky left-[352px] top-0 ${STICKY_CORNER} border-b border-r border-line px-3 py-2 text-left`}
+              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky top-0 ${STICKY_ROW} border-b border-r border-line px-3 py-2 text-left`}
             >
               Broad Category
             </th>
@@ -243,7 +250,7 @@ export function ManagerSheet({
               aria-sort={
                 sort === "total-desc" ? "descending" : sort === "total-asc" ? "ascending" : "none"
               }
-              className={`${HEAD} ${IDENTITY.total} bg-primary-subtle sticky left-[512px] top-0 ${STICKY_CORNER} border-b border-r-2 border-line p-0 text-right align-bottom`}
+              className={`${HEAD} ${IDENTITY.total} bg-primary-subtle sticky top-0 ${STICKY_ROW} border-b border-r-2 border-line p-0 text-right align-bottom`}
             >
               <button
                 type="button"
@@ -278,12 +285,13 @@ export function ManagerSheet({
                   * of a day pushed "Tuesday 25 Aug" off the left edge and left
                   * a blank blue band above columns nobody could name any more.
                   *
-                  * Sticky at the right edge of the frozen block — 224 + 128 +
-                  * 160 + 144 — so the label parks there while any part of its
-                  * day is in view, then leaves with the last of its columns.
+                  * Sticky at the right edge of the frozen block, which is
+                  * now the name column alone (224px) — so the label parks there
+                  * while any part of its day is in view, then leaves with the
+                  * last of its columns.
                   * Sticky is bounded by its containing block, which is this
                   * cell, so it cannot wander over the next day's header. */}
-                <span className="sticky left-[656px] inline-block align-top">
+                <span className="sticky left-[224px] inline-block align-top">
                   {p.sublabel}
                   <span className="tabular block font-normal text-primary-text">{p.label}</span>
                 </span>
@@ -338,12 +346,12 @@ export function ManagerSheet({
                   <span className="block truncate font-medium text-content">{person.name}</span>
                 </th>
                 <td
-                  className={`${IDENTITY.code} tabular sticky left-[224px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.code} tabular border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
                   {suppliedOr(person.employeeCode)}
                 </td>
                 <td
-                  className={`${IDENTITY.broadCategory} sticky left-[352px] ${STICKY_COL} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.broadCategory} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
                 >
                   {/* What they actually worked on across the range shown, read
                       from the entries. The assigned-category column that used to
@@ -364,7 +372,7 @@ export function ManagerSheet({
                     paints over what it passes, and a transparent one would let
                     the period columns scroll through it. */}
                 <td
-                  className={`${IDENTITY.total} tabular sticky left-[512px] ${STICKY_COL} border-b border-r-2 border-line bg-surface px-3 py-2 text-right align-top text-[13px] font-semibold text-content transition-colors group-hover:bg-hovered`}
+                  className={`${IDENTITY.total} tabular border-b border-r-2 border-line bg-surface px-3 py-2 text-right align-top text-[13px] font-semibold text-content transition-colors group-hover:bg-hovered`}
                 >
                   {formatDuration(totalHours(person, periods))}
                 </td>

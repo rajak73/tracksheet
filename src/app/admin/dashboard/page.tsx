@@ -26,7 +26,7 @@
  * them.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -46,6 +46,15 @@ import {
   TR,
 } from "@/app/_components/ui";
 import { TrendLine, type TrendPoint } from "@/app/_components/charts";
+
+/**
+ * The chart's drawing height, which sets how tall this row is.
+ *
+ * It used to be paired with a hand-kept `max-h-[15.5rem]` on the panel beside
+ * it — two numbers that had to agree and did not. The panel now stretches to
+ * the row instead of restating this one.
+ */
+const PANEL_BODY_PX = 170;
 import { Avatar } from "@/app/_components/AccountDialogs";
 import { apiGet, useLoad } from "@/app/_lib/api";
 import { useUniversityToday } from "@/app/_lib/zone";
@@ -97,6 +106,32 @@ function writtenAt(iso: string): string {
 
 export default function AdminDashboardPage() {
   const today = useUniversityToday();
+
+  /* ── The activity card is exactly as tall as the chart card ──────────────
+   * Both sit in one grid row, and a grid row is as tall as its tallest item, so
+   * whichever card grows decides for both. Left alone the list wins and the
+   * chart floats above a stretch of nothing.
+   *
+   * Capping the list to the chart's DRAWING height does not fix it either: the
+   * two card headers are different heights, so a body capped to the same number
+   * still leaves a gap under one of them. The chart card is measured instead
+   * and this one is told to be that — measured rather than calculated because
+   * the only thing that reliably knows how tall a card is, with its header
+   * wrapped to however many lines today's text needs, is the card.
+   *
+   * The manager's dashboard does the same thing for the same reason. */
+  const chartCard = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState(0);
+
+  useEffect(() => {
+    const el = chartCard.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setRowHeight(entry?.contentRect.height ?? 0);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const load = useCallback(
     () =>
@@ -186,7 +221,10 @@ export default function AdminDashboardPage() {
           The curve is the shape of the month; the list beside it is the last
           few things anybody wrote. Together they answer "is it working" and
           "is it working right now", which are different questions. */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* `items-start` so neither card is stretched by the other — the
+          activity panel is sized from the measurement above instead. */}
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div ref={chartCard}>
         <Card>
           <CardHeader
             title="Submission overview"
@@ -203,13 +241,19 @@ export default function AdminDashboardPage() {
                 seriesLabel="This month"
                 compare={{ label: "Last month", points: compare }}
                 unit="submissions"
-                height={170}
+                height={PANEL_BODY_PX}
               />
             )}
           </div>
         </Card>
+        </div>
 
-        <Card>
+        {/* Exactly the chart card's height. The height sits on a wrapper rather
+            than on `Card`, which takes a className but not a style — giving a
+            shared primitive an inline-style hatch for one screen is how it
+            stops being shared. */}
+        <div style={rowHeight ? { height: rowHeight } : undefined}>
+        <Card className="flex h-full flex-col">
           <CardHeader title="Recent activity" description="The latest entries written." />
           {/* A fixed box that scrolls, not a list that grows.
             *
@@ -221,7 +265,7 @@ export default function AdminDashboardPage() {
             *
             * `max-h` rather than `h`, so a quiet morning with two entries does
             * not leave a card two thirds empty. */}
-          <div className="max-h-[15.5rem] overflow-y-auto px-5 pb-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
             {loading && !data ? (
               <TableSkeleton rows={5} cols={1} />
             ) : (data?.recent.length ?? 0) === 0 ? (
@@ -251,6 +295,7 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </Card>
+        </div>
       </div>
 
       {/* ── Who has not filed ─────────────────────────────────────────────── */}

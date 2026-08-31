@@ -30,7 +30,7 @@
  * reproduced them would be a second copy to keep in step.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -50,6 +50,15 @@ import {
   TR,
 } from "@/app/_components/ui";
 import { TrendLine, type TrendPoint } from "@/app/_components/charts";
+
+/**
+ * The chart's drawing height, which sets how tall this row is.
+ *
+ * The panel beside it no longer repeats this number — it stretches to whatever
+ * the row turns out to be, which is the only way the two stay level when the
+ * card headers are different heights. See the panel's own note.
+ */
+const PANEL_BODY_PX = 150;
 import { Avatar } from "@/app/_components/AccountDialogs";
 import { apiGet, useLoad } from "@/app/_lib/api";
 import { useQueryState } from "@/app/_lib/query-state";
@@ -157,6 +166,37 @@ export default function ManagerDashboardPage() {
     | "hours-desc"
     | "hours-asc";
 
+
+  /* ── The pending card is exactly as tall as the chart card ──────────────
+   * Both sit in one grid row, and a grid row is as tall as its tallest item —
+   * so whichever card grows decides for both. Left alone, the pending list won:
+   * fifteen names made the row tall and left the chart floating above several
+   * hundred pixels of nothing.
+   *
+   * Capping the list at the chart's DRAWING height did not fix it either. The
+   * two card headers are not the same height, so a body capped to the same
+   * number still left a gap under one of them.
+   *
+   * So the chart card is measured and the pending card is told to be that, and
+   * its body takes whatever is left after its own header. Measured rather than
+   * calculated because the only thing that reliably knows how tall a card is,
+   * with its header wrapped to however many lines today's text needs, is the
+   * card. `ResizeObserver` re-answers it when the window changes.
+   *
+   * Zero until the first measurement, which reads as "no constraint" — the card
+   * renders at its natural height for one frame rather than collapsing. */
+  const chartCard = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState(0);
+
+  useEffect(() => {
+    const el = chartCard.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setRowHeight(entry?.contentRect.height ?? 0);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const thisMonth = useMemo(() => monthBounds(today), [today]);
   const lastMonth = useMemo(() => monthBounds(previousMonthOf(today)), [today]);
@@ -332,7 +372,10 @@ export default function ManagerDashboardPage() {
           The chart is how the month has gone; the list is who is outstanding
           right now. Side by side because the second is the reason to look at
           the first: a dip in the line is a question, and the names answer it. */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* `items-start` so neither card is stretched by the other — the pending
+          one is sized from the measurement below instead. */}
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div ref={chartCard}>
         <Card>
           <CardHeader
             title="Team submission overview"
@@ -349,18 +392,61 @@ export default function ManagerDashboardPage() {
                 seriesLabel="This month"
                 compare={{ label: "Last month", points: series.compare }}
                 unit="submissions"
-                height={150}
+                height={PANEL_BODY_PX}
               />
             )}
           </div>
         </Card>
+        </div>
 
-        <Card>
+        {/* ── Fills the row, rather than guessing at it ────────────────────
+            Capping the list at the chart's body height left the card as tall as
+            its neighbour with the list stopping partway down and dead white
+            space beneath. The card is a flex column now: the header takes what
+            it needs and the list takes ALL the rest, so the space is used and
+            the two cards still end level.
+
+            `min-h-0` on the scroller is what makes that work — a flex child
+            defaults to `min-height: auto`, which refuses to shrink below its
+            content, so without it the list would push the card taller again
+            and never scroll. */}
+        {/* Exactly the chart card's height, so the pair reads as one row and
+            neither leaves dead space. The height sits on a wrapper rather than
+            on `Card`, which takes a className but not a style — and giving a
+            shared primitive an inline-style hatch for one screen is how it
+            stops being shared. `undefined` before the first measurement — see
+            the note by `rowHeight`. */}
+        <div style={rowHeight ? { height: rowHeight } : undefined}>
+        <Card className="flex h-full flex-col">
           <CardHeader
             title="Pending today"
             description="Working today, nothing recorded yet."
           />
-          <div className="px-5 pb-5">
+          {/* ── Bounded to the chart, not to the roster ──────────────────
+              A card that grows with its contents does not sit beside one that
+              does not: sixteen people pending made this panel twice the height
+              of the graph, and the row below it moved depending on how many
+              had not filed that morning. Both bodies are now the same fixed
+              height, so the pair reads as one row whatever the day holds, and
+              the rest of the list is reached by scrolling inside it.
+
+              `max-h` rather than `h`, so a quiet morning with two names does
+              not leave two thirds of a card empty. */}
+          {/* ── Fills the card, and scrolls inside it ─────────────────────
+              Capping this at the chart's height left white space under the last
+              visible row: the card stretches to the row, the body did not, and
+              the gap between them was dead. `flex-1` hands the body whatever is
+              left after the header, so the rows use the whole card and the rest
+              of the roster is reached by scrolling.
+
+              The rows are `dense` instead — that is what makes the table small,
+              rather than the box it sits in. More people visible before anyone
+              has to scroll, and no empty space under them.
+
+              `min-h-0` is load-bearing: a flex child defaults to `min-height:
+              auto`, refuses to shrink below its own content, and would push the
+              card taller instead of ever scrolling. */}
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pb-5">
             {current.loading && !current.data ? (
               <TableSkeleton rows={4} cols={1} />
             ) : pending.length === 0 ? (
@@ -369,32 +455,73 @@ export default function ManagerDashboardPage() {
                 description="Nobody working today is outstanding."
               />
             ) : (
-              <ul className="divide-y divide-line">
-                {pending.map(({ row, since }) => (
-                  <li key={row.instructorId} className="flex items-center gap-3 py-3">
-                    <Avatar name={row.name} avatarUrl={row.avatarUrl} size={32} />
-                    <span className="min-w-0 flex-1">
-                      <Link
-                        href={`/manager/instructors/${row.instructorId}/report`}
-                        className="block truncate text-sm font-medium text-content hover:underline"
-                      >
-                        {row.name}
-                      </Link>
-                      {/* When they last wrote, which is what turns "pending"
-                          into "pending since when" — one day late and eleven
-                          days late are not the same problem. */}
-                      <span className="block truncate text-xs text-muted">
-                        {since
-                          ? `Last recorded ${formatDayAs(since, { day: "numeric", month: "short" })}`
-                          : `Nothing recorded in ${monthName}`}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              /* ── A table, like every other list of people in the product ──
+                 It was an avatar list, which is a different shape for the same
+                 thing the roster below already shows as rows — and a shape you
+                 cannot scan down a column of. As a table it inherits what every
+                 table here has: a header that stays while the body scrolls, the
+                 employee name frozen against sideways scroll, and the same
+                 alignment and rules as the roster underneath.
+
+                 `TableWrap` is deliberately absent: this card is already a flex
+                 column whose body scrolls and fills the row, and nesting a
+                 second scroller inside it would give this one panel two.
+
+                 No frozen first column either: three narrow columns that never
+                 scroll sideways, so pinning one buys no orientation and costs a
+                 paint layer. */
+              <Table
+                dense
+                stickyFirstColumn={false}
+                caption="Instructors working today with nothing recorded yet."
+              >
+                <THead
+                  columns={[
+                    { label: "Employee name" },
+                    { label: "Employee ID" },
+                    { label: "Last recorded" },
+                  ]}
+                />
+                <TBody>
+                  {pending.map(({ row, since }) => (
+                    <TR key={row.instructorId}>
+                      <TD strong>
+                        <span className="flex items-center gap-2">
+                          {/* Smaller than the roster's below: this table is
+                              dense, and a 28px avatar would set the row height
+                              on its own, undoing the tighter padding. */}
+                          <Avatar name={row.name} avatarUrl={row.avatarUrl} size={20} />
+                          <Link
+                            href={`/manager/instructors/${row.instructorId}/report`}
+                            className="truncate hover:underline"
+                          >
+                            {row.name}
+                          </Link>
+                        </span>
+                      </TD>
+                      <TD>
+                        <span className="tabular">{row.employeeCode ?? "\u2014"}</span>
+                      </TD>
+                      <TD>
+                        {/* When they last wrote, which is what turns "pending"
+                            into "pending since when" — one day late and eleven
+                            days late are not the same problem. */}
+                        {since ? (
+                          <span className="tabular">
+                            {formatDayAs(since, { day: "numeric", month: "short" })}
+                          </span>
+                        ) : (
+                          <span className="text-subtle">Nothing in {monthName}</span>
+                        )}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
             )}
           </div>
         </Card>
+        </div>
       </div>
 
       {/* ── The roster ─────────────────────────────────────────────────────── */}

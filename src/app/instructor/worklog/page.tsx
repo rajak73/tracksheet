@@ -84,6 +84,9 @@ type Row = {
   remarks: string | null;
   quantity: number | null;
   rawText: string | null;
+  /** The Quantity and Working Hours boxes as typed. Null on older rows. */
+  rawQuantity: string | null;
+  rawWorkingHours: string | null;
   /** The subject read out of THIS entry's wording. This IS the report column. */
   broadCategory: { code: string; label: string } | null;
   deliverableType: { code: string; label: string; isCountable: boolean } | null;
@@ -489,6 +492,15 @@ export default function WorkLogHistoryPage() {
       deliverableType: r.deliverableType,
       broadCategory: r.broadCategory,
       quantity: r.quantity,
+      /* The three boxes as typed. This mapping is explicit rather than a
+         spread, so a field the row model gains is not carried here until
+         somebody names it — which is exactly what happened: `buildPeriodRow`
+         built `rawEntries` from these, they were never passed, every row came
+         back empty, and all three columns silently fell back to the classified
+         reading. The screen looked untouched while the data was correct. */
+      rawText: r.rawText,
+      rawQuantity: r.rawQuantity,
+      rawWorkingHours: r.rawWorkingHours,
     }));
     const notes = dayNotes.data ?? {};
     const build = (key: string, label: string, sublabel: string | undefined, dates: string[]) =>

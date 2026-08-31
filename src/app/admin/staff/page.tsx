@@ -14,7 +14,7 @@
  * and the operator is told to pass it on out of band.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -83,6 +83,32 @@ type StaffResponse = {
 type University = { id: string; name: string };
 
 export default function AdminStaffPage() {
+  /* ── This page does not scroll; the list inside it does ──────────────────
+   * The layout below is exactly one viewport tall, so in principle the document
+   * has nothing to scroll. In practice it still offered a scrollbar, and rather
+   * than keep adjusting heights against an overflow I could not name, the page
+   * states its intent outright: while this screen is open, the document does
+   * not scroll vertically.
+   *
+   * Scoped to this route and undone on the way out, so every other page keeps
+   * its ordinary scrolling. Written against `documentElement` rather than
+   * `body`, because an overflow value on `body` propagates to the viewport and
+   * the two disagreeing is its own class of bug — the same reason the
+   * horizontal rule in globals.css sits on `html` alone.
+   *
+   * The trade is real and worth naming: anything that does not fit is now
+   * unreachable rather than merely below the fold. Everything on this screen is
+   * either fixed height or scrolls internally, so nothing should be — but if a
+   * future addition here goes missing, this is why. */
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.overflowY;
+    root.style.overflowY = "hidden";
+    return () => {
+      root.style.overflowY = previous;
+    };
+  }, []);
+
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"active" | "former" | "all">("active");
@@ -204,7 +230,31 @@ export default function AdminStaffPage() {
   );
 
   return (
-    <div className="space-y-5">
+    /* ── One screen, and the LIST is what scrolls ───────────────────────────
+     * The page used to scroll AND the table used to scroll, which meant the
+     * reader dragged a small window over the list while most of the screen sat
+     * empty below it, and the page's own bar moved the header and filters out
+     * of reach.
+     *
+     * The page is now exactly the viewport, laid out as a column: the heading,
+     * the filters and the pager keep their natural heights and stay put, and
+     * the table takes everything left over. Nothing here scrolls except the
+     * rows, which is the only thing anybody wanted to scroll.
+     *
+     * `100dvh` rather than `100vh`: on a phone `vh` is the height the viewport
+     * has when the browser's own chrome is hidden, so a fixed layout measured
+     * in it is cut off by the address bar until you scroll. `dvh` is the height
+     * actually available now.
+     *
+     * The subtraction is `<main>`'s own vertical padding — `py-6` below `lg`,
+     * `lg:py-8` above it — because this sits inside that padding and would
+     * otherwise be a screen tall inside a box that is already shorter.
+     *
+     * `overflow-hidden` is the belt to that brace. The arithmetic above is only
+     * right while it matches the padding `<main>` actually has; if the two ever
+     * drift, this contains the difference instead of letting a few stray pixels
+     * hand the document a scrollbar and undo the whole layout. */
+    <div className="flex h-[calc(100dvh-3rem)] flex-col gap-5 overflow-hidden lg:h-[calc(100dvh-4rem)]">
       <PageHeader
         title="Employees"
         description="Everybody at every university — managers and instructors in one list. Deactivating somebody revokes access and keeps all of their history."
@@ -220,7 +270,11 @@ export default function AdminStaffPage() {
       ) : error || !data ? (
         <ErrorState message="Unable to load staff" detail={error ?? undefined} onRetry={reload} />
       ) : (
-        <Card>
+        /* `min-h-0`: a flex child defaults to `min-height: auto` and refuses
+           to shrink below its content, so without it the card would grow to fit
+           every row and push the page into scrolling again — the exact thing
+           this layout exists to stop. */
+        <Card className="flex min-h-0 flex-1 flex-col">
           <CardHeader
             title={`${data.total} ${status === "all" ? "employee" : status} ${
               data.total === 1 ? "record" : "records"
@@ -237,8 +291,12 @@ export default function AdminStaffPage() {
             />
           ) : (
             <>
-              <div className="hidden md:block">
-                <TableWrap>
+              <div className="hidden min-h-0 flex-1 md:block">
+{/* `100%` of the space the column above handed it — the page
+                    already decided how tall this is, so measuring against the
+                    viewport again here would only be a second opinion that
+                    could disagree. */}
+                <TableWrap maxHeight="100%">
                   <Table caption="Staff directory">
                     <THead
                       columns={[
@@ -402,6 +460,8 @@ export default function AdminStaffPage() {
               </div>
             </>
           )}
+          {/* Outside the scroller, so the controls stay put while the rows
+              move under them. */}
           <Pagination
             page={data.page}
             limit={data.limit}

@@ -64,6 +64,7 @@ export function Table({
   caption,
   children,
   stickyFirstColumn = true,
+  dense = false,
 }: {
   caption?: string;
   children: ReactNode;
@@ -76,6 +77,14 @@ export function Table({
    * — pinning those costs a layer and buys no orientation.
    */
   stickyFirstColumn?: boolean;
+  /**
+   * Tighter rows, for a table sharing a row with something else.
+   *
+   * Padding and type size only — the rules, the sticky header and the frozen
+   * first column are unchanged, so a dense table is the same table with more of
+   * itself visible. A table that IS the page should not use this.
+   */
+  dense?: boolean;
 }) {
   return (
     /* `border-separate` rather than the default collapse, because a collapsed
@@ -86,9 +95,10 @@ export function Table({
     <table
       className={cx(
         "min-w-full border-separate border-spacing-0 text-sm",
-        // The rule itself is in globals.css — it styles descendants, which is
+        // Both rules live in globals.css — they style descendants, which is
         // not something a utility on this element can reach.
         stickyFirstColumn && "sticky-col",
+        dense && "table-dense",
       )}
     >
       {caption ? <caption className="sr-only-text">{caption}</caption> : null}

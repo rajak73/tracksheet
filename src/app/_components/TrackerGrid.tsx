@@ -23,11 +23,16 @@
  * still appear with their hours in the Deliverable column, because they
  * happened; they are simply not what the hours figure counts.
  *
- * ── Why sticky columns and not a wrapping table ────────────────────────────
+ * ── Why one sticky column and not a wrapping table ─────────────────────────
  * Losing the employee's name after scrolling two weeks right makes the grid
  * unusable, and wrapping 20 columns into the viewport makes it unreadable. The
- * identity block is `position: sticky` against the horizontal scroll, so the
- * row always says whose row it is.
+ * NAME is `position: sticky` against the horizontal scroll, so the row always
+ * says whose row it is.
+ *
+ * Only the name. Employee ID was pinned beside it, which spent another 128px of
+ * a laptop screen restating something the name already answers — the pinned
+ * block should cost the reader as little width as it can while still telling
+ * them whose row they are reading.
  */
 
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -594,9 +599,9 @@ export function TrackerGrid({
       <div className="max-h-[70vh] overflow-auto">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only-text">
-            Weekly workload by instructor for {tracker.universityName}. The first
-            three columns identify the employee and stay in place while the
-            weekly columns scroll horizontally.
+            Weekly workload by instructor for {tracker.universityName}. The
+            employee name stays in place while every other column scrolls
+            horizontally.
           </caption>
           <thead>
             {/* Row 1 — identity headers span both rows; each week spans four. */}
@@ -611,7 +616,7 @@ export function TrackerGrid({
               <th
                 scope="col"
                 rowSpan={2}
-                className={`${IDENTITY.code} sticky left-[224px] top-0 z-30 border-b border-r border-line bg-primary-subtle px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
+                className={`${IDENTITY.code} sticky top-0 z-10 border-b border-r border-line bg-primary-subtle px-3 py-3 text-left align-bottom text-xs font-semibold uppercase tracking-wide text-primary-text`}
               >
                 Employee ID
               </th>
@@ -638,7 +643,7 @@ export function TrackerGrid({
                       beside them while its week is in view and leaves with it.
                       `text-left` because a centred label that is also sticky
                       slides against its own centring as you scroll. */}
-                  <span className="sticky left-[352px] inline-block text-left align-top">
+                  <span className="sticky left-[224px] inline-block text-left align-top">
                     <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary-text">
                       Week {week.index}
                       {week.isCurrent ? (
@@ -709,7 +714,7 @@ export function TrackerGrid({
                   ) : null}
                 </th>
                 <td
-                  className={`${IDENTITY.code} tabular sticky left-[224px] z-20 border-b border-r border-line bg-surface px-3 py-3 align-top text-content group-hover:bg-hovered`}
+                  className={`${IDENTITY.code} tabular border-b border-r border-line bg-surface px-3 py-3 align-top text-content group-hover:bg-hovered`}
                 >
                   {row.employeeCode ?? "—"}
                 </td>
