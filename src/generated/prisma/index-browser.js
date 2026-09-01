@@ -677,6 +677,34 @@ exports.Prisma.AiInsightCacheScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.WorklogEntryScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  universityId: 'universityId',
+  logDate: 'logDate',
+  activities: 'activities',
+  totalHours: 'totalHours',
+  remarks: 'remarks',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.WorklogActivityArchiveScalarFieldEnum = {
+  id: 'id',
+  activityLogId: 'activityLogId',
+  instructorId: 'instructorId',
+  workDate: 'workDate',
+  activityTypeCode: 'activityTypeCode',
+  activityTypeLabel: 'activityTypeLabel',
+  deliverableCode: 'deliverableCode',
+  deliverableLabel: 'deliverableLabel',
+  broadCategoryCode: 'broadCategoryCode',
+  broadCategoryLabel: 'broadCategoryLabel',
+  quantity: 'quantity',
+  archivedAt: 'archivedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -865,6 +893,12 @@ exports.InsightCacheStatus = exports.$Enums.InsightCacheStatus = {
   FAILED: 'FAILED'
 };
 
+exports.WorklogEntryStatus = exports.$Enums.WorklogEntryStatus = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   University: 'University',
@@ -903,7 +937,9 @@ exports.Prisma.ModelName = {
   DeliverableType: 'DeliverableType',
   WorklogSubmission: 'WorklogSubmission',
   WorklogDaySummary: 'WorklogDaySummary',
-  AiInsightCache: 'AiInsightCache'
+  AiInsightCache: 'AiInsightCache',
+  WorklogEntry: 'WorklogEntry',
+  WorklogActivityArchive: 'WorklogActivityArchive'
 };
 
 /**

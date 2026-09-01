@@ -161,6 +161,9 @@ model University {
   deliverableLogs         DeliverableLog[]
 
   worklogDaySummaries WorklogDaySummary[]
+
+  /// One row per day. See `WorklogEntry`.
+  worklogEntries WorklogEntry[]
 }
 
 /// One row per weekday per university. Times are minutes-from-midnight in the
@@ -372,6 +375,9 @@ model Instructor {
 
   /// Cached AI insights for this instructor's periods. See `AiInsightCache`.
   insightCaches AiInsightCache[]
+
+  /// One row per day. See `WorklogEntry`.
+  worklogEntries WorklogEntry[]
 }
 
 /// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
@@ -1803,4 +1809,93 @@ enum InsightCacheStatus {
   READY
   GENERATING
   FAILED
+}
+
+/// One row per instructor per day. The worklog's source of truth.
+///
+/// ── Why a day and not an activity ─────────────────────────────────────────
+/// A day is what somebody fills in, what they correct, and what a manager reads.
+/// Storing one row per ACTIVITY meant a correction had to delete and rewrite a
+/// set of rows, the "one row per employee per date" the client's report asks for
+/// had to be reassembled on every read, and a day had no identity of its own to
+/// hang a remark or a status on.
+///
+/// The activities live in a JSON array on the day. They are a list belonging to
+/// that day, never queried across days on their own, and never joined to — so a
+/// table would buy nothing and cost the reassembly on every read.
+model WorklogEntry {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  /// Carried on the row rather than reached through the instructor: every read
+  /// is tenant-scoped, and a join for the boundary check is a join that can be
+  /// forgotten.
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
+
+  /// The day the work was done, in the university's zone.
+  logDate DateTime @db.Date
+
+  /// `[{ label, quantity, hours }]`, as written.
+  ///
+  /// `quantity` is how many times that activity happened that day; `hours` is the
+  /// TOTAL across those occurrences, not per occurrence. Both may be null, and
+  /// null is never zero: an unrecorded count and a count of none are different
+  /// facts, and they render differently.
+  activities Json @default("[]")
+
+  /// Summed from `activities` on write. A CACHE, never the source of truth —
+  /// anything that must be correct recomputes from the array. It exists so a
+  /// month of a large roster can be totalled without reading every JSON blob.
+  totalHours Decimal @default(0) @db.Decimal(6, 2)
+
+  /// One note for the whole day.
+  remarks String?
+
+  status WorklogEntryStatus @default(SUBMITTED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One row per instructor per day, enforced by the database. The old shape
+  /// allowed a day to exist twice and relied on the writer to prevent it.
+  @@unique([instructorId, logDate])
+  @@index([universityId, logDate])
+}
+
+enum WorklogEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+/// The categories and deliverables that were dropped, keyed by the row they came
+/// from.
+///
+/// A recovery path and nothing else. Application code must never read this — if
+/// something needs one of these values, the removal was incomplete and the fix is
+/// upstream, not a join to here.
+model WorklogActivityArchive {
+  id String @id @default(cuid())
+
+  /// The `ActivityLog.id` this came from. Not a foreign key: the row it names is
+  /// dropped, and an archive that cascades with its source is not an archive.
+  activityLogId String @unique
+
+  instructorId String
+  workDate     DateTime @db.Date
+
+  activityTypeCode  String?
+  activityTypeLabel String?
+  deliverableCode   String?
+  deliverableLabel  String?
+  broadCategoryCode String?
+  broadCategoryLabel String?
+  quantity          Int?
+
+  archivedAt DateTime @default(now())
+
+  @@index([instructorId, workDate])
 }

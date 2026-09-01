@@ -47,7 +47,14 @@ function instructionFor(context: CanonicalContext): string {
     "- Do not judge, praise, or criticise. No assessment of effort or quality.",
     "- If the entries are too vague to summarise, say exactly that in one",
     "  sentence rather than inventing a description.",
-    "- Reply with the paragraph only. No preamble, no bullet points, no JSON.",
+    "",
+    /* JSON because the transport asks for it. `generateStructured` sets
+     * `responseMimeType: application/json` on every call, so a prompt telling
+     * the model to reply in prose is arguing with the API — it complied with
+     * the header, wrapped the paragraph in an object, and the wrapper was
+     * stored and displayed verbatim. Asking for the shape the transport
+     * already demands is the only version of this that cannot drift. */
+    'Reply with exactly this JSON and nothing else: {"summary": "<your paragraph>"}',
     "",
     canonicalJson(context),
   ].join("\n");
@@ -70,8 +77,32 @@ export async function generateInsight(context: CanonicalContext): Promise<Insigh
   const outcome = await generateStructured(instructionFor(context), { maxOutputTokens: 400 });
   if (!outcome.ok) throw new Error(outcome.reason);
 
-  const summary = outcome.text.trim();
+  const summary = readSummary(outcome.text);
   if (summary === "") throw new Error("The model returned an empty summary");
 
   return { summary };
+}
+
+/**
+ * The paragraph, out of whatever shape the reply arrived in.
+ *
+ * Normally `{"summary": "..."}`. Parsed rather than trusted: a reply that is
+ * already prose, or JSON with the paragraph under a different key, must not be
+ * stored as a blob of braces — which is what happened when the prompt asked for
+ * prose and the transport asked for JSON. Whatever cannot be read as an object
+ * is treated as the paragraph itself.
+ */
+function readSummary(text: string): string {
+  const raw = text.trim();
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === "string") return parsed.trim();
+    if (parsed && typeof parsed === "object") {
+      const summary = (parsed as { summary?: unknown }).summary;
+      if (typeof summary === "string") return summary.trim();
+    }
+  } catch {
+    // Not JSON at all. The reply is the paragraph.
+  }
+  return raw;
 }

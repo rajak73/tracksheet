@@ -347,6 +347,32 @@ export type WorklogDaySummary = $Result.DefaultSelection<Prisma.$WorklogDaySumma
  * of hashing and needs no code.
  */
 export type AiInsightCache = $Result.DefaultSelection<Prisma.$AiInsightCachePayload>
+/**
+ * Model WorklogEntry
+ * One row per instructor per day. The worklog's source of truth.
+ * 
+ * ── Why a day and not an activity ─────────────────────────────────────────
+ * A day is what somebody fills in, what they correct, and what a manager reads.
+ * Storing one row per ACTIVITY meant a correction had to delete and rewrite a
+ * set of rows, the "one row per employee per date" the client's report asks for
+ * had to be reassembled on every read, and a day had no identity of its own to
+ * hang a remark or a status on.
+ * 
+ * The activities live in a JSON array on the day. They are a list belonging to
+ * that day, never queried across days on their own, and never joined to — so a
+ * table would buy nothing and cost the reassembly on every read.
+ */
+export type WorklogEntry = $Result.DefaultSelection<Prisma.$WorklogEntryPayload>
+/**
+ * Model WorklogActivityArchive
+ * The categories and deliverables that were dropped, keyed by the row they came
+ * from.
+ * 
+ * A recovery path and nothing else. Application code must never read this — if
+ * something needs one of these values, the removal was incomplete and the fix is
+ * upstream, not a join to here.
+ */
+export type WorklogActivityArchive = $Result.DefaultSelection<Prisma.$WorklogActivityArchivePayload>
 
 /**
  * Enums
@@ -602,6 +628,15 @@ export const InsightCacheStatus: {
 
 export type InsightCacheStatus = (typeof InsightCacheStatus)[keyof typeof InsightCacheStatus]
 
+
+export const WorklogEntryStatus: {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED'
+};
+
+export type WorklogEntryStatus = (typeof WorklogEntryStatus)[keyof typeof WorklogEntryStatus]
+
 }
 
 export type Role = $Enums.Role
@@ -707,6 +742,10 @@ export const InsightScopeType: typeof $Enums.InsightScopeType
 export type InsightCacheStatus = $Enums.InsightCacheStatus
 
 export const InsightCacheStatus: typeof $Enums.InsightCacheStatus
+
+export type WorklogEntryStatus = $Enums.WorklogEntryStatus
+
+export const WorklogEntryStatus: typeof $Enums.WorklogEntryStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -1208,6 +1247,26 @@ export class PrismaClient<
     * ```
     */
   get aiInsightCache(): Prisma.AiInsightCacheDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.worklogEntry`: Exposes CRUD operations for the **WorklogEntry** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WorklogEntries
+    * const worklogEntries = await prisma.worklogEntry.findMany()
+    * ```
+    */
+  get worklogEntry(): Prisma.WorklogEntryDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.worklogActivityArchive`: Exposes CRUD operations for the **WorklogActivityArchive** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more WorklogActivityArchives
+    * const worklogActivityArchives = await prisma.worklogActivityArchive.findMany()
+    * ```
+    */
+  get worklogActivityArchive(): Prisma.WorklogActivityArchiveDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1692,7 +1751,9 @@ export namespace Prisma {
     DeliverableType: 'DeliverableType',
     WorklogSubmission: 'WorklogSubmission',
     WorklogDaySummary: 'WorklogDaySummary',
-    AiInsightCache: 'AiInsightCache'
+    AiInsightCache: 'AiInsightCache',
+    WorklogEntry: 'WorklogEntry',
+    WorklogActivityArchive: 'WorklogActivityArchive'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1708,7 +1769,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "worklogActivityArchive"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -4524,6 +4585,154 @@ export namespace Prisma {
           }
         }
       }
+      WorklogEntry: {
+        payload: Prisma.$WorklogEntryPayload<ExtArgs>
+        fields: Prisma.WorklogEntryFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WorklogEntryFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WorklogEntryFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          findFirst: {
+            args: Prisma.WorklogEntryFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WorklogEntryFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          findMany: {
+            args: Prisma.WorklogEntryFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>[]
+          }
+          create: {
+            args: Prisma.WorklogEntryCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          createMany: {
+            args: Prisma.WorklogEntryCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WorklogEntryCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>[]
+          }
+          delete: {
+            args: Prisma.WorklogEntryDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          update: {
+            args: Prisma.WorklogEntryUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          deleteMany: {
+            args: Prisma.WorklogEntryDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WorklogEntryUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WorklogEntryUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>[]
+          }
+          upsert: {
+            args: Prisma.WorklogEntryUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogEntryPayload>
+          }
+          aggregate: {
+            args: Prisma.WorklogEntryAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWorklogEntry>
+          }
+          groupBy: {
+            args: Prisma.WorklogEntryGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WorklogEntryGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WorklogEntryCountArgs<ExtArgs>
+            result: $Utils.Optional<WorklogEntryCountAggregateOutputType> | number
+          }
+        }
+      }
+      WorklogActivityArchive: {
+        payload: Prisma.$WorklogActivityArchivePayload<ExtArgs>
+        fields: Prisma.WorklogActivityArchiveFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.WorklogActivityArchiveFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.WorklogActivityArchiveFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          findFirst: {
+            args: Prisma.WorklogActivityArchiveFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.WorklogActivityArchiveFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          findMany: {
+            args: Prisma.WorklogActivityArchiveFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>[]
+          }
+          create: {
+            args: Prisma.WorklogActivityArchiveCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          createMany: {
+            args: Prisma.WorklogActivityArchiveCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.WorklogActivityArchiveCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>[]
+          }
+          delete: {
+            args: Prisma.WorklogActivityArchiveDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          update: {
+            args: Prisma.WorklogActivityArchiveUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          deleteMany: {
+            args: Prisma.WorklogActivityArchiveDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.WorklogActivityArchiveUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.WorklogActivityArchiveUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>[]
+          }
+          upsert: {
+            args: Prisma.WorklogActivityArchiveUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$WorklogActivityArchivePayload>
+          }
+          aggregate: {
+            args: Prisma.WorklogActivityArchiveAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateWorklogActivityArchive>
+          }
+          groupBy: {
+            args: Prisma.WorklogActivityArchiveGroupByArgs<ExtArgs>
+            result: $Utils.Optional<WorklogActivityArchiveGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.WorklogActivityArchiveCountArgs<ExtArgs>
+            result: $Utils.Optional<WorklogActivityArchiveCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -4685,6 +4894,8 @@ export namespace Prisma {
     worklogSubmission?: WorklogSubmissionOmit
     worklogDaySummary?: WorklogDaySummaryOmit
     aiInsightCache?: AiInsightCacheOmit
+    worklogEntry?: WorklogEntryOmit
+    worklogActivityArchive?: WorklogActivityArchiveOmit
   }
 
   /* Types for Logging */
@@ -4887,6 +5098,7 @@ export namespace Prisma {
     reportJobs: number
     deliverableLogs: number
     worklogDaySummaries: number
+    worklogEntries: number
   }
 
   export type UniversityCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4918,6 +5130,7 @@ export namespace Prisma {
     reportJobs?: boolean | UniversityCountOutputTypeCountReportJobsArgs
     deliverableLogs?: boolean | UniversityCountOutputTypeCountDeliverableLogsArgs
     worklogDaySummaries?: boolean | UniversityCountOutputTypeCountWorklogDaySummariesArgs
+    worklogEntries?: boolean | UniversityCountOutputTypeCountWorklogEntriesArgs
   }
 
   // Custom InputTypes
@@ -5127,6 +5340,13 @@ export namespace Prisma {
     where?: WorklogDaySummaryWhereInput
   }
 
+  /**
+   * UniversityCountOutputType without action
+   */
+  export type UniversityCountOutputTypeCountWorklogEntriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogEntryWhereInput
+  }
+
 
   /**
    * Count Type ManagerCountOutputType
@@ -5228,6 +5448,7 @@ export namespace Prisma {
     worklogSubmissions: number
     worklogDaySummaries: number
     insightCaches: number
+    worklogEntries: number
   }
 
   export type InstructorCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -5246,6 +5467,7 @@ export namespace Prisma {
     worklogSubmissions?: boolean | InstructorCountOutputTypeCountWorklogSubmissionsArgs
     worklogDaySummaries?: boolean | InstructorCountOutputTypeCountWorklogDaySummariesArgs
     insightCaches?: boolean | InstructorCountOutputTypeCountInsightCachesArgs
+    worklogEntries?: boolean | InstructorCountOutputTypeCountWorklogEntriesArgs
   }
 
   // Custom InputTypes
@@ -5362,6 +5584,13 @@ export namespace Prisma {
    */
   export type InstructorCountOutputTypeCountInsightCachesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: AiInsightCacheWhereInput
+  }
+
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountWorklogEntriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogEntryWhereInput
   }
 
 
@@ -7580,6 +7809,7 @@ export namespace Prisma {
     reportJobs?: boolean | University$reportJobsArgs<ExtArgs>
     deliverableLogs?: boolean | University$deliverableLogsArgs<ExtArgs>
     worklogDaySummaries?: boolean | University$worklogDaySummariesArgs<ExtArgs>
+    worklogEntries?: boolean | University$worklogEntriesArgs<ExtArgs>
     _count?: boolean | UniversityCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["university"]>
 
@@ -7680,6 +7910,7 @@ export namespace Prisma {
     reportJobs?: boolean | University$reportJobsArgs<ExtArgs>
     deliverableLogs?: boolean | University$deliverableLogsArgs<ExtArgs>
     worklogDaySummaries?: boolean | University$worklogDaySummariesArgs<ExtArgs>
+    worklogEntries?: boolean | University$worklogEntriesArgs<ExtArgs>
     _count?: boolean | UniversityCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type UniversityIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -7722,6 +7953,10 @@ export namespace Prisma {
       reportJobs: Prisma.$ReportJobPayload<ExtArgs>[]
       deliverableLogs: Prisma.$DeliverableLogPayload<ExtArgs>[]
       worklogDaySummaries: Prisma.$WorklogDaySummaryPayload<ExtArgs>[]
+      /**
+       * One row per day. See `WorklogEntry`.
+       */
+      worklogEntries: Prisma.$WorklogEntryPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -8191,6 +8426,7 @@ export namespace Prisma {
     reportJobs<T extends University$reportJobsArgs<ExtArgs> = {}>(args?: Subset<T, University$reportJobsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ReportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverableLogs<T extends University$deliverableLogsArgs<ExtArgs> = {}>(args?: Subset<T, University$deliverableLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogDaySummaries<T extends University$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, University$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogEntries<T extends University$worklogEntriesArgs<ExtArgs> = {}>(args?: Subset<T, University$worklogEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9346,6 +9582,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
+  }
+
+  /**
+   * University.worklogEntries
+   */
+  export type University$worklogEntriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    where?: WorklogEntryWhereInput
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    cursor?: WorklogEntryWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
   }
 
   /**
@@ -15174,6 +15434,7 @@ export namespace Prisma {
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
+    worklogEntries?: boolean | Instructor$worklogEntriesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
@@ -15239,6 +15500,7 @@ export namespace Prisma {
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
+    worklogEntries?: boolean | Instructor$worklogEntriesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -15279,6 +15541,10 @@ export namespace Prisma {
        * Cached AI insights for this instructor's periods. See `AiInsightCache`.
        */
       insightCaches: Prisma.$AiInsightCachePayload<ExtArgs>[]
+      /**
+       * One row per day. See `WorklogEntry`.
+       */
+      worklogEntries: Prisma.$WorklogEntryPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -15723,6 +15989,7 @@ export namespace Prisma {
     worklogSubmissions<T extends Instructor$worklogSubmissionsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogDaySummaries<T extends Instructor$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     insightCaches<T extends Instructor$insightCachesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$insightCachesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    worklogEntries<T extends Instructor$worklogEntriesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -16556,6 +16823,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: AiInsightCacheScalarFieldEnum | AiInsightCacheScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.worklogEntries
+   */
+  export type Instructor$worklogEntriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    where?: WorklogEntryWhereInput
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    cursor?: WorklogEntryWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
   }
 
   /**
@@ -53551,6 +53842,2325 @@ export namespace Prisma {
 
 
   /**
+   * Model WorklogEntry
+   */
+
+  export type AggregateWorklogEntry = {
+    _count: WorklogEntryCountAggregateOutputType | null
+    _avg: WorklogEntryAvgAggregateOutputType | null
+    _sum: WorklogEntrySumAggregateOutputType | null
+    _min: WorklogEntryMinAggregateOutputType | null
+    _max: WorklogEntryMaxAggregateOutputType | null
+  }
+
+  export type WorklogEntryAvgAggregateOutputType = {
+    totalHours: Decimal | null
+  }
+
+  export type WorklogEntrySumAggregateOutputType = {
+    totalHours: Decimal | null
+  }
+
+  export type WorklogEntryMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    logDate: Date | null
+    totalHours: Decimal | null
+    remarks: string | null
+    status: $Enums.WorklogEntryStatus | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogEntryMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    universityId: string | null
+    logDate: Date | null
+    totalHours: Decimal | null
+    remarks: string | null
+    status: $Enums.WorklogEntryStatus | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type WorklogEntryCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    universityId: number
+    logDate: number
+    activities: number
+    totalHours: number
+    remarks: number
+    status: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type WorklogEntryAvgAggregateInputType = {
+    totalHours?: true
+  }
+
+  export type WorklogEntrySumAggregateInputType = {
+    totalHours?: true
+  }
+
+  export type WorklogEntryMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    logDate?: true
+    totalHours?: true
+    remarks?: true
+    status?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogEntryMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    logDate?: true
+    totalHours?: true
+    remarks?: true
+    status?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type WorklogEntryCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    universityId?: true
+    logDate?: true
+    activities?: true
+    totalHours?: true
+    remarks?: true
+    status?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type WorklogEntryAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogEntry to aggregate.
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogEntries to fetch.
+     */
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WorklogEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WorklogEntries
+    **/
+    _count?: true | WorklogEntryCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: WorklogEntryAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: WorklogEntrySumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WorklogEntryMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WorklogEntryMaxAggregateInputType
+  }
+
+  export type GetWorklogEntryAggregateType<T extends WorklogEntryAggregateArgs> = {
+        [P in keyof T & keyof AggregateWorklogEntry]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWorklogEntry[P]>
+      : GetScalarType<T[P], AggregateWorklogEntry[P]>
+  }
+
+
+
+
+  export type WorklogEntryGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogEntryWhereInput
+    orderBy?: WorklogEntryOrderByWithAggregationInput | WorklogEntryOrderByWithAggregationInput[]
+    by: WorklogEntryScalarFieldEnum[] | WorklogEntryScalarFieldEnum
+    having?: WorklogEntryScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WorklogEntryCountAggregateInputType | true
+    _avg?: WorklogEntryAvgAggregateInputType
+    _sum?: WorklogEntrySumAggregateInputType
+    _min?: WorklogEntryMinAggregateInputType
+    _max?: WorklogEntryMaxAggregateInputType
+  }
+
+  export type WorklogEntryGroupByOutputType = {
+    id: string
+    instructorId: string
+    universityId: string
+    logDate: Date
+    activities: JsonValue
+    totalHours: Decimal
+    remarks: string | null
+    status: $Enums.WorklogEntryStatus
+    createdAt: Date
+    updatedAt: Date
+    _count: WorklogEntryCountAggregateOutputType | null
+    _avg: WorklogEntryAvgAggregateOutputType | null
+    _sum: WorklogEntrySumAggregateOutputType | null
+    _min: WorklogEntryMinAggregateOutputType | null
+    _max: WorklogEntryMaxAggregateOutputType | null
+  }
+
+  type GetWorklogEntryGroupByPayload<T extends WorklogEntryGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WorklogEntryGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WorklogEntryGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WorklogEntryGroupByOutputType[P]>
+            : GetScalarType<T[P], WorklogEntryGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WorklogEntrySelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    logDate?: boolean
+    activities?: boolean
+    totalHours?: boolean
+    remarks?: boolean
+    status?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogEntry"]>
+
+  export type WorklogEntrySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    logDate?: boolean
+    activities?: boolean
+    totalHours?: boolean
+    remarks?: boolean
+    status?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogEntry"]>
+
+  export type WorklogEntrySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    logDate?: boolean
+    activities?: boolean
+    totalHours?: boolean
+    remarks?: boolean
+    status?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["worklogEntry"]>
+
+  export type WorklogEntrySelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    universityId?: boolean
+    logDate?: boolean
+    activities?: boolean
+    totalHours?: boolean
+    remarks?: boolean
+    status?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "activities" | "totalHours" | "remarks" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
+  export type WorklogEntryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+  export type WorklogEntryIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+  export type WorklogEntryIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+    university?: boolean | UniversityDefaultArgs<ExtArgs>
+  }
+
+  export type $WorklogEntryPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WorklogEntry"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+      university: Prisma.$UniversityPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      /**
+       * Carried on the row rather than reached through the instructor: every read
+       * is tenant-scoped, and a join for the boundary check is a join that can be
+       * forgotten.
+       */
+      universityId: string
+      /**
+       * The day the work was done, in the university's zone.
+       */
+      logDate: Date
+      /**
+       * `[{ label, quantity, hours }]`, as written.
+       * 
+       * `quantity` is how many times that activity happened that day; `hours` is the
+       * TOTAL across those occurrences, not per occurrence. Both may be null, and
+       * null is never zero: an unrecorded count and a count of none are different
+       * facts, and they render differently.
+       */
+      activities: Prisma.JsonValue
+      /**
+       * Summed from `activities` on write. A CACHE, never the source of truth —
+       * anything that must be correct recomputes from the array. It exists so a
+       * month of a large roster can be totalled without reading every JSON blob.
+       */
+      totalHours: Prisma.Decimal
+      /**
+       * One note for the whole day.
+       */
+      remarks: string | null
+      status: $Enums.WorklogEntryStatus
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["worklogEntry"]>
+    composites: {}
+  }
+
+  type WorklogEntryGetPayload<S extends boolean | null | undefined | WorklogEntryDefaultArgs> = $Result.GetResult<Prisma.$WorklogEntryPayload, S>
+
+  type WorklogEntryCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WorklogEntryFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WorklogEntryCountAggregateInputType | true
+    }
+
+  export interface WorklogEntryDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorklogEntry'], meta: { name: 'WorklogEntry' } }
+    /**
+     * Find zero or one WorklogEntry that matches the filter.
+     * @param {WorklogEntryFindUniqueArgs} args - Arguments to find a WorklogEntry
+     * @example
+     * // Get one WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WorklogEntryFindUniqueArgs>(args: SelectSubset<T, WorklogEntryFindUniqueArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WorklogEntry that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WorklogEntryFindUniqueOrThrowArgs} args - Arguments to find a WorklogEntry
+     * @example
+     * // Get one WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WorklogEntryFindUniqueOrThrowArgs>(args: SelectSubset<T, WorklogEntryFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogEntry that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryFindFirstArgs} args - Arguments to find a WorklogEntry
+     * @example
+     * // Get one WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WorklogEntryFindFirstArgs>(args?: SelectSubset<T, WorklogEntryFindFirstArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogEntry that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryFindFirstOrThrowArgs} args - Arguments to find a WorklogEntry
+     * @example
+     * // Get one WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WorklogEntryFindFirstOrThrowArgs>(args?: SelectSubset<T, WorklogEntryFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WorklogEntries that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WorklogEntries
+     * const worklogEntries = await prisma.worklogEntry.findMany()
+     * 
+     * // Get first 10 WorklogEntries
+     * const worklogEntries = await prisma.worklogEntry.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const worklogEntryWithIdOnly = await prisma.worklogEntry.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WorklogEntryFindManyArgs>(args?: SelectSubset<T, WorklogEntryFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WorklogEntry.
+     * @param {WorklogEntryCreateArgs} args - Arguments to create a WorklogEntry.
+     * @example
+     * // Create one WorklogEntry
+     * const WorklogEntry = await prisma.worklogEntry.create({
+     *   data: {
+     *     // ... data to create a WorklogEntry
+     *   }
+     * })
+     * 
+     */
+    create<T extends WorklogEntryCreateArgs>(args: SelectSubset<T, WorklogEntryCreateArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WorklogEntries.
+     * @param {WorklogEntryCreateManyArgs} args - Arguments to create many WorklogEntries.
+     * @example
+     * // Create many WorklogEntries
+     * const worklogEntry = await prisma.worklogEntry.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WorklogEntryCreateManyArgs>(args?: SelectSubset<T, WorklogEntryCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WorklogEntries and returns the data saved in the database.
+     * @param {WorklogEntryCreateManyAndReturnArgs} args - Arguments to create many WorklogEntries.
+     * @example
+     * // Create many WorklogEntries
+     * const worklogEntry = await prisma.worklogEntry.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WorklogEntries and only return the `id`
+     * const worklogEntryWithIdOnly = await prisma.worklogEntry.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WorklogEntryCreateManyAndReturnArgs>(args?: SelectSubset<T, WorklogEntryCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WorklogEntry.
+     * @param {WorklogEntryDeleteArgs} args - Arguments to delete one WorklogEntry.
+     * @example
+     * // Delete one WorklogEntry
+     * const WorklogEntry = await prisma.worklogEntry.delete({
+     *   where: {
+     *     // ... filter to delete one WorklogEntry
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WorklogEntryDeleteArgs>(args: SelectSubset<T, WorklogEntryDeleteArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WorklogEntry.
+     * @param {WorklogEntryUpdateArgs} args - Arguments to update one WorklogEntry.
+     * @example
+     * // Update one WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WorklogEntryUpdateArgs>(args: SelectSubset<T, WorklogEntryUpdateArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WorklogEntries.
+     * @param {WorklogEntryDeleteManyArgs} args - Arguments to filter WorklogEntries to delete.
+     * @example
+     * // Delete a few WorklogEntries
+     * const { count } = await prisma.worklogEntry.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WorklogEntryDeleteManyArgs>(args?: SelectSubset<T, WorklogEntryDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogEntries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WorklogEntries
+     * const worklogEntry = await prisma.worklogEntry.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WorklogEntryUpdateManyArgs>(args: SelectSubset<T, WorklogEntryUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogEntries and returns the data updated in the database.
+     * @param {WorklogEntryUpdateManyAndReturnArgs} args - Arguments to update many WorklogEntries.
+     * @example
+     * // Update many WorklogEntries
+     * const worklogEntry = await prisma.worklogEntry.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WorklogEntries and only return the `id`
+     * const worklogEntryWithIdOnly = await prisma.worklogEntry.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WorklogEntryUpdateManyAndReturnArgs>(args: SelectSubset<T, WorklogEntryUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WorklogEntry.
+     * @param {WorklogEntryUpsertArgs} args - Arguments to update or create a WorklogEntry.
+     * @example
+     * // Update or create a WorklogEntry
+     * const worklogEntry = await prisma.worklogEntry.upsert({
+     *   create: {
+     *     // ... data to create a WorklogEntry
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WorklogEntry we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WorklogEntryUpsertArgs>(args: SelectSubset<T, WorklogEntryUpsertArgs<ExtArgs>>): Prisma__WorklogEntryClient<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WorklogEntries.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryCountArgs} args - Arguments to filter WorklogEntries to count.
+     * @example
+     * // Count the number of WorklogEntries
+     * const count = await prisma.worklogEntry.count({
+     *   where: {
+     *     // ... the filter for the WorklogEntries we want to count
+     *   }
+     * })
+    **/
+    count<T extends WorklogEntryCountArgs>(
+      args?: Subset<T, WorklogEntryCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WorklogEntryCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WorklogEntry.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WorklogEntryAggregateArgs>(args: Subset<T, WorklogEntryAggregateArgs>): Prisma.PrismaPromise<GetWorklogEntryAggregateType<T>>
+
+    /**
+     * Group by WorklogEntry.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogEntryGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WorklogEntryGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WorklogEntryGroupByArgs['orderBy'] }
+        : { orderBy?: WorklogEntryGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WorklogEntryGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorklogEntryGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WorklogEntry model
+   */
+  readonly fields: WorklogEntryFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WorklogEntry.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WorklogEntryClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WorklogEntry model
+   */
+  interface WorklogEntryFieldRefs {
+    readonly id: FieldRef<"WorklogEntry", 'String'>
+    readonly instructorId: FieldRef<"WorklogEntry", 'String'>
+    readonly universityId: FieldRef<"WorklogEntry", 'String'>
+    readonly logDate: FieldRef<"WorklogEntry", 'DateTime'>
+    readonly activities: FieldRef<"WorklogEntry", 'Json'>
+    readonly totalHours: FieldRef<"WorklogEntry", 'Decimal'>
+    readonly remarks: FieldRef<"WorklogEntry", 'String'>
+    readonly status: FieldRef<"WorklogEntry", 'WorklogEntryStatus'>
+    readonly createdAt: FieldRef<"WorklogEntry", 'DateTime'>
+    readonly updatedAt: FieldRef<"WorklogEntry", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WorklogEntry findUnique
+   */
+  export type WorklogEntryFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogEntry to fetch.
+     */
+    where: WorklogEntryWhereUniqueInput
+  }
+
+  /**
+   * WorklogEntry findUniqueOrThrow
+   */
+  export type WorklogEntryFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogEntry to fetch.
+     */
+    where: WorklogEntryWhereUniqueInput
+  }
+
+  /**
+   * WorklogEntry findFirst
+   */
+  export type WorklogEntryFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogEntry to fetch.
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogEntries to fetch.
+     */
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogEntries.
+     */
+    cursor?: WorklogEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogEntries.
+     */
+    distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogEntry findFirstOrThrow
+   */
+  export type WorklogEntryFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogEntry to fetch.
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogEntries to fetch.
+     */
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogEntries.
+     */
+    cursor?: WorklogEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogEntries.
+     */
+    distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogEntry findMany
+   */
+  export type WorklogEntryFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter, which WorklogEntries to fetch.
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogEntries to fetch.
+     */
+    orderBy?: WorklogEntryOrderByWithRelationInput | WorklogEntryOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WorklogEntries.
+     */
+    cursor?: WorklogEntryWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogEntries from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogEntries.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogEntries.
+     */
+    distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogEntry create
+   */
+  export type WorklogEntryCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * The data needed to create a WorklogEntry.
+     */
+    data: XOR<WorklogEntryCreateInput, WorklogEntryUncheckedCreateInput>
+  }
+
+  /**
+   * WorklogEntry createMany
+   */
+  export type WorklogEntryCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WorklogEntries.
+     */
+    data: WorklogEntryCreateManyInput | WorklogEntryCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogEntry createManyAndReturn
+   */
+  export type WorklogEntryCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * The data used to create many WorklogEntries.
+     */
+    data: WorklogEntryCreateManyInput | WorklogEntryCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogEntry update
+   */
+  export type WorklogEntryUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * The data needed to update a WorklogEntry.
+     */
+    data: XOR<WorklogEntryUpdateInput, WorklogEntryUncheckedUpdateInput>
+    /**
+     * Choose, which WorklogEntry to update.
+     */
+    where: WorklogEntryWhereUniqueInput
+  }
+
+  /**
+   * WorklogEntry updateMany
+   */
+  export type WorklogEntryUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WorklogEntries.
+     */
+    data: XOR<WorklogEntryUpdateManyMutationInput, WorklogEntryUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogEntries to update
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * Limit how many WorklogEntries to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogEntry updateManyAndReturn
+   */
+  export type WorklogEntryUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * The data used to update WorklogEntries.
+     */
+    data: XOR<WorklogEntryUpdateManyMutationInput, WorklogEntryUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogEntries to update
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * Limit how many WorklogEntries to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * WorklogEntry upsert
+   */
+  export type WorklogEntryUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * The filter to search for the WorklogEntry to update in case it exists.
+     */
+    where: WorklogEntryWhereUniqueInput
+    /**
+     * In case the WorklogEntry found by the `where` argument doesn't exist, create a new WorklogEntry with this data.
+     */
+    create: XOR<WorklogEntryCreateInput, WorklogEntryUncheckedCreateInput>
+    /**
+     * In case the WorklogEntry was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WorklogEntryUpdateInput, WorklogEntryUncheckedUpdateInput>
+  }
+
+  /**
+   * WorklogEntry delete
+   */
+  export type WorklogEntryDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+    /**
+     * Filter which WorklogEntry to delete.
+     */
+    where: WorklogEntryWhereUniqueInput
+  }
+
+  /**
+   * WorklogEntry deleteMany
+   */
+  export type WorklogEntryDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogEntries to delete
+     */
+    where?: WorklogEntryWhereInput
+    /**
+     * Limit how many WorklogEntries to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogEntry without action
+   */
+  export type WorklogEntryDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogEntry
+     */
+    select?: WorklogEntrySelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogEntry
+     */
+    omit?: WorklogEntryOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: WorklogEntryInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model WorklogActivityArchive
+   */
+
+  export type AggregateWorklogActivityArchive = {
+    _count: WorklogActivityArchiveCountAggregateOutputType | null
+    _avg: WorklogActivityArchiveAvgAggregateOutputType | null
+    _sum: WorklogActivityArchiveSumAggregateOutputType | null
+    _min: WorklogActivityArchiveMinAggregateOutputType | null
+    _max: WorklogActivityArchiveMaxAggregateOutputType | null
+  }
+
+  export type WorklogActivityArchiveAvgAggregateOutputType = {
+    quantity: number | null
+  }
+
+  export type WorklogActivityArchiveSumAggregateOutputType = {
+    quantity: number | null
+  }
+
+  export type WorklogActivityArchiveMinAggregateOutputType = {
+    id: string | null
+    activityLogId: string | null
+    instructorId: string | null
+    workDate: Date | null
+    activityTypeCode: string | null
+    activityTypeLabel: string | null
+    deliverableCode: string | null
+    deliverableLabel: string | null
+    broadCategoryCode: string | null
+    broadCategoryLabel: string | null
+    quantity: number | null
+    archivedAt: Date | null
+  }
+
+  export type WorklogActivityArchiveMaxAggregateOutputType = {
+    id: string | null
+    activityLogId: string | null
+    instructorId: string | null
+    workDate: Date | null
+    activityTypeCode: string | null
+    activityTypeLabel: string | null
+    deliverableCode: string | null
+    deliverableLabel: string | null
+    broadCategoryCode: string | null
+    broadCategoryLabel: string | null
+    quantity: number | null
+    archivedAt: Date | null
+  }
+
+  export type WorklogActivityArchiveCountAggregateOutputType = {
+    id: number
+    activityLogId: number
+    instructorId: number
+    workDate: number
+    activityTypeCode: number
+    activityTypeLabel: number
+    deliverableCode: number
+    deliverableLabel: number
+    broadCategoryCode: number
+    broadCategoryLabel: number
+    quantity: number
+    archivedAt: number
+    _all: number
+  }
+
+
+  export type WorklogActivityArchiveAvgAggregateInputType = {
+    quantity?: true
+  }
+
+  export type WorklogActivityArchiveSumAggregateInputType = {
+    quantity?: true
+  }
+
+  export type WorklogActivityArchiveMinAggregateInputType = {
+    id?: true
+    activityLogId?: true
+    instructorId?: true
+    workDate?: true
+    activityTypeCode?: true
+    activityTypeLabel?: true
+    deliverableCode?: true
+    deliverableLabel?: true
+    broadCategoryCode?: true
+    broadCategoryLabel?: true
+    quantity?: true
+    archivedAt?: true
+  }
+
+  export type WorklogActivityArchiveMaxAggregateInputType = {
+    id?: true
+    activityLogId?: true
+    instructorId?: true
+    workDate?: true
+    activityTypeCode?: true
+    activityTypeLabel?: true
+    deliverableCode?: true
+    deliverableLabel?: true
+    broadCategoryCode?: true
+    broadCategoryLabel?: true
+    quantity?: true
+    archivedAt?: true
+  }
+
+  export type WorklogActivityArchiveCountAggregateInputType = {
+    id?: true
+    activityLogId?: true
+    instructorId?: true
+    workDate?: true
+    activityTypeCode?: true
+    activityTypeLabel?: true
+    deliverableCode?: true
+    deliverableLabel?: true
+    broadCategoryCode?: true
+    broadCategoryLabel?: true
+    quantity?: true
+    archivedAt?: true
+    _all?: true
+  }
+
+  export type WorklogActivityArchiveAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogActivityArchive to aggregate.
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogActivityArchives to fetch.
+     */
+    orderBy?: WorklogActivityArchiveOrderByWithRelationInput | WorklogActivityArchiveOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: WorklogActivityArchiveWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogActivityArchives from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogActivityArchives.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned WorklogActivityArchives
+    **/
+    _count?: true | WorklogActivityArchiveCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: WorklogActivityArchiveAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: WorklogActivityArchiveSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: WorklogActivityArchiveMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: WorklogActivityArchiveMaxAggregateInputType
+  }
+
+  export type GetWorklogActivityArchiveAggregateType<T extends WorklogActivityArchiveAggregateArgs> = {
+        [P in keyof T & keyof AggregateWorklogActivityArchive]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateWorklogActivityArchive[P]>
+      : GetScalarType<T[P], AggregateWorklogActivityArchive[P]>
+  }
+
+
+
+
+  export type WorklogActivityArchiveGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: WorklogActivityArchiveWhereInput
+    orderBy?: WorklogActivityArchiveOrderByWithAggregationInput | WorklogActivityArchiveOrderByWithAggregationInput[]
+    by: WorklogActivityArchiveScalarFieldEnum[] | WorklogActivityArchiveScalarFieldEnum
+    having?: WorklogActivityArchiveScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: WorklogActivityArchiveCountAggregateInputType | true
+    _avg?: WorklogActivityArchiveAvgAggregateInputType
+    _sum?: WorklogActivityArchiveSumAggregateInputType
+    _min?: WorklogActivityArchiveMinAggregateInputType
+    _max?: WorklogActivityArchiveMaxAggregateInputType
+  }
+
+  export type WorklogActivityArchiveGroupByOutputType = {
+    id: string
+    activityLogId: string
+    instructorId: string
+    workDate: Date
+    activityTypeCode: string | null
+    activityTypeLabel: string | null
+    deliverableCode: string | null
+    deliverableLabel: string | null
+    broadCategoryCode: string | null
+    broadCategoryLabel: string | null
+    quantity: number | null
+    archivedAt: Date
+    _count: WorklogActivityArchiveCountAggregateOutputType | null
+    _avg: WorklogActivityArchiveAvgAggregateOutputType | null
+    _sum: WorklogActivityArchiveSumAggregateOutputType | null
+    _min: WorklogActivityArchiveMinAggregateOutputType | null
+    _max: WorklogActivityArchiveMaxAggregateOutputType | null
+  }
+
+  type GetWorklogActivityArchiveGroupByPayload<T extends WorklogActivityArchiveGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<WorklogActivityArchiveGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof WorklogActivityArchiveGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], WorklogActivityArchiveGroupByOutputType[P]>
+            : GetScalarType<T[P], WorklogActivityArchiveGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type WorklogActivityArchiveSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    activityLogId?: boolean
+    instructorId?: boolean
+    workDate?: boolean
+    activityTypeCode?: boolean
+    activityTypeLabel?: boolean
+    deliverableCode?: boolean
+    deliverableLabel?: boolean
+    broadCategoryCode?: boolean
+    broadCategoryLabel?: boolean
+    quantity?: boolean
+    archivedAt?: boolean
+  }, ExtArgs["result"]["worklogActivityArchive"]>
+
+  export type WorklogActivityArchiveSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    activityLogId?: boolean
+    instructorId?: boolean
+    workDate?: boolean
+    activityTypeCode?: boolean
+    activityTypeLabel?: boolean
+    deliverableCode?: boolean
+    deliverableLabel?: boolean
+    broadCategoryCode?: boolean
+    broadCategoryLabel?: boolean
+    quantity?: boolean
+    archivedAt?: boolean
+  }, ExtArgs["result"]["worklogActivityArchive"]>
+
+  export type WorklogActivityArchiveSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    activityLogId?: boolean
+    instructorId?: boolean
+    workDate?: boolean
+    activityTypeCode?: boolean
+    activityTypeLabel?: boolean
+    deliverableCode?: boolean
+    deliverableLabel?: boolean
+    broadCategoryCode?: boolean
+    broadCategoryLabel?: boolean
+    quantity?: boolean
+    archivedAt?: boolean
+  }, ExtArgs["result"]["worklogActivityArchive"]>
+
+  export type WorklogActivityArchiveSelectScalar = {
+    id?: boolean
+    activityLogId?: boolean
+    instructorId?: boolean
+    workDate?: boolean
+    activityTypeCode?: boolean
+    activityTypeLabel?: boolean
+    deliverableCode?: boolean
+    deliverableLabel?: boolean
+    broadCategoryCode?: boolean
+    broadCategoryLabel?: boolean
+    quantity?: boolean
+    archivedAt?: boolean
+  }
+
+  export type WorklogActivityArchiveOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "activityLogId" | "instructorId" | "workDate" | "activityTypeCode" | "activityTypeLabel" | "deliverableCode" | "deliverableLabel" | "broadCategoryCode" | "broadCategoryLabel" | "quantity" | "archivedAt", ExtArgs["result"]["worklogActivityArchive"]>
+
+  export type $WorklogActivityArchivePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "WorklogActivityArchive"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      /**
+       * The `ActivityLog.id` this came from. Not a foreign key: the row it names is
+       * dropped, and an archive that cascades with its source is not an archive.
+       */
+      activityLogId: string
+      instructorId: string
+      workDate: Date
+      activityTypeCode: string | null
+      activityTypeLabel: string | null
+      deliverableCode: string | null
+      deliverableLabel: string | null
+      broadCategoryCode: string | null
+      broadCategoryLabel: string | null
+      quantity: number | null
+      archivedAt: Date
+    }, ExtArgs["result"]["worklogActivityArchive"]>
+    composites: {}
+  }
+
+  type WorklogActivityArchiveGetPayload<S extends boolean | null | undefined | WorklogActivityArchiveDefaultArgs> = $Result.GetResult<Prisma.$WorklogActivityArchivePayload, S>
+
+  type WorklogActivityArchiveCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<WorklogActivityArchiveFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: WorklogActivityArchiveCountAggregateInputType | true
+    }
+
+  export interface WorklogActivityArchiveDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorklogActivityArchive'], meta: { name: 'WorklogActivityArchive' } }
+    /**
+     * Find zero or one WorklogActivityArchive that matches the filter.
+     * @param {WorklogActivityArchiveFindUniqueArgs} args - Arguments to find a WorklogActivityArchive
+     * @example
+     * // Get one WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends WorklogActivityArchiveFindUniqueArgs>(args: SelectSubset<T, WorklogActivityArchiveFindUniqueArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one WorklogActivityArchive that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {WorklogActivityArchiveFindUniqueOrThrowArgs} args - Arguments to find a WorklogActivityArchive
+     * @example
+     * // Get one WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends WorklogActivityArchiveFindUniqueOrThrowArgs>(args: SelectSubset<T, WorklogActivityArchiveFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogActivityArchive that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveFindFirstArgs} args - Arguments to find a WorklogActivityArchive
+     * @example
+     * // Get one WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends WorklogActivityArchiveFindFirstArgs>(args?: SelectSubset<T, WorklogActivityArchiveFindFirstArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first WorklogActivityArchive that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveFindFirstOrThrowArgs} args - Arguments to find a WorklogActivityArchive
+     * @example
+     * // Get one WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends WorklogActivityArchiveFindFirstOrThrowArgs>(args?: SelectSubset<T, WorklogActivityArchiveFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more WorklogActivityArchives that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all WorklogActivityArchives
+     * const worklogActivityArchives = await prisma.worklogActivityArchive.findMany()
+     * 
+     * // Get first 10 WorklogActivityArchives
+     * const worklogActivityArchives = await prisma.worklogActivityArchive.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const worklogActivityArchiveWithIdOnly = await prisma.worklogActivityArchive.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends WorklogActivityArchiveFindManyArgs>(args?: SelectSubset<T, WorklogActivityArchiveFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a WorklogActivityArchive.
+     * @param {WorklogActivityArchiveCreateArgs} args - Arguments to create a WorklogActivityArchive.
+     * @example
+     * // Create one WorklogActivityArchive
+     * const WorklogActivityArchive = await prisma.worklogActivityArchive.create({
+     *   data: {
+     *     // ... data to create a WorklogActivityArchive
+     *   }
+     * })
+     * 
+     */
+    create<T extends WorklogActivityArchiveCreateArgs>(args: SelectSubset<T, WorklogActivityArchiveCreateArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many WorklogActivityArchives.
+     * @param {WorklogActivityArchiveCreateManyArgs} args - Arguments to create many WorklogActivityArchives.
+     * @example
+     * // Create many WorklogActivityArchives
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends WorklogActivityArchiveCreateManyArgs>(args?: SelectSubset<T, WorklogActivityArchiveCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many WorklogActivityArchives and returns the data saved in the database.
+     * @param {WorklogActivityArchiveCreateManyAndReturnArgs} args - Arguments to create many WorklogActivityArchives.
+     * @example
+     * // Create many WorklogActivityArchives
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many WorklogActivityArchives and only return the `id`
+     * const worklogActivityArchiveWithIdOnly = await prisma.worklogActivityArchive.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends WorklogActivityArchiveCreateManyAndReturnArgs>(args?: SelectSubset<T, WorklogActivityArchiveCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a WorklogActivityArchive.
+     * @param {WorklogActivityArchiveDeleteArgs} args - Arguments to delete one WorklogActivityArchive.
+     * @example
+     * // Delete one WorklogActivityArchive
+     * const WorklogActivityArchive = await prisma.worklogActivityArchive.delete({
+     *   where: {
+     *     // ... filter to delete one WorklogActivityArchive
+     *   }
+     * })
+     * 
+     */
+    delete<T extends WorklogActivityArchiveDeleteArgs>(args: SelectSubset<T, WorklogActivityArchiveDeleteArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one WorklogActivityArchive.
+     * @param {WorklogActivityArchiveUpdateArgs} args - Arguments to update one WorklogActivityArchive.
+     * @example
+     * // Update one WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends WorklogActivityArchiveUpdateArgs>(args: SelectSubset<T, WorklogActivityArchiveUpdateArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more WorklogActivityArchives.
+     * @param {WorklogActivityArchiveDeleteManyArgs} args - Arguments to filter WorklogActivityArchives to delete.
+     * @example
+     * // Delete a few WorklogActivityArchives
+     * const { count } = await prisma.worklogActivityArchive.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends WorklogActivityArchiveDeleteManyArgs>(args?: SelectSubset<T, WorklogActivityArchiveDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogActivityArchives.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many WorklogActivityArchives
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends WorklogActivityArchiveUpdateManyArgs>(args: SelectSubset<T, WorklogActivityArchiveUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more WorklogActivityArchives and returns the data updated in the database.
+     * @param {WorklogActivityArchiveUpdateManyAndReturnArgs} args - Arguments to update many WorklogActivityArchives.
+     * @example
+     * // Update many WorklogActivityArchives
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more WorklogActivityArchives and only return the `id`
+     * const worklogActivityArchiveWithIdOnly = await prisma.worklogActivityArchive.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends WorklogActivityArchiveUpdateManyAndReturnArgs>(args: SelectSubset<T, WorklogActivityArchiveUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one WorklogActivityArchive.
+     * @param {WorklogActivityArchiveUpsertArgs} args - Arguments to update or create a WorklogActivityArchive.
+     * @example
+     * // Update or create a WorklogActivityArchive
+     * const worklogActivityArchive = await prisma.worklogActivityArchive.upsert({
+     *   create: {
+     *     // ... data to create a WorklogActivityArchive
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the WorklogActivityArchive we want to update
+     *   }
+     * })
+     */
+    upsert<T extends WorklogActivityArchiveUpsertArgs>(args: SelectSubset<T, WorklogActivityArchiveUpsertArgs<ExtArgs>>): Prisma__WorklogActivityArchiveClient<$Result.GetResult<Prisma.$WorklogActivityArchivePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of WorklogActivityArchives.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveCountArgs} args - Arguments to filter WorklogActivityArchives to count.
+     * @example
+     * // Count the number of WorklogActivityArchives
+     * const count = await prisma.worklogActivityArchive.count({
+     *   where: {
+     *     // ... the filter for the WorklogActivityArchives we want to count
+     *   }
+     * })
+    **/
+    count<T extends WorklogActivityArchiveCountArgs>(
+      args?: Subset<T, WorklogActivityArchiveCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], WorklogActivityArchiveCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a WorklogActivityArchive.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends WorklogActivityArchiveAggregateArgs>(args: Subset<T, WorklogActivityArchiveAggregateArgs>): Prisma.PrismaPromise<GetWorklogActivityArchiveAggregateType<T>>
+
+    /**
+     * Group by WorklogActivityArchive.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {WorklogActivityArchiveGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends WorklogActivityArchiveGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: WorklogActivityArchiveGroupByArgs['orderBy'] }
+        : { orderBy?: WorklogActivityArchiveGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, WorklogActivityArchiveGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorklogActivityArchiveGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the WorklogActivityArchive model
+   */
+  readonly fields: WorklogActivityArchiveFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for WorklogActivityArchive.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__WorklogActivityArchiveClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the WorklogActivityArchive model
+   */
+  interface WorklogActivityArchiveFieldRefs {
+    readonly id: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly activityLogId: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly instructorId: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly workDate: FieldRef<"WorklogActivityArchive", 'DateTime'>
+    readonly activityTypeCode: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly activityTypeLabel: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly deliverableCode: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly deliverableLabel: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly broadCategoryCode: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly broadCategoryLabel: FieldRef<"WorklogActivityArchive", 'String'>
+    readonly quantity: FieldRef<"WorklogActivityArchive", 'Int'>
+    readonly archivedAt: FieldRef<"WorklogActivityArchive", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * WorklogActivityArchive findUnique
+   */
+  export type WorklogActivityArchiveFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter, which WorklogActivityArchive to fetch.
+     */
+    where: WorklogActivityArchiveWhereUniqueInput
+  }
+
+  /**
+   * WorklogActivityArchive findUniqueOrThrow
+   */
+  export type WorklogActivityArchiveFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter, which WorklogActivityArchive to fetch.
+     */
+    where: WorklogActivityArchiveWhereUniqueInput
+  }
+
+  /**
+   * WorklogActivityArchive findFirst
+   */
+  export type WorklogActivityArchiveFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter, which WorklogActivityArchive to fetch.
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogActivityArchives to fetch.
+     */
+    orderBy?: WorklogActivityArchiveOrderByWithRelationInput | WorklogActivityArchiveOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogActivityArchives.
+     */
+    cursor?: WorklogActivityArchiveWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogActivityArchives from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogActivityArchives.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogActivityArchives.
+     */
+    distinct?: WorklogActivityArchiveScalarFieldEnum | WorklogActivityArchiveScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogActivityArchive findFirstOrThrow
+   */
+  export type WorklogActivityArchiveFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter, which WorklogActivityArchive to fetch.
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogActivityArchives to fetch.
+     */
+    orderBy?: WorklogActivityArchiveOrderByWithRelationInput | WorklogActivityArchiveOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for WorklogActivityArchives.
+     */
+    cursor?: WorklogActivityArchiveWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogActivityArchives from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogActivityArchives.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogActivityArchives.
+     */
+    distinct?: WorklogActivityArchiveScalarFieldEnum | WorklogActivityArchiveScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogActivityArchive findMany
+   */
+  export type WorklogActivityArchiveFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter, which WorklogActivityArchives to fetch.
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of WorklogActivityArchives to fetch.
+     */
+    orderBy?: WorklogActivityArchiveOrderByWithRelationInput | WorklogActivityArchiveOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing WorklogActivityArchives.
+     */
+    cursor?: WorklogActivityArchiveWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` WorklogActivityArchives from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` WorklogActivityArchives.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WorklogActivityArchives.
+     */
+    distinct?: WorklogActivityArchiveScalarFieldEnum | WorklogActivityArchiveScalarFieldEnum[]
+  }
+
+  /**
+   * WorklogActivityArchive create
+   */
+  export type WorklogActivityArchiveCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * The data needed to create a WorklogActivityArchive.
+     */
+    data: XOR<WorklogActivityArchiveCreateInput, WorklogActivityArchiveUncheckedCreateInput>
+  }
+
+  /**
+   * WorklogActivityArchive createMany
+   */
+  export type WorklogActivityArchiveCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many WorklogActivityArchives.
+     */
+    data: WorklogActivityArchiveCreateManyInput | WorklogActivityArchiveCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogActivityArchive createManyAndReturn
+   */
+  export type WorklogActivityArchiveCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * The data used to create many WorklogActivityArchives.
+     */
+    data: WorklogActivityArchiveCreateManyInput | WorklogActivityArchiveCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * WorklogActivityArchive update
+   */
+  export type WorklogActivityArchiveUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * The data needed to update a WorklogActivityArchive.
+     */
+    data: XOR<WorklogActivityArchiveUpdateInput, WorklogActivityArchiveUncheckedUpdateInput>
+    /**
+     * Choose, which WorklogActivityArchive to update.
+     */
+    where: WorklogActivityArchiveWhereUniqueInput
+  }
+
+  /**
+   * WorklogActivityArchive updateMany
+   */
+  export type WorklogActivityArchiveUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update WorklogActivityArchives.
+     */
+    data: XOR<WorklogActivityArchiveUpdateManyMutationInput, WorklogActivityArchiveUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogActivityArchives to update
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * Limit how many WorklogActivityArchives to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogActivityArchive updateManyAndReturn
+   */
+  export type WorklogActivityArchiveUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * The data used to update WorklogActivityArchives.
+     */
+    data: XOR<WorklogActivityArchiveUpdateManyMutationInput, WorklogActivityArchiveUncheckedUpdateManyInput>
+    /**
+     * Filter which WorklogActivityArchives to update
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * Limit how many WorklogActivityArchives to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogActivityArchive upsert
+   */
+  export type WorklogActivityArchiveUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * The filter to search for the WorklogActivityArchive to update in case it exists.
+     */
+    where: WorklogActivityArchiveWhereUniqueInput
+    /**
+     * In case the WorklogActivityArchive found by the `where` argument doesn't exist, create a new WorklogActivityArchive with this data.
+     */
+    create: XOR<WorklogActivityArchiveCreateInput, WorklogActivityArchiveUncheckedCreateInput>
+    /**
+     * In case the WorklogActivityArchive was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<WorklogActivityArchiveUpdateInput, WorklogActivityArchiveUncheckedUpdateInput>
+  }
+
+  /**
+   * WorklogActivityArchive delete
+   */
+  export type WorklogActivityArchiveDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+    /**
+     * Filter which WorklogActivityArchive to delete.
+     */
+    where: WorklogActivityArchiveWhereUniqueInput
+  }
+
+  /**
+   * WorklogActivityArchive deleteMany
+   */
+  export type WorklogActivityArchiveDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which WorklogActivityArchives to delete
+     */
+    where?: WorklogActivityArchiveWhereInput
+    /**
+     * Limit how many WorklogActivityArchives to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * WorklogActivityArchive without action
+   */
+  export type WorklogActivityArchiveDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the WorklogActivityArchive
+     */
+    select?: WorklogActivityArchiveSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the WorklogActivityArchive
+     */
+    omit?: WorklogActivityArchiveOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -54235,6 +56845,40 @@ export namespace Prisma {
   export type AiInsightCacheScalarFieldEnum = (typeof AiInsightCacheScalarFieldEnum)[keyof typeof AiInsightCacheScalarFieldEnum]
 
 
+  export const WorklogEntryScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    universityId: 'universityId',
+    logDate: 'logDate',
+    activities: 'activities',
+    totalHours: 'totalHours',
+    remarks: 'remarks',
+    status: 'status',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type WorklogEntryScalarFieldEnum = (typeof WorklogEntryScalarFieldEnum)[keyof typeof WorklogEntryScalarFieldEnum]
+
+
+  export const WorklogActivityArchiveScalarFieldEnum: {
+    id: 'id',
+    activityLogId: 'activityLogId',
+    instructorId: 'instructorId',
+    workDate: 'workDate',
+    activityTypeCode: 'activityTypeCode',
+    activityTypeLabel: 'activityTypeLabel',
+    deliverableCode: 'deliverableCode',
+    deliverableLabel: 'deliverableLabel',
+    broadCategoryCode: 'broadCategoryCode',
+    broadCategoryLabel: 'broadCategoryLabel',
+    quantity: 'quantity',
+    archivedAt: 'archivedAt'
+  };
+
+  export type WorklogActivityArchiveScalarFieldEnum = (typeof WorklogActivityArchiveScalarFieldEnum)[keyof typeof WorklogActivityArchiveScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -54699,6 +57343,34 @@ export namespace Prisma {
    */
   export type ListEnumInsightCacheStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InsightCacheStatus[]'>
     
+
+
+  /**
+   * Reference to a field of type 'Decimal'
+   */
+  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+  /**
+   * Reference to a field of type 'Decimal[]'
+   */
+  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogEntryStatus'
+   */
+  export type EnumWorklogEntryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntryStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogEntryStatus[]'
+   */
+  export type ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntryStatus[]'>
+    
   /**
    * Deep Input Types
    */
@@ -54887,6 +57559,7 @@ export namespace Prisma {
     reportJobs?: ReportJobListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
+    worklogEntries?: WorklogEntryListRelationFilter
   }
 
   export type UniversityOrderByWithRelationInput = {
@@ -54938,6 +57611,7 @@ export namespace Prisma {
     reportJobs?: ReportJobOrderByRelationAggregateInput
     deliverableLogs?: DeliverableLogOrderByRelationAggregateInput
     worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
+    worklogEntries?: WorklogEntryOrderByRelationAggregateInput
   }
 
   export type UniversityWhereUniqueInput = Prisma.AtLeast<{
@@ -54992,6 +57666,7 @@ export namespace Prisma {
     reportJobs?: ReportJobListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
+    worklogEntries?: WorklogEntryListRelationFilter
   }, "id" | "slug" | "code" | "primaryManagerId">
 
   export type UniversityOrderByWithAggregationInput = {
@@ -55400,6 +58075,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
     insightCaches?: AiInsightCacheListRelationFilter
+    worklogEntries?: WorklogEntryListRelationFilter
   }
 
   export type InstructorOrderByWithRelationInput = {
@@ -55430,6 +58106,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionOrderByRelationAggregateInput
     worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
     insightCaches?: AiInsightCacheOrderByRelationAggregateInput
+    worklogEntries?: WorklogEntryOrderByRelationAggregateInput
   }
 
   export type InstructorWhereUniqueInput = Prisma.AtLeast<{
@@ -55465,6 +58142,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
     insightCaches?: AiInsightCacheListRelationFilter
+    worklogEntries?: WorklogEntryListRelationFilter
   }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
 
   export type InstructorOrderByWithAggregationInput = {
@@ -58462,6 +61140,181 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
   }
 
+  export type WorklogEntryWhereInput = {
+    AND?: WorklogEntryWhereInput | WorklogEntryWhereInput[]
+    OR?: WorklogEntryWhereInput[]
+    NOT?: WorklogEntryWhereInput | WorklogEntryWhereInput[]
+    id?: StringFilter<"WorklogEntry"> | string
+    instructorId?: StringFilter<"WorklogEntry"> | string
+    universityId?: StringFilter<"WorklogEntry"> | string
+    logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
+    activities?: JsonFilter<"WorklogEntry">
+    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    remarks?: StringNullableFilter<"WorklogEntry"> | string | null
+    status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+  }
+
+  export type WorklogEntryOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    logDate?: SortOrder
+    activities?: SortOrder
+    totalHours?: SortOrder
+    remarks?: SortOrderInput | SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+    university?: UniversityOrderByWithRelationInput
+  }
+
+  export type WorklogEntryWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    instructorId_logDate?: WorklogEntryInstructorIdLogDateCompoundUniqueInput
+    AND?: WorklogEntryWhereInput | WorklogEntryWhereInput[]
+    OR?: WorklogEntryWhereInput[]
+    NOT?: WorklogEntryWhereInput | WorklogEntryWhereInput[]
+    instructorId?: StringFilter<"WorklogEntry"> | string
+    universityId?: StringFilter<"WorklogEntry"> | string
+    logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
+    activities?: JsonFilter<"WorklogEntry">
+    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    remarks?: StringNullableFilter<"WorklogEntry"> | string | null
+    status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
+  }, "id" | "instructorId_logDate">
+
+  export type WorklogEntryOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    logDate?: SortOrder
+    activities?: SortOrder
+    totalHours?: SortOrder
+    remarks?: SortOrderInput | SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: WorklogEntryCountOrderByAggregateInput
+    _avg?: WorklogEntryAvgOrderByAggregateInput
+    _max?: WorklogEntryMaxOrderByAggregateInput
+    _min?: WorklogEntryMinOrderByAggregateInput
+    _sum?: WorklogEntrySumOrderByAggregateInput
+  }
+
+  export type WorklogEntryScalarWhereWithAggregatesInput = {
+    AND?: WorklogEntryScalarWhereWithAggregatesInput | WorklogEntryScalarWhereWithAggregatesInput[]
+    OR?: WorklogEntryScalarWhereWithAggregatesInput[]
+    NOT?: WorklogEntryScalarWhereWithAggregatesInput | WorklogEntryScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WorklogEntry"> | string
+    instructorId?: StringWithAggregatesFilter<"WorklogEntry"> | string
+    universityId?: StringWithAggregatesFilter<"WorklogEntry"> | string
+    logDate?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
+    activities?: JsonWithAggregatesFilter<"WorklogEntry">
+    totalHours?: DecimalWithAggregatesFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    remarks?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
+    status?: EnumWorklogEntryStatusWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
+  }
+
+  export type WorklogActivityArchiveWhereInput = {
+    AND?: WorklogActivityArchiveWhereInput | WorklogActivityArchiveWhereInput[]
+    OR?: WorklogActivityArchiveWhereInput[]
+    NOT?: WorklogActivityArchiveWhereInput | WorklogActivityArchiveWhereInput[]
+    id?: StringFilter<"WorklogActivityArchive"> | string
+    activityLogId?: StringFilter<"WorklogActivityArchive"> | string
+    instructorId?: StringFilter<"WorklogActivityArchive"> | string
+    workDate?: DateTimeFilter<"WorklogActivityArchive"> | Date | string
+    activityTypeCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    activityTypeLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    deliverableCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    deliverableLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    quantity?: IntNullableFilter<"WorklogActivityArchive"> | number | null
+    archivedAt?: DateTimeFilter<"WorklogActivityArchive"> | Date | string
+  }
+
+  export type WorklogActivityArchiveOrderByWithRelationInput = {
+    id?: SortOrder
+    activityLogId?: SortOrder
+    instructorId?: SortOrder
+    workDate?: SortOrder
+    activityTypeCode?: SortOrderInput | SortOrder
+    activityTypeLabel?: SortOrderInput | SortOrder
+    deliverableCode?: SortOrderInput | SortOrder
+    deliverableLabel?: SortOrderInput | SortOrder
+    broadCategoryCode?: SortOrderInput | SortOrder
+    broadCategoryLabel?: SortOrderInput | SortOrder
+    quantity?: SortOrderInput | SortOrder
+    archivedAt?: SortOrder
+  }
+
+  export type WorklogActivityArchiveWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    activityLogId?: string
+    AND?: WorklogActivityArchiveWhereInput | WorklogActivityArchiveWhereInput[]
+    OR?: WorklogActivityArchiveWhereInput[]
+    NOT?: WorklogActivityArchiveWhereInput | WorklogActivityArchiveWhereInput[]
+    instructorId?: StringFilter<"WorklogActivityArchive"> | string
+    workDate?: DateTimeFilter<"WorklogActivityArchive"> | Date | string
+    activityTypeCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    activityTypeLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    deliverableCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    deliverableLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryCode?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryLabel?: StringNullableFilter<"WorklogActivityArchive"> | string | null
+    quantity?: IntNullableFilter<"WorklogActivityArchive"> | number | null
+    archivedAt?: DateTimeFilter<"WorklogActivityArchive"> | Date | string
+  }, "id" | "activityLogId">
+
+  export type WorklogActivityArchiveOrderByWithAggregationInput = {
+    id?: SortOrder
+    activityLogId?: SortOrder
+    instructorId?: SortOrder
+    workDate?: SortOrder
+    activityTypeCode?: SortOrderInput | SortOrder
+    activityTypeLabel?: SortOrderInput | SortOrder
+    deliverableCode?: SortOrderInput | SortOrder
+    deliverableLabel?: SortOrderInput | SortOrder
+    broadCategoryCode?: SortOrderInput | SortOrder
+    broadCategoryLabel?: SortOrderInput | SortOrder
+    quantity?: SortOrderInput | SortOrder
+    archivedAt?: SortOrder
+    _count?: WorklogActivityArchiveCountOrderByAggregateInput
+    _avg?: WorklogActivityArchiveAvgOrderByAggregateInput
+    _max?: WorklogActivityArchiveMaxOrderByAggregateInput
+    _min?: WorklogActivityArchiveMinOrderByAggregateInput
+    _sum?: WorklogActivityArchiveSumOrderByAggregateInput
+  }
+
+  export type WorklogActivityArchiveScalarWhereWithAggregatesInput = {
+    AND?: WorklogActivityArchiveScalarWhereWithAggregatesInput | WorklogActivityArchiveScalarWhereWithAggregatesInput[]
+    OR?: WorklogActivityArchiveScalarWhereWithAggregatesInput[]
+    NOT?: WorklogActivityArchiveScalarWhereWithAggregatesInput | WorklogActivityArchiveScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"WorklogActivityArchive"> | string
+    activityLogId?: StringWithAggregatesFilter<"WorklogActivityArchive"> | string
+    instructorId?: StringWithAggregatesFilter<"WorklogActivityArchive"> | string
+    workDate?: DateTimeWithAggregatesFilter<"WorklogActivityArchive"> | Date | string
+    activityTypeCode?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    activityTypeLabel?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    deliverableCode?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    deliverableLabel?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryCode?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    broadCategoryLabel?: StringNullableWithAggregatesFilter<"WorklogActivityArchive"> | string | null
+    quantity?: IntNullableWithAggregatesFilter<"WorklogActivityArchive"> | number | null
+    archivedAt?: DateTimeWithAggregatesFilter<"WorklogActivityArchive"> | Date | string
+  }
+
   export type UserCreateInput = {
     id?: string
     email: string
@@ -58668,6 +61521,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateInput = {
@@ -58718,6 +61572,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUpdateInput = {
@@ -58768,6 +61623,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateInput = {
@@ -58818,6 +61674,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateManyInput = {
@@ -59236,6 +62093,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateInput = {
@@ -59262,6 +62120,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUpdateInput = {
@@ -59288,6 +62147,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateInput = {
@@ -59314,6 +62174,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateManyInput = {
@@ -62589,6 +65450,200 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogEntryCreateInput = {
+    id?: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogEntriesInput
+    university: UniversityCreateNestedOneWithoutWorklogEntriesInput
+  }
+
+  export type WorklogEntryUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogEntryUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput
+    university?: UniversityUpdateOneRequiredWithoutWorklogEntriesNestedInput
+  }
+
+  export type WorklogEntryUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogEntryCreateManyInput = {
+    id?: string
+    instructorId: string
+    universityId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogEntryUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogEntryUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogActivityArchiveCreateInput = {
+    id?: string
+    activityLogId: string
+    instructorId: string
+    workDate: Date | string
+    activityTypeCode?: string | null
+    activityTypeLabel?: string | null
+    deliverableCode?: string | null
+    deliverableLabel?: string | null
+    broadCategoryCode?: string | null
+    broadCategoryLabel?: string | null
+    quantity?: number | null
+    archivedAt?: Date | string
+  }
+
+  export type WorklogActivityArchiveUncheckedCreateInput = {
+    id?: string
+    activityLogId: string
+    instructorId: string
+    workDate: Date | string
+    activityTypeCode?: string | null
+    activityTypeLabel?: string | null
+    deliverableCode?: string | null
+    deliverableLabel?: string | null
+    broadCategoryCode?: string | null
+    broadCategoryLabel?: string | null
+    quantity?: number | null
+    archivedAt?: Date | string
+  }
+
+  export type WorklogActivityArchiveUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    activityLogId?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityTypeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    activityTypeLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableCode?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryCode?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
+    archivedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogActivityArchiveUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    activityLogId?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityTypeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    activityTypeLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableCode?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryCode?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
+    archivedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogActivityArchiveCreateManyInput = {
+    id?: string
+    activityLogId: string
+    instructorId: string
+    workDate: Date | string
+    activityTypeCode?: string | null
+    activityTypeLabel?: string | null
+    deliverableCode?: string | null
+    deliverableLabel?: string | null
+    broadCategoryCode?: string | null
+    broadCategoryLabel?: string | null
+    quantity?: number | null
+    archivedAt?: Date | string
+  }
+
+  export type WorklogActivityArchiveUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    activityLogId?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityTypeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    activityTypeLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableCode?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryCode?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
+    archivedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogActivityArchiveUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    activityLogId?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityTypeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    activityTypeLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableCode?: NullableStringFieldUpdateOperationsInput | string | null
+    deliverableLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryCode?: NullableStringFieldUpdateOperationsInput | string | null
+    broadCategoryLabel?: NullableStringFieldUpdateOperationsInput | string | null
+    quantity?: NullableIntFieldUpdateOperationsInput | number | null
+    archivedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -63046,6 +66101,12 @@ export namespace Prisma {
     none?: WorklogDaySummaryWhereInput
   }
 
+  export type WorklogEntryListRelationFilter = {
+    every?: WorklogEntryWhereInput
+    some?: WorklogEntryWhereInput
+    none?: WorklogEntryWhereInput
+  }
+
   export type UserOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
@@ -63131,6 +66192,10 @@ export namespace Prisma {
   }
 
   export type WorklogDaySummaryOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type WorklogEntryOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -65750,6 +68815,153 @@ export namespace Prisma {
     _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
   }
 
+  export type DecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+  }
+
+  export type EnumWorklogEntryStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntryStatusFilter<$PrismaModel> | $Enums.WorklogEntryStatus
+  }
+
+  export type WorklogEntryInstructorIdLogDateCompoundUniqueInput = {
+    instructorId: string
+    logDate: Date | string
+  }
+
+  export type WorklogEntryCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    logDate?: SortOrder
+    activities?: SortOrder
+    totalHours?: SortOrder
+    remarks?: SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogEntryAvgOrderByAggregateInput = {
+    totalHours?: SortOrder
+  }
+
+  export type WorklogEntryMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    logDate?: SortOrder
+    totalHours?: SortOrder
+    remarks?: SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogEntryMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    universityId?: SortOrder
+    logDate?: SortOrder
+    totalHours?: SortOrder
+    remarks?: SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type WorklogEntrySumOrderByAggregateInput = {
+    totalHours?: SortOrder
+  }
+
+  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
+  }
+
+  export type EnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel> | $Enums.WorklogEntryStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+    _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+  }
+
+  export type WorklogActivityArchiveCountOrderByAggregateInput = {
+    id?: SortOrder
+    activityLogId?: SortOrder
+    instructorId?: SortOrder
+    workDate?: SortOrder
+    activityTypeCode?: SortOrder
+    activityTypeLabel?: SortOrder
+    deliverableCode?: SortOrder
+    deliverableLabel?: SortOrder
+    broadCategoryCode?: SortOrder
+    broadCategoryLabel?: SortOrder
+    quantity?: SortOrder
+    archivedAt?: SortOrder
+  }
+
+  export type WorklogActivityArchiveAvgOrderByAggregateInput = {
+    quantity?: SortOrder
+  }
+
+  export type WorklogActivityArchiveMaxOrderByAggregateInput = {
+    id?: SortOrder
+    activityLogId?: SortOrder
+    instructorId?: SortOrder
+    workDate?: SortOrder
+    activityTypeCode?: SortOrder
+    activityTypeLabel?: SortOrder
+    deliverableCode?: SortOrder
+    deliverableLabel?: SortOrder
+    broadCategoryCode?: SortOrder
+    broadCategoryLabel?: SortOrder
+    quantity?: SortOrder
+    archivedAt?: SortOrder
+  }
+
+  export type WorklogActivityArchiveMinOrderByAggregateInput = {
+    id?: SortOrder
+    activityLogId?: SortOrder
+    instructorId?: SortOrder
+    workDate?: SortOrder
+    activityTypeCode?: SortOrder
+    activityTypeLabel?: SortOrder
+    deliverableCode?: SortOrder
+    deliverableLabel?: SortOrder
+    broadCategoryCode?: SortOrder
+    broadCategoryLabel?: SortOrder
+    quantity?: SortOrder
+    archivedAt?: SortOrder
+  }
+
+  export type WorklogActivityArchiveSumOrderByAggregateInput = {
+    quantity?: SortOrder
+  }
+
   export type UniversityCreateNestedOneWithoutUsersInput = {
     create?: XOR<UniversityCreateWithoutUsersInput, UniversityUncheckedCreateWithoutUsersInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutUsersInput
@@ -66398,6 +69610,13 @@ export namespace Prisma {
     connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
   }
 
+  export type WorklogEntryCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput> | WorklogEntryCreateWithoutUniversityInput[] | WorklogEntryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutUniversityInput | WorklogEntryCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogEntryCreateManyUniversityInputEnvelope
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+  }
+
   export type UserUncheckedCreateNestedManyWithoutUniversityInput = {
     create?: XOR<UserCreateWithoutUniversityInput, UserUncheckedCreateWithoutUniversityInput> | UserCreateWithoutUniversityInput[] | UserUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: UserCreateOrConnectWithoutUniversityInput | UserCreateOrConnectWithoutUniversityInput[]
@@ -66598,6 +69817,13 @@ export namespace Prisma {
     connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutUniversityInput | WorklogDaySummaryCreateOrConnectWithoutUniversityInput[]
     createMany?: WorklogDaySummaryCreateManyUniversityInputEnvelope
     connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+  }
+
+  export type WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput = {
+    create?: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput> | WorklogEntryCreateWithoutUniversityInput[] | WorklogEntryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutUniversityInput | WorklogEntryCreateOrConnectWithoutUniversityInput[]
+    createMany?: WorklogEntryCreateManyUniversityInputEnvelope
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
   }
 
   export type EnumUniversityStatusFieldUpdateOperationsInput = {
@@ -67024,6 +70250,20 @@ export namespace Prisma {
     deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
   }
 
+  export type WorklogEntryUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput> | WorklogEntryCreateWithoutUniversityInput[] | WorklogEntryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutUniversityInput | WorklogEntryCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogEntryUpsertWithWhereUniqueWithoutUniversityInput | WorklogEntryUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogEntryCreateManyUniversityInputEnvelope
+    set?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    disconnect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    delete?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    update?: WorklogEntryUpdateWithWhereUniqueWithoutUniversityInput | WorklogEntryUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogEntryUpdateManyWithWhereWithoutUniversityInput | WorklogEntryUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+  }
+
   export type UserUncheckedUpdateManyWithoutUniversityNestedInput = {
     create?: XOR<UserCreateWithoutUniversityInput, UserUncheckedCreateWithoutUniversityInput> | UserCreateWithoutUniversityInput[] | UserUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: UserCreateOrConnectWithoutUniversityInput | UserCreateOrConnectWithoutUniversityInput[]
@@ -67426,6 +70666,20 @@ export namespace Prisma {
     deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
   }
 
+  export type WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput = {
+    create?: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput> | WorklogEntryCreateWithoutUniversityInput[] | WorklogEntryUncheckedCreateWithoutUniversityInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutUniversityInput | WorklogEntryCreateOrConnectWithoutUniversityInput[]
+    upsert?: WorklogEntryUpsertWithWhereUniqueWithoutUniversityInput | WorklogEntryUpsertWithWhereUniqueWithoutUniversityInput[]
+    createMany?: WorklogEntryCreateManyUniversityInputEnvelope
+    set?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    disconnect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    delete?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    update?: WorklogEntryUpdateWithWhereUniqueWithoutUniversityInput | WorklogEntryUpdateWithWhereUniqueWithoutUniversityInput[]
+    updateMany?: WorklogEntryUpdateManyWithWhereWithoutUniversityInput | WorklogEntryUpdateManyWithWhereWithoutUniversityInput[]
+    deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+  }
+
   export type UniversityCreateNestedOneWithoutWorkingHoursInput = {
     create?: XOR<UniversityCreateWithoutWorkingHoursInput, UniversityUncheckedCreateWithoutWorkingHoursInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutWorkingHoursInput
@@ -67825,6 +71079,13 @@ export namespace Prisma {
     connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
   }
 
+  export type WorklogEntryCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput> | WorklogEntryCreateWithoutInstructorInput[] | WorklogEntryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutInstructorInput | WorklogEntryCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogEntryCreateManyInstructorInputEnvelope
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutInstructorInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -67928,6 +71189,13 @@ export namespace Prisma {
     connectOrCreate?: AiInsightCacheCreateOrConnectWithoutInstructorInput | AiInsightCacheCreateOrConnectWithoutInstructorInput[]
     createMany?: AiInsightCacheCreateManyInstructorInputEnvelope
     connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+  }
+
+  export type WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput> | WorklogEntryCreateWithoutInstructorInput[] | WorklogEntryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutInstructorInput | WorklogEntryCreateOrConnectWithoutInstructorInput[]
+    createMany?: WorklogEntryCreateManyInstructorInputEnvelope
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
   }
 
   export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
@@ -68176,6 +71444,20 @@ export namespace Prisma {
     deleteMany?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
   }
 
+  export type WorklogEntryUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput> | WorklogEntryCreateWithoutInstructorInput[] | WorklogEntryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutInstructorInput | WorklogEntryCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogEntryUpsertWithWhereUniqueWithoutInstructorInput | WorklogEntryUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogEntryCreateManyInstructorInputEnvelope
+    set?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    disconnect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    delete?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    update?: WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput | WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogEntryUpdateManyWithWhereWithoutInstructorInput | WorklogEntryUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -68384,6 +71666,20 @@ export namespace Prisma {
     update?: AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput | AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput[]
     updateMany?: AiInsightCacheUpdateManyWithWhereWithoutInstructorInput | AiInsightCacheUpdateManyWithWhereWithoutInstructorInput[]
     deleteMany?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
+  }
+
+  export type WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput> | WorklogEntryCreateWithoutInstructorInput[] | WorklogEntryUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: WorklogEntryCreateOrConnectWithoutInstructorInput | WorklogEntryCreateOrConnectWithoutInstructorInput[]
+    upsert?: WorklogEntryUpsertWithWhereUniqueWithoutInstructorInput | WorklogEntryUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: WorklogEntryCreateManyInstructorInputEnvelope
+    set?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    disconnect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    delete?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+    update?: WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput | WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: WorklogEntryUpdateManyWithWhereWithoutInstructorInput | WorklogEntryUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
   }
 
   export type ActivityLogCreateNestedManyWithoutActivityTypeInput = {
@@ -70170,6 +73466,46 @@ export namespace Prisma {
     update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutInsightCachesInput, InstructorUpdateWithoutInsightCachesInput>, InstructorUncheckedUpdateWithoutInsightCachesInput>
   }
 
+  export type InstructorCreateNestedOneWithoutWorklogEntriesInput = {
+    create?: XOR<InstructorCreateWithoutWorklogEntriesInput, InstructorUncheckedCreateWithoutWorklogEntriesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogEntriesInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type UniversityCreateNestedOneWithoutWorklogEntriesInput = {
+    create?: XOR<UniversityCreateWithoutWorklogEntriesInput, UniversityUncheckedCreateWithoutWorklogEntriesInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogEntriesInput
+    connect?: UniversityWhereUniqueInput
+  }
+
+  export type DecimalFieldUpdateOperationsInput = {
+    set?: Decimal | DecimalJsLike | number | string
+    increment?: Decimal | DecimalJsLike | number | string
+    decrement?: Decimal | DecimalJsLike | number | string
+    multiply?: Decimal | DecimalJsLike | number | string
+    divide?: Decimal | DecimalJsLike | number | string
+  }
+
+  export type EnumWorklogEntryStatusFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogEntryStatus
+  }
+
+  export type InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput = {
+    create?: XOR<InstructorCreateWithoutWorklogEntriesInput, InstructorUncheckedCreateWithoutWorklogEntriesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutWorklogEntriesInput
+    upsert?: InstructorUpsertWithoutWorklogEntriesInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorklogEntriesInput, InstructorUpdateWithoutWorklogEntriesInput>, InstructorUncheckedUpdateWithoutWorklogEntriesInput>
+  }
+
+  export type UniversityUpdateOneRequiredWithoutWorklogEntriesNestedInput = {
+    create?: XOR<UniversityCreateWithoutWorklogEntriesInput, UniversityUncheckedCreateWithoutWorklogEntriesInput>
+    connectOrCreate?: UniversityCreateOrConnectWithoutWorklogEntriesInput
+    upsert?: UniversityUpsertWithoutWorklogEntriesInput
+    connect?: UniversityWhereUniqueInput
+    update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorklogEntriesInput, UniversityUpdateWithoutWorklogEntriesInput>, UniversityUncheckedUpdateWithoutWorklogEntriesInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -70857,6 +74193,50 @@ export namespace Prisma {
     _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
   }
 
+  export type NestedDecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+  }
+
+  export type NestedEnumWorklogEntryStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntryStatusFilter<$PrismaModel> | $Enums.WorklogEntryStatus
+  }
+
+  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel> | $Enums.WorklogEntryStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+    _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+  }
+
   export type UniversityCreateWithoutUsersInput = {
     id?: string
     name: string
@@ -70904,6 +74284,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUsersInput = {
@@ -70953,6 +74334,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUsersInput = {
@@ -71009,6 +74391,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUserInput = {
@@ -71033,6 +74416,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUserInput = {
@@ -71458,6 +74842,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUsersInput = {
@@ -71507,6 +74892,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ManagerUpsertWithoutUserInput = {
@@ -71575,6 +74961,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
@@ -71599,6 +74986,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -72042,6 +75430,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUniversityInput = {
@@ -72067,6 +75456,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUniversityInput = {
@@ -73068,6 +76458,40 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WorklogEntryCreateWithoutUniversityInput = {
+    id?: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutWorklogEntriesInput
+  }
+
+  export type WorklogEntryUncheckedCreateWithoutUniversityInput = {
+    id?: string
+    instructorId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogEntryCreateOrConnectWithoutUniversityInput = {
+    where: WorklogEntryWhereUniqueInput
+    create: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogEntryCreateManyUniversityInputEnvelope = {
+    data: WorklogEntryCreateManyUniversityInput | WorklogEntryCreateManyUniversityInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ManagerUpsertWithoutPrimaryOfInput = {
     update: XOR<ManagerUpdateWithoutPrimaryOfInput, ManagerUncheckedUpdateWithoutPrimaryOfInput>
     create: XOR<ManagerCreateWithoutPrimaryOfInput, ManagerUncheckedCreateWithoutPrimaryOfInput>
@@ -73942,6 +77366,38 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"WorklogDaySummary"> | Date | string
   }
 
+  export type WorklogEntryUpsertWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogEntryWhereUniqueInput
+    update: XOR<WorklogEntryUpdateWithoutUniversityInput, WorklogEntryUncheckedUpdateWithoutUniversityInput>
+    create: XOR<WorklogEntryCreateWithoutUniversityInput, WorklogEntryUncheckedCreateWithoutUniversityInput>
+  }
+
+  export type WorklogEntryUpdateWithWhereUniqueWithoutUniversityInput = {
+    where: WorklogEntryWhereUniqueInput
+    data: XOR<WorklogEntryUpdateWithoutUniversityInput, WorklogEntryUncheckedUpdateWithoutUniversityInput>
+  }
+
+  export type WorklogEntryUpdateManyWithWhereWithoutUniversityInput = {
+    where: WorklogEntryScalarWhereInput
+    data: XOR<WorklogEntryUpdateManyMutationInput, WorklogEntryUncheckedUpdateManyWithoutUniversityInput>
+  }
+
+  export type WorklogEntryScalarWhereInput = {
+    AND?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+    OR?: WorklogEntryScalarWhereInput[]
+    NOT?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+    id?: StringFilter<"WorklogEntry"> | string
+    instructorId?: StringFilter<"WorklogEntry"> | string
+    universityId?: StringFilter<"WorklogEntry"> | string
+    logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
+    activities?: JsonFilter<"WorklogEntry">
+    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    remarks?: StringNullableFilter<"WorklogEntry"> | string | null
+    status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+    updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
+  }
+
   export type UniversityCreateWithoutWorkingHoursInput = {
     id?: string
     name: string
@@ -73989,6 +77445,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorkingHoursInput = {
@@ -74038,6 +77495,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorkingHoursInput = {
@@ -74103,6 +77561,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorkingHoursInput = {
@@ -74152,6 +77611,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutHolidaysInput = {
@@ -74201,6 +77661,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutHolidaysInput = {
@@ -74250,6 +77711,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutHolidaysInput = {
@@ -74315,6 +77777,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutHolidaysInput = {
@@ -74364,6 +77827,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserCreateWithoutManagerProfileInput = {
@@ -74470,6 +77934,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutManagersInput = {
@@ -74519,6 +77984,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutManagersInput = {
@@ -74573,6 +78039,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutPrimaryManagerInput = {
@@ -74622,6 +78089,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutPrimaryManagerInput = {
@@ -74704,6 +78172,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutManagerInput = {
@@ -74728,6 +78197,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutManagerInput = {
@@ -74861,6 +78331,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutManagersInput = {
@@ -74910,6 +78381,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUpsertWithoutPrimaryManagerInput = {
@@ -74970,6 +78442,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutPrimaryManagerInput = {
@@ -75019,6 +78492,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type AiInsightUpsertWithWhereUniqueWithoutManagerInput = {
@@ -75076,6 +78550,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDayNotesInput = {
@@ -75101,6 +78576,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDayNotesInput = {
@@ -75142,6 +78618,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDayNotesInput = {
@@ -75167,6 +78644,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateWithoutCategoryInput = {
@@ -75192,6 +78670,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCategoryInput = {
@@ -75217,6 +78696,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCategoryInput = {
@@ -75454,6 +78934,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorsInput = {
@@ -75503,6 +78984,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorsInput = {
@@ -76177,6 +79659,40 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type WorklogEntryCreateWithoutInstructorInput = {
+    id?: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    university: UniversityCreateNestedOneWithoutWorklogEntriesInput
+  }
+
+  export type WorklogEntryUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    universityId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogEntryCreateOrConnectWithoutInstructorInput = {
+    where: WorklogEntryWhereUniqueInput
+    create: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogEntryCreateManyInstructorInputEnvelope = {
+    data: WorklogEntryCreateManyInstructorInput | WorklogEntryCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
   export type InstructorCategoryUpsertWithoutInstructorsInput = {
     update: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
     create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
@@ -76331,6 +79847,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorsInput = {
@@ -76380,6 +79897,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ManagerUpsertWithoutInstructorsInput = {
@@ -76692,6 +80210,22 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
   }
 
+  export type WorklogEntryUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogEntryWhereUniqueInput
+    update: XOR<WorklogEntryUpdateWithoutInstructorInput, WorklogEntryUncheckedUpdateWithoutInstructorInput>
+    create: XOR<WorklogEntryCreateWithoutInstructorInput, WorklogEntryUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: WorklogEntryWhereUniqueInput
+    data: XOR<WorklogEntryUpdateWithoutInstructorInput, WorklogEntryUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type WorklogEntryUpdateManyWithWhereWithoutInstructorInput = {
+    where: WorklogEntryScalarWhereInput
+    data: XOR<WorklogEntryUpdateManyMutationInput, WorklogEntryUncheckedUpdateManyWithoutInstructorInput>
+  }
+
   export type ActivityLogCreateWithoutActivityTypeInput = {
     id?: string
     workDate: Date | string
@@ -76966,6 +80500,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutLeaveRequestsInput = {
@@ -76991,6 +80526,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutLeaveRequestsInput = {
@@ -77045,6 +80581,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutLeaveRequestsInput = {
@@ -77094,6 +80631,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutLeaveRequestsInput = {
@@ -77135,6 +80673,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -77160,6 +80699,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutLeaveRequestsInput = {
@@ -77220,6 +80760,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -77269,6 +80810,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserCreateWithoutSessionsInput = {
@@ -77414,6 +80956,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutActivityLogsInput = {
@@ -77439,6 +80982,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutActivityLogsInput = {
@@ -77493,6 +81037,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutActivityLogsInput = {
@@ -77542,6 +81087,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutActivityLogsInput = {
@@ -77874,6 +81420,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutActivityLogsInput = {
@@ -77899,6 +81446,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutActivityLogsInput = {
@@ -77959,6 +81507,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutActivityLogsInput = {
@@ -78008,6 +81557,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ActivityTypeUpsertWithoutActivityLogsInput = {
@@ -78366,6 +81916,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverablesInput = {
@@ -78391,6 +81942,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverablesInput = {
@@ -78445,6 +81997,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDeliverablesInput = {
@@ -78494,6 +82047,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDeliverablesInput = {
@@ -78688,6 +82242,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverablesInput = {
@@ -78713,6 +82268,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutDeliverablesInput = {
@@ -78773,6 +82329,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDeliverablesInput = {
@@ -78822,6 +82379,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutDeliverablesCreatedInput = {
@@ -79007,6 +82565,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDeliverableLogsInput = {
@@ -79056,6 +82615,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDeliverableLogsInput = {
@@ -79086,6 +82646,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverableLogsInput = {
@@ -79111,6 +82672,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverableLogsInput = {
@@ -79223,6 +82785,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -79272,6 +82835,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutDeliverableLogsInput = {
@@ -79308,6 +82872,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -79333,6 +82898,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutAiInsightsInput = {
@@ -79382,6 +82948,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAiInsightsInput = {
@@ -79431,6 +82998,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAiInsightsInput = {
@@ -79461,6 +83029,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutAiInsightsInput = {
@@ -79486,6 +83055,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutAiInsightsInput = {
@@ -79578,6 +83148,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAiInsightsInput = {
@@ -79627,6 +83198,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutAiInsightsInput = {
@@ -79663,6 +83235,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutAiInsightsInput = {
@@ -79688,6 +83261,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ManagerUpsertWithoutAiInsightsInput = {
@@ -79770,6 +83344,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAuditLogsInput = {
@@ -79819,6 +83394,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAuditLogsInput = {
@@ -79941,6 +83517,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAuditLogsInput = {
@@ -79990,6 +83567,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutAuditLogsInput = {
@@ -80159,6 +83737,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutNotificationsInput = {
@@ -80208,6 +83787,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutNotificationsInput = {
@@ -80336,6 +83916,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutNotificationsInput = {
@@ -80385,6 +83966,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutUniversitySettingsInput = {
@@ -80434,6 +84016,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUniversitySettingsInput = {
@@ -80483,6 +84066,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUniversitySettingsInput = {
@@ -80548,6 +84132,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUniversitySettingsInput = {
@@ -80597,6 +84182,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutDepartmentsInput = {
@@ -80646,6 +84232,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutDepartmentsInput = {
@@ -80695,6 +84282,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutDepartmentsInput = {
@@ -80830,6 +84418,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutDepartmentsInput = {
@@ -80879,6 +84468,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ProgramUpsertWithWhereUniqueWithoutDepartmentInput = {
@@ -80960,6 +84550,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutProgramsInput = {
@@ -81009,6 +84600,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutProgramsInput = {
@@ -81139,6 +84731,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutProgramsInput = {
@@ -81188,6 +84781,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type DepartmentUpsertWithoutProgramsInput = {
@@ -81286,6 +84880,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutAcademicTermsInput = {
@@ -81335,6 +84930,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutAcademicTermsInput = {
@@ -81470,6 +85066,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutAcademicTermsInput = {
@@ -81519,6 +85116,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type CourseAssignmentUpsertWithWhereUniqueWithoutAcademicTermInput = {
@@ -81600,6 +85198,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutCoursesInput = {
@@ -81649,6 +85248,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutCoursesInput = {
@@ -81846,6 +85446,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutCoursesInput = {
@@ -81895,6 +85496,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type DepartmentUpsertWithoutCoursesInput = {
@@ -82042,6 +85644,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -82091,6 +85694,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -82154,6 +85758,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -82179,6 +85784,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -82273,6 +85879,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -82322,6 +85929,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type CourseUpsertWithoutAssignmentsInput = {
@@ -82397,6 +86005,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -82422,6 +86031,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutAssignmentsInput = {
@@ -82506,6 +86116,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutSchedulesInput = {
@@ -82555,6 +86166,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutSchedulesInput = {
@@ -82585,6 +86197,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutSchedulesInput = {
@@ -82610,6 +86223,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutSchedulesInput = {
@@ -82746,6 +86360,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutSchedulesInput = {
@@ -82795,6 +86410,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutSchedulesInput = {
@@ -82831,6 +86447,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutSchedulesInput = {
@@ -82856,6 +86473,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutSchedulesInput = {
@@ -82956,6 +86574,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutScheduleSlotsInput = {
@@ -83005,6 +86624,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutScheduleSlotsInput = {
@@ -83064,6 +86684,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutScheduleSlotsInput = {
@@ -83089,6 +86710,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutScheduleSlotsInput = {
@@ -83292,6 +86914,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -83341,6 +86964,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type ScheduleUpsertWithoutSlotsInput = {
@@ -83412,6 +87036,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -83437,6 +87062,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type CourseUpsertWithoutScheduleSlotsInput = {
@@ -83590,6 +87216,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutBreakPoliciesInput = {
@@ -83639,6 +87266,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutBreakPoliciesInput = {
@@ -83704,6 +87332,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutBreakPoliciesInput = {
@@ -83753,6 +87382,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutWorkloadTargetsInput = {
@@ -83802,6 +87432,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -83851,6 +87482,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -83881,6 +87513,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -83906,6 +87539,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -84014,6 +87648,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -84063,6 +87698,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutWorkloadTargetsInput = {
@@ -84099,6 +87735,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -84124,6 +87761,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
@@ -84222,6 +87860,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutReportingPeriodsInput = {
@@ -84271,6 +87910,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutReportingPeriodsInput = {
@@ -84336,6 +87976,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutReportingPeriodsInput = {
@@ -84385,6 +88026,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutInstructorDailyMetricsInput = {
@@ -84434,6 +88076,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -84483,6 +88126,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -84513,6 +88157,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -84538,6 +88183,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -84603,6 +88249,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -84652,6 +88299,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutInstructorDailyMetricsInput = {
@@ -84688,6 +88336,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -84713,6 +88362,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutInstructorWeeklyMetricsInput = {
@@ -84762,6 +88412,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -84811,6 +88462,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -84841,6 +88493,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -84866,6 +88519,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -84931,6 +88585,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -84980,6 +88635,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorUpsertWithoutInstructorWeeklyMetricsInput = {
@@ -85016,6 +88672,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -85041,6 +88698,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutUniversityDailyMetricsInput = {
@@ -85090,6 +88748,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutUniversityDailyMetricsInput = {
@@ -85139,6 +88798,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutUniversityDailyMetricsInput = {
@@ -85204,6 +88864,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutUniversityDailyMetricsInput = {
@@ -85253,6 +88914,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityCreateWithoutReportJobsInput = {
@@ -85302,6 +88964,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutReportJobsInput = {
@@ -85351,6 +89014,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutReportJobsInput = {
@@ -85473,6 +89137,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutReportJobsInput = {
@@ -85522,6 +89187,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutReportJobsInput = {
@@ -85900,6 +89566,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -85925,6 +89592,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -85979,6 +89647,7 @@ export namespace Prisma {
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -86028,6 +89697,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -86188,6 +89858,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -86213,6 +89884,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogSubmissionsInput = {
@@ -86273,6 +89945,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -86322,6 +89995,7 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type UserUpsertWithoutWorklogDecisionsInput = {
@@ -86426,6 +90100,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDaySummariesInput = {
@@ -86451,6 +90126,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDaySummariesInput = {
@@ -86505,6 +90181,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityUncheckedCreateWithoutWorklogDaySummariesInput = {
@@ -86554,6 +90231,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
   }
 
   export type UniversityCreateOrConnectWithoutWorklogDaySummariesInput = {
@@ -86595,6 +90273,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDaySummariesInput = {
@@ -86620,6 +90299,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogDaySummariesInput = {
@@ -86680,6 +90360,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
   }
 
   export type UniversityUncheckedUpdateWithoutWorklogDaySummariesInput = {
@@ -86729,6 +90410,7 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type InstructorCreateWithoutInsightCachesInput = {
@@ -86754,6 +90436,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInsightCachesInput = {
@@ -86779,6 +90462,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInsightCachesInput = {
@@ -86820,6 +90504,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInsightCachesInput = {
@@ -86845,6 +90530,343 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorCreateWithoutWorklogEntriesInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutWorklogEntriesInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutWorklogEntriesInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutWorklogEntriesInput, InstructorUncheckedCreateWithoutWorklogEntriesInput>
+  }
+
+  export type UniversityCreateWithoutWorklogEntriesInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    primaryManager?: ManagerCreateNestedOneWithoutPrimaryOfInput
+    users?: UserCreateNestedManyWithoutUniversityInput
+    managers?: ManagerCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentCreateNestedManyWithoutUniversityInput
+    programs?: ProgramCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermCreateNestedManyWithoutUniversityInput
+    courses?: CourseCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityUncheckedCreateWithoutWorklogEntriesInput = {
+    id?: string
+    name: string
+    slug: string
+    code: string
+    status?: $Enums.UniversityStatus
+    country?: string | null
+    state?: string | null
+    city?: string | null
+    contactEmail?: string | null
+    contactPhone?: string | null
+    deletedAt?: Date | string | null
+    timezone: string
+    openingDurationMin?: number
+    closingDurationMin?: number
+    breakDurationMin?: number
+    primaryManagerId?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    users?: UserUncheckedCreateNestedManyWithoutUniversityInput
+    managers?: ManagerUncheckedCreateNestedManyWithoutUniversityInput
+    instructors?: InstructorUncheckedCreateNestedManyWithoutUniversityInput
+    workingHours?: UniversityWorkingHoursUncheckedCreateNestedManyWithoutUniversityInput
+    holidays?: UniversityHolidayUncheckedCreateNestedManyWithoutUniversityInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutUniversityInput
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
+    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
+    universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
+    programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
+    academicTerms?: AcademicTermUncheckedCreateNestedManyWithoutUniversityInput
+    courses?: CourseUncheckedCreateNestedManyWithoutUniversityInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
+    breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
+    reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
+    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
+  }
+
+  export type UniversityCreateOrConnectWithoutWorklogEntriesInput = {
+    where: UniversityWhereUniqueInput
+    create: XOR<UniversityCreateWithoutWorklogEntriesInput, UniversityUncheckedCreateWithoutWorklogEntriesInput>
+  }
+
+  export type InstructorUpsertWithoutWorklogEntriesInput = {
+    update: XOR<InstructorUpdateWithoutWorklogEntriesInput, InstructorUncheckedUpdateWithoutWorklogEntriesInput>
+    create: XOR<InstructorCreateWithoutWorklogEntriesInput, InstructorUncheckedCreateWithoutWorklogEntriesInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutWorklogEntriesInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutWorklogEntriesInput, InstructorUncheckedUpdateWithoutWorklogEntriesInput>
+  }
+
+  export type InstructorUpdateWithoutWorklogEntriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutWorklogEntriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type UniversityUpsertWithoutWorklogEntriesInput = {
+    update: XOR<UniversityUpdateWithoutWorklogEntriesInput, UniversityUncheckedUpdateWithoutWorklogEntriesInput>
+    create: XOR<UniversityCreateWithoutWorklogEntriesInput, UniversityUncheckedCreateWithoutWorklogEntriesInput>
+    where?: UniversityWhereInput
+  }
+
+  export type UniversityUpdateToOneWithWhereWithoutWorklogEntriesInput = {
+    where?: UniversityWhereInput
+    data: XOR<UniversityUpdateWithoutWorklogEntriesInput, UniversityUncheckedUpdateWithoutWorklogEntriesInput>
+  }
+
+  export type UniversityUpdateWithoutWorklogEntriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    primaryManager?: ManagerUpdateOneWithoutPrimaryOfNestedInput
+    users?: UserUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type UniversityUncheckedUpdateWithoutWorklogEntriesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    slug?: StringFieldUpdateOperationsInput | string
+    code?: StringFieldUpdateOperationsInput | string
+    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    state?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    timezone?: StringFieldUpdateOperationsInput | string
+    openingDurationMin?: IntFieldUpdateOperationsInput | number
+    closingDurationMin?: IntFieldUpdateOperationsInput | number
+    breakDurationMin?: IntFieldUpdateOperationsInput | number
+    primaryManagerId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    users?: UserUncheckedUpdateManyWithoutUniversityNestedInput
+    managers?: ManagerUncheckedUpdateManyWithoutUniversityNestedInput
+    instructors?: InstructorUncheckedUpdateManyWithoutUniversityNestedInput
+    workingHours?: UniversityWorkingHoursUncheckedUpdateManyWithoutUniversityNestedInput
+    holidays?: UniversityHolidayUncheckedUpdateManyWithoutUniversityNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutUniversityNestedInput
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
+    auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
+    universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
+    programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
+    academicTerms?: AcademicTermUncheckedUpdateManyWithoutUniversityNestedInput
+    courses?: CourseUncheckedUpdateManyWithoutUniversityNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
+    breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
+    reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
+    reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
   }
 
   export type SessionCreateManyUserInput = {
@@ -87780,6 +91802,18 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type WorklogEntryCreateManyUniversityInput = {
+    id?: string
+    instructorId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
   export type UserUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
@@ -87901,6 +91935,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
@@ -87926,6 +91961,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
@@ -88997,6 +93033,42 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type WorklogEntryUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput
+  }
+
+  export type WorklogEntryUncheckedUpdateWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogEntryUncheckedUpdateManyWithoutUniversityInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type AiInsightCreateManyManagerInput = {
     id?: string
     scope?: $Enums.InsightScope
@@ -89113,6 +93185,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutManagerInput = {
@@ -89137,6 +93210,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutManagerInput = {
@@ -89207,6 +93281,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCategoryInput = {
@@ -89232,6 +93307,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
@@ -89558,6 +93634,18 @@ export namespace Prisma {
     serveCount?: number
     failureCount?: number
     lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type WorklogEntryCreateManyInstructorInput = {
+    id?: string
+    universityId: string
+    logDate: Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: Decimal | DecimalJsLike | number | string
+    remarks?: string | null
+    status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -90288,6 +94376,42 @@ export namespace Prisma {
     serveCount?: IntFieldUpdateOperationsInput | number
     failureCount?: IntFieldUpdateOperationsInput | number
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogEntryUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    university?: UniversityUpdateOneRequiredWithoutWorklogEntriesNestedInput
+  }
+
+  export type WorklogEntryUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type WorklogEntryUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    activities?: JsonNullValueInput | InputJsonValue
+    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    remarks?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

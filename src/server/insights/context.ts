@@ -40,7 +40,7 @@ import { toDateOnly } from "@/server/time/workday";
  * meaning of the insight changes. Do NOT increment it for a refactor that
  * leaves the sent text identical.
  */
-export const PROMPT_VERSION = "1";
+export const PROMPT_VERSION = "2";
 
 /**
  * Which model the cached answer came from, also part of the hash.
