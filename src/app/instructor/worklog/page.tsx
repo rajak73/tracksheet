@@ -33,18 +33,13 @@ import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
 import { parseWorkingHours } from "@/domain/worklog-hours";
 import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/format";
-import {
-  deliverableLines,
-  quantityLines,
-  workingHours as workingHoursCell,
-} from "@/domain/worklog-report";
-import {
-  addDays,
-  buildPeriodRow,
-  weekOf,
-  type PeriodRow,
-  type RowActivity,
-} from "@/domain/worklog-rows";
+/* Only the duration formatter. `deliverableLines` and `quantityLines` printed
+   the taxonomy's reading of a day — merged names and summed counts — and there
+   is no reading on this screen any more; the three text columns print what is
+   in the three boxes. Both still serve the manager's sheet. */
+import { workingHours as workingHoursCell } from "@/domain/worklog-report";
+import { addDays, weekOf } from "@/domain/worklog-rows";
+import { buildDayRow, type DayRow } from "@/domain/worklog-day-rows";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
 import { DayInsightCell } from "@/app/_components/DayInsightCell";
@@ -419,7 +414,7 @@ export default function WorkLogHistoryPage() {
   /* The day-summary fetch that used to live here is gone.
    *
    * ── It was calling Gemini on every view, for nothing ───────────────────
-   * The rows are built by `buildPeriodRow` now, from the stored activities.
+   * The rows are built by `buildDayRow` now, from the stored days.
    * This request was left behind when that replaced `present()`, and nothing
    * has read its result since — but `/worklog/summary` asks the model to name
    * and summarise any day it has not cached, so opening the screen, changing
@@ -463,43 +458,28 @@ export default function WorkLogHistoryPage() {
    * for, and it made "which day did nobody file?" unanswerable from the screen
    * that exists to answer it.
    *
-   * Every row comes from `buildPeriodRow`, which the manager's sheet calls too,
-   * so a Tech "Live Class" and a Maths one merge identically for both roles.
+   * Every row comes from `buildDayRow`. The manager's sheet is still on
+   * `buildPeriodRow` and its taxonomy until the analytics commit; the two
+   * builders sit side by side deliberately and the old one is deleted then.
    */
-  const groups = useMemo<PeriodRow[]>(() => {
-    /* One DAY becomes one entry in the shared row model.
-     *
-     * `buildPeriodRow` still merges days into weeks for the manager's sheet, and
-     * moves onto this model in its own commit; feeding it one entry per day
-     * keeps both screens on one accumulator in the meantime. The activity type
-     * is a placeholder it needs for a fallback path this screen never takes —
-     * every column reads `rawEntries`, which is always populated now. */
-    const activities: RowActivity[] = rows.map((r) => ({
-      workDate: r.logDate,
-      durationHours: r.workingHours,
-      remarks: r.remarks,
-      status: r.status,
-      startTime: `${r.logDate}T00:00:00.000Z`,
-      activityType: { code: "WORK", label: "Work" },
-      deliverableType: null,
-      broadCategory: null,
-      quantity: null,
-      rawText: r.deliverable,
-      rawQuantity: r.deliverableQuantity,
-      rawWorkingHours: formatHours(r.workingHours),
-    }));
+  const groups = useMemo<DayRow[]>(() => {
+    /* The rows ARE the days. There is nothing to adapt: `/api/activities`
+       returns `WorklogEntry` rows and `buildDayRow` takes them as they are.
+       This used to build a list of synthetic single-activity `RowActivity`
+       objects so the manager's accumulator could be reused — a shim that
+       existed only while the two screens shared one builder. */
     const notes = dayNotes.data ?? {};
     const build = (key: string, label: string, sublabel: string | undefined, dates: string[]) =>
-      buildPeriodRow({ key, label, sublabel, dates, activities, dayNotes: notes, today });
+      buildDayRow({ key, label, sublabel, dates, days: rows, dayNotes: notes, today });
 
     if (view === "week") {
       /* One row per WEEK, newest first — the week in progress at the top and
          the weeks before it under, which is the order Day Wise reads days in.
-         Each row accumulates its seven days: `buildPeriodRow` merges the
-         deliverables, sums the hours and totals the quantities across whatever
-         dates it is handed, so a week is one line rather than seven. */
+         Each row accumulates its seven days: `buildDayRow` keeps every day it
+         is handed and sums their hours, so a week is one row carrying up to
+         seven days rather than seven rows. */
       const earliest = weekOf(fromAt)[0]!;
-      const weeks: PeriodRow[] = [];
+      const weeks: DayRow[] = [];
       for (let monday = weekOf(toAt)[0]!; monday >= earliest; monday = addDays(monday, -7)) {
         const days = weekOf(monday);
         weeks.push(
@@ -525,7 +505,7 @@ export default function WorkLogHistoryPage() {
      * surface — were the ones it left out. It reads to `fromAt` now, which the
      * picker has already floored at the day this instructor's record began, so
      * it cannot run back into days that were never theirs. */
-    const days = [...new Set(activities.map((a) => a.workDate))].sort();
+    const days = [...new Set(rows.map((r) => r.logDate))].sort();
     const newest = days.at(-1);
     const first = days[0];
     const oldest = first && first < fromAt ? first : fromAt;
@@ -1043,89 +1023,87 @@ export default function WorkLogHistoryPage() {
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {/* ── The instructor's own words ──────────────────
-                              What was TYPED, not what it was classified as.
-                              The classification lives in the AI Insight column
-                              at the end of the row, which is where a reading of
-                              the data belongs — this column is the data.
+                              What was TYPED. Any reading of it lives in the AI
+                              Insight column at the end of the row, which is
+                              where a reading belongs — this column is the data.
 
-                              It used to show the classified name, so a line the
-                              matcher could not place read "Other / Unclassified
-                              Work" and the sentence the instructor actually
-                              wrote appeared nowhere on the screen. They could
-                              not find their own entry.
-
-                              `rawLines` is empty for entries written before the
-                              four-field form captured raw text; those fall back
-                              to the classified names, which are then the only
-                              record of the line that exists.
-
-                              One per line with a single-colour bullet — the
-                              same treatment the manager's sheet uses, so the
-                              two read as one report. */}
-                          <ul className="space-y-1">
-                            {(group.rawEntries.length > 0
-                              ? group.rawEntries.map((e) => e.text)
-                              : deliverableLines(group.lines)
-                            ).map((d, i) => (
-                              <li key={i} className="flex items-start gap-1.5">
-                                <span
-                                  aria-hidden
-                                  className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
-                                />
-                                <span>{d}</span>
-                              </li>
+                              No bullet marker. A bullet in front of each day
+                              implied the line was one item of a categorised
+                              list, which is exactly the thing that was removed;
+                              a day is one piece of text and prints as one. */}
+                          <div className="space-y-1">
+                            {group.days.map((d) => (
+                              <p key={d.id} className="whitespace-pre-wrap">
+                                {d.deliverable}
+                              </p>
                             ))}
-                          </ul>
+                          </div>
+                          {/* ── Where the words came from ──────────────────
+                              Nearly three days in four were reconstructed by
+                              the collapse out of the old taxonomy's labels, so
+                              this is the COMMON case, not an exception. It is
+                              one quiet line for that reason: no badge, no
+                              colour, no icon. A note that appears on three rows
+                              in four and shouts is a note people stop reading.
+
+                              It is not decoration either. Without it somebody
+                              asks in six months why an instructor apparently
+                              wrote "Live Class Delivery" — phrasing no
+                              instructor uses — and nothing in the data answers.
+                              Saving the day makes it theirs and this goes. */}
+                          {group.hasMigrated ? (
+                            <p className="mt-1 text-xs text-subtle">
+                              Reconstructed from the previous system
+                            </p>
+                          ) : null}
                         </td>
                         <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
-                          {/* ── As typed, one line per entry ────────────────
-                              Aligned with the Deliverable lines beside it,
-                              which is why `rawEntries` is neither merged nor
-                              de-duplicated: line three here has to be the count
-                              for line three there.
+                          {/* ── The Quantity box, verbatim, always ──────────
+                              Never parsed for display. "gfddgh", "half day" and
+                              "2 classes + 1 doubt" print as themselves; the
+                              column shows what is in the box, and a box nobody
+                              filled shows a dash.
 
-                              It used to print `quantityLines`, the taxonomy's
-                              reading — "1 Class" where somebody wrote "2
-                              classes taken". A row that restates your work in
-                              its own vocabulary is one you cannot check.
-
-                              An entry whose box was left blank shows the
-                              client's `?`: nobody stated a count, which is a
-                              real answer and not zero. */}
-                          <ul className="space-y-1">
-                            {group.rawEntries.length > 0
-                              ? group.rawEntries.map((e, i) => (
-                                  <li key={i}>
-                                    {e.quantity ?? <span className="text-subtle">?</span>}
-                                  </li>
-                                ))
-                              : quantityLines(group.lines).map((q, i) => <li key={i}>{q}</li>)}
-                          </ul>
+                              It printed the taxonomy's reading before — "1
+                              Class" where somebody wrote "2 classes taken" — a
+                              row that restates your work in its own vocabulary
+                              and so cannot be checked against it. */}
+                          <div className="space-y-1">
+                            {group.days.map((d) => (
+                              <p key={d.id}>
+                                {d.deliverableQuantity ?? <span className="text-subtle">—</span>}
+                              </p>
+                            ))}
+                          </div>
                         </td>
                         <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug font-medium text-content">
-                          {/* As typed, one line per entry — and the measured
-                              total underneath when there is more than one, so
-                              the row still answers "how long altogether"
-                              without that being the only thing it can say. */}
-                          {group.rawEntries.length > 0 &&
-                          group.rawEntries.some((e) => e.workingHours) ? (
-                            <>
-                              <ul className="space-y-1">
-                                {group.rawEntries.map((e, i) => (
-                                  <li key={i}>
-                                    {e.workingHours ?? <span className="text-subtle">—</span>}
-                                  </li>
-                                ))}
-                              </ul>
-                              {group.rawEntries.length > 1 ? (
-                                <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
-                                  {workingHoursCell(group.totalMinutes)} total
-                                </span>
-                              ) : null}
-                            </>
-                          ) : (
-                            workingHoursCell(group.totalMinutes)
-                          )}
+                          {/* Formatted once from the stored decimal, so every
+                              screen prints the same figure from the same
+                              number rather than re-parsing a string.
+
+                              A day with no hours shows a dash, NOT "0h 00m".
+                              The column is not nullable — it defaults to zero —
+                              so zero is the only way "nobody said" can reach
+                              here, and printing it as a duration would state a
+                              measurement that was never taken. */}
+                          <div className="space-y-1">
+                            {group.days.map((d) => (
+                              <p key={d.id}>
+                                {d.workingHours > 0 ? (
+                                  workingHoursCell(Math.round(d.workingHours * 60))
+                                ) : (
+                                  <span className="text-subtle">—</span>
+                                )}
+                              </p>
+                            ))}
+                          </div>
+                          {/* The week's own total, under its days. A Date Wise
+                              row is one day and is already its own total. */}
+                          {group.days.length > 1 ? (
+                            <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
+                              {workingHoursCell(group.totalMinutes)} total
+                            </span>
+                          ) : null}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.remarks || "—"}

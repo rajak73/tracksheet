@@ -17,13 +17,16 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * not happened cannot be reported on by anybody, at any level, however they
  * ask. That is what these tests are now mostly about.
  *
- * ── Why both the entry route and the activity routes ─────────────────────
+ * ── Why more than one route is exercised ─────────────────────────────────
  * The reason the file exists at all: the rule was once enforced by
  * `verifyEntry` for the narrative paragraph while the four-field quick entry
  * and the activity edit/delete routes grew up beside it without picking it up,
  * so one screen refused what the pencil next to it allowed. Whatever the rule
  * says, every route that writes a day has to say the same thing — so each is
  * exercised here rather than trusted.
+ *
+ * The per-activity edit and delete routes are gone; the day route is the
+ * correction path now, and it is held to the same rule below.
  */
 
 const RUN = Math.random()
@@ -124,16 +127,9 @@ describe("the activity routes take any day that has happened", () => {
     expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
-  test("a past day is accepted, and the same caller can then edit it", async () => {
+  test("a past day is accepted", async () => {
     const res = await instructor.post(`/api/instructors/${myId}/activities`, local(YESTERDAY));
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-
-    // What used to be the wart: created, then immovable. Now symmetrical.
-    const edit = await instructor.patch(
-      `/api/instructors/${myId}/activities/${res.body.activity.id}`,
-      { activityTypeCode: "RESEARCH", local: { date: YESTERDAY, start: "14:00", end: "15:00" } },
-    );
-    expect(edit.status, JSON.stringify(edit.body)).toBe(200);
   });
 
   test("a future day is NOT refused by create — stated, not silently true", async () => {
@@ -149,55 +145,57 @@ describe("the activity routes take any day that has happened", () => {
 });
 
 describe("editing and removing a day that is not today", () => {
-  /* Its own date and its own late slot, deliberately. The describes above now
-   * WRITE to yesterday and today — that is the point of them — and a fixture
-   * sharing either would collide with the overlap rule and fail for a reason
-   * that has nothing to do with what is being tested here. */
+  /* Its own date, deliberately. The describes above WRITE to yesterday and
+     today — that is the point of them — and a fixture sharing either would
+     collide and fail for a reason that has nothing to do with what is tested
+     here.
+
+     These used to go through `PATCH`/`DELETE` on
+     `/instructors/:id/activities/:activityId`, moving one activity's clock
+     around. That route is gone with the model it belonged to: a day is
+     corrected by saving it again, and the rule about which days may be written
+     has to hold on THAT route, which is what these now check. */
   const DAY = shift(-3);
 
-  /** An activity on DAY, put there by an admin. */
-  let past = "";
-
-  beforeAll(async () => {
-    const res = await admin.post(`/api/instructors/${myId}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: DAY, start: "21:00", end: "22:00" },
+  test("the instructor may write up a past day", async () => {
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+      date: DAY,
+      deliverable: "A day I forgot to file at the time",
+      workingHours: "4h",
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
-    past = res.body.activity.id;
   });
 
-  test("the instructor may now edit a past day", async () => {
-    const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "21:00", end: "22:00" },
+  test("and correct it afterwards, in place", async () => {
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+      date: DAY,
+      deliverable: "The correction",
+      workingHours: "5h",
     });
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
-  test("moving it onto today is allowed — both ends have happened", async () => {
-    const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
-      activityTypeCode: "TEACHING",
-      local: { date: TODAY, start: "22:00", end: "23:00" },
+  test("moving the correction onto today is allowed — that day has happened", async () => {
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+      date: TODAY,
+      deliverable: "Today's own work",
+      workingHours: "2h",
     });
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
-  test("moving it into the future is not — and BOTH ends are still checked", async () => {
-    /* The check that is easy to lose when a rule is relaxed. Guarding only the
-     * date being written FROM would pass this. Both ends of a move go through
-     * the same assertion, which is why widening the rule did not need either
-     * end special-cased. */
-    const res = await instructor.patch(`/api/instructors/${myId}/activities/${past}`, {
-      activityTypeCode: "TEACHING",
-      local: { date: TOMORROW, start: "22:00", end: "23:00" },
+  test("moving it into the future is not", async () => {
+    const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+      date: TOMORROW,
+      deliverable: "Work I have not done",
+      workingHours: "2h",
     });
     expect(res.status, JSON.stringify(res.body)).toBe(400);
     expect(res.body.error.code).toBe("WORKLOG_DATE_NOT_ALLOWED");
   });
 
   test("and it may be deleted", async () => {
-    const res = await instructor.delete(`/api/instructors/${myId}/activities/${past}`);
+    const res = await instructor.delete(`/api/instructors/${myId}/worklog/entry?date=${DAY}`);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 

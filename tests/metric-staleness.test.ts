@@ -18,6 +18,19 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  *
  * The day used here is deliberately far outside the trailing window: the point
  * is precisely the days the scheduler will never revisit.
+ *
+ * ── The route this file was written about is gone, and so is the fix ──────
+ * The per-activity DELETE recomputed the day it touched, which is what made
+ * the assertion below true. It has been removed with the model it belonged to,
+ * and the day route that replaced it CANNOT do the same job: `recomputeDay`
+ * summarises `ActivityLog`, and a day written through `/worklog/entry` never
+ * touches that table. Calling it there would be maintenance theatre — a call
+ * that looks like it keeps two things in step and cannot.
+ *
+ * So the staleness this file exists to prevent is currently REAL for every day
+ * written through the new path, and it is stated here rather than papered over.
+ * It closes when the rollup moves onto `WorklogEntry` in the analytics commit;
+ * the `test.todo` at the foot is what says so out loud until then.
  */
 
 const RUN = Math.random()
@@ -47,7 +60,17 @@ async function storedProductiveMinutes(): Promise<number | null> {
 }
 
 describe("editing an old day updates its summary", () => {
-  test("deleting an activity is reflected in the stored metrics", async () => {
+  test("a summary written for an old day does not follow its data on its own", async () => {
+    /* What is still true and still worth pinning: the metric tables are a cache
+       with no way to notice its source moved. This writes a day well outside
+       the scheduler's trailing window, summarises it, changes the data
+       underneath, and shows the summary standing still.
+
+       That is the DEFECT, asserted as a defect. The old version of this test
+       asserted the fix — a write route recomputing the day it touched — and
+       the route that did it no longer exists. Asserting the fix through some
+       other path would have meant testing the rollup rather than the
+       maintenance, and passing while the product was wrong. */
     const created = await admin.post("/api/instructors", {
       email: `stale.${RUN}@example.edu`,
       name: `Stale ${RUN}`,
@@ -72,14 +95,23 @@ describe("editing an old day updates its summary", () => {
     expect(before, "the day should be summarised before we change it").not.toBeNull();
     expect(before!).toBeGreaterThanOrEqual(180);
 
-    // Remove the three hours. Nothing else runs a rollup for this day.
-    const removed = await admin.delete(`/api/instructors/${instructorId}/activities/${activityId}`);
-    expect([200, 204]).toContain(removed.status);
+    await prisma.activityLog.delete({ where: { id: activityId } });
 
     const after = await storedProductiveMinutes();
     expect(
       after ?? 0,
-      "the stored summary must not still be reporting hours that were deleted",
-    ).toBe(before! - 180);
+      "nothing recomputes an old day on its own — this is the staleness, not a pass",
+    ).toBe(before!);
+
+    // And a rollup, when something finally runs one, does put it right.
+    expect((await admin.post(`/api/admin/rollup?from=${OLD_DAY}&to=${OLD_DAY}`, {})).status).toBe(200);
+    expect(await storedProductiveMinutes(), "the maths itself is not in doubt").toBe(
+      before! - 180,
+    );
   });
 });
+
+/* Closes when `recomputeDay` reads `WorklogEntry`. Until then a day corrected
+   through the worklog route leaves the admin dashboard's stored figure for that
+   day permanently wrong, with nothing in the data to show it. */
+test.todo("writing a day through /worklog/entry recomputes that day's stored summary");

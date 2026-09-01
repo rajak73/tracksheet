@@ -1,4 +1,9 @@
 /**
+ * THE OLD MODEL. Serves the manager's sheet, which still reads `ActivityLog`.
+ * Scheduled for deletion in the analytics commit — the instructor's page has
+ * already moved to `buildDayRow` in `worklog-day-rows.ts`. Delete THIS file,
+ * not that one.
+ *
  * One row of the client's report, for any period, for either role.
  *
  * ── Why this exists once ──────────────────────────────────────────────────

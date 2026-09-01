@@ -14,15 +14,17 @@ import { prisma } from "@/server/db";
  * in `afterAll`.
  *
  * ── What is actually being pinned ──────────────────────────────────────────
- * Three properties, all invisible in the UI if they broke: that self-service
- * cannot reach fields it has no business reaching, that a password change needs
- * the current password and ends other sessions, and that correcting an activity
- * is subject to exactly the same interval and overlap rules as recording one.
+ * Two properties, both invisible in the UI if they broke: that self-service
+ * cannot reach fields it has no business reaching, and that a password change
+ * needs the current password and ends other sessions.
+ *
+ * A third used to be here — that correcting an activity obeyed the same
+ * interval and overlap rules as recording one. There is no per-activity
+ * correction any more; see the note above the last block.
  */
 
 let admin: ApiClient;
 let owner: ApiClient;
-let other: ApiClient;
 let manager: ApiClient;
 let anon: ApiClient;
 
@@ -30,33 +32,9 @@ let RUN: string;
 let ownerEmail: string;
 let ownerInstructorId: string;
 let ownerUserId: string;
-let otherInstructorId: string;
 let northId: string;
 
 const PASSWORD = "DashboardPassword1";
-/**
- * Today, in Northfield's own zone (Asia/Kolkata).
- *
- * This was a fixed window in 2039, chosen so no other suite would touch it.
- * Isolation never actually depended on the date — `owner` is provisioned here
- * with a unique per-run suffix and deleted in `afterAll`, so nothing else can
- * reach its rows whatever day they sit on.
- *
- * The date had to move because an instructor may only record TODAY: the rule
- * the narrative box always enforced, now applied to the activity routes it had
- * never covered. Writing these as an admin instead would have kept the file
- * green while quietly no longer testing what it says it tests — an instructor
- * correcting their OWN activity, subject to the same interval and overlap
- * rules as recording one.
- */
-const DAY = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-
-async function logActivity(client: ApiClient, instructorId: string, start: string, end: string, code = "TEACHING") {
-  return client.post(`/api/instructors/${instructorId}/activities`, {
-    activityTypeCode: code,
-    local: { date: DAY, start, end },
-  });
-}
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
@@ -64,9 +42,6 @@ beforeAll(async () => {
 
   manager = new ApiClient("manager");
   northId = (await manager.login(ACCOUNTS.managerNorth)).user.universityId!;
-
-  other = new ApiClient("other-instructor");
-  otherInstructorId = (await other.login(ACCOUNTS.instructorNorth2)).user.instructorId!;
 
   anon = new ApiClient("anonymous");
 
@@ -286,181 +261,31 @@ describe("changing your own password", () => {
   });
 });
 
-/* ── Correcting an activity ───────────────────────────────────────────────── */
+/* ── Correcting a day ─────────────────────────────────────────────────────── */
 
-describe("correcting a recorded activity", () => {
-  let mine: string;
-  let neighbour: string;
-
-  test("an instructor records two activities for the day", async () => {
-    const first = await logActivity(owner, ownerInstructorId, "09:00", "10:00");
-    expect(first.status).toBe(201);
-    mine = first.body.activity.id;
-
-    const second = await logActivity(owner, ownerInstructorId, "11:00", "12:00", "MEETING");
-    expect(second.status).toBe(201);
-    neighbour = second.body.activity.id;
-  });
-
-  test("they can correct their own times and type", async () => {
-    const res = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "09:30", end: "10:30" },
-      remarks: "corrected",
-    });
-    expect(res.status).toBe(200);
-
-    const stored = await prisma.activityLog.findUniqueOrThrow({
-      where: { id: mine },
-      select: { remarks: true, activityType: { select: { code: true } } },
-    });
-    expect(stored.activityType.code).toBe("RESEARCH");
-    expect(stored.remarks).toBe("corrected");
-  });
-
-  test("an edit that changes nothing is not reported as overlapping itself", async () => {
-    // The row being edited is excluded from its own overlap check; without that
-    // every save of an unchanged time would fail.
-    const res = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "09:30", end: "10:30" },
-    });
-    expect(res.status).toBe(200);
-  });
-
-  test("an edit into another activity's time is refused", async () => {
-    const res = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "11:30", end: "12:30" },
-    });
-    expect(res.status).toBe(409);
-    expect(res.body.error.code).toBe("ACTIVITY_OVERLAP");
-  });
-
-  test("an edit is held to the same interval rules as the original entry", async () => {
-    const reversed = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "14:00", end: "13:00" },
-    });
-    expect(reversed.status).toBe(400);
-
-    const zero = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "RESEARCH",
-      local: { date: DAY, start: "14:00", end: "14:00" },
-    });
-    expect(zero.status).toBe(400);
-  });
-
-  test("an unknown activity type is refused", async () => {
-    const res = await owner.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "NOT_A_REAL_TYPE",
-      local: { date: DAY, start: "09:30", end: "10:30" },
-    });
-    expect(res.status).toBe(404);
-  });
-
-  test("a colleague cannot touch it, and is not told it exists", async () => {
-    const edit = await other.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "TEACHING",
-      local: { date: DAY, start: "15:00", end: "16:00" },
-    });
-    expect(edit.status).toBe(404);
-
-    // Nor by routing it through their OWN instructor id.
-    const viaOwnId = await other.patch(`/api/instructors/${otherInstructorId}/activities/${mine}`, {
-      activityTypeCode: "TEACHING",
-      local: { date: DAY, start: "15:00", end: "16:00" },
-    });
-    expect(viaOwnId.status).toBe(404);
-
-    expect((await other.delete(`/api/instructors/${ownerInstructorId}/activities/${mine}`)).status).toBe(404);
-  });
-
-  test("a manager may not rewrite an instructor's recorded hours", async () => {
-    // Deliberately narrower than who may CREATE: a manager is measured on these
-    // numbers, so they must not be able to change them.
-    const res = await manager.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-      activityTypeCode: "TEACHING",
-      local: { date: DAY, start: "15:00", end: "16:00" },
-    });
-    expect(res.status).toBe(403);
-    expect((await manager.delete(`/api/instructors/${ownerInstructorId}/activities/${mine}`)).status).toBe(403);
-  });
-
-  test("an unauthenticated caller reaches neither verb", async () => {
-    expect(
-      (await anon.patch(`/api/instructors/${ownerInstructorId}/activities/${mine}`, {
-        activityTypeCode: "TEACHING",
-        local: { date: DAY, start: "15:00", end: "16:00" },
-      })).status,
-    ).toBe(401);
-    expect((await anon.delete(`/api/instructors/${ownerInstructorId}/activities/${mine}`)).status).toBe(401);
-  });
-
-  test("an edit records what the activity held before", async () => {
-    const entry = await prisma.auditLog.findFirstOrThrow({
-      where: { action: "ACTIVITY_UPDATED", entityId: mine },
-      orderBy: { createdAt: "desc" },
-      select: { metadata: true },
-    });
-    const metadata = entry.metadata as { before?: { activityType?: string } };
-    expect(metadata.before?.activityType).toBeTruthy();
-  });
-
-  test("an admin can correct anyone's record", async () => {
-    const res = await admin.patch(`/api/instructors/${ownerInstructorId}/activities/${neighbour}`, {
-      activityTypeCode: "MEETING",
-      local: { date: DAY, start: "11:00", end: "11:45" },
-    });
-    expect(res.status).toBe(200);
-  });
-
-  test("removing one leaves the rest of the day intact", async () => {
-    const before = await prisma.activityLog.count({
-      where: { instructorId: ownerInstructorId, workDate: new Date(`${DAY}T00:00:00.000Z`) },
-    });
-
-    const res = await owner.delete(`/api/instructors/${ownerInstructorId}/activities/${neighbour}`);
-    expect(res.status).toBe(200);
-
-    expect(await prisma.activityLog.findUnique({ where: { id: neighbour } })).toBeNull();
-    expect(await prisma.activityLog.findUnique({ where: { id: mine } })).not.toBeNull();
-    const after = await prisma.activityLog.count({
-      where: { instructorId: ownerInstructorId, workDate: new Date(`${DAY}T00:00:00.000Z`) },
-    });
-    expect(after).toBe(before - 1);
-  });
-
-  test("a removal is the audit trail's only remaining copy, and it is complete", async () => {
-    const entry = await prisma.auditLog.findFirstOrThrow({
-      where: { action: "ACTIVITY_DELETED", entityId: neighbour },
-      select: { metadata: true },
-    });
-    const removed = (entry.metadata as { removed?: Record<string, unknown> }).removed ?? {};
-    expect(removed.activityType).toBe("MEETING");
-    expect(removed.workDate).toBe(DAY);
-    expect(removed.startTime).toBeTruthy();
-    expect(removed.endTime).toBeTruthy();
-  });
-
-  test("removing the same activity twice is a 404, not a second audit entry", async () => {
-    expect((await owner.delete(`/api/instructors/${ownerInstructorId}/activities/${neighbour}`)).status).toBe(404);
-  });
-
-  test("the freed time can be recorded again", async () => {
-    const res = await logActivity(owner, ownerInstructorId, "11:00", "12:00", "MEETING");
-    expect(res.status).toBe(201);
-  });
-
-  test("the explorer still exposes no way to write through it", async () => {
+/**
+ * The "correcting a recorded activity" block was deleted rather than ported.
+ *
+ * It exercised `PATCH`/`DELETE` on `/instructors/:id/activities/:activityId` —
+ * moving one activity's clock, catching an overlap with the activity beside it,
+ * refusing a reversed or zero-length span, and the four roles' permissions on
+ * all of that. That route is gone, and with it the model it belonged to: there
+ * is no per-activity clock to move, no neighbouring activity to overlap, and no
+ * activity id to address. A day is corrected by saving it again.
+ *
+ * What the block was really holding lives on, in the place that now owns it:
+ * `worklog-quick-entry` has the permissions and the validation, and
+ * `worklog-day-delete` has the removal and the routes' absence.
+ */
+describe("the explorer is read-only", () => {
+  test("it exposes no way to write through it", async () => {
     /* The ledger gained a correction path on the OWNED route; it did not gain a
        general-purpose one, and the previously-asserted absence still holds.
 
-       Asserted against the route rather than against a row id. It used to take
-       an id from the explorer's first row and try to delete that — but a 404 on
-       a child path cannot tell "no such route" from "no such row", so the id
-       was never what made the check work, and reading one made the test depend
-       on the explorer having rows at all. */
+       Asserted against the route rather than against a row id. A 404 on a child
+       path cannot tell "no such route" from "no such row", so the id was never
+       what made the check work — and reading one made the test depend on the
+       explorer having rows at all. */
     expect([404, 405]).toContain((await owner.delete("/api/activities/any-id-at-all")).status);
     expect([404, 405]).toContain((await owner.delete("/api/activities")).status);
     expect([404, 405]).toContain(
