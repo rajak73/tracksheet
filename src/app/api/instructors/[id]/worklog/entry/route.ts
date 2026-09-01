@@ -131,7 +131,18 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
       logDate: toDateOnly(input.date),
       ...data,
     },
-    update: data,
+    update: {
+      ...data,
+      /* Once somebody saves a day themselves, the text is theirs.
+       *
+       * `source` describes where the WORDS came from, and a day that was
+       * reconstructed from the old taxonomy and has since been rewritten is no
+       * longer reconstructed. Leaving it MIGRATED would put the provenance note
+       * on the instructor's own sentence — telling a reader that what they are
+       * looking at came from a machine when it did not, which is the one thing
+       * the column exists to avoid. */
+      source: "NATIVE" as const,
+    },
   });
 
   await logAudit(principal, scope, {
