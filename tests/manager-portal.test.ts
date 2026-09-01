@@ -118,7 +118,7 @@ describe("activity is roster-scoped", () => {
     const res = await mgrA.get("/api/activities?limit=200");
     expect(res.status).toBe(200);
     const mine = await rosterOf(mgrA);
-    for (const a of res.body.activities) {
+    for (const a of res.body.days) {
       expect(mine).toContain(a.instructorId);
     }
   });
@@ -132,7 +132,7 @@ describe("activity is roster-scoped", () => {
     const res = await mgrA.get(`/api/activities?instructorId=${b1}&limit=200`);
     // Either refused outright or scoped to empty — never another roster's rows.
     if (res.status === 200) {
-      expect(res.body.activities).toEqual([]);
+      expect(res.body.days).toEqual([]);
     } else {
       expect([403, 404]).toContain(res.status);
     }

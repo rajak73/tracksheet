@@ -201,11 +201,37 @@ describe("editing and removing a day that is not today", () => {
     expect(res.status, JSON.stringify(res.body)).toBe(200);
   });
 
-  test("after which it is really gone", async () => {
-    const list = await admin.get(
-      `/api/activities?instructorId=${myId}&from=${DAY}&to=${TODAY}&limit=50`,
+  test("a day removed through the worklog route leaves the explorer too", async () => {
+    /* This used to delete the activity above and check the explorer no longer
+       listed it. The explorer reads `WorklogEntry` now, and an ActivityLog row
+       was never in it — so that assertion had become true for the wrong reason
+       and would have passed however badly the delete worked.
+   
+       The statement worth holding is the same one, made where it is still
+       falsifiable: a day is written, seen, removed, and gone. */
+    const DELETE_DAY = shift(-4);
+    const write = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
+      date: DELETE_DAY,
+      deliverable: "A day to be removed",
+      workingHours: "3h",
+    });
+    expect(write.status, JSON.stringify(write.body)).toBe(201);
+
+    const listed = async () => {
+      const res = await admin.get(
+        `/api/activities?instructorId=${myId}&from=${DELETE_DAY}&to=${DELETE_DAY}&limit=50`,
+      );
+      expect(res.status).toBe(200);
+      return res.body.days as Array<{ logDate: string }>;
+    };
+
+    expect((await listed()).map((d) => d.logDate)).toContain(DELETE_DAY);
+
+    const gone = await instructor.delete(
+      `/api/instructors/${myId}/worklog/entry?date=${DELETE_DAY}`,
     );
-    expect(list.status).toBe(200);
-    expect(list.body.activities.some((a: { id: string }) => a.id === past)).toBe(false);
+    expect(gone.status, JSON.stringify(gone.body)).toBe(200);
+
+    expect(await listed()).toEqual([]);
   });
 });

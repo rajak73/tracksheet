@@ -687,6 +687,7 @@ exports.Prisma.WorklogEntryScalarFieldEnum = {
   workingHours: 'workingHours',
   remarks: 'remarks',
   status: 'status',
+  source: 'source',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -913,6 +914,11 @@ exports.WorklogEntryStatus = exports.$Enums.WorklogEntryStatus = {
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   APPROVED: 'APPROVED'
+};
+
+exports.WorklogEntrySource = exports.$Enums.WorklogEntrySource = {
+  NATIVE: 'NATIVE',
+  MIGRATED: 'MIGRATED'
 };
 
 exports.DayExtractionStatus = exports.$Enums.DayExtractionStatus = {

@@ -452,12 +452,19 @@ describe("correcting a recorded activity", () => {
     expect(res.status).toBe(201);
   });
 
-  test("the old collection route still exposes no delete", async () => {
-    // The ledger gained a correction path on the OWNED route; it did not gain a
-    // general-purpose one, and the previously-asserted absence still holds.
-    const listed = await owner.get(`/api/activities?from=${DAY}&to=${DAY}&limit=5`);
-    const id = listed.body.activities[0]?.id;
-    expect(id).toBeTruthy();
-    expect([404, 405]).toContain((await owner.delete(`/api/activities/${id}`)).status);
+  test("the explorer still exposes no way to write through it", async () => {
+    /* The ledger gained a correction path on the OWNED route; it did not gain a
+       general-purpose one, and the previously-asserted absence still holds.
+
+       Asserted against the route rather than against a row id. It used to take
+       an id from the explorer's first row and try to delete that — but a 404 on
+       a child path cannot tell "no such route" from "no such row", so the id
+       was never what made the check work, and reading one made the test depend
+       on the explorer having rows at all. */
+    expect([404, 405]).toContain((await owner.delete("/api/activities/any-id-at-all")).status);
+    expect([404, 405]).toContain((await owner.delete("/api/activities")).status);
+    expect([404, 405]).toContain(
+      (await owner.post("/api/activities", { deliverable: "nope" })).status,
+    );
   });
 });

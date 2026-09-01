@@ -19,24 +19,21 @@
  * useful where a page can show more than one person — the manager and admin
  * sheets keep both columns because they genuinely mix rows across a roster.
  *
- * ── Where Broad Category comes from ───────────────────────────────────────
- * The form does not ask for it, deliberately: a subject should follow the work
- * rather than be chosen from a menu. Each entry carries the subject the model
- * read from its deliverable text, and the column lists the distinct ones the
- * day touched.
- *
- * A day whose lines named no subject at all shows an em dash. It does NOT
- * inherit from the last office day — the carry-forward exists server-side and
- * this screen does not ask for it, so what you see here is only what was
- * actually written down.
+ * ── There is no Broad Category column ─────────────────────────────────────
+ * There was, and it held the subject the model read off each entry. It is gone
+ * with the taxonomy it belonged to: the table now shows what the instructor
+ * wrote, in the three boxes they wrote it in, and a column that classified that
+ * text was the layer this redesign removed. What was classified is not lost —
+ * it is the AI Insight column's job, at the end of the row, where a reading can
+ * be checked against the raw text it read.
  */
 
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { parseWorkingHours } from "@/domain/worklog-hours";
 import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/format";
 import {
-  broadCategoryCell,
   deliverableLines,
   quantityLines,
   workingHours as workingHoursCell,
@@ -48,10 +45,9 @@ import {
   type PeriodRow,
   type RowActivity,
 } from "@/domain/worklog-rows";
-import { splitEntries } from "@/domain/worklog-entry-lines";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";
-import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
+import { DayInsightCell } from "@/app/_components/DayInsightCell";
 
 /** Rows on a page of the report. A ROW is a day, a week or a month. */
 const PAGE_SIZE = 10;
@@ -74,23 +70,30 @@ const PAGE_SIZE = 10;
  */
 const ENTRY_FETCH_LIMIT = 200;
 
+/**
+ * One day, exactly as the four boxes hold it.
+ *
+ * There is no activity type, deliverable type or broad category any more, and
+ * nothing here is derived: `deliverable` and `deliverableQuantity` are what
+ * somebody typed and are rendered verbatim.
+ */
 type Row = {
   id: string;
-  workDate: string;
-  startTime: string;
-  status?: string;
-  activityType: { code: string; label: string };
-  durationHours: number;
+  logDate: string;
+  deliverable: string;
+  deliverableQuantity: string | null;
+  workingHours: number;
   remarks: string | null;
-  quantity: number | null;
-  rawText: string | null;
-  /** The Quantity and Working Hours boxes as typed. Null on older rows. */
-  rawQuantity: string | null;
-  rawWorkingHours: string | null;
-  /** The subject read out of THIS entry's wording. This IS the report column. */
-  broadCategory: { code: string; label: string } | null;
-  deliverableType: { code: string; label: string; isCountable: boolean } | null;
+  status?: string;
+  /** `MIGRATED` means the text was rebuilt from the old taxonomy's labels. */
+  source: "NATIVE" | "MIGRATED";
 };
+
+/** What the AI Insight cell knows, read from the cache and never generated. */
+type DayInsight =
+  | { state: "READY"; summary: string; generatedAt: string }
+  | { state: "PENDING" }
+  | { state: "FAILED" };
 
 type Draft = {
   date: string;
@@ -204,9 +207,6 @@ function longDate(iso: string): string {
  */
 const COLUMNS = [
   "Date",
-  /* One column. It holds what they DID — the subject read off each entry —
-   * which is what the client asked Broad Category to mean. */
-  "Broad Category",
   "Deliverable",
   "Deliverable Quantity",
   "Working Hours",
@@ -217,14 +217,6 @@ const COLUMNS = [
      in which a summary can be checked rather than just believed. */
   "AI Insight",
 ];
-
-/** Which severity outranks which, for a row that covers more than one day. */
-const SEVERITY_ORDER: Record<CellInsight["severity"], number> = {
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-  CRITICAL: 3,
-};
 
 export default function WorkLogHistoryPage() {
   const toast = useToast();
@@ -251,22 +243,20 @@ export default function WorkLogHistoryPage() {
   /** The day whose individual entries are open, when it was written in several. */
 
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Row | null>(null);
-  /** True while the dialog holds today's own narrative for correction, rather
-   *  than a blank one — distinct from `editing`, which is the single-entry
-   *  manual-fields correction, not the whole day's. */
   /**
-   * Whether this dialog was opened on a day that ALREADY has entries.
+   * Whether this dialog was opened on a day that ALREADY has a worklog.
    *
-   * It decides whether saving REPLACES the day or adds to it, so it has to mean
-   * "an existing day is being corrected" and nothing narrower.
+   * It no longer decides anything about the write. A save is an upsert on
+   * (instructor, date), so correcting a day and writing it for the first time
+   * are the same request and the server needs no flag to tell them apart —
+   * which is what killed the duplicate-day bug this flag used to carry: it was
+   * `editingToday`, so the pencil on last Tuesday appended a second copy of the
+   * day instead of replacing it. There is now one row per day and no second
+   * copy to make.
    *
-   * It used to be `editingToday`, set only when the day being edited was today
-   * — which was right while today was the only editable day. Once any past day
-   * became editable the flag stayed behind: the pencil on last Tuesday opened
-   * the day's own lines, and saving them ADDED them a second time. A day with
-   * room silently doubled; a day near full was refused with "that would run
-   * past midnight", which is how this was noticed.
+   * What it still decides is the wording: whether the dialog says Edit and the
+   * toast says updated, or they say the day is being written for the first
+   * time. That is worth getting right and is all this is for.
    */
   const [editingDay, setEditingDay] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
@@ -305,29 +295,16 @@ export default function WorkLogHistoryPage() {
   const today = todayIn(zone);
 
   /**
-   * The stored reading for a row.
+   * The stored reading for a row, when the row is one day.
    *
-   * A Date row is one day and takes that day's. A WEEK row covers up to seven,
-   * and takes the MOST SEVERE of them rather than the newest or an average: a
-   * week holding one critical day is a week worth opening, and any other rule
-   * hides exactly the row somebody needed to see.
-   *
-   * Returns null freely. A day recorded a moment ago has not been analysed yet
-   * — analysis happens after the write — and the column prints an em dash for
-   * it, which is true.
+   * A WEEK row gets null, and that is not a gap. The map holds DAY readings;
+   * printing one of them against a row covering seven days would present a
+   * summary of Tuesday as a summary of the week. The week's own reading is
+   * asked for from the cell, at WEEK scope, by somebody who wants it.
    */
-  const insightFor = (dates: string[]): CellInsight | null => {
-    if (!instructorId) return null;
-    const found = logs.data?.insights;
-    if (!found) return null;
-
-    let worst: CellInsight | null = null;
-    for (const date of dates) {
-      const hit = found[`${instructorId}:${date}`];
-      if (!hit) continue;
-      if (!worst || SEVERITY_ORDER[hit.severity] > SEVERITY_ORDER[worst.severity]) worst = hit;
-    }
-    return worst;
+  const insightFor = (dates: string[]): DayInsight | null => {
+    if (dates.length !== 1) return null;
+    return logs.data?.insights?.[dates[0]!] ?? null;
   };
 
   /* The earliest day there could be anything to look at: the day this
@@ -374,9 +351,9 @@ export default function WorkLogHistoryPage() {
     useCallback(
       () =>
         apiGet<{
-          activities: Row[];
-          /** Keyed `instructorId:YYYY-MM-DD`. Absent for a day not yet analysed. */
-          insights?: Record<string, CellInsight>;
+          days: Row[];
+          /** Keyed `YYYY-MM-DD`. A date absent from it has no worklog row. */
+          insights?: Record<string, DayInsight>;
           page: number;
           limit: number;
           total: number;
@@ -390,19 +367,14 @@ export default function WorkLogHistoryPage() {
     `worklogs:${query}`,
   );
 
-  /* The day-subject fetch that used to live here is still gone.
+  /* The day-subject fetch that used to live here is gone for good now.
    *
-   * It answered "what was this day about", carrying a subject forward onto days
-   * whose own lines named none. Broad Category has since gone back to meaning
-   * the inferred subject, so that fetch would be renderable again — but this
-   * column lists what each day actually recorded, and a day that named no
-   * subject reads as an em dash rather than borrowing last Tuesday's.
-   *
-   * The endpoint is untouched — `/api/instructors/:id/day-subjects` still
-   * answers and the per-entry subject is still read and stored. This screen
-   * simply does not ask. */
+   * It answered "what was this day about" by carrying an inferred subject
+   * forward onto days whose own lines named none. There is no column left for
+   * it to fill. `/api/instructors/:id/day-subjects` still answers — it is not
+   * this commit's to remove — but nothing on this screen asks it. */
 
-  const rows = useMemo(() => logs.data?.activities ?? [], [logs.data]);
+  const rows = useMemo(() => logs.data?.days ?? [], [logs.data]);
 
   /* Picking either date. In Day Wise it moves that end alone; in Week Wise it
    * snaps BOTH to the week the chosen day falls in, because that is the range
@@ -436,7 +408,7 @@ export default function WorkLogHistoryPage() {
    * state the table underneath it disagrees with. Only meaningful while
    * `todayInView`, which is what gates the button that reads it. */
   const hasSubmittedToday = useMemo(
-    () => rows.some((r) => r.workDate.slice(0, 10) === today),
+    () => rows.some((r) => r.logDate === today),
     [rows, today],
   );
 
@@ -495,25 +467,26 @@ export default function WorkLogHistoryPage() {
    * so a Tech "Live Class" and a Maths one merge identically for both roles.
    */
   const groups = useMemo<PeriodRow[]>(() => {
+    /* One DAY becomes one entry in the shared row model.
+     *
+     * `buildPeriodRow` still merges days into weeks for the manager's sheet, and
+     * moves onto this model in its own commit; feeding it one entry per day
+     * keeps both screens on one accumulator in the meantime. The activity type
+     * is a placeholder it needs for a fallback path this screen never takes —
+     * every column reads `rawEntries`, which is always populated now. */
     const activities: RowActivity[] = rows.map((r) => ({
-      workDate: r.workDate.slice(0, 10),
-      durationHours: r.durationHours,
+      workDate: r.logDate,
+      durationHours: r.workingHours,
       remarks: r.remarks,
       status: r.status,
-      startTime: r.startTime,
-      activityType: r.activityType,
-      deliverableType: r.deliverableType,
-      broadCategory: r.broadCategory,
-      quantity: r.quantity,
-      /* The three boxes as typed. This mapping is explicit rather than a
-         spread, so a field the row model gains is not carried here until
-         somebody names it — which is exactly what happened: `buildPeriodRow`
-         built `rawEntries` from these, they were never passed, every row came
-         back empty, and all three columns silently fell back to the classified
-         reading. The screen looked untouched while the data was correct. */
-      rawText: r.rawText,
-      rawQuantity: r.rawQuantity,
-      rawWorkingHours: r.rawWorkingHours,
+      startTime: `${r.logDate}T00:00:00.000Z`,
+      activityType: { code: "WORK", label: "Work" },
+      deliverableType: null,
+      broadCategory: null,
+      quantity: null,
+      rawText: r.deliverable,
+      rawQuantity: r.deliverableQuantity,
+      rawWorkingHours: formatHours(r.workingHours),
     }));
     const notes = dayNotes.data ?? {};
     const build = (key: string, label: string, sublabel: string | undefined, dates: string[]) =>
@@ -575,7 +548,6 @@ export default function WorkLogHistoryPage() {
    * write days other than this one.
    */
   function openNew(date: string = today) {
-    setEditing(null);
     setEditingDay(false);
     setDraft(emptyDraft(date));
     setFormError(null);
@@ -606,34 +578,26 @@ export default function WorkLogHistoryPage() {
    */
   function openEditDay(date: string) {
     if (!instructorId) return;
-    setEditing(null);
     /* Any existing day, not just today. See `editingDay`. */
     setEditingDay(true);
     setFormError(null);
 
-    /* Today's own lines, back in the four boxes that wrote them.
+    /* The day's own four fields, back in the four boxes that wrote them.
      *
-     * Read from `rows` — already on screen, already today's — rather than
-     * fetched. This used to open the paragraph box and pull the day's
-     * `rawBullets` back from the server, which only ever held anything for a
-     * day written that way; a day filled in through these boxes has no
-     * narrative to return, so the box opened empty and saving it replaced the
-     * day with nothing.
-     *
-     * The lists stay index-aligned, empties included, because `splitEntries`
-     * pairs them by position — dropping a blank quantity would shift every
-     * hour after it onto the wrong deliverable. */
-    const todays = rows.filter((r) => r.workDate.slice(0, 10) === date);
+     * Read from `rows` — already on screen — rather than fetched. One row per
+     * day means the boxes are the row: no lists to join, nothing to keep
+     * index-aligned, and no way for a blank quantity to shift every hour after
+     * it onto the wrong deliverable, which is what the old shape risked. */
+    const day = rows.find((r) => r.logDate === date);
     setDraft({
       date,
-      deliverable: todays.map((r) => r.rawText ?? r.deliverableType?.label ?? "").join("\n"),
-      quantity: todays.map((r) => String(r.quantity ?? "")).join("\n"),
+      deliverable: day?.deliverable ?? "",
+      // Verbatim. "gfddgh" and "half day" go back into the box as themselves.
+      quantity: day?.deliverableQuantity ?? "",
       // Printed the way the table prints it, so an edit does not turn
       // "8h 30m" into "8.5" in front of the person correcting it.
-      workingHours: todays
-        .map((r) => formatHours(r.durationHours).replace(/^0/, ""))
-        .join("\n"),
-      remarks: todays.map((r) => r.remarks ?? "").join("\n"),
+      workingHours: day ? formatHours(day.workingHours).replace(/^0/, "") : "",
+      remarks: day?.remarks ?? "",
     });
     setOpen(true);
   }
@@ -644,45 +608,40 @@ export default function WorkLogHistoryPage() {
     if (!instructorId) return;
 
     /* Checked here only so the instructor is told before the round trip. The
-     * server runs the SAME function on the same strings and its answer is what
-     * is written — where a list gets cut decides which quantity lands on which
-     * deliverable, and that is not a decision to make in a browser and trust. */
-    if (!split.ok) return setFormError(split.reason);
+     * server checks the same two things on the same strings and its answer is
+     * what is written; this is a courtesy, not the rule. */
+    if (!draft.deliverable.trim()) {
+      return setFormError("Say what you worked on.");
+    }
+    if (parseWorkingHours(draft.workingHours) === null) {
+      return setFormError(
+        "Working hours must be a length of time — 8, 8.5, 8h 30m, 8:30 or 45m.",
+      );
+    }
 
     setSaving(true);
     setFormError(null);
     try {
+      /* One request, whether this day is new or being corrected: the route
+         upserts on (instructor, date). There is no `replace` flag to send —
+         the route still accepts one and ignores it, for anything mid-flight
+         during the rollout. */
       await apiSend(
-        editing
-          ? `/api/instructors/${instructorId}/worklog/entry/${editing.id}`
-          : `/api/instructors/${instructorId}/worklog/entry`,
-        editing ? "PATCH" : "POST",
+        `/api/instructors/${instructorId}/worklog/entry`,
+        "POST",
         {
           date: draft.date,
           deliverable: draft.deliverable,
           quantity: draft.quantity,
           workingHours: draft.workingHours,
           remarks: draft.remarks,
-          /* Rewriting the whole day, not adding to it — every line of it is
-           * in the boxes, so appending would duplicate the ones left alone.
-           * The server does the clearing; see `replace` on the entry route. */
-          /* Replace the day rather than add to it. The server does the
-             clearing and the restore if nothing lands; see `replace` on the
-             entry route. */
-          ...(editingDay ? { replace: true } : {}),
         },
-        editing ? "Could not save that change." : "Could not submit your work log.",
+        editingDay ? "Could not save that change." : "Could not submit your work log.",
       );
-      /* One sentence about the DAY, whichever path got here and however many
-       * lines it turned into. It used to count rows — "2 entries recorded." —
-       * which answers a question nobody asked at the moment they press Submit:
-       * they want to know the day went in, and the table behind the dialog is
-       * already showing them what it became. */
-      /* Correcting, by either route: one row through the pencil (`editing`)
-       * or a whole day reopened (`editingDay`). Only the first was checked, so
-       * rewriting a day — which REPLACES it — congratulated the instructor for
-       * submitting something they had already submitted. */
-      const correcting = Boolean(editing || editingDay);
+      /* One sentence about the DAY. It used to count rows — "2 entries
+       * recorded." — which answers a question nobody asked at the moment they
+       * press Submit: they want to know the day went in. */
+      const correcting = editingDay;
       /* Names the DAY, not "today". The box writes any past day now, and
          telling somebody their log "for today" was saved while they were
          correcting last Tuesday is the one confusion this screen is arranged
@@ -716,52 +675,39 @@ export default function WorkLogHistoryPage() {
    * day-level DELETE — and the reload comes once at the end rather than after
    * each, so the table does not flicker through four intermediate states.
    */
-  async function removeDay(label: string, entries: Row[]) {
-    if (!instructorId || entries.length === 0) return;
-    if (
-      entries.length > 1 &&
-      !window.confirm(`Remove all ${entries.length} entries recorded on ${label}?`)
-    ) {
-      return;
-    }
+  /**
+   * Removes a whole day, in one call.
+   *
+   * This used to loop the day's rows, calling the per-activity endpoint once
+   * each, and ask "remove all 4 entries?". That loop had a failure mode the new
+   * model deletes outright: if three calls succeeded and the fourth failed, the
+   * day was left half-removed with nothing recording that it had happened.
+   *
+   * There is one row, so there is one call, and it is idempotent — deleting a
+   * day that is not there succeeds, because the caller asked for it to be absent
+   * and it is. The confirmation says what is actually being removed rather than
+   * counting entries that no longer exist as separate things.
+   */
+  async function removeDay(label: string, date: string) {
+    if (!instructorId) return;
+    if (!window.confirm(`Delete this day's worklog? (${label})`)) return;
+
     try {
-      for (const entry of entries) {
-        await apiSend(
-          `/api/instructors/${instructorId}/activities/${entry.id}`,
-          "DELETE",
-          undefined,
-          "Could not remove that entry.",
-        );
-      }
-      toast(
-        "success",
-        entries.length === 1
-          ? "Entry removed successfully."
-          : `${entries.length} entries removed from ${label}.`,
+      await apiSend(
+        `/api/instructors/${instructorId}/worklog/entry?date=${date}`,
+        "DELETE",
+        undefined,
+        "Could not remove that day.",
       );
+      toast("success", `The worklog for ${label} has been removed.`);
     } catch (e) {
-      toast("danger", e instanceof Error ? e.message : "Could not remove that entry.");
+      toast("danger", e instanceof Error ? e.message : "Could not remove that day.");
     } finally {
-      // Whatever happened, the table is refetched: a partial delete must not
-      // leave rows on screen that are no longer in the database.
+      // Whatever happened, the table is refetched: a failed delete must not
+      // leave a row on screen that is no longer in the database, or the reverse.
       logs.reload();
     }
   }
-
-  /** The paragraph box, rather than the four fields. Never while editing a row. */
-
-  /* What the four boxes currently describe, read by the same function the
-   * server will use. One source for the preview, the error and the write.
-   *
-   * Not memoised: it is string splitting over four short fields, and the React
-   * compiler refuses to optimise a component whose manual memoisation it cannot
-   * preserve — costing far more than this recomputes. */
-  const split = splitEntries({
-    deliverable: draft.deliverable,
-    quantity: draft.quantity,
-    workingHours: draft.workingHours,
-    remarks: draft.remarks,
-  });
 
   /* Counted in ROWS, which is what the table shows and what the client's sheet
    * means by a row: one per date, week or month. It used to count entries,
@@ -1028,9 +974,6 @@ export default function WorkLogHistoryPage() {
               </thead>
               <tbody>
                 {visibleGroups.map((group) => {
-                  const entries = rows.filter((r) =>
-                    group.dates.includes(r.workDate.slice(0, 10)),
-                  );
                   const isToday = group.dates.includes(today);
                   /* A row the instructor cannot write to: every date it covers
                      is still ahead. A WEEK row is editable as soon as any day
@@ -1054,7 +997,7 @@ export default function WorkLogHistoryPage() {
                           ) : null}
                         </td>
                         <td
-                          colSpan={5}
+                          colSpan={4}
                           className={`border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug ${future ? "text-subtle" : "font-medium text-warning-text"}`}
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
@@ -1080,7 +1023,10 @@ export default function WorkLogHistoryPage() {
                         </td>
                         )}
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
-                          <AiInsightCell insight={insightFor(group.dates)} />
+                          {/* Nothing was recorded, so there is nothing to read.
+                              An "Analyse" button here would offer to summarise
+                              an empty day. */}
+                          <span className="text-subtle">—</span>
                         </td>
                       </tr>
                     );
@@ -1094,9 +1040,6 @@ export default function WorkLogHistoryPage() {
                           {group.sublabel ? (
                             <span className="ml-2 text-xs text-muted">{group.sublabel}</span>
                           ) : null}
-                        </td>
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
-                          {broadCategoryCell(group.subjects)}
                         </td>
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {/* ── The instructor's own words ──────────────────
@@ -1232,22 +1175,37 @@ export default function WorkLogHistoryPage() {
                                 >
                                   <Pencil />
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void removeDay(group.label, entries)}
-                                  aria-label={`Remove the work log for ${group.label}`}
-                                  title="Remove"
-                                  className="inline-flex size-9 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
-                                >
-                                  <Bin />
-                                </button>
+                                {/* Only where the row IS the day it would
+                                    delete. A WEEK row covers up to seven, and
+                                    a button labelled "remove the work log for
+                                    week of 3 Aug" that removed Monday would be
+                                    silent data loss. Edit already sends a week
+                                    row to Date Wise; Remove is reached the
+                                    same way, on the day's own row. */}
+                                {group.dates.length === 1 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void removeDay(group.label, group.dates[0]!)}
+                                    aria-label={`Remove the work log for ${group.label}`}
+                                    title="Remove"
+                                    className="inline-flex size-9 items-center justify-center rounded-control border border-danger/40 text-danger-text transition-colors hover:bg-danger-subtle"
+                                  >
+                                    <Bin />
+                                  </button>
+                                ) : null}
                               </>
                             )}
                           </span>
                         </td>
                         )}
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
-                          <AiInsightCell insight={insightFor(group.dates)} />
+                          <DayInsightCell
+                            instructorId={instructorId}
+                            scope={group.dates.length === 1 ? "DAY" : "WEEK"}
+                            from={group.dates[0]!}
+                            to={group.dates[group.dates.length - 1]!}
+                            initial={insightFor(group.dates)}
+                          />
                         </td>
                       </tr>
                     </Fragment>
@@ -1280,11 +1238,11 @@ export default function WorkLogHistoryPage() {
                     <td className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       Week total
                     </td>
-                    {/* Skips Broad Category, Deliverable and Quantity to land
-                        the total under Working Hours, then Remarks. This row is
-                        Weekly's alone, and Weekly has no Actions column — so
-                        the trailing spacer is one cell, not two. */}
-                    <td colSpan={3} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
+                    {/* Skips Deliverable and Quantity to land the total under
+                        Working Hours, then Remarks. This row is Weekly's alone,
+                        and Weekly has no Actions column — so the trailing
+                        spacer is one cell, not two. */}
+                    <td colSpan={2} className="border-r border-line last:border-r-0 sticky bottom-0 z-10 border-t-2 border-line bg-sunken" />
                     <td className="border-r border-line last:border-r-0 tabular sticky bottom-0 z-10 border-t-2 border-line bg-sunken px-4 py-3.5 text-content">
                       {workingHoursCell(groups.reduce((n, g) => n + g.totalMinutes, 0))}
                     </td>
@@ -1330,22 +1288,20 @@ export default function WorkLogHistoryPage() {
            picker inside it — used to throw the whole entry away silently. */
         dismissible={false}
         title={
-          editing
-            ? "Edit work log"
-            : editingDay
-              ? draft.date === today
-                ? "Edit Today's Work Log"
-                : "Edit Work Log"
-              : draft.date === today
-                ? "Today's Work Log"
-                : "Work Log"
+          editingDay
+            ? draft.date === today
+              ? "Edit Today's Work Log"
+              : "Edit Work Log"
+            : draft.date === today
+              ? "Today's Work Log"
+              : "Work Log"
         }
         /* The date is stated whenever it is not today. A box that says "for
            today" while writing last Tuesday is the one mistake this whole
            screen is arranged to prevent. */
         description={
-          editing
-            ? `Correcting the entry from ${longDate(draft.date)}.`
+          editingDay
+            ? `Correcting the work log for ${longDate(draft.date)}.`
             : draft.date === today
               ? "Add your deliverables and working details for today."
               : `Add your deliverables and working details for ${longDate(draft.date)}.`
@@ -1365,7 +1321,7 @@ export default function WorkLogHistoryPage() {
               disabled={saving}
               className="inline-flex items-center gap-2 rounded-control bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-hover disabled:opacity-50"
             >
-              {saving ? "Saving…" : editing ? "Update Work Log" : "Submit Work Log"}
+              {saving ? "Saving…" : editingDay ? "Update Work Log" : "Submit Work Log"}
               {saving ? null : <Send />}
             </button>
           </>
@@ -1438,14 +1394,9 @@ export default function WorkLogHistoryPage() {
             *
             * A preview of the entries about to be written used to sit here,
             * and a warning beside it when the deliverable lines and the hour
-            * lines did not pair up. Both are gone at the client's request; the
-            * box is the four fields and the buttons.
-
-            * The pairing is still checked — `submit()` refuses on `!split.ok`
-            * and puts the reason in the error line at the top of this dialog,
-            * which is where every other refusal in it already appears. What is
-            * lost is only the chance to see the mistake BEFORE pressing
-            * Submit. */}
+            * lines did not pair up. There are no lines to pair now — the four
+            * boxes are the four fields of one row — so there is nothing left
+            * for a preview to show that the boxes do not already say. */}
         </div>
       </Dialog>
     </div>

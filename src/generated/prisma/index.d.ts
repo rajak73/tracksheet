@@ -651,6 +651,14 @@ export const DayExtractionStatus: {
 export type DayExtractionStatus = (typeof DayExtractionStatus)[keyof typeof DayExtractionStatus]
 
 
+export const WorklogEntrySource: {
+  NATIVE: 'NATIVE',
+  MIGRATED: 'MIGRATED'
+};
+
+export type WorklogEntrySource = (typeof WorklogEntrySource)[keyof typeof WorklogEntrySource]
+
+
 export const WorklogEntryStatus: {
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
@@ -768,6 +776,10 @@ export const InsightCacheStatus: typeof $Enums.InsightCacheStatus
 export type DayExtractionStatus = $Enums.DayExtractionStatus
 
 export const DayExtractionStatus: typeof $Enums.DayExtractionStatus
+
+export type WorklogEntrySource = $Enums.WorklogEntrySource
+
+export const WorklogEntrySource: typeof $Enums.WorklogEntrySource
 
 export type WorklogEntryStatus = $Enums.WorklogEntryStatus
 
@@ -54027,6 +54039,7 @@ export namespace Prisma {
     workingHours: Decimal | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
+    source: $Enums.WorklogEntrySource | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -54041,6 +54054,7 @@ export namespace Prisma {
     workingHours: Decimal | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
+    source: $Enums.WorklogEntrySource | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -54055,6 +54069,7 @@ export namespace Prisma {
     workingHours: number
     remarks: number
     status: number
+    source: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -54079,6 +54094,7 @@ export namespace Prisma {
     workingHours?: true
     remarks?: true
     status?: true
+    source?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -54093,6 +54109,7 @@ export namespace Prisma {
     workingHours?: true
     remarks?: true
     status?: true
+    source?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -54107,6 +54124,7 @@ export namespace Prisma {
     workingHours?: true
     remarks?: true
     status?: true
+    source?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -54208,6 +54226,7 @@ export namespace Prisma {
     workingHours: Decimal
     remarks: string | null
     status: $Enums.WorklogEntryStatus
+    source: $Enums.WorklogEntrySource
     createdAt: Date
     updatedAt: Date
     _count: WorklogEntryCountAggregateOutputType | null
@@ -54241,6 +54260,7 @@ export namespace Prisma {
     workingHours?: boolean
     remarks?: boolean
     status?: boolean
+    source?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -54257,6 +54277,7 @@ export namespace Prisma {
     workingHours?: boolean
     remarks?: boolean
     status?: boolean
+    source?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -54273,6 +54294,7 @@ export namespace Prisma {
     workingHours?: boolean
     remarks?: boolean
     status?: boolean
+    source?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -54289,11 +54311,12 @@ export namespace Prisma {
     workingHours?: boolean
     remarks?: boolean
     status?: boolean
+    source?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingHours" | "remarks" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
+  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingHours" | "remarks" | "status" | "source" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
   export type WorklogEntryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -54346,6 +54369,24 @@ export namespace Prisma {
       workingHours: Prisma.Decimal
       remarks: string | null
       status: $Enums.WorklogEntryStatus
+      /**
+       * Where this day's text came from.
+       * 
+       * `MIGRATED` means the collapse built `deliverable` out of the deliverable
+       * and category LABELS being dropped, because those rows never held the
+       * instructor's own words. So a migrated day can read "Live Class Delivery" —
+       * phrasing no instructor uses — and that text then feeds extraction, and the
+       * insight echoes the taxonomy this whole project removed.
+       * 
+       * Nothing about that is broken. It must simply not be invisible: without this
+       * column, somebody asks in six months why an instructor apparently wrote
+       * something they would never write, and there is no answer in the data.
+       * 
+       * Excluded from the canonical context deliberately. It describes PROVENANCE,
+       * not content, and a fact about where text came from must not be able to
+       * change a hash about what the text says.
+       */
+      source: $Enums.WorklogEntrySource
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["worklogEntry"]>
@@ -54782,6 +54823,7 @@ export namespace Prisma {
     readonly workingHours: FieldRef<"WorklogEntry", 'Decimal'>
     readonly remarks: FieldRef<"WorklogEntry", 'String'>
     readonly status: FieldRef<"WorklogEntry", 'WorklogEntryStatus'>
+    readonly source: FieldRef<"WorklogEntry", 'WorklogEntrySource'>
     readonly createdAt: FieldRef<"WorklogEntry", 'DateTime'>
     readonly updatedAt: FieldRef<"WorklogEntry", 'DateTime'>
   }
@@ -58226,6 +58268,7 @@ export namespace Prisma {
     workingHours: 'workingHours',
     remarks: 'remarks',
     status: 'status',
+    source: 'source',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -58760,6 +58803,20 @@ export namespace Prisma {
    * Reference to a field of type 'WorklogEntryStatus[]'
    */
   export type ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntryStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogEntrySource'
+   */
+  export type EnumWorklogEntrySourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntrySource'>
+    
+
+
+  /**
+   * Reference to a field of type 'WorklogEntrySource[]'
+   */
+  export type ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntrySource[]'>
     
 
 
@@ -62560,6 +62617,7 @@ export namespace Prisma {
     workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
     updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -62576,6 +62634,7 @@ export namespace Prisma {
     workingHours?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
+    source?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     instructor?: InstructorOrderByWithRelationInput
@@ -62596,6 +62655,7 @@ export namespace Prisma {
     workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
     updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
     instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
@@ -62612,6 +62672,7 @@ export namespace Prisma {
     workingHours?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
+    source?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: WorklogEntryCountOrderByAggregateInput
@@ -62634,6 +62695,7 @@ export namespace Prisma {
     workingHours?: DecimalWithAggregatesFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
     createdAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
   }
@@ -66967,6 +67029,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutWorklogEntriesInput
@@ -66983,6 +67046,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -66995,6 +67059,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput
@@ -67011,6 +67076,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -67025,6 +67091,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -67037,6 +67104,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -67051,6 +67119,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -70463,6 +70532,13 @@ export namespace Prisma {
     not?: NestedEnumWorklogEntryStatusFilter<$PrismaModel> | $Enums.WorklogEntryStatus
   }
 
+  export type EnumWorklogEntrySourceFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntrySource | EnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntrySourceFilter<$PrismaModel> | $Enums.WorklogEntrySource
+  }
+
   export type WorklogEntryInstructorIdLogDateCompoundUniqueInput = {
     instructorId: string
     logDate: Date | string
@@ -70478,6 +70554,7 @@ export namespace Prisma {
     workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
+    source?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -70496,6 +70573,7 @@ export namespace Prisma {
     workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
+    source?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -70510,6 +70588,7 @@ export namespace Prisma {
     workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
+    source?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -70542,6 +70621,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
     _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+  }
+
+  export type EnumWorklogEntrySourceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntrySource | EnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntrySourceWithAggregatesFilter<$PrismaModel> | $Enums.WorklogEntrySource
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
+    _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
   }
 
   export type EnumDayExtractionStatusFilter<$PrismaModel = never> = {
@@ -75238,6 +75327,10 @@ export namespace Prisma {
     set?: $Enums.WorklogEntryStatus
   }
 
+  export type EnumWorklogEntrySourceFieldUpdateOperationsInput = {
+    set?: $Enums.WorklogEntrySource
+  }
+
   export type InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput = {
     create?: XOR<InstructorCreateWithoutWorklogEntriesInput, InstructorUncheckedCreateWithoutWorklogEntriesInput>
     connectOrCreate?: InstructorCreateOrConnectWithoutWorklogEntriesInput
@@ -75977,6 +76070,13 @@ export namespace Prisma {
     not?: NestedEnumWorklogEntryStatusFilter<$PrismaModel> | $Enums.WorklogEntryStatus
   }
 
+  export type NestedEnumWorklogEntrySourceFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntrySource | EnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntrySourceFilter<$PrismaModel> | $Enums.WorklogEntrySource
+  }
+
   export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
     in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
@@ -76001,6 +76101,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
     _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumWorklogEntrySourceWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.WorklogEntrySource | EnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    in?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    notIn?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
+    not?: NestedEnumWorklogEntrySourceWithAggregatesFilter<$PrismaModel> | $Enums.WorklogEntrySource
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
+    _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
   }
 
   export type NestedEnumDayExtractionStatusFilter<$PrismaModel = never> = {
@@ -78255,6 +78365,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutWorklogEntriesInput
@@ -78269,6 +78380,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -79186,6 +79298,7 @@ export namespace Prisma {
     workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
     updatedAt?: DateTimeFilter<"WorklogEntry"> | Date | string
   }
@@ -81467,6 +81580,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutWorklogEntriesInput
@@ -81481,6 +81595,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -93869,6 +93984,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -95102,6 +95218,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutWorklogEntriesNestedInput
@@ -95116,6 +95233,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -95129,6 +95247,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -95715,6 +95834,7 @@ export namespace Prisma {
     workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
+    source?: $Enums.WorklogEntrySource
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -96471,6 +96591,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutWorklogEntriesNestedInput
@@ -96485,6 +96606,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -96498,6 +96620,7 @@ export namespace Prisma {
     workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
+    source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

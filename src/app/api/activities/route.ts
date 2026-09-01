@@ -3,33 +3,44 @@ import { prisma } from "@/server/db";
 import { instructorOwnedWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
-import { dayInsightsForPairs } from "@/server/worklog/day-insights";
 import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
+import { dayInsightStatuses } from "@/server/insights/day-status";
 
 /**
- * The activity-log explorer: what people actually recorded, one page at a time.
+ * The worklog explorer: what people recorded, one page at a time.
  *
  * ── Why this exists next to /universities/[id]/activities ──────────────────
  * That route answers "this university's activity" and returns the lot — an
  * unbounded read this deliberately does not repeat. This one is the operational
- * explorer: it spans the caller's whole scope, filters on the dimensions an
- * admin actually investigates by, and is ALWAYS paginated. There is no way to
+ * explorer: it spans the caller's whole scope, filters on the dimensions
+ * somebody actually investigates by, and is ALWAYS paginated. There is no way to
  * ask it for everything.
  *
  * It reports raw records and computes nothing. Aggregation belongs to the
  * analytics engine; mixing the two is how two screens start disagreeing about
  * the same day.
+ *
+ * ── One row per day ────────────────────────────────────────────────────────
+ * A page is now a page of DAYS rather than of activities. That is what the
+ * screen was always assembling anyway: the table grouped rows into days on the
+ * client, which meant a busy day written in eleven rows could straddle a page
+ * boundary and appear twice, each time showing the whole day's figures. A day is
+ * a row here, so it cannot.
+ *
+ * ── What is deliberately gone ──────────────────────────────────────────────
+ * The activity type, deliverable type and broad category, and the filters that
+ * narrowed by them. There is no taxonomy to filter on; `deliverable` is free
+ * text and `search` reads it directly.
  */
 
 export const GET = withAuth(async ({ scope, req }) => {
   const sp = req.nextUrl.searchParams;
-
   const page = parsePage(sp.get("page"));
   const limit = parseLimit(sp.get("limit"), { fallback: 50, max: 200 });
 
   const from = parseDateParam(sp.get("from"), "from");
   const to = parseDateParam(sp.get("to"), "to");
-  if (from && to && from > to) {
+  if (from && to && from.getTime() > to.getTime()) {
     throw new ApiError(400, "INVALID_PERIOD", "`from` must not be after `to`");
   }
 
@@ -45,75 +56,55 @@ export const GET = withAuth(async ({ scope, req }) => {
     throw new ApiError(404, "NOT_FOUND", "Instructor not found");
   }
 
-  const activityTypeCode = sp.get("activityType");
   const search = sp.get("search")?.trim();
 
   const where = {
     ...scopeWhere,
     ...(instructorId ? { instructorId } : {}),
     // `managerId` lives on Instructor, so the roster filter is expressed as a
-    // relation filter rather than a column on ActivityLog.
+    // relation filter rather than a column on the day row.
     ...("managerId" in managerFilter ? { instructor: { managerId: managerFilter.managerId } } : {}),
-    ...(activityTypeCode ? { activityType: { code: activityTypeCode } } : {}),
+    /* `parseDateParam` returns a Date already. Wrapping it again produced
+       `new Date("Invalid Date")`, which Prisma rejected — the bound was never a
+       string to interpolate. */
     ...(from || to
-      ? { workDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+      ? { logDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
       : {}),
+    /* Free text, across the three boxes that hold words. There is no category to
+       match on any more, and searching what somebody wrote is what people were
+       reaching for the category filter to approximate. */
     ...(search
       ? {
           OR: [
-            { instructor: { user: { name: { contains: search, mode: "insensitive" as const } } } },
-            { instructor: { employeeCode: { contains: search, mode: "insensitive" as const } } },
+            { deliverable: { contains: search, mode: "insensitive" as const } },
+            { deliverableQuantity: { contains: search, mode: "insensitive" as const } },
             { remarks: { contains: search, mode: "insensitive" as const } },
-            // The instructor's own words for what they produced. The worklog
-            // screen offers "search by deliverable, remarks", and the
-            // deliverable IS this column — without it that search only ever
-            // matched half of what it offered.
-            { rawText: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),
   };
 
-  const [activities, total] = await Promise.all([
-    prisma.activityLog.findMany({
+  const [total, days] = await Promise.all([
+    prisma.worklogEntry.count({ where }),
+    prisma.worklogEntry.findMany({
       where,
-      // Newest first: an explorer is nearly always asked "what happened
-      // recently", and the (instructorId, startTime) index serves this.
-      orderBy: [{ workDate: "desc" }, { startTime: "desc" }],
+      // Newest first: the question is almost always "what happened recently".
+      orderBy: [{ logDate: "desc" }, { instructorId: "asc" }],
       skip: (page - 1) * limit,
       take: limit,
       select: {
         id: true,
-        workDate: true,
-        startTime: true,
-        endTime: true,
-        status: true,
+        logDate: true,
+        deliverable: true,
+        deliverableQuantity: true,
+        workingHours: true,
         remarks: true,
-        activityType: { select: { code: true, label: true, countsAsProductive: true } },
-        // The client's report is per DELIVERABLE, not per category, and its
-        // quantity column is what a week of teaching is actually counted in.
-        // Reading them here is what lets one endpoint serve both the calendar
-        // and the sheet rather than the sheet needing a second query.
-        deliverableType: { select: { code: true, label: true, isCountable: true } },
-        broadCategory: { select: { code: true, label: true } },
-        quantity: true,
-        rawText: true,
-        rawQuantity: true,
-        rawWorkingHours: true,
+        status: true,
+        source: true,
         instructor: {
           select: {
             id: true,
             employeeCode: true,
-            /* The instructor's OWN Broad Category, as assigned to them.
-             *
-             * Not the same thing as `broadCategory` on the row above, which is
-             * the subject read out of that one activity's wording. The client's
-             * rule for the report column is to print the category they supplied
-             * and never to guess one from the work, so the report needs the
-             * assigned value — and it travels here, beside the name and employee
-             * code it belongs to, rather than in a second request that could
-             * answer about somebody else. */
-            category: { select: { code: true, label: true } },
             user: { select: { name: true } },
             manager: { select: { id: true, user: { select: { name: true } } } },
             university: { select: { id: true, name: true, code: true, timezone: true } },
@@ -121,55 +112,51 @@ export const GET = withAuth(async ({ scope, req }) => {
         },
       },
     }),
-    prisma.activityLog.count({ where }),
   ]);
 
-  /* The stored reading of each day these rows fall on, so the AI Insight
-     column joins in the page instead of costing a request per row. Read-only:
-     a day nobody has analysed yet simply has no entry here, and the column
-     prints an em dash. See `analyseDay` for who writes them. */
-  const insights = await dayInsightsForPairs(
-    activities.map((a) => ({
-      instructorId: a.instructor.id,
-      date: a.workDate.toISOString().slice(0, 10),
-    })),
-  );
+  /* The insight cell's state per day, read from the cache and NEVER generated.
+     A table rendering a column must not be able to start paying for it: paging
+     back through a month would otherwise buy a month of insights.
+
+     Only for a single instructor's own page — across a roster the dates belong
+     to different people and one map keyed by date could not say whose. The
+     manager's sheet gets this in its own commit. */
+  const insights =
+    instructorId && days.length > 0
+      ? await dayInsightStatuses(
+          instructorId,
+          days[days.length - 1]!.logDate.toISOString().slice(0, 10),
+          days[0]!.logDate.toISOString().slice(0, 10),
+        )
+      : {};
 
   return NextResponse.json({
     insights,
-    activities: activities.map((a) => ({
-      id: a.id,
-      workDate: a.workDate,
-      startTime: a.startTime,
-      endTime: a.endTime,
-      // Computed once here so every consumer shows the same duration rather
-      // than each subtracting the timestamps its own way.
-      durationHours:
-        Math.round(((a.endTime.getTime() - a.startTime.getTime()) / 3_600_000) * 100) / 100,
-      status: a.status,
-      remarks: a.remarks,
-      activityType: a.activityType,
-      deliverableType: a.deliverableType,
-      broadCategory: a.broadCategory,
-      quantity: a.quantity,
-      rawText: a.rawText,
-      /* The other two boxes as typed. Null on rows written before these were
-         captured, and on rows from any path with no boxes — the table falls
-         back to the computed figure there. */
-      rawQuantity: a.rawQuantity,
-      rawWorkingHours: a.rawWorkingHours,
-      instructorId: a.instructor.id,
-      instructorName: a.instructor.user.name,
-      employeeCode: a.instructor.employeeCode,
-      // Null when nobody has assigned one. The report prints "Not Provided"
-      // rather than filling it in from the day's activities.
-      instructorCategory: a.instructor.category,
+    days: days.map((d) => ({
+      id: d.id,
+      logDate: d.logDate.toISOString().slice(0, 10),
+      /* The three free-text boxes, verbatim. Nothing here is parsed, trimmed or
+         tidied on the way out — "gfddgh" is what somebody wrote, and a display
+         layer that improves it is hiding the record. */
+      deliverable: d.deliverable,
+      deliverableQuantity: d.deliverableQuantity,
+      // A number, so the client formats it once rather than parsing a string.
+      workingHours: Number(d.workingHours),
+      remarks: d.remarks,
+      status: d.status,
+      /* Provenance, not content. `MIGRATED` means the text was reconstructed by
+         the collapse from the old taxonomy's labels rather than written by the
+         instructor — see `WorklogEntry.source`. */
+      source: d.source,
+      instructorId: d.instructor.id,
+      instructorName: d.instructor.user.name,
+      employeeCode: d.instructor.employeeCode,
       // Explicitly null rather than omitted: "nobody leads this person yet" is
       // a state the explorer should show, not hide.
-      manager: a.instructor.manager
-        ? { id: a.instructor.manager.id, name: a.instructor.manager.user.name }
+      manager: d.instructor.manager
+        ? { id: d.instructor.manager.id, name: d.instructor.manager.user.name }
         : null,
-      university: a.instructor.university,
+      university: d.instructor.university,
     })),
     page,
     limit,

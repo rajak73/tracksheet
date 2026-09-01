@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { daysAgo, seedDays } from "./helpers/worklog";
 
 /**
  * The admin console's two new surfaces: the cross-university managers list and
@@ -13,7 +14,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  */
 
 let admin: ApiClient, mgrNorth: ApiClient, mgrWest: ApiClient, instNorth: ApiClient, anon: ApiClient;
-let northId: string, westId: string;
+let northId: string, westId: string, instNorthId: string;
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
@@ -26,9 +27,26 @@ beforeAll(async () => {
   westId = (await mgrWest.login(ACCOUNTS.managerWest)).user.universityId!;
 
   instNorth = new ApiClient("instructor-north");
-  await instNorth.login(ACCOUNTS.instructorNorth1);
+  instNorthId = (await instNorth.login(ACCOUNTS.instructorNorth1)).user.instructorId!;
 
   anon = new ApiClient("anonymous");
+
+  /* The explorer's own rows.
+   *
+   * It used to read whatever other files had left in the database, which meant
+   * these tests were describing another file's fixture and went vacuous the day
+   * that file started cleaning up after itself. Three days, written here, are
+   * enough to page through and to filter. */
+  await seedDays(instNorth, instNorthId, [
+    {
+      date: daysAgo(3),
+      deliverable: "Java class - collections",
+      quantity: "2 classes",
+      workingHours: "7h",
+    },
+    { date: daysAgo(4), deliverable: "Lab supervision", quantity: "1 lab", workingHours: "6h 30m" },
+    { date: daysAgo(5), deliverable: "Mentoring and doubt clearing", workingHours: "5" },
+  ]);
 });
 
 describe("GET /api/managers", () => {
@@ -168,7 +186,7 @@ describe("GET /api/activities", () => {
   test("is paginated and never returns the whole table", async () => {
     const res = await admin.get("/api/activities?limit=2");
     expect(res.status).toBe(200);
-    expect(res.body.activities.length).toBeLessThanOrEqual(2);
+    expect(res.body.days.length).toBeLessThanOrEqual(2);
     expect(res.body).toHaveProperty("total");
     expect(res.body).toHaveProperty("hasMore");
     expect(res.body.limit).toBe(2);
@@ -176,24 +194,29 @@ describe("GET /api/activities", () => {
 
   test("rows carry the operational columns the explorer shows", async () => {
     const res = await admin.get("/api/activities?limit=5");
-    for (const a of res.body.activities) {
+    expect(res.body.days.length).toBeGreaterThan(0);
+    for (const d of res.body.days) {
       for (const field of [
-        "workDate",
-        "startTime",
-        "endTime",
-        "durationHours",
+        "logDate",
+        "deliverable",
+        "deliverableQuantity",
+        "workingHours",
+        "remarks",
         "status",
-        "activityType",
+        "source",
         "instructorName",
         "employeeCode",
         "university",
       ]) {
-        expect(a).toHaveProperty(field);
+        expect(d).toHaveProperty(field);
       }
-      // Duration is computed once server-side so every screen agrees.
-      expect(a.durationHours).toBeGreaterThan(0);
+      // A number, so every screen formats one value rather than parsing a string.
+      expect(typeof d.workingHours).toBe("number");
+      expect(d.workingHours).toBeGreaterThanOrEqual(0);
       // Unassigned is a state to render, not an omission.
-      expect(a).toHaveProperty("manager");
+      expect(d).toHaveProperty("manager");
+      // One row per instructor per day: a date, with no clock on it.
+      expect(d.logDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
   });
 
@@ -202,15 +225,22 @@ describe("GET /api/activities", () => {
     if (first.body.total < 2) return; // nothing to compare on a small fixture
     const second = await admin.get("/api/activities?limit=1&page=2");
     expect(second.status).toBe(200);
-    expect(second.body.activities[0]?.id).not.toBe(first.body.activities[0]?.id);
+    expect(second.body.days[0]?.id).not.toBe(first.body.days[0]?.id);
   });
 
-  test("filters narrow the result", async () => {
+  test("search narrows the result to what was written", async () => {
+    /* The activity-type filter this replaced is gone with the taxonomy. There
+       is no category to narrow by; there is the text somebody typed, which is
+       what people were reaching for the category filter to approximate. */
     const all = await admin.get("/api/activities?limit=200");
-    const teaching = await admin.get("/api/activities?limit=200&activityType=TEACHING");
-    expect(teaching.status).toBe(200);
-    for (const a of teaching.body.activities) expect(a.activityType.code).toBe("TEACHING");
-    expect(teaching.body.total).toBeLessThanOrEqual(all.body.total);
+    const hit = await admin.get("/api/activities?limit=200&search=Lab supervision");
+    expect(hit.status).toBe(200);
+    expect(hit.body.total).toBeGreaterThan(0);
+    expect(hit.body.total).toBeLessThanOrEqual(all.body.total);
+    for (const d of hit.body.days) {
+      const haystack = [d.deliverable, d.deliverableQuantity, d.remarks].join(" ").toLowerCase();
+      expect(haystack).toContain("lab supervision");
+    }
   });
 
   test("an inverted date range is refused", async () => {
@@ -222,7 +252,7 @@ describe("GET /api/activities", () => {
   test("an empty result is a 200 with no rows, not an error", async () => {
     const res = await admin.get("/api/activities?from=2999-01-01&to=2999-01-02");
     expect(res.status).toBe(200);
-    expect(res.body.activities).toEqual([]);
+    expect(res.body.days).toEqual([]);
     expect(res.body.total).toBe(0);
   });
 
@@ -232,11 +262,10 @@ describe("GET /api/activities", () => {
   });
 
   test("an INSTRUCTOR sees only their own records", async () => {
-    const me = await instNorth.get("/api/auth/me");
-    const mine = me.body.user.instructorId as string;
     const res = await instNorth.get("/api/activities?limit=200");
     expect(res.status).toBe(200);
-    for (const a of res.body.activities) expect(a.instructorId).toBe(mine);
+    expect(res.body.days.length).toBeGreaterThan(0);
+    for (const d of res.body.days) expect(d.instructorId).toBe(instNorthId);
   });
 
   test("an unauthenticated caller is refused", async () => {

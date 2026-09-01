@@ -27,6 +27,18 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * `Instructor.category` itself is untouched. It is still assigned in the admin
  * screens and still travels on the instructor's own record; it simply is not a
  * column on any sheet.
+ *
+ * ── Three tests were deleted rather than ported ───────────────────────────
+ * They read `/api/activities` and asserted that each row carried a
+ * `broadCategory` read off the work and an `instructorCategory` assigned to
+ * the person, and that the two never tracked each other.
+ *
+ * The explorer returns days now, and a day carries neither field: the
+ * categorisation layer they were about has been removed from the product. They
+ * could only have been ported by asserting something else, or kept by putting
+ * the layer back — so they are gone, and this paragraph is what is left of
+ * them. What still holds is everything below: the assigned category travels on
+ * the person's record and reaches no sheet.
  */
 
 const RUN = Math.random()
@@ -101,41 +113,6 @@ beforeAll(async () => {
   if (assign.status !== 200) {
     await prisma.instructor.update({ where: { id: instructorId }, data: { managerId } });
   }
-});
-
-describe("the instructor's own view carries both, independently", () => {
-  test("each entry carries the subject it was about", async () => {
-    const res = await admin.get(
-      `/api/activities?from=${DATE}&to=${DATE}&limit=200`,
-    );
-    expect(res.status).toBe(200);
-    const mine = res.body.activities.filter(
-      (a: { instructorId: string }) => a.instructorId === instructorId,
-    );
-    expect(mine.length, "the two entries logged above").toBe(2);
-    expect(new Set(mine.map((a: { broadCategory: { code: string } }) => a.broadCategory.code)))
-      .toEqual(new Set(["TECH", "MATH"]));
-  });
-
-  test("and the person's own assigned category, which is neither of them", async () => {
-    const res = await admin.get(`/api/activities?from=${DATE}&to=${DATE}&limit=200`);
-    const mine = res.body.activities.filter(
-      (a: { instructorId: string }) => a.instructorId === instructorId,
-    );
-    for (const row of mine) {
-      expect(row.instructorCategory?.code, "assigned, not inferred").toBe("ENGLISH");
-    }
-  });
-
-  test("the two fields do not track each other", async () => {
-    /* The whole point. If one field were driving both, these would agree. */
-    const res = await admin.get(`/api/activities?from=${DATE}&to=${DATE}&limit=200`);
-    const row = res.body.activities.find(
-      (a: { instructorId: string }) => a.instructorId === instructorId,
-    );
-    expect(row.instructorCategory.code).toBe("ENGLISH");
-    expect(row.broadCategory.code).not.toBe("ENGLISH");
-  });
 });
 
 describe("the manager's day and week sheets read the work", () => {

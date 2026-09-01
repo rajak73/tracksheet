@@ -1861,6 +1861,23 @@ model WorklogEntry {
 
   status WorklogEntryStatus @default(SUBMITTED)
 
+  /// Where this day's text came from.
+  ///
+  /// `MIGRATED` means the collapse built `deliverable` out of the deliverable
+  /// and category LABELS being dropped, because those rows never held the
+  /// instructor's own words. So a migrated day can read "Live Class Delivery" —
+  /// phrasing no instructor uses — and that text then feeds extraction, and the
+  /// insight echoes the taxonomy this whole project removed.
+  ///
+  /// Nothing about that is broken. It must simply not be invisible: without this
+  /// column, somebody asks in six months why an instructor apparently wrote
+  /// something they would never write, and there is no answer in the data.
+  ///
+  /// Excluded from the canonical context deliberately. It describes PROVENANCE,
+  /// not content, and a fact about where text came from must not be able to
+  /// change a hash about what the text says.
+  source WorklogEntrySource @default(NATIVE)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1923,6 +1940,13 @@ model DayExtraction {
 enum DayExtractionStatus {
   READY
   FAILED
+}
+
+enum WorklogEntrySource {
+  /// Written through the form by the instructor.
+  NATIVE
+  /// Reconstructed by the collapse from the previous system's taxonomy.
+  MIGRATED
 }
 
 enum WorklogEntryStatus {

@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { daysAgo } from "./helpers/worklog";
 
 /**
  * The Instructor Portal's boundary.
@@ -46,8 +47,8 @@ describe("an instructor sees only themselves", () => {
   test("the activity feed contains nobody else's records", async () => {
     const res = await inst1.get("/api/activities?limit=200");
     expect(res.status).toBe(200);
-    for (const a of res.body.activities) {
-      expect(a.instructorId).toBe(inst1Id);
+    for (const d of res.body.days) {
+      expect(d.instructorId).toBe(inst1Id);
     }
   });
 
@@ -55,8 +56,8 @@ describe("an instructor sees only themselves", () => {
     const res = await inst1.get(`/api/activities?instructorId=${inst2Id}&limit=200`);
     if (res.status === 200) {
       // Scoped to self, so a colleague's id can only ever yield nothing.
-      for (const a of res.body.activities) expect(a.instructorId).toBe(inst1Id);
-      expect(res.body.activities.every((a: { instructorId: string }) => a.instructorId === inst1Id)).toBe(
+      for (const d of res.body.days) expect(d.instructorId).toBe(inst1Id);
+      expect(res.body.days.every((d: { instructorId: string }) => d.instructorId === inst1Id)).toBe(
         true,
       );
     } else {
@@ -170,51 +171,63 @@ describe("an instructor cannot change ownership or tenancy", () => {
   });
 });
 
-describe("logging activity", () => {
-  const day = "2035-03-05"; // a Monday untouched by other suites
+describe("logging a day", () => {
+  /* A day well in the PAST, and far enough back that no other file writes it.
+   *
+   * It used to be a date in 2035, isolated by being unreachable. That worked
+   * while the activity route accepted the future; the worklog route refuses any
+   * day that has not happened, to anybody, so isolation now has to come from
+   * distance rather than from impossibility. These accounts are the shared
+   * seeded North pair, so a day another file also wrote would be UPSERTED out
+   * from under it — one row per instructor per day leaves nowhere for a second
+   * copy to hide. */
+  const day = daysAgo(45);
 
-  test("an instructor can log their own activity", async () => {
-    const res = await inst1.post(`/api/instructors/${inst1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: day, start: "09:00", end: "11:00" },
+  test("an instructor can write up their own day", async () => {
+    const res = await inst1.post(`/api/instructors/${inst1Id}/worklog/entry`, {
+      date: day,
+      deliverable: "Java class - collections",
+      quantity: "2 classes",
+      workingHours: "6h",
       remarks: "instructor portal test",
     });
-    expect(res.status).toBe(201);
-    expect(res.body.activity.instructorId).toBe(inst1Id);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
   });
 
   test("it appears in their own feed", async () => {
     const res = await inst1.get(`/api/activities?from=${day}&to=${day}&limit=50`);
     expect(res.status).toBe(200);
     expect(res.body.total).toBeGreaterThan(0);
-    for (const a of res.body.activities) expect(a.instructorId).toBe(inst1Id);
+    for (const d of res.body.days) expect(d.instructorId).toBe(inst1Id);
   });
 
   test("it does NOT appear in a colleague's feed", async () => {
     const res = await inst2.get(`/api/activities?from=${day}&to=${day}&limit=50`);
     expect(res.status).toBe(200);
-    for (const a of res.body.activities) expect(a.instructorId).toBe(inst2Id);
+    for (const d of res.body.days) expect(d.instructorId).toBe(inst2Id);
   });
 
-  test("an instructor cannot log activity for somebody else", async () => {
-    const res = await inst1.post(`/api/instructors/${inst2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: day, start: "14:00", end: "15:00" },
+  test("an instructor cannot write up somebody else's day", async () => {
+    const res = await inst1.post(`/api/instructors/${inst2Id}/worklog/entry`, {
+      date: day,
+      deliverable: "Not mine to write",
+      workingHours: "1h",
     });
     expect([403, 404]).toContain(res.status);
   });
 
   test("the colleague's own feed is unaffected by that attempt", async () => {
     const res = await inst2.get(`/api/activities?from=${day}&to=${day}&limit=50`);
-    const remarks = res.body.activities.map((a: { remarks: string | null }) => a.remarks);
+    const remarks = res.body.days.map((d: { remarks: string | null }) => d.remarks);
     expect(remarks).not.toContain("instructor portal test");
   });
 
-  test("activity records expose no edit or delete route", async () => {
-    // The ledger is append-only by product decision; the portal must not have
-    // quietly introduced a mutation path.
+  test("the explorer exposes no per-record mutation route", async () => {
+    /* The explorer reads. A day is corrected through the worklog entry route,
+       which is scoped to its instructor; the explorer spans a whole tenant and
+       must not have quietly grown a way to write through it. */
     const res = await inst1.get(`/api/activities?from=${day}&to=${day}&limit=1`);
-    const id = res.body.activities[0]?.id;
+    const id = res.body.days[0]?.id;
     expect(id).toBeTruthy();
     const del = await inst1.delete(`/api/activities/${id}`);
     expect([404, 405]).toContain(del.status);
@@ -274,7 +287,7 @@ describe("personal performance uses the shared definitions", () => {
 describe("unassignment leaves the instructor intact", () => {
   test("an admin can remove them from a roster without losing anything", async () => {
     const before = await admin.get(`/api/activities?instructorId=${inst1Id}&limit=200`);
-    const activityCount = before.body.total;
+    const dayCount = before.body.total;
 
     const removed = await admin.patch(`/api/instructors/${inst1Id}/manager`, { managerId: null });
     expect(removed.status).toBe(200);
@@ -285,7 +298,7 @@ describe("unassignment leaves the instructor intact", () => {
 
     // …the history is untouched…
     const after = await admin.get(`/api/activities?instructorId=${inst1Id}&limit=200`);
-    expect(after.body.total).toBe(activityCount);
+    expect(after.body.total).toBe(dayCount);
 
     // …and they can still use their own portal.
     const mine = await inst1.get("/api/activities?limit=10");

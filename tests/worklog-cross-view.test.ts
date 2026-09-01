@@ -1,40 +1,57 @@
 import { beforeAll, describe, expect, test } from "vitest";
-import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-import { buildPeriodRow, weekOf, weeksOfMonth, type RowActivity } from "@/domain/worklog-rows";
-import {
-  broadCategoryCell,
-  deliverableCell,
-  quantityCell,
-  workingHours,
-} from "@/domain/worklog-report";
+import { buildPeriodRow, weekOf, type RowActivity } from "@/domain/worklog-rows";
+import { workingHours } from "@/domain/worklog-report";
+import { seedDays } from "./helpers/worklog";
 
 /**
- * One instructor, one week, pulled through all six views.
+ * One instructor's real week, pulled back through the path the page uses.
  *
- * ── What this is for ──────────────────────────────────────────────────────
- * `buildPeriodRow` exists so that two screens cannot disagree about the same
- * rows. That claim is only worth what it is checked against, and a unit test
- * feeding it a hand-built array checks the function, not the claim: the six
- * views differ in WHICH ACTIVITIES they hand it, and that is where a
- * disagreement would actually come from.
+ * ── What this file was, and what it is now ────────────────────────────────
+ * It pulled one week through all SIX views — the instructor's three and the
+ * manager's three — and asserted the same deliverable came out with the same
+ * duration and the same quantity every time. Not plausible. Identical.
  *
- * So this builds one instructor's real week in the database and reads it back
- * through every path — the instructor's three, the manager's three — asserting
- * the same deliverable comes out with the same duration and the same quantity
- * every time. Not plausible. Identical.
+ * That claim cannot be made in this commit, and saying so is the point of this
+ * paragraph. The instructor's views read `WorklogEntry`; the manager's still
+ * read `ActivityLog`. Comparing them today would either fail for a reason that
+ * is already known and scheduled, or — much worse — pass because both fixtures
+ * were written and neither side noticed it was reading a different table. A
+ * consistency test that cannot tell agreement from coincidence is worse than
+ * no consistency test, because it is believed.
+ *
+ * So the six-view comparison is SUSPENDED, not quietly dropped: the `test.todo`
+ * at the foot of this file names it, and it comes back when the manager's views
+ * move onto the same table.
+ *
+ * ── What is still asserted, and is still worth asserting ──────────────────
+ * `buildPeriodRow` is what both roles' tables are built from, and a unit test
+ * feeding it a hand-built array checks the function rather than the claim. So
+ * this still builds a real week in the database, reads it back through the
+ * instructor's real endpoint, and holds it to what the screen shows: a missing
+ * Wednesday reads as missing rather than blank or future, and a week's remarks
+ * join in date order with a day note outranking the day's own.
  *
  * The week is deliberately awkward:
- *   Monday      a Live Class in Technical AND one in Mathematics — the merge
- *   Tuesday     an evaluation whose count nobody stated — the `?`
+ *   Monday      a class, with a remark
+ *   Tuesday     a day whose quantity nobody stated
  *   Wednesday   nothing at all — missing, not future
- *   Thursday    a second Live Class, so the week's merge spans days too
+ *   Thursday    another class, so the week's roll-up spans days
+ *
+ * ── Four blocks were deleted rather than ported ───────────────────────────
+ * "the same deliverable, read six ways", "the unstated count survives every
+ * view", "Broad Category holds under real data", and "the four names added by
+ * Decisions 2-5". Every one of them turned on a named deliverable type, a
+ * broad category, or a numeric quantity that could be absent and print `?`.
+ * None of those exist: a day carries free text, and a quantity is whatever
+ * somebody typed. They could only have been ported by asserting something
+ * else.
  */
 
 const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "x");
 
-let admin: ApiClient, manager: ApiClient;
-let northId = "", instructorId = "", managerId = "";
+let admin: ApiClient, instructor: ApiClient;
+let northId = "", instructorId = "";
 
 /* A settled week in the past, so "missing" and "future" are not a question of
  * when the suite happens to run. */
@@ -46,56 +63,13 @@ const MONDAY = (() => {
 })();
 const week = weekOf(MONDAY);
 const [MON, TUE, WED, THU] = week as [string, string, string, string];
-const MONTH = MONDAY.slice(0, 7);
-
-async function log(
-  date: string,
-  deliverableCode: string,
-  categoryCode: string,
-  subject: string | null,
-  startHour: number,
-  hours: number,
-  quantity: number | null,
-  remarks: string | null = null,
-) {
-  const type = await prisma.activityType.findFirstOrThrow({ where: { code: categoryCode } });
-  const deliverable = await prisma.deliverableType.findFirstOrThrow({
-    where: { code: deliverableCode },
-  });
-  const subjectRow = subject
-    ? await prisma.instructorCategory.findFirstOrThrow({ where: { code: subject } })
-    : null;
-  const start = new Date(`${date}T00:00:00.000Z`);
-  start.setUTCHours(startHour, 0, 0, 0);
-  await prisma.activityLog.create({
-    data: {
-      instructorId,
-      universityId: northId,
-      activityTypeId: type.id,
-      deliverableTypeId: deliverable.id,
-      broadCategoryId: subjectRow?.id ?? null,
-      workDate: new Date(`${date}T00:00:00.000Z`),
-      startTime: start,
-      endTime: new Date(start.getTime() + hours * 3_600_000),
-      quantity,
-      remarks,
-      rawText: `${deliverableCode} ${RUN}`,
-    },
-  });
-}
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
   await admin.login(ACCOUNTS.admin);
-  manager = new ApiClient("manager");
-  const managerMe = await manager.login(ACCOUNTS.managerNorth);
-  northId = managerMe.user.universityId!;
-  managerId = (
-    await prisma.manager.findFirstOrThrow({
-      where: { userId: managerMe.user.id },
-      select: { id: true },
-    })
-  ).id;
+
+  const probe = new ApiClient("probe");
+  northId = (await probe.login(ACCOUNTS.managerNorth)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
     email: `crossview.${RUN}@example.edu`,
@@ -105,274 +79,171 @@ beforeAll(async () => {
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   instructorId = created.body.instructor.id;
-
   await admin.patch(`/api/instructors/${instructorId}`, { categoryCode: "ENGLISH" });
-  await prisma.instructor.update({ where: { id: instructorId }, data: { managerId } });
 
-  // Monday: the same deliverable under two different subjects.
-  await log(MON, "LECTURE", "TEACHING", "TECH", 4, 2, 1, "binary trees");
-  await log(MON, "CLASS_SESSION", "TEACHING", "MATH", 6, 1.5, 1, "binary trees");
-  // Tuesday: a count nobody stated.
-  await log(TUE, "ASSIGNMENT_EVALUATION", "ASSESSMENT", null, 4, 1, null);
-  // Wednesday: deliberately nothing.
-  // Thursday: another class, so the week's merge spans days as well as subjects.
-  await log(THU, "LECTURE", "TEACHING", "TECH", 4, 1, 1, "section B");
-  /* And one of each name that did not exist before Decisions 2-5, so they are
-   * proved to render in a real view rather than only in a taxonomy test. */
-  await log(THU, "LAB_EVALUATION", "PRACTICAL_LAB", null, 6, 1, null);
-  await log(THU, "STUDENT_MEETING", "MEETING", null, 7, 0.5, 1);
-  await log(THU, "DEPARTMENT_WORK", "ADMINISTRATIVE", null, 8, 1, null);
-  await log(THU, "RESEARCH_ANALYSIS", "RESEARCH", null, 9, 1.5, null);
+  instructor = new ApiClient("crossview-instructor");
+  await instructor.login(`crossview.${RUN}@example.edu`, "cross-view-pw-123456");
+
+  /* Written through the instructor's own route, so the fixture cannot be a
+     shape the product could not produce. */
+  await seedDays(instructor, instructorId, [
+    { date: MON, deliverable: "Live Class - binary trees", quantity: "2 classes", workingHours: "3h 30m" },
+    // A quantity nobody stated: the box was left empty, and stays empty.
+    { date: TUE, deliverable: "Assignment evaluation", workingHours: "1h" },
+    // Wednesday: deliberately nothing.
+    { date: THU, deliverable: "Live Class - section B", quantity: "1 class", workingHours: "1h" },
+  ]);
+
+  /* Monday and Thursday carry remarks; Tuesday deliberately does not, so the
+     week's join has an empty day to skip. Written as a correction rather than
+     in the seed above, because that is also a save this route must survive. */
+  await seedDays(instructor, instructorId, [
+    {
+      date: MON,
+      deliverable: "Live Class - binary trees",
+      quantity: "2 classes",
+      workingHours: "3h 30m",
+      remarks: "binary trees",
+    },
+    {
+      date: THU,
+      deliverable: "Live Class - section B",
+      quantity: "1 class",
+      workingHours: "1h",
+      remarks: "section B",
+    },
+  ]);
 });
 
-/** The instructor's rows, exactly as the page builds them. */
-async function instructorActivities(from: string, to: string): Promise<RowActivity[]> {
-  const res = await admin.get(
-    `/api/activities?from=${from}&to=${to}&limit=200`,
-  );
-  expect(res.status).toBe(200);
-  return res.body.activities
-    .filter((a: { instructorId: string }) => a.instructorId === instructorId)
-    .map((a: Record<string, never>) => ({
-      workDate: String(a.workDate).slice(0, 10),
-      durationHours: a.durationHours,
-      remarks: a.remarks,
-      status: a.status,
-      startTime: a.startTime,
-      activityType: a.activityType,
-      deliverableType: a.deliverableType,
-      broadCategory: a.broadCategory,
-      quantity: a.quantity,
-    })) as RowActivity[];
-}
-
-/** The manager's rows for the same person, from the manager's own endpoint. */
-async function managerActivities(from: string, to: string): Promise<RowActivity[]> {
-  const res = await manager.get(`/api/manager/worklog?from=${from}&to=${to}`);
+/**
+ * The instructor's rows, mapped exactly as the page maps them.
+ *
+ * One row per day, so there is no list of activities to reassemble — the day IS
+ * the row, and the fields the report reads come straight off it.
+ */
+async function instructorDays(from: string, to: string): Promise<RowActivity[]> {
+  const res = await instructor.get(`/api/activities?from=${from}&to=${to}&limit=200`);
   expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
-  const person = res.body.instructors.find(
-    (i: { instructorId: string }) => i.instructorId === instructorId,
-  );
-  expect(person, "the instructor must be on the manager's roster").toBeTruthy();
-  return (person.activities as Array<Record<string, never>>).map((a) => ({
-    workDate: String(a.date).slice(0, 10),
-    durationHours: a.durationHours,
-    remarks: a.remarks,
-    status: a.status,
-    startTime: a.startTime,
-    activityType: a.activityType,
-    deliverableType: a.deliverableType,
-    broadCategory: a.broadCategory,
-    quantity: a.quantity,
-  })) as RowActivity[];
+  type DayRow = {
+    logDate: string;
+    deliverable: string;
+    deliverableQuantity: string | null;
+    workingHours: number;
+    remarks: string | null;
+    status: string;
+    instructorId: string;
+  };
+  return (res.body.days as DayRow[])
+    .filter((d) => d.instructorId === instructorId)
+    .map((d) => ({
+      workDate: d.logDate,
+      durationHours: d.workingHours,
+      remarks: d.remarks,
+      status: d.status,
+      startTime: `${d.logDate}T00:00:00.000Z`,
+      activityType: { code: "WORK", label: "Work" },
+      deliverableType: null,
+      broadCategory: null,
+      quantity: null,
+      rawText: d.deliverable,
+      rawQuantity: d.deliverableQuantity,
+      rawWorkingHours: workingHours(d.workingHours * 60),
+    })) as unknown as RowActivity[];
 }
 
-const lineFor = (
-  activities: RowActivity[],
-  dates: string[],
-  name: string,
-) => {
-  const row = buildPeriodRow({ key: "k", label: "l", dates, activities, today: MON });
-  return row.lines.find((l) => l.name === name);
-};
+describe("the week reads back as it was written", () => {
+  test("each day carries its own text, verbatim", async () => {
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const byDate = new Map(days.map((d) => [d.workDate, d]));
 
-describe("Part C — the same deliverable, read six ways", () => {
-  test("Live Class is identical in all six views", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const theirs = await managerActivities(MONDAY, week.at(-1)!);
-    const monthDates = weeksOfMonth(MONTH).flatMap((w) => w.dates);
-    const mineMonth = await instructorActivities(monthDates[0]!, monthDates.at(-1)!);
-
-    /* Monday holds a Technical Live Class of 2h and a Mathematics one of 1h30,
-     * which MERGE — one line, 3h 30m, 2 Classes. The week adds Thursday's, so
-     * the week and month read 4h 30m and 3 Classes. */
-    const readings = {
-      "instructor day": lineFor(mine, [MON], "Live Class"),
-      "manager day": lineFor(theirs, [MON], "Live Class"),
-      "instructor week": lineFor(mine, week, "Live Class"),
-      "manager week": lineFor(theirs, week, "Live Class"),
-      "instructor month": lineFor(mineMonth, monthDates, "Live Class"),
-    };
-
-    // Printed, so the consistency claim is demonstrated rather than asserted.
-    for (const [view, line] of Object.entries(readings)) {
-      console.log(
-        `  ${view.padEnd(18)} Live Class  ${String(line?.minutes ?? "-").padStart(4)}m  ` +
-          `qty=${line?.quantity ?? "?"}`,
-      );
-    }
-
-    expect(readings["instructor day"]!.minutes, "2h + 1h30, merged across subjects").toBe(210);
-    expect(readings["manager day"]!.minutes, "the manager must see the same day").toBe(210);
-    expect(readings["instructor day"]!.quantity).toBe(2);
-    expect(readings["manager day"]!.quantity).toBe(2);
-
-    expect(readings["instructor week"]!.minutes, "plus Thursday's hour").toBe(270);
-    expect(readings["manager week"]!.minutes).toBe(270);
-    expect(readings["instructor week"]!.quantity).toBe(3);
-    expect(readings["manager week"]!.quantity).toBe(3);
-
-    expect(readings["instructor month"]!.minutes).toBe(270);
+    expect(byDate.get(MON)?.rawText).toBe("Live Class - binary trees");
+    expect(byDate.get(TUE)?.rawText).toBe("Assignment evaluation");
+    expect(byDate.get(THU)?.rawText).toBe("Live Class - section B");
+    // Wednesday was never written and must not have appeared from anywhere.
+    expect(byDate.has(WED)).toBe(false);
   });
 
-  test("and the manager's month spreadsheet agrees with all of them", async () => {
-    const res = await manager.get(
-      `/api/universities/${northId}/tracker?from=${MONDAY}&to=${week.at(-1)!}`,
-    );
-    expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
-    const row = res.body.tracker.rows.find(
-      (r: { instructorId: string }) => r.instructorId === instructorId,
-    );
-    expect(row, "the instructor must appear on the spreadsheet").toBeTruthy();
-
-    const cells = Object.values(
-      row.cells as Record<string, { deliverables: Array<{ title: string; minutes: number; quantity: number | null }> }>,
-    );
-    const liveClass = cells
-      .flatMap((c) => c.deliverables)
-      .filter((d) => d.title === "Live Class");
-    const minutes = liveClass.reduce((n, d) => n + d.minutes, 0);
-    const quantity = liveClass.reduce((n, d) => n + (d.quantity ?? 0), 0);
-
-    console.log(`  ${"manager month".padEnd(18)} Live Class  ${String(minutes).padStart(4)}m  qty=${quantity}`);
-    expect(minutes, "the same 4h 30m the other five views show").toBe(270);
-    expect(quantity).toBe(3);
+  test("a quantity nobody stated is empty, not a question mark", async () => {
+    /* The old model printed "? Assignments" — it knew the deliverable had a
+       countable unit and that the count was missing. There is no unit to name
+       now: the box was left empty and that is the whole of what is known. */
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const tuesday = days.find((d) => d.workDate === TUE);
+    expect(tuesday).toBeTruthy();
+    expect(tuesday!.rawQuantity ?? "").toBe("");
   });
 
-  test("the formatted cells match too, character for character", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const theirs = await managerActivities(MONDAY, week.at(-1)!);
-    const day = (a: RowActivity[]) =>
-      buildPeriodRow({ key: "k", label: "l", dates: [MON], activities: a, today: MON });
-
-    expect(deliverableCell(day(mine).lines)).toBe(deliverableCell(day(theirs).lines));
-    expect(quantityCell(day(mine).lines)).toBe(quantityCell(day(theirs).lines));
-    expect(workingHours(day(mine).totalMinutes)).toBe(workingHours(day(theirs).totalMinutes));
-    console.log(`  formatted day cell: ${deliverableCell(day(mine).lines)}`);
-    console.log(`  formatted quantity: ${quantityCell(day(mine).lines)}`);
+  test("the hours are the hours that were typed", async () => {
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const byDate = new Map(days.map((d) => [d.workDate, d]));
+    expect(byDate.get(MON)?.durationHours).toBe(3.5);
+    expect(byDate.get(TUE)?.durationHours).toBe(1);
+    expect(byDate.get(THU)?.durationHours).toBe(1);
   });
 });
 
-describe("Part C — the unstated count survives every view", () => {
-  test("Tuesday's evaluation reads `?` for both roles", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const theirs = await managerActivities(MONDAY, week.at(-1)!);
-    for (const [who, activities] of [["instructor", mine], ["manager", theirs]] as const) {
-      const line = lineFor(activities, [TUE], "Assignment Evaluation");
-      expect(line, `${who} should see Tuesday's evaluation`).toBeTruthy();
-      expect(line!.quantity, `${who} must not invent a count`).toBeNull();
-      expect(quantityCell([line!])).toBe("? Assignments");
-    }
-  });
-});
-
-describe("Part C — the missing day is missing, not blank and not future", () => {
-  test("Wednesday reads as missing for both roles", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const theirs = await managerActivities(MONDAY, week.at(-1)!);
-    for (const [who, activities] of [["instructor", mine], ["manager", theirs]] as const) {
-      const row = buildPeriodRow({
-        key: "k",
-        label: "l",
-        dates: [WED],
-        activities,
-        // Read from a vantage point after the week, which is the real case.
-        today: new Date().toISOString().slice(0, 10),
-      });
-      expect(row.state, `${who} should see Wednesday as missing`).toBe("missing");
-      expect(row.lines).toHaveLength(0);
-    }
+describe("the missing day is missing, not blank and not future", () => {
+  test("Wednesday reads as missing", async () => {
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const row = buildPeriodRow({
+      key: "k",
+      label: "l",
+      dates: [WED],
+      activities: days,
+      // Read from a vantage point after the week, which is the real case.
+      today: new Date().toISOString().slice(0, 10),
+    });
+    expect(row.state).toBe("missing");
+    expect(row.lines).toHaveLength(0);
   });
 
   test("the days around it are not", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
+    const days = await instructorDays(MONDAY, week.at(-1)!);
     const today = new Date().toISOString().slice(0, 10);
     for (const date of [MON, TUE, THU]) {
-      const row = buildPeriodRow({ key: "k", label: "l", dates: [date], activities: mine, today });
+      const row = buildPeriodRow({ key: "k", label: "l", dates: [date], activities: days, today });
       expect(row.state, date).toBe("recorded");
     }
   });
 });
 
-describe("Part C — Broad Category holds under real data", () => {
-  test("their assigned category is English and the column does not say so", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const row = buildPeriodRow({ key: "k", label: "l", dates: week, activities: mine, today: MON });
-
-    const detail = await admin.get(`/api/instructors/${instructorId}`);
-    /* The assigned value still exists on the person's record; it is simply not
-     * what any sheet prints. Broad Category is the work. */
-    expect(detail.body.instructor.category.code, "assigned, and unprinted").toBe("ENGLISH");
-    expect(row.subjects, "what they actually did").toEqual(["Technical", "Mathematics"]);
-    expect(row.subjects, "never the assigned one").not.toContain("English");
-    console.log(`  Assigned (not a column): English`);
-    console.log(`  Broad Category         : ${broadCategoryCell(row.subjects)}`);
-  });
-});
-
-describe("Part D — the four names added by Decisions 2-5 render in a real view", () => {
-  test("each appears, under its own name, with the right quantity treatment", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const row = buildPeriodRow({ key: "k", label: "l", dates: [THU], activities: mine, today: MON });
-    const byName = new Map(row.lines.map((l) => [l.name, l]));
-
-    const printed = deliverableCell(row.lines);
-    const counts = quantityCell(row.lines);
-    console.log(`  Deliverable: ${printed}`);
-    console.log(`  Quantity   : ${counts}`);
-
-    // Lab Evaluation: items, and nobody stated a count.
-    expect(byName.get("Lab Evaluation")?.minutes).toBe(60);
-    expect(byName.get("Lab Evaluation")?.quantity, "never invented").toBeNull();
-    expect(counts).toContain("? Lab Evaluations");
-
-    // Meeting (Other): an occurrence, and NOT a Department Meeting.
-    expect(byName.get("Meeting (Other)")?.minutes).toBe(30);
-    expect(counts).toContain("1 Meeting");
-    expect(byName.has("Department Meeting"), "a student meeting is not governance").toBe(false);
-
-    // Department Duties and Data Analysis: hours only, absent from the count.
-    expect(byName.get("Department Duties")?.minutes).toBe(60);
-    expect(byName.get("Data Analysis")?.minutes).toBe(90);
-    expect(counts).not.toContain("Department Duties");
-    expect(counts).not.toContain("Data Analysis");
-    expect(printed).toContain("Department Duties - 1h");
-    expect(printed).toContain("Data Analysis - 1h 30m");
-  });
-
-  test("the manager sees the same four", async () => {
-    const theirs = await managerActivities(MONDAY, week.at(-1)!);
-    const row = buildPeriodRow({ key: "k", label: "l", dates: [THU], activities: theirs, today: MON });
-    const names = new Set(row.lines.map((l) => l.name));
-    for (const name of ["Lab Evaluation", "Meeting (Other)", "Department Duties", "Data Analysis"]) {
-      expect(names.has(name), `the manager should see ${name}`).toBe(true);
-    }
-  });
-});
-
-describe("Part D — Remarks over a real multi-day period", () => {
+describe("Remarks over a real multi-day period", () => {
   test("the week joins each day's, in date order, skipping the empty", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
-    const row = buildPeriodRow({ key: "k", label: "l", dates: week, activities: mine, today: MON });
-    console.log(`  Week remarks: ${JSON.stringify(row.remarks)}`);
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const row = buildPeriodRow({ key: "k", label: "l", dates: week, activities: days, today: MON });
 
-    /* Monday's two entries both said "binary trees" — de-duplicated to one.
-     * Tuesday said nothing and is skipped rather than leaving an empty gap.
-     * Thursday said "section B". Semicolons between days, commas within one. */
+    /* Monday said "binary trees". Tuesday said nothing and is skipped rather
+       than leaving an empty gap. Thursday said "section B". */
     expect(row.remarks).toBe("binary trees; section B");
   });
 
-  test("a day note outranks the entries' own remarks on that day", async () => {
-    const mine = await instructorActivities(MONDAY, week.at(-1)!);
+  test("a day note outranks the day's own remark", async () => {
+    const days = await instructorDays(MONDAY, week.at(-1)!);
     const row = buildPeriodRow({
       key: "k",
       label: "l",
       dates: week,
-      activities: mine,
+      activities: days,
       dayNotes: { [MON]: "wrote this about the whole day" },
       today: MON,
     });
-    console.log(`  With a day note: ${JSON.stringify(row.remarks)}`);
     expect(row.remarks).toBe("wrote this about the whole day; section B");
   });
 });
+
+describe("the week's total is the sum of its days", () => {
+  test("and it is the same figure the table's footer prints", async () => {
+    const days = await instructorDays(MONDAY, week.at(-1)!);
+    const row = buildPeriodRow({ key: "k", label: "l", dates: week, activities: days, today: MON });
+    // 3.5 + 1 + 1, in minutes, formatted the one way the report formats hours.
+    expect(row.totalMinutes).toBe(330);
+    expect(workingHours(row.totalMinutes)).toBe(workingHours(330));
+  });
+});
+
+/* Suspended until the manager's views read `WorklogEntry` — see the note at the
+   top of this file. It is a `todo` rather than a deleted block so that the day
+   the analytics commit lands, the suite says out loud what is owed. */
+test.todo(
+  "the same week, read through the manager's three views, is identical to the instructor's",
+);
