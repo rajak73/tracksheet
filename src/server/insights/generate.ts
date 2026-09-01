@@ -27,9 +27,9 @@ import type { InsightPayload } from "@/server/insights/cache";
 /** Bump `PROMPT_VERSION` in `context.ts` whenever this text changes. */
 function instructionFor(context: CanonicalContext): string {
   const scope =
-    context.scopeType === "DAY"
+    context.scope_type === "DAY"
       ? "one day"
-      : context.scopeType === "WEEK"
+      : context.scope_type === "WEEK"
         ? "one week"
         : "one month";
 

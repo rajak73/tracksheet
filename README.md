@@ -223,18 +223,25 @@ and the month's, because their contexts *contain* that day's rows. An untouched
 neighbouring day is unaffected. There is no cascade code and there must not be —
 it would be a second description of a relationship the data already has.
 
-### `prompt_version`
+### `prompt_version` — one per scope
 
-A hand-incremented string constant in `src/server/insights/context.ts`. Because
-it is inside the hash, bumping it invalidates every cached insight at once and
-each scope regenerates the next time somebody opens it. There is no purge and no
-migration.
+Three hand-incremented constants in `src/server/insights/context.ts`:
 
-**Increment it when** the prompt wording, the instruction, the output shape or
-the meaning of the insight changes — anything that could make the model answer
+```
+PROMPT_VERSION_DAY   = "day_v1"
+PROMPT_VERSION_WEEK  = "week_v1"
+PROMPT_VERSION_MONTH = "month_v1"
+```
+
+Each is part of **its own scope's** hash, so editing the week prompt invalidates
+cached weeks and leaves every cached day and month alone. One shared version
+would have thrown all three away for a change to one.
+
+**Increment when** the wording, the instruction, the output shape or the meaning
+of that scope's insight changes — anything that could make the model answer
 differently for identical data.
 
-**Do not increment it** for a refactor that leaves the sent text byte-identical.
+**Do not increment** for a refactor that leaves the sent text byte-identical.
 
 `model_id` is read from `GEMINI_MODEL` rather than pinned, so switching models
 invalidates by the same mechanism.
@@ -248,19 +255,53 @@ claiming an insight came from data it never saw.
 
 | Rule | Why |
 |---|---|
-| **Allowlist**: `log_date`, `description`, `duration`, `status` | Only these can change what an insight says |
-| **Excluded**: `id`, `createdAt`, `updatedAt`, row version, DB return order | None can change the answer; all would throw the cache away |
-| Sort by date, then description, then duration | Row order is not a property of the data — it changes with the query plan |
+| **Allowlist**: `log_date`, `activities[].{label, quantity, hours}`, `remarks`, `status` | Only these can change what an insight says |
+| **Excluded**: `id`, `user_id`, `total_hours`, `createdAt`, `updatedAt`, DB and array order | None can change the answer; all would throw the cache away |
+| `total_hours` excluded specifically | It is *derived*. A stale cache column must not be able to invalidate anything |
+| Sort days by date; activities within a day by label | Order is not a property of the data — a reordered array says the same thing |
 | Unicode NFC | Two spellings of one character are one character |
 | Trim, and collapse internal whitespace (newlines included) | Re-typing with a line break elsewhere says the same thing |
 | `null` and `""` are one value, emitted as `null` | "Wrote nothing" told two ways |
-| Dates as `YYYY-MM-DD`, numbers to 2 decimals | Fixed forms, so formatting cannot move the hash |
-| **Casing is preserved** | "OAuth" and "oauth" are not the same word to a reader |
-| JSON with keys sorted at every level, no insignificant whitespace | `JSON.stringify` preserves insertion order, which is incidental |
+| Dates `YYYY-MM-DD`, numbers to 2 decimals | Fixed forms, so formatting cannot move the hash |
+| **`quantity` is normalised as TEXT** | It is free text and never coerced to a number here — see below |
+| **Casing preserved** | "OAuth" and "oauth" are not the same word to a reader |
+| JSON, keys sorted at every level, no insignificant whitespace | `JSON.stringify` preserves insertion order, which is incidental |
 
 A canonicalisation bug is silent — everything still works, it just costs. The
 hit/miss counters (`insightCacheCounters()`) and the per-request `[insight]` log
 line are how that is caught.
+
+### `quantity` is free text, and counting it is all-or-nothing
+
+The instructor writes whatever describes the work: `"5 class"`, `"2 batches"`,
+`"half day"`, `"3 sections + lab"`, or nothing. It is stored verbatim and shown
+verbatim. It is context, not a measurement — `hours` is the only reliable numeric
+field on an activity.
+
+Counts are extracted **in code**, never by the model, with one strict pattern:
+
+```
+^\s*(\d+(?:\.\d+)?)\b
+```
+
+- Match → use the number.
+- Null or empty → counts as `1`; the activity still happened.
+- Anything else → **extraction fails for that member.**
+
+If *any* member of a group fails, the whole group gets `count: null` and
+`count_confident: false`. No partial sums, and never the item count dressed up as
+a count. A group where one activity says `"3 classes"` and another says `"as per
+timetable"` has no honest total, so it gets none.
+
+Three regressions this prevents, all of which produce a number that *looks*
+right:
+
+1. Counting rows instead of summing quantities — three activities saying
+   `"2 classes"`, `"2 classes"`, `"3 classes"` are **7**, not 3.
+2. Partially summing a group with an unreadable member.
+3. Falling back to `item_count` when extraction fails.
+
+`total_units` is only reported when **every** group is confident.
 
 ### Failure behaviour
 

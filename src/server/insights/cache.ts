@@ -1,11 +1,12 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
 import {
+  activitiesIn,
   buildCanonicalContext,
   canonicalJson,
   contextHash,
   modelId,
-  PROMPT_VERSION,
+  promptVersionFor,
   type CanonicalContext,
   type InsightScope,
 } from "@/server/insights/context";
@@ -104,7 +105,11 @@ export async function serveInsight(
   const context = await buildCanonicalContext(scope);
   const canonical = canonicalJson(context);
   const model = modelId();
-  const currentHash = contextHash(canonical, PROMPT_VERSION, model);
+  /* Per SCOPE, so editing the week prompt does not invalidate every cached day.
+     The version is inside the hash, so one scope's bump is invisible to the
+     others by construction rather than by a filter somebody has to remember. */
+  const promptVersion = promptVersionFor(scope.scopeType);
+  const currentHash = contextHash(canonical, promptVersion, model);
 
   const where = {
     instructorId_scopeType_periodStart_periodEnd: {
@@ -138,7 +143,7 @@ export async function serveInsight(
   /* A period with nothing in it has nothing to summarise. No call, and no row
      either — an empty cache row would have to be invalidated later by the same
      hash it never had. */
-  if (context.entries.length === 0) {
+  if (activitiesIn(context).length === 0) {
     return {
       scope: { type: scope.scopeType, period_start: scope.periodStart, period_end: scope.periodEnd },
       insight: null,
@@ -172,7 +177,15 @@ export async function serveInsight(
   misses += 1;
   report({ scope, cacheHit: false, reason });
 
-  return generateUnderLock({ scope, canonical, currentHash, model, context, generate });
+  return generateUnderLock({
+    scope,
+    canonical,
+    currentHash,
+    model,
+    promptVersion,
+    context,
+    generate,
+  });
 }
 
 /* ── Generation ───────────────────────────────────────────────────────────── */
@@ -182,6 +195,7 @@ async function generateUnderLock(input: {
   canonical: string;
   currentHash: string;
   model: string;
+  promptVersion: string;
   context: CanonicalContext;
   generate: (context: CanonicalContext) => Promise<InsightPayload>;
 }): Promise<ServedInsight> {
@@ -189,7 +203,7 @@ async function generateUnderLock(input: {
      held the lock first may have written the very answer this call was about to
      pay for, so the only reading worth acting on is the one taken INSIDE the
      lock — see `fresh` below. */
-  const { scope, canonical, currentHash, model, context, generate } = input;
+  const { scope, canonical, currentHash, model, promptVersion, context, generate } = input;
 
   /* ── Single flight ──────────────────────────────────────────────────────
    * Two people opening the same week at once must not buy the same answer
@@ -246,7 +260,7 @@ async function generateUnderLock(input: {
           contextHash: currentHash,
           contextSnapshot: JSON.parse(canonical) as object,
           insightPayload: payload as unknown as object,
-          promptVersion: PROMPT_VERSION,
+          promptVersion,
           modelId: model,
           status: "READY" as const,
           generatedAt: new Date(),
