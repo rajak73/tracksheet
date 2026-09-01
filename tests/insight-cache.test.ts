@@ -119,8 +119,8 @@ describe("the cache pays once per state of the data", () => {
     await writeDay({ date: D1, deliverable: "Reviewed the OAuth token expiry", hours: 3 });
     const { generate, calls } = counter();
 
-    const first = await serveInsight(scope("DAY", D1, D1), generate);
-    const second = await serveInsight(scope("DAY", D1, D1), generate);
+    const first = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
+    const second = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
 
     expect(calls(), "the second open must not reach the provider").toBe(1);
     expect(first.cached).toBe(false);
@@ -133,9 +133,9 @@ describe("the cache pays once per state of the data", () => {
     await writeDay({ date: D1, deliverable: "Original description", hours: 3 });
     const { generate, calls } = counter();
 
-    await serveInsight(scope("DAY", D1, D1), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     await writeDay({ date: D1, deliverable: "A materially different description", hours: 3 });
-    const second = await serveInsight(scope("DAY", D1, D1), generate);
+    const second = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
 
     expect(calls(), "changed meaning must regenerate").toBe(2);
     expect(second.cached).toBe(false);
@@ -146,10 +146,10 @@ describe("the cache pays once per state of the data", () => {
     const entry = await writeDay({ date: D1, deliverable: "Unchanged work", hours: 3 });
     const { generate, calls } = counter();
 
-    await serveInsight(scope("DAY", D1, D1), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     // A re-save that changes nothing a reader could notice.
     await prisma.worklogEntry.update({ where: { id: entry.id }, data: { updatedAt: new Date() } });
-    const second = await serveInsight(scope("DAY", D1, D1), generate);
+    const second = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
 
     expect(calls(), "updatedAt is excluded from the context").toBe(1);
     expect(second.cached).toBe(true);
@@ -185,9 +185,9 @@ describe("the cache pays once per state of the data", () => {
     await writeDay({ date: D1, deliverable: "Reviewed the pull request", hours: 2 });
     const { generate, calls } = counter();
 
-    await serveInsight(scope("DAY", D1, D1), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     await writeDay({ date: D1, deliverable: "  Reviewed   the\n\npull  request  ", hours: 2 });
-    const second = await serveInsight(scope("DAY", D1, D1), generate);
+    const second = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
 
     expect(calls(), "whitespace cannot change what an insight says").toBe(1);
     expect(second.cached).toBe(true);
@@ -198,7 +198,7 @@ describe("the cache pays once per state of the data", () => {
     await writeDay({ date: D1, deliverable: "Work worth summarising", hours: 4 });
     const { generate, calls } = counter();
 
-    await serveInsight(scope("DAY", D1, D1), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     expect(calls()).toBe(1);
 
     /* The version is inside the hash, so bumping it is indistinguishable from
@@ -209,7 +209,7 @@ describe("the cache pays once per state of the data", () => {
       data: { contextHash: "0".repeat(64) },
     });
 
-    const after = await serveInsight(scope("DAY", D1, D1), generate);
+    const after = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     expect(calls(), "a prompt change must regenerate").toBe(2);
     expect(after.cached).toBe(false);
   });
@@ -224,10 +224,10 @@ describe("the cache pays once per state of the data", () => {
     const monthStart = day(20);
     const monthEnd = TODAY;
 
-    await serveInsight(scope("DAY", D1, D1), generate);
-    await serveInsight(scope("DAY", D2, D2), generate);
-    await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
-    await serveInsight(scope("MONTH", monthStart, monthEnd), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
+    await serveInsight(scope("DAY", D2, D2), "INSTRUCTOR", generate);
+    await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate);
+    await serveInsight(scope("MONTH", monthStart, monthEnd), "INSTRUCTOR", generate);
     // D2 is empty, so it never called: DAY(D1), WEEK, MONTH = 3.
     expect(calls()).toBe(3);
 
@@ -238,9 +238,9 @@ describe("the cache pays once per state of the data", () => {
       hours: 5,
     });
 
-    const d1 = await serveInsight(scope("DAY", D1, D1), generate);
-    const week = await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
-    const month = await serveInsight(scope("MONTH", monthStart, monthEnd), generate);
+    const d1 = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
+    const week = await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate);
+    const month = await serveInsight(scope("MONTH", monthStart, monthEnd), "INSTRUCTOR", generate);
 
     expect(d1.cached, "the edited day must regenerate").toBe(false);
     expect(week.cached, "the week contains it, so it must regenerate").toBe(false);
@@ -249,7 +249,7 @@ describe("the cache pays once per state of the data", () => {
 
     // The untouched neighbouring day is unaffected — and still empty, so it
     // still costs nothing.
-    const d2 = await serveInsight(scope("DAY", D2, D2), generate);
+    const d2 = await serveInsight(scope("DAY", D2, D2), "INSTRUCTOR", generate);
     expect(d2.status).toBe("EMPTY");
     expect(calls(), "an untouched day must not be regenerated").toBe(6);
   });
@@ -266,21 +266,21 @@ describe("the cache pays once per state of the data", () => {
     await writeDay({ date: D1, deliverable: "Java class", quantity: "2 classes", hours: 4 });
     await writeDay({ date: D2, deliverable: "Untouched neighbour", quantity: "1 class", hours: 2 });
 
-    await serveInsight(scope("DAY", D1, D1), generate);
-    await serveInsight(scope("DAY", D2, D2), generate);
-    await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
-    await serveInsight(scope("MONTH", monthStart, TODAY), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
+    await serveInsight(scope("DAY", D2, D2), "INSTRUCTOR", generate);
+    await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate);
+    await serveInsight(scope("MONTH", monthStart, TODAY), "INSTRUCTOR", generate);
     expect(calls()).toBe(4);
 
     // Only the quantity moves, and only on D1.
     await writeDay({ date: D1, deliverable: "Java class", quantity: "3 classes", hours: 4 });
 
-    expect((await serveInsight(scope("DAY", D1, D1), generate)).cached).toBe(false);
-    expect((await serveInsight(scope("WEEK", weekStart, weekEnd), generate)).cached).toBe(false);
-    expect((await serveInsight(scope("MONTH", monthStart, TODAY), generate)).cached).toBe(false);
+    expect((await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate)).cached).toBe(false);
+    expect((await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate)).cached).toBe(false);
+    expect((await serveInsight(scope("MONTH", monthStart, TODAY), "INSTRUCTOR", generate)).cached).toBe(false);
     expect(calls()).toBe(7);
 
-    const neighbour = await serveInsight(scope("DAY", D2, D2), generate);
+    const neighbour = await serveInsight(scope("DAY", D2, D2), "INSTRUCTOR", generate);
     expect(neighbour.cached, "an untouched day must not regenerate").toBe(true);
     expect(calls()).toBe(7);
   });
@@ -292,8 +292,8 @@ describe("the cache pays once per state of the data", () => {
     const { generate, calls } = counter();
 
     await writeDay({ date: D1, deliverable: "Work to summarise", hours: 3 });
-    await serveInsight(scope("DAY", D1, D1), generate);
-    await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
+    await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
+    await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate);
     expect(calls()).toBe(2);
 
     /* A day-prompt bump, simulated by breaking only the DAY row's hash — the
@@ -304,10 +304,10 @@ describe("the cache pays once per state of the data", () => {
       data: { contextHash: "0".repeat(64) },
     });
 
-    expect((await serveInsight(scope("DAY", D1, D1), generate)).cached).toBe(false);
+    expect((await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate)).cached).toBe(false);
     expect(calls()).toBe(3);
 
-    const week = await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
+    const week = await serveInsight(scope("WEEK", weekStart, weekEnd), "INSTRUCTOR", generate);
     expect(week.cached, "the week prompt did not change, so its cache stands").toBe(true);
     expect(calls()).toBe(3);
   });
@@ -316,7 +316,7 @@ describe("the cache pays once per state of the data", () => {
   test("an empty period never calls and never creates a row", async () => {
     const { generate, calls } = counter();
 
-    const result = await serveInsight(scope("DAY", D1, D1), generate);
+    const result = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
 
     expect(calls()).toBe(0);
     expect(result.status).toBe("EMPTY");
@@ -330,7 +330,7 @@ describe("the cache pays once per state of the data", () => {
   test("a provider failure keeps the previous insight and flags it stale", async () => {
     await writeDay({ date: D1, deliverable: "The good day", hours: 3 });
     const { generate } = counter();
-    const good = await serveInsight(scope("DAY", D1, D1), generate);
+    const good = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", generate);
     expect(good.insight).toBeTruthy();
 
     // Change the data so the next open is a miss, then fail the generation.
@@ -339,7 +339,7 @@ describe("the cache pays once per state of the data", () => {
       throw new Error("provider exploded");
     };
 
-    const after = await serveInsight(scope("DAY", D1, D1), failing);
+    const after = await serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", failing);
 
     expect(after.is_stale, "a failure must serve the previous answer").toBe(true);
     expect(after.insight).toEqual(good.insight);
@@ -362,8 +362,8 @@ describe("the cache pays once per state of the data", () => {
     };
 
     const [a, b] = await Promise.all([
-      serveInsight(scope("DAY", D1, D1), slow),
-      serveInsight(scope("DAY", D1, D1), slow),
+      serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", slow),
+      serveInsight(scope("DAY", D1, D1), "INSTRUCTOR", slow),
     ]);
 
     expect(calls, "the single-flight lock must collapse these into one").toBe(1);

@@ -8,6 +8,8 @@ import {
 } from "@/server/worklog/day-summary";
 import { DELIVERABLES, deliverableFor, deliverableNamed } from "@/domain/worklog-taxonomy";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
+import { prisma } from "@/server/db";
+import { toDateOnly } from "@/server/time/workday";
 
 /**
  * Turning a day's record into a report, without losing any of it.
@@ -335,6 +337,8 @@ const RUN = Math.random()
 
 let admin: ApiClient, instructor: ApiClient, colleague: ApiClient;
 let myId = "", theirId = "";
+/** Captured in `beforeAll` — the seed helper writes the tenant column itself. */
+let universityId = "";
 const DATE = "2026-03-10";
 
 type Summary = {
@@ -346,11 +350,72 @@ type Summary = {
   source: "ai" | "fallback";
 };
 
+/**
+ * Seeds `ActivityLog` directly, because that is what `summariseDays` reads.
+ *
+ * These used to post to the entry route. That route now writes `WorklogEntry`,
+ * so seeding through it left this module with nothing to summarise — thirty-seven
+ * tests failing for a reason unrelated to anything they assert.
+ *
+ * Writing the table under test directly is the honest fixture while the two
+ * models coexist. `day-summary` is replaced by the extraction pipeline and this
+ * file goes with it; until then it covers a module six API routes still reach.
+ *
+ * Laid end to end from 09:00 so a day of several activities has the clock shape
+ * the overlap arithmetic here is written about.
+ */
+async function seedDay(
+  instructorId: string,
+  universityId: string,
+  date: string,
+  lines: Array<{ deliverable: string; hours: number; quantity?: unknown; remarks?: string | null }>,
+) {
+  const activityType = await prisma.activityType.findFirstOrThrow({ select: { id: true } });
+  await prisma.activityLog.deleteMany({
+    where: { instructorId, workDate: toDateOnly(date) },
+  });
+
+  let minute = 9 * 60;
+  for (const line of lines) {
+    const start = new Date(`${date}T00:00:00.000Z`);
+    start.setUTCMinutes(minute);
+    const end = new Date(start.getTime() + line.hours * 3_600_000);
+    minute += Math.round(line.hours * 60);
+
+    await prisma.activityLog.create({
+      data: {
+        instructorId,
+        universityId,
+        activityTypeId: activityType.id,
+        workDate: toDateOnly(date),
+        startTime: start,
+        endTime: end,
+        rawText: line.deliverable,
+        rawQuantity:
+          line.quantity === undefined || line.quantity === null ? null : String(line.quantity),
+        /* The INTEGER as well as the text. `summariseDays` sums this column, so
+           a fixture that wrote only the verbatim string left every activity on
+           the schema default of 1 — and the test that counts quantities failed
+           against a fixture, not against the code it exists to check. */
+        quantity:
+          line.quantity === undefined || line.quantity === null
+            ? null
+            : Number.isFinite(Number(line.quantity))
+              ? Number(line.quantity)
+              : null,
+        remarks: line.remarks ?? null,
+      },
+    });
+  }
+}
+
 beforeAll(async () => {
   admin = new ApiClient("admin");
   await admin.login(ACCOUNTS.admin);
   instructor = new ApiClient("me");
-  myId = (await instructor.login(ACCOUNTS.instructorNorth1)).user.instructorId!;
+  const me = await instructor.login(ACCOUNTS.instructorNorth1);
+  myId = me.user.instructorId!;
+  universityId = me.user.universityId!;
   colleague = new ApiClient("colleague");
   theirId = (await colleague.login(ACCOUNTS.instructorNorth2)).user.instructorId!;
 
@@ -370,16 +435,17 @@ beforeAll(async () => {
    * the escape hatch that rule explicitly points at, so the WRITER moves rather
    * than the date. Who may write is `worklog-quick-entry.test.ts`'s subject;
    * this file's is what the summary makes of a day once it exists. */
-  for (const [deliverable, workingHours, quantity] of day) {
-    const res = await admin.post(`/api/instructors/${myId}/worklog/entry`, {
-      date: DATE,
+  await seedDay(
+    myId,
+    universityId,
+    DATE,
+    day.map(([deliverable, workingHours, quantity]) => ({
       deliverable,
+      hours: Number(workingHours),
       quantity,
-      workingHours,
       remarks: "Binary trees covered",
-    });
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-  }
+    })),
+  );
 });
 
 async function summaryFor(client: ApiClient, instructorId: string, date = DATE) {
@@ -458,14 +524,9 @@ describe("adding up a week", () => {
   test("the days sum to the week, activity by activity", async () => {
     const second = "2026-03-11";
     // Admin, for the same reason as the fixture above.
-    const res = await admin.post(`/api/instructors/${myId}/worklog/entry`, {
-      date: second,
-      deliverable: `Live classes on binary trees ${RUN}`,
-      quantity: 3,
-      workingHours: 3,
-      remarks: null,
-    });
-    expect(res.status).toBe(201);
+    await seedDay(myId, universityId, second, [
+      { deliverable: `Live classes on binary trees ${RUN}`, hours: 3, quantity: 3 },
+    ]);
 
     const week = await instructor.get(
       `/api/instructors/${myId}/worklog/summary?from=2026-03-09&to=2026-03-15`,

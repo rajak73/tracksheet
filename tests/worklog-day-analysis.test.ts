@@ -66,17 +66,39 @@ beforeAll(async () => {
   await instructor.login(email, PASSWORD);
 });
 
-/** Records a day through the real route, then reads it the way a table would. */
+/**
+ * Seeds `ActivityLog` directly, because that is what `analyseDay` reads.
+ *
+ * It used to post to the entry route. That route now writes `WorklogEntry`, so
+ * seeding through it left this module with nothing to analyse — the tests failed
+ * for a reason that had nothing to do with what they assert.
+ *
+ * Writing the table under test directly is the honest fixture while the two
+ * models coexist. `analyseDay` and everything it feeds are replaced by the
+ * extraction pipeline, and this file goes with them; until then it covers code
+ * that six API routes still reach.
+ */
 async function record(deliverable: string, quantity: string, workingHours: string) {
-  const res = await instructor.post(`/api/instructors/${myId}/worklog/entry`, {
-    date: TODAY,
-    deliverable,
-    quantity,
-    workingHours,
-    remarks: "recorded by the analysis test",
-    replace: true,
+  const hours = Number(workingHours.replace(/[^0-9.]/g, "")) || 6;
+  const activityType = await prisma.activityType.findFirstOrThrow({ select: { id: true } });
+  const start = new Date(`${TODAY}T04:00:00.000Z`);
+
+  await prisma.activityLog.deleteMany({
+    where: { instructorId: myId, workDate: toDateOnly(TODAY) },
   });
-  expect(res.status, JSON.stringify(res.body)).toBe(201);
+  await prisma.activityLog.create({
+    data: {
+      instructorId: myId,
+      universityId,
+      activityTypeId: activityType.id,
+      workDate: toDateOnly(TODAY),
+      startTime: start,
+      endTime: new Date(start.getTime() + hours * 3_600_000),
+      rawText: deliverable,
+      rawQuantity: quantity,
+      remarks: "recorded by the analysis test",
+    },
+  });
 }
 
 describe("a recorded day is read after it is written", () => {

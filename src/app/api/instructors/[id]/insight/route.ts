@@ -5,6 +5,7 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { serveInsight } from "@/server/insights/cache";
+import { resolveViewerRole } from "@/server/insights/access";
 import { generateInsight } from "@/server/insights/generate";
 import type { ScopeType } from "@/server/insights/context";
 
@@ -55,8 +56,13 @@ export const GET = withAuth<{ id: string }>(async ({ scope: tenant, params, req 
     throw new ApiError(400, "INVALID_PERIOD", "`from` must not be after `to`.");
   }
 
+  /* From the SESSION's scope and the instructor being asked about — never from
+     anything the caller sent. A role the caller can state is not a role. */
+  const viewerRole = resolveViewerRole(tenant, instructor.id);
+
   const result = await serveInsight(
     { instructorId: instructor.id, scopeType, periodStart, periodEnd },
+    viewerRole,
     generateInsight,
   );
 

@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
+import { generationModeFor, type ViewerRole } from "@/server/insights/access";
 import {
   buildCanonicalContext,
   canonicalJson,
@@ -51,7 +52,7 @@ export type ServedInsight = {
   /** True when the data has moved on but this is the best answer available. */
   is_stale: boolean;
   generated_at: string | null;
-  status: "READY" | "GENERATING" | "FAILED" | "EMPTY";
+  status: "READY" | "PENDING" | "GENERATING" | "FAILED" | "EMPTY";
 };
 
 /** Why a request could not be served from storage. Logged, never shown. */
@@ -65,25 +66,51 @@ type MissReason = "no_row" | "hash_mismatch" | "status_not_ready";
 let hits = 0;
 let misses = 0;
 
-export const insightCacheCounters = () => ({ hits, misses });
+/* Split by role, because the two answer different questions. A high INSTRUCTOR
+   miss rate means people are editing their days, which is ordinary. A high
+   MANAGER miss rate means managers keep opening periods that have fallen out of
+   retention — the signal that the retention window is too short, and the one
+   worth acting on. */
+const byRole: Record<ViewerRole, { hits: number; misses: number }> = {
+  INSTRUCTOR: { hits: 0, misses: 0 },
+  MANAGER: { hits: 0, misses: 0 },
+  ADMIN: { hits: 0, misses: 0 },
+};
+
+export const insightCacheCounters = () => ({
+  hits,
+  misses,
+  byRole: {
+    INSTRUCTOR: { ...byRole.INSTRUCTOR },
+    MANAGER: { ...byRole.MANAGER },
+    ADMIN: { ...byRole.ADMIN },
+  },
+});
+
 export const resetInsightCacheCounters = () => {
   hits = 0;
   misses = 0;
+  for (const role of Object.keys(byRole) as ViewerRole[]) byRole[role] = { hits: 0, misses: 0 };
 };
 
 function report(input: {
   scope: InsightScope;
+  viewerRole: ViewerRole;
   cacheHit: boolean;
   reason?: MissReason;
   latencyMs?: number;
 }): void {
   const parts = [
+    `viewer_role=${input.viewerRole}`,
     `scope_type=${input.scope.scopeType}`,
     `period_start=${input.scope.periodStart}`,
     `cache_hit=${input.cacheHit}`,
   ];
   if (input.reason) parts.push(`reason_for_miss=${input.reason}`);
   if (input.latencyMs !== undefined) parts.push(`generation_ms=${input.latencyMs}`);
+  const bucket = byRole[input.viewerRole];
+  if (input.cacheHit) bucket.hits += 1;
+  else bucket.misses += 1;
   console.info(`[insight] ${parts.join(" ")}`);
 }
 
@@ -99,6 +126,7 @@ function report(input: {
  */
 export async function serveInsight(
   scope: InsightScope,
+  viewerRole: ViewerRole,
   generate: (context: CanonicalContext) => Promise<InsightPayload>,
 ): Promise<ServedInsight> {
   const context = await buildCanonicalContext(scope);
@@ -126,7 +154,7 @@ export async function serveInsight(
    * provider: on a hit no AI client is constructed at all. */
   if (row && row.status === "READY" && row.contextHash === currentHash) {
     hits += 1;
-    report({ scope, cacheHit: true });
+    report({ scope, viewerRole, cacheHit: true });
     await prisma.aiInsightCache.update({
       where: { id: row.id },
       data: { lastServedAt: new Date(), serveCount: { increment: 1 } },
@@ -153,6 +181,31 @@ export async function serveInsight(
     };
   }
 
+  /* ── Read-only, so this is where it stops ───────────────────────────────
+   * A manager's day. There is nothing to serve, or what is stored describes
+   * data that no longer exists, and either way the answer is PENDING.
+   *
+   * NOT the stale insight, which is the tempting mistake: the instinct is to
+   * show something rather than nothing, and here "something" is a confident
+   * statement about an instructor's work that stopped being true when they
+   * edited the day. Nothing is the honest answer, and the raw columns are
+   * served by a different endpoint and are never gated by this.
+   *
+   * Before the report, so a read-only miss is not counted as a cache miss — it
+   * is not a miss anybody could have prevented, and counting it would inflate
+   * exactly the figure that tells us whether retention is too short. */
+  if (generationModeFor(viewerRole, scope.scopeType) === "READ_ONLY") {
+    report({ scope, viewerRole, cacheHit: false, reason: !row ? "no_row" : "hash_mismatch" });
+    return {
+      scope: { type: scope.scopeType, period_start: scope.periodStart, period_end: scope.periodEnd },
+      insight: null,
+      cached: false,
+      is_stale: false,
+      generated_at: null,
+      status: "PENDING",
+    };
+  }
+
   const reason: MissReason = !row
     ? "no_row"
     : row.contextHash !== currentHash
@@ -164,7 +217,7 @@ export async function serveInsight(
      decision from here. */
   if (row && row.failureCount >= MAX_CONSECUTIVE_FAILURES) {
     misses += 1;
-    report({ scope, cacheHit: false, reason });
+    report({ scope, viewerRole, cacheHit: false, reason });
     return served(scope, row.insightPayload as InsightPayload, {
       cached: true,
       isStale: true,
@@ -174,7 +227,7 @@ export async function serveInsight(
   }
 
   misses += 1;
-  report({ scope, cacheHit: false, reason });
+  report({ scope, viewerRole, cacheHit: false, reason });
 
   return generateUnderLock({
     scope,
@@ -182,6 +235,7 @@ export async function serveInsight(
     currentHash,
     model,
     promptVersion,
+    viewerRole,
     context,
     generate,
   });
@@ -195,6 +249,7 @@ async function generateUnderLock(input: {
   currentHash: string;
   model: string;
   promptVersion: string;
+  viewerRole: ViewerRole;
   context: CanonicalContext;
   generate: (context: CanonicalContext) => Promise<InsightPayload>;
 }): Promise<ServedInsight> {
@@ -202,7 +257,8 @@ async function generateUnderLock(input: {
      held the lock first may have written the very answer this call was about to
      pay for, so the only reading worth acting on is the one taken INSIDE the
      lock — see `fresh` below. */
-  const { scope, canonical, currentHash, model, promptVersion, context, generate } = input;
+  const { scope, canonical, currentHash, model, promptVersion, viewerRole, context, generate } =
+    input;
 
   /* ── Single flight ──────────────────────────────────────────────────────
    * Two people opening the same week at once must not buy the same answer
@@ -286,7 +342,7 @@ async function generateUnderLock(input: {
           update: data,
         });
 
-        report({ scope, cacheHit: false, latencyMs: Date.now() - startedAt });
+        report({ scope, viewerRole, cacheHit: false, latencyMs: Date.now() - startedAt });
         return served(scope, payload, {
           cached: false,
           isStale: false,
