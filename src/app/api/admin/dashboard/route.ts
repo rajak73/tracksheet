@@ -72,7 +72,6 @@ export const GET = withAuth(
       instructorId: string;
       name: string;
       employeeCode: string | null;
-      categoryLabel: string | null;
       universityName: string;
       lastRecordedOn: Date | null;
     };
@@ -123,19 +122,17 @@ export const GET = withAuth(
         SELECT i.id                AS "instructorId",
                u.name              AS "name",
                i."employeeCode"    AS "employeeCode",
-               c.label             AS "categoryLabel",
                un.name             AS "universityName",
                MAX(a."workDate")   AS "lastRecordedOn"
         FROM "Instructor" i
         JOIN "User" u ON u.id = i."userId"
         JOIN "University" un ON un.id = i."universityId"
-        LEFT JOIN "InstructorCategory" c ON c.id = i."categoryId"
         LEFT JOIN "ActivityLog" a
                ON a."instructorId" = i.id
               AND a.status::text <> ALL(${notHappened}::text[])
         WHERE u."isActive" = true
           AND un."deletedAt" IS NULL
-        GROUP BY i.id, u.name, i."employeeCode", c.label, un.name
+        GROUP BY i.id, u.name, i."employeeCode", un.name
       `,
 
         /* The latest entries, newest first. Ordered by when they were WRITTEN,
@@ -197,7 +194,6 @@ export const GET = withAuth(
         instructorId: p.instructorId,
         name: p.name,
         employeeCode: p.employeeCode,
-        category: p.categoryLabel,
         universityName: p.universityName,
         lastRecordedOn: p.lastRecordedOn ? day(p.lastRecordedOn) : null,
       }))

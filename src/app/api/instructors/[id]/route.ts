@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { streamFor } from "@/server/instructors/stream";
 import { assertCanAccessUniversity, assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
@@ -24,7 +23,6 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
       },
       // The Broad Category assigned to them — the value the client's report
       // prints, and the one an admin edits on this screen.
-      category: { select: { code: true, label: true } },
       user: { select: { id: true, name: true, email: true, isActive: true } },
       university: {
         select: { id: true, name: true, slug: true, timezone: true, primaryManagerId: true },
@@ -55,30 +53,13 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params }) => {
      * prints; `stream` is what their work over the last ninety days was mostly
      * about. They used to be conflated under one key, which is how a derived
      * value ended up in a column the client says must be supplied. */
-    instructor: { ...instructor, stream: await streamFor(instructor.id) },
+    instructor,
   });
 });
 
 const EditInstructor = z.object({
   name: z.string().min(1).max(200).optional(),
   employeeCode: z.string().max(64).nullable().optional(),
-  /* `categoryCode` is back, on the client's instruction.
-   *
-   * ── It was removed, and that was right at the time ──────────────────────
-   * The client's earlier position was that a person's stream should follow the
-   * work they actually did rather than an administrator's opinion of it, so the
-   * field stopped being writable and the value was counted from their entries.
-   *
-   * Their rule now is the opposite one, in their own words: the Broad Category
-   * on the report is "supplied", it is to be preserved exactly, and nobody may
-   * "guess the employee's broad category from their activities". A value that
-   * must be supplied needs somebody able to supply it — with this field left
-   * unwritable the column would have read "Not Provided" for every person in
-   * the university, for ever.
-   *
-   * Null clears it, which is a real answer: "we have not decided yet" is
-   * different from "Technical", and the report says so. */
-  categoryCode: z.string().min(1).max(64).nullable().optional(),
 });
 
 /**
@@ -128,38 +109,16 @@ export const PATCH = withAuth<{ id: string }>(
 
     /* A code is resolved to a row before it is written, so an unknown one is a
      * 400 an admin can act on rather than a foreign-key error out of Prisma. */
-    let categoryId: string | null | undefined;
-    if (input.categoryCode !== undefined) {
-      if (input.categoryCode === null) {
-        categoryId = null;
-      } else {
-        const category = await prisma.instructorCategory.findUnique({
-          where: { code: input.categoryCode },
-          select: { id: true, isActive: true },
-        });
-        if (!category || !category.isActive) {
-          throw new ApiError(400, "UNKNOWN_CATEGORY", "That broad category does not exist.");
-        }
-        categoryId = category.id;
-      }
-    }
 
     const updated = await prisma.instructor.update({
       where: { id: instructor.id },
       data: {
         ...(input.employeeCode !== undefined ? { employeeCode: input.employeeCode } : {}),
-        /* Through the relation rather than the raw foreign key: this update
-         * also writes `user`, which puts Prisma in checked mode where a bare
-         * `categoryId` is not accepted. `disconnect` is how null is spelled. */
-        ...(categoryId !== undefined
-          ? { category: categoryId === null ? { disconnect: true } : { connect: { id: categoryId } } }
-          : {}),
         ...(input.name ? { user: { update: { name: input.name } } } : {}),
       },
       select: {
         id: true,
         employeeCode: true,
-        category: { select: { code: true, label: true } },
         user: { select: { name: true, email: true, isActive: true } },
       },
     });
@@ -176,7 +135,7 @@ export const PATCH = withAuth<{ id: string }>(
      * stream comes back beside it under its own name, so a caller can show both
      * without either being mistaken for the other. */
     return NextResponse.json({
-      instructor: { ...updated, stream: await streamFor(updated.id) },
+      instructor: updated,
     });
   },
   { roles: ["ADMIN", "MANAGER"] },

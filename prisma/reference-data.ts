@@ -250,73 +250,13 @@ export const ENTRY_CATEGORY_CODES = [
 
 /* ── What an instructor teaches ───────────────────────────────────────────── */
 
-export type InstructorCategoryDefinition = { code: string; label: string };
-
-/**
- * The broad categories an instructor belongs to, as the client's monthly sheet
- * prints them ("Instructor – Technical").
- *
- * ── Four, and these exact codes, because that is what the client's data says
- * ─────────────────────────────────────────────────────────────────────────
- * Not chosen, found. Their own instructor roster carries an `instructor_category`
- * column, and across roughly six hundred instructors it holds exactly four
- * values — TECH (445), ENGLISH (57), APTITUDE (54), MATH (42) — plus two people
- * with none. The codes here are theirs verbatim, so an import, a reconciliation
- * or a support question never has to translate between two spellings of the
- * same category. The labels are ours, because a report reads "Technical" rather
- * than "TECH".
- *
- * Their two uncategorised people are why this is nullable: "not decided" occurs
- * in the real data, so the schema has to be able to say it.
- *
- * This column is how the sheet GROUPS people, and it is one of three sticky
- * columns on a very wide grid — so it is kept to the streams that really exist
- * rather than padded with plausible ones. A category nobody is filed under is
- * not neutral: it is a wrong answer sitting in a dropdown waiting to be picked.
- *
- * Adding a fifth is an insert and a seed run, never a migration, which is the
- * whole reason this is a table. The ceiling is editorial: past about a dozen it
- * stops being a broad category and becomes a subject list.
- *
- * There is deliberately no `OTHER` here yet. In the activity taxonomy a
- * fallback is essential because a MODEL has to put every sentence somewhere; a
- * person filling this in can leave it blank instead, and a blank cell says
- * "nobody has decided" where "Other" would claim somebody had.
- *
- * The "Instructor – " prefix the client's sheet shows is NOT stored. It repeats
- * a role the row already carries, and would be wrong on the day a manager needs
- * a category too.
+/* The instructor-category list is gone. Its values were Technical,
+ * Mathematics, English, Aptitude, Physics, Chemistry and Others — subjects,
+ * which is to say kinds of work. Nothing in the product offers anybody a list
+ * of those to choose from now, and the fifteen assignments that existed are in
+ * `archive/instructor-assigned-category-20260902.json`.
  */
-export const INSTRUCTOR_CATEGORIES: InstructorCategoryDefinition[] = [
-  /* ── The first four are the client's own, verbatim ──────────────────────
-   * See the note above: TECH, ENGLISH, APTITUDE and MATH are the exact values
-   * in their instructor roster, so an import or a reconciliation never has to
-   * translate between two spellings.
-   *
-   * ── The last three were added for the SUBJECT decision ──────────────────
-   * This list does two jobs. It is the stream a person belongs to, and it is
-   * the set the parser picks from when it reads what a line was about. The
-   * client asked for Physics, Chemistry and Others so a lecture on those is
-   * classified rather than left blank.
-   *
-   * Worth knowing when reconciling: a derived stream can now read "Physics",
-   * which their own roster column has no value for. The first four still cover
-   * every instructor they sent us.
-   *
-   * OTHERS is for a line that DOES name a subject, just not one of the six. It
-   * is not the answer for a line that names no subject at all — that stays
-   * null, and the day inherits from the previous office day instead. */
-  { code: "TECH", label: "Technical" },
-  { code: "MATH", label: "Mathematics" },
-  { code: "ENGLISH", label: "English" },
-  { code: "APTITUDE", label: "Aptitude" },
-  { code: "PHYSICS", label: "Physics" },
-  { code: "CHEMISTRY", label: "Chemistry" },
-  { code: "OTHERS", label: "Others" },
-];
 
-export const INSTRUCTOR_CATEGORY_CODES = INSTRUCTOR_CATEGORIES.map((c) => c.code);
-export const INSTRUCTOR_CATEGORY_COUNT = INSTRUCTOR_CATEGORIES.length;
 
 /** How many rows a fully provisioned database must have. */
 export const ACTIVITY_TYPE_COUNT = ACTIVITY_TYPES.length;
@@ -347,12 +287,6 @@ type Db = {
     upsert(args: any): Promise<{ id: string; code: string }>;
   };
   deliverableType: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    findMany(args: any): Promise<Array<{ code: string }>>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    upsert(args: any): Promise<{ id: string; code: string }>;
-  };
-  instructorCategory: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     findMany(args: any): Promise<Array<{ code: string }>>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -422,43 +356,6 @@ export async function provisionActivityTypes(db: Db): Promise<ProvisionResult> {
  * the BRD stops being offered by being marked inactive upstream, never by being
  * removed underneath the activity rows that reference it.
  */
-/**
- * Seeds the instructor categories.
- *
- * Upsert by code, like every other reference list here: running it twice
- * changes nothing, and it never deactivates a category somebody is filed under
- * — that would blank a column in a signed-off report.
- */
-export async function provisionInstructorCategories(db: Db): Promise<ProvisionResult> {
-  const present = new Set(
-    (
-      await db.instructorCategory.findMany({
-        where: { code: { in: INSTRUCTOR_CATEGORY_CODES } },
-        select: { code: true },
-      })
-    ).map((row: { code: string }) => row.code),
-  );
-
-  const created: string[] = [];
-  const updated: string[] = [];
-
-  for (const [index, category] of INSTRUCTOR_CATEGORIES.entries()) {
-    await db.instructorCategory.upsert({
-      where: { code: category.code },
-      update: { label: category.label, sortOrder: (index + 1) * 10, isActive: true },
-      create: {
-        code: category.code,
-        label: category.label,
-        sortOrder: (index + 1) * 10,
-        isActive: true,
-      },
-    });
-    (present.has(category.code) ? updated : created).push(category.code);
-  }
-
-  return { created, updated };
-}
-
 export async function provisionDeliverableTypes(db: Db): Promise<ProvisionResult> {
   const categories = await db.activityType.findMany({
     where: { code: { in: [...new Set(DELIVERABLE_TYPES.map((d) => d.activityTypeCode))] } },

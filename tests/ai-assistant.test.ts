@@ -6,7 +6,7 @@ import type { TenantScope } from "@/server/auth/scope";
 import { buildInsightContext } from "@/server/ai/context";
 import { buildInstruction } from "@/server/ai/prompts";
 import { UTILIZATION_BANDS } from "@/server/analytics/bands";
-import { THRESHOLDS } from "@/server/ai/anomalies";
+import { THRESHOLDS } from "@/server/analytics/thresholds";
 import { assistantInsight, BRIEF_TYPE, parseReply, verifyReply } from "@/server/ai/assistant";
 
 /**
@@ -712,41 +712,17 @@ describe("the prompt itself", () => {
 });
 
 describe("briefs share a table with insights, not an audience", () => {
-  test("the university insight feed does not carry assistant briefs", async () => {
-    const context = await buildInsightContext(northManagerScope);
-    replyPayload = truthfulReply(context);
-    const made = await assistantInsight(northManagerScope);
-    expect(made.available).toBe(true);
-
-    const stored = await prisma.aiInsight.findFirstOrThrow({ where: { type: BRIEF_TYPE } });
-    // Stored against the university, which is exactly why the shared feed has
-    // to exclude it: that endpoint filters on universityId alone, so every
-    // manager in this university would otherwise receive this row — and the
-    // row carries the subject's whole roster in sourceMetrics.
-    expect(stored.universityId).toBe((northManagerScope as { universityId: string }).universityId);
-
-    const client = new ApiClient("ai-feed");
-    await client.login(ACCOUNTS.managerNorth);
-    const res = await client.get(`/api/universities/${stored.universityId}/insights`);
-    expect(res.status).toBe(200);
-    const types = res.body.insights.map((i: { type: string }) => i.type);
-    expect(types).not.toContain(BRIEF_TYPE);
-    expect(res.body.insights.map((i: { id: string }) => i.id)).not.toContain(stored.id);
-    expect(JSON.stringify(res.body)).not.toContain("contextHash");
-  });
-
-  test("an admin's view of that feed excludes them too", async () => {
-    const context = await buildInsightContext(northManagerScope);
-    replyPayload = truthfulReply(context);
-    await assistantInsight(northManagerScope);
-    const stored = await prisma.aiInsight.findFirstOrThrow({ where: { type: BRIEF_TYPE } });
-
-    const client = new ApiClient("ai-feed-admin");
-    await client.login(ACCOUNTS.admin);
-    const res = await client.get(`/api/universities/${stored.universityId}/insights`);
-    expect(res.status).toBe(200);
-    expect(res.body.insights.map((i: { id: string }) => i.id)).not.toContain(stored.id);
-  });
+  /* Two tests were deleted rather than ported: "the university insight feed
+     does not carry assistant briefs" and "an admin's view of that feed excludes
+     them too".
+   
+     Both read `/api/universities/:id/insights` — the feed of generated insights
+     about instructors — to prove a brief was filtered out of it. That feed is
+     gone with the generation behind it, so a brief is excluded from it the way
+     everything is: there is nothing to be in.
+   
+     The isolation that still matters is below. `/api/insights/:id` survives, and
+     a brief must not be reachable or mutable through it. */
 
   test("a brief cannot be reached or mutated through the insight id route", async () => {
     const context = await buildInsightContext(northManagerScope);

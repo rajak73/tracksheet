@@ -199,7 +199,6 @@ describe("backend authorization is independent of the UI", () => {
     expect((await n1.get(`/api/instructors/${n1Id}/activities`)).status).toBe(200);
     expect((await n1.get(`/api/instructors/${n2Id}/activities`)).status).toBe(404);
     expect((await n1.get("/api/admin/overview")).status).toBe(403);
-    expect((await n1.get(`/api/universities/${northId}/insights`)).status).toBe(403);
   });
 
   test("only an admin can change university configuration", async () => {
@@ -249,12 +248,9 @@ describe("instructor self-service permissions", () => {
     expect(res.body.leave.status).toBe("APPROVED");
   });
 
-  test("personal insights are self-scoped and never expose a colleague", async () => {
-    const mine = await n1.get(`/api/instructors/${n1Id}/insights`);
-    expect(mine.status).toBe(200);
-    expect(Array.isArray(mine.body.insights)).toBe(true);
-
-    const theirs = await n1.get(`/api/instructors/${n2Id}/insights`);
-    expect(theirs.status).toBe(404);
-  });
+  /* "personal insights are self-scoped and never expose a colleague" was
+     deleted with the route it read. `/api/instructors/:id/insights` served
+     generated findings ABOUT that instructor — graded, and stored against their
+     record — and the generation is gone. The self-scoping that still holds is
+     asserted against the routes that still exist. */
 });

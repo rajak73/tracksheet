@@ -9,7 +9,6 @@ import {
   DELIVERABLE_TYPE_COUNT,
   provisionActivityTypes,
   provisionDeliverableTypes,
-  provisionInstructorCategories,
 } from "./reference-data";
 
 const prisma = new PrismaClient({
@@ -98,7 +97,6 @@ async function main() {
   // Deliverables come second: each points at a category, and the foreign key
   // refuses one whose category is not there yet.
   await provisionDeliverableTypes(prisma);
-  await provisionInstructorCategories(prisma);
   console.log(`  deliverable types: ${DELIVERABLE_TYPE_COUNT}`);
 
   const passwordHash = await hashPassword(DEV_PASSWORD);

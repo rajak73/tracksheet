@@ -52,7 +52,6 @@ describe("Gate 1 — a manager's dashboard can only obtain its own university", 
     // /deliverables and /reports make.
     const own = [
       `/api/universities/${northId}/analytics`,
-      `/api/universities/${northId}/insights`,
       `/api/universities/${northId}/activities`,
       `/api/universities/${northId}/reports`,
       `/api/universities/${northId}/exceptions`,
@@ -66,7 +65,6 @@ describe("Gate 1 — a manager's dashboard can only obtain its own university", 
 
     const foreign = [
       `/api/universities/${westId}/analytics`,
-      `/api/universities/${westId}/insights`,
       `/api/universities/${westId}/activities`,
       `/api/universities/${westId}/reports`,
       `/api/universities/${westId}/exceptions`,
@@ -100,7 +98,6 @@ describe("Gate 2 — no instructor dashboard endpoint returns another instructor
   test("every endpoint the instructor dashboard calls is self-scoped", async () => {
     const calls = [
       `/api/instructors/${n1Id}/deliverables`,
-      `/api/instructors/${n1Id}/insights`,
       `/api/instructors/${n1Id}/activities`,
       `/api/instructors/${n1Id}/schedule`,
       `/api/instructors/${n1Id}/metrics`,
@@ -118,7 +115,6 @@ describe("Gate 2 — no instructor dashboard endpoint returns another instructor
   test("the colleague's own endpoints are unreachable", async () => {
     for (const path of [
       `/api/instructors/${n2Id}/deliverables`,
-      `/api/instructors/${n2Id}/insights`,
       `/api/instructors/${n2Id}/activities`,
       `/api/instructors/${n2Id}/schedule`,
       `/api/instructors/${n2Id}/metrics`,

@@ -88,7 +88,6 @@ type Dashboard = {
     instructorId: string;
     name: string;
     employeeCode: string | null;
-    category: string | null;
     universityName: string;
     lastRecordedOn: string | null;
   }>;
@@ -324,7 +323,6 @@ export default function AdminDashboardPage() {
                 columns={[
                   { label: "Employee name" },
                   { label: "Employee ID" },
-                  { label: "Broad Category" },
                   { label: "University" },
                   { label: "Last submission" },
                   { label: "Status" },
@@ -347,7 +345,6 @@ export default function AdminDashboardPage() {
                     <TD>
                       <span className="tabular">{p.employeeCode ?? "—"}</span>
                     </TD>
-                    <TD>{p.category ?? <span className="text-subtle">—</span>}</TD>
                     <TD>{p.universityName}</TD>
                     <TD>
                       {p.lastRecordedOn ? (

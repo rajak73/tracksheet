@@ -27,8 +27,6 @@ import {
   DELIVERABLE_TYPE_COUNT,
   provisionActivityTypes,
   provisionDeliverableTypes,
-  provisionInstructorCategories,
-  INSTRUCTOR_CATEGORY_COUNT,
 } from "../prisma/reference-data";
 
 function fail(message: string): never {
@@ -80,20 +78,6 @@ async function main() {
     console.log(`  unchanged: ${deliverables.updated.length}`);
     console.log(`  in database: ${deliverableTotal}\n`);
 
-    // Third, and independent of the two above: what an instructor TEACHES.
-    // It references nothing, so its order does not matter — it is provisioned
-    // here so one command still leaves the database fully seeded.
-    const categories = await provisionInstructorCategories(prisma);
-    const categoryTotal = await prisma.instructorCategory.count();
-
-    console.log(`✔ Instructor categories provisioned.\n`);
-    console.log(`  created:   ${categories.created.length}`);
-    console.log(`  unchanged: ${categories.updated.length}`);
-    console.log(`  in database: ${categoryTotal}\n`);
-
-    if (categoryTotal < INSTRUCTOR_CATEGORY_COUNT) {
-      fail(`Expected at least ${INSTRUCTOR_CATEGORY_COUNT} instructor categories, found ${categoryTotal}.`);
-    }
 
     if (deliverableTotal < DELIVERABLE_TYPE_COUNT) {
       fail(`Expected at least ${DELIVERABLE_TYPE_COUNT} deliverable types, found ${deliverableTotal}.`);

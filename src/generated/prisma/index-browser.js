@@ -193,21 +193,10 @@ exports.Prisma.WorklogDayNoteScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.InstructorCategoryScalarFieldEnum = {
-  id: 'id',
-  code: 'code',
-  label: 'label',
-  sortOrder: 'sortOrder',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.InstructorScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   universityId: 'universityId',
-  categoryId: 'categoryId',
   managerId: 'managerId',
   employeeCode: 'employeeCode',
   createdAt: 'createdAt',
@@ -273,7 +262,6 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   rawQuantity: 'rawQuantity',
   rawWorkingHours: 'rawWorkingHours',
   submissionId: 'submissionId',
-  broadCategoryId: 'broadCategoryId',
   deliverableTypeId: 'deliverableTypeId',
   quantity: 'quantity',
   createdAt: 'createdAt',
@@ -920,7 +908,6 @@ exports.Prisma.ModelName = {
   UniversityHoliday: 'UniversityHoliday',
   Manager: 'Manager',
   WorklogDayNote: 'WorklogDayNote',
-  InstructorCategory: 'InstructorCategory',
   Instructor: 'Instructor',
   ActivityType: 'ActivityType',
   LeaveRequest: 'LeaveRequest',

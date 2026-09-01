@@ -3,8 +3,6 @@ import { prisma } from "@/server/db";
 import { geminiCallCount } from "@/server/ai/gemini";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { buildTracker, formatTrackerAsCsv, monthBounds } from "@/server/analytics/tracker";
-import { detectAnomalies } from "@/server/ai/anomalies";
-import { narrateConditionDeterministic } from "@/server/ai/narrate";
 import { rollUp } from "@/domain/rollup";
 import { averageActiveMinutes } from "@/domain/average-hours";
 import { buildPeriodRow, weekOf, weeksOfMonth, type RowActivity } from "@/domain/worklog-rows";
@@ -89,7 +87,6 @@ async function storedActivities(from: string, to: string): Promise<RowActivity[]
       quantity: true,
       activityType: { select: { code: true, label: true } },
       deliverableType: { select: { code: true, isCountable: true } },
-      broadCategory: { select: { label: true } },
     },
   });
   return logs.map((l) => ({
@@ -101,7 +98,6 @@ async function storedActivities(from: string, to: string): Promise<RowActivity[]
     quantity: l.quantity,
     activityType: l.activityType,
     deliverableType: l.deliverableType,
-    broadCategory: l.broadCategory,
   }));
 }
 
@@ -278,40 +274,13 @@ describe("1 — the same rows produce the same numbers, every time", () => {
   });
 });
 
-describe("3 — a condition is DETECTED by code, and only phrased by a model", () => {
-  test("detection runs with the provider untouched", async () => {
-    const analytics = await computeAnalytics({
-      universityId,
-      from: RANGE.from,
-      to: RANGE.to,
-    });
-    const before = geminiCallCount();
-    const conditions = detectAnomalies(analytics);
-    expect(
-      geminiCallCount(),
-      "whether a condition holds is arithmetic, never a question for a model",
-    ).toBe(before);
-    // It is a pure function of the numbers, so it repeats exactly.
-    expect(JSON.stringify(detectAnomalies(analytics))).toBe(JSON.stringify(conditions));
-  });
-
-  test("and there is a deterministic sentence for every condition", () => {
-    /* Narration is the ONLY thing the model is asked for here, and the system
-     * has an answer without it — so a provider outage costs wording, never a
-     * missed condition. */
-    const condition = {
-      type: "UNDERUTILIZATION" as const,
-      severity: "MEDIUM" as const,
-      scope: "INSTRUCTOR" as const,
-      instructorId: "ins_x",
-      instructorName: "Someone",
-      metrics: { utilizationPct: 20, capacityHours: 40, productiveHours: 8 },
-      threshold: { utilizationPct: 60 },
-    };
-    const before = geminiCallCount();
-    const narration = narrateConditionDeterministic(condition);
-    expect(geminiCallCount()).toBe(before);
-    expect(narration.summary.length).toBeGreaterThan(0);
-    expect(narration.recommendation.length).toBeGreaterThan(0);
-  });
-});
+/* Section 3 was deleted with what it described.
+ *
+ * It held that a CONDITION — overloaded, learning dropped — was detected by
+ * arithmetic and only phrased by a model, and that the phrasing had a
+ * deterministic fallback. Both halves are gone: `detectAnomalies` graded
+ * instructors into conditions, `narrateCondition` turned each into prose about
+ * a named person, and the whole path is removed.
+ *
+ * The claim this file exists for is untouched and is asserted by the two
+ * sections above: no figure anywhere is computed by a model. */

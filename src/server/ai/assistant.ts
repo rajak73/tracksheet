@@ -56,7 +56,7 @@ import {
   type RecommendationSeverity,
 } from "@/server/ai/prompts";
 import { generateStructured, isGeminiConfigured } from "@/server/ai/gemini";
-import { JUDGEMENT_TERMS, UNSUPPORTED_ASSERTIONS } from "@/server/ai/validate";
+import { JUDGEMENT_TERMS, UNSUPPORTED_ASSERTIONS } from "@/server/ai/judgement-guards";
 import { toDateOnly } from "@/server/time/workday";
 import { BRIEF_TYPE } from "@/server/ai/brief-type";
 import { pseudonymise } from "@/server/ai/pseudonyms";

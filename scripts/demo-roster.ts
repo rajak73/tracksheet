@@ -108,7 +108,6 @@ async function main() {
   });
   if (!university) throw new Error("No university with a primary manager. Run `npm run db:seed` first.");
 
-  const subjects = await prisma.instructorCategory.findMany({ select: { id: true, code: true } });
   const deliverables = await prisma.deliverableType.findMany({ select: { id: true, code: true } });
   const deliverableId = new Map(deliverables.map((d) => [d.code, d.id]));
 
@@ -144,7 +143,6 @@ async function main() {
           // manager's dashboard — the thing this exists to populate — cannot
           // see them at all.
           managerId: university.primaryManagerId,
-          categoryId: subjects[i % subjects.length]?.id ?? null,
         },
         select: { id: true },
       });
@@ -176,7 +174,6 @@ async function main() {
               ? { deliverableTypeId: deliverableId.get(entry.deliverable)! }
               : {}),
             ...(entry.quantity !== null ? { quantity: entry.quantity } : {}),
-            broadCategoryId: subjects[(i + d) % subjects.length]?.id ?? null,
           });
           written += 1;
         } catch (error) {

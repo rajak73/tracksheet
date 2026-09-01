@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { streamsFor } from "@/server/instructors/stream";
 import type { Prisma } from "@/generated/prisma/client";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
@@ -74,7 +73,6 @@ export const GET = withAuth(async ({ scope, req }) => {
          *
          * The derived stream still comes back too, under its own name. Two
          * different questions, never again under one key. */
-        category: { select: { code: true, label: true } },
         manager: { select: { id: true, employeeCode: true, user: { select: { name: true } } } },
         user: { select: { id: true, name: true, email: true, isActive: true } },
         university: { select: { id: true, name: true, slug: true, timezone: true } },
@@ -83,18 +81,12 @@ export const GET = withAuth(async ({ scope, req }) => {
     prisma.instructor.count({ where }),
   ]);
 
-  /* Their stream, counted from what they actually taught.
+  /* The derived "stream" is gone.
    *
-   * Beside their assigned `category`, not instead of it. The stream answers
-   * "what has this person actually been teaching lately", which is a useful
-   * thing for an admin deciding what to assign — and it is emphatically NOT the
-   * report's Broad Category any more, which the client requires to be the value
-   * somebody supplied.
-   *
-   * One grouped query for the whole page rather than one per row — the
-   * directory renders everybody at once. An instructor with no subject-carrying
-   * work is absent from the map and comes back as null. */
-  const streams = await streamsFor(instructors.map((i) => i.id));
+   * It counted which SUBJECT — Technical, Mathematics, English — an instructor
+   * had spent most of the last ninety days on, and returned it beside the
+   * subject they were assigned to. Both are classifications of work into a
+   * fixed list, and both are removed. */
 
   /* No insight travels with this response any more.
    *
@@ -114,7 +106,6 @@ export const GET = withAuth(async ({ scope, req }) => {
     instructors: instructors.map(({ manager, ...rest }) => ({
       ...rest,
       // `category` is the assigned one, straight from the row above.
-      stream: streams.get(rest.id) ?? null,
       manager: manager
         ? { id: manager.id, employeeCode: manager.employeeCode, name: manager.user.name }
         : null,

@@ -261,49 +261,6 @@ model WorklogDayNote {
   @@index([universityId, workDate])
 }
 
-/// What an instructor TEACHES: Technical, English, Aptitude or Mathematics.
-///
-/// ── It is a specialism, not a department ──────────────────────────────────
-/// Somebody from any tech discipline delivering programming is TECH; the column
-/// says what they teach, not which department they came from. Confirmed against
-/// the client's own roster: TECH instructors sit against Programming
-/// Foundations, Python, Node JS, DSA and React; ENGLISH against Communicative
-/// English Foundation and Advanced; APTITUDE against Logical Reasoning and
-/// Quantitative Aptitude; MATH against Numerical Ability and Probability &
-/// Statistics. Four categories, ~600 instructors, and the split is clean.
-///
-/// ── Why it cannot be derived, and must be set ─────────────────────────────
-/// The obvious shortcut is to read somebody's courses and infer their stream.
-/// The data says no: below the top few courses the associations overlap heavily
-/// — ENGLISH instructors are attached to "Build Your Own Static Website",
-/// MATH instructors to "Generative AI" — because an instructor is linked to the
-/// whole programme their students take, not only what they personally deliver.
-/// Any inference from activity would therefore be wrong for a large minority,
-/// and wrong differently each month: somebody who spent a month on meetings
-/// would change category, and a signed-off sheet would reshuffle its own rows
-/// between two readings of the same period. Somebody is hired into a stream and
-/// stays in it, so an admin sets it and it stays set.
-///
-/// Held as a TABLE rather than an enum for the same reason the activity
-/// taxonomy is: adding "Data Science" should be an insert and a seed run, not
-/// a migration and a deploy.
-model InstructorCategory {
-  id    String @id @default(cuid())
-  code  String @unique
-  label String
-
-  sortOrder Int     @default(100)
-  isActive  Boolean @default(true)
-
-  instructors  Instructor[]
-  activityLogs ActivityLog[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([sortOrder])
-}
-
 model Instructor {
   id           String @id @default(cuid())
   userId       String @unique
@@ -313,8 +270,6 @@ model Instructor {
   /// categorised yet is a real state, and the sheet shows it as blank rather
   /// than guessing. `Restrict`, so a category in use cannot be deleted out from
   /// under the rows that report on it.
-  categoryId String?
-  category   InstructorCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   user       User       @relation(fields: [userId, universityId], references: [id, universityId], onDelete: Cascade)
   university University @relation("UniversityInstructors", fields: [universityId], references: [id], onDelete: Restrict)
@@ -594,8 +549,6 @@ model ActivityLog {
   /// Nullable, and left null rather than guessed: a line like "staff meeting
   /// 2 to 3" has no subject at all, and filling one in would be inventing the
   /// most consequential column in the report.
-  broadCategoryId String?
-  broadCategory   InstructorCategory? @relation(fields: [broadCategoryId], references: [id], onDelete: Restrict)
 
   deliverableTypeId String?
   deliverableType   DeliverableType? @relation(fields: [deliverableTypeId], references: [id], onDelete: SetNull)
@@ -646,7 +599,6 @@ model ActivityLog {
   @@index([scheduleSlotId])
   @@index([deliverableId])
   // The report groups by subject; without this that is a scan per week.
-  @@index([broadCategoryId])
   // Superseding a day deletes by this. It had a foreign key and no index, so
   // that delete was a sequential scan — 1,057 ms measured on 3.9M rows, on the
   // path an instructor takes every time they correct their own day.

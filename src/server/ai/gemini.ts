@@ -23,7 +23,6 @@
  * generation altogether.
  */
 
-import type { AnomalyCondition } from "@/server/ai/anomalies";
 
 const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 /**
@@ -112,54 +111,16 @@ export function isGeminiConfigured(): boolean {
  * The exact payload sent upstream. Exported so a test can assert on it, and so
  * it is obvious by reading one function what leaves this system.
  */
-export function buildGeminiRequest(condition: AnomalyCondition) {
-  const facts = {
-    condition: condition.type,
-    severity: condition.severity,
-    scope: condition.scope,
-    metrics: condition.metrics,
-    threshold: condition.threshold,
-  };
-
-  const instruction = [
-    "You are writing one factual sentence pair for a workforce analytics dashboard.",
-    "",
-    "A deterministic engine has ALREADY decided that the condition below holds.",
-    "Your job is only to phrase it. Do not decide whether it is true, do not",
-    "introduce any other condition, and do not add numbers that are not in the",
-    "facts given.",
-    "",
-    "Rules:",
-    `- Refer to the subject only as ${SUBJECT_TOKEN}. Never invent a name.`,
-    "- Use only the numbers present in the facts. Quote them exactly.",
-    "- Describe the measurement. Never characterise a person's effort, attitude",
-    "  or competence. 'Recorded utilisation of 42%' is allowed;",
-    "  'underperforming' is not.",
-    "- Where recorded time is low, allow that it may not have been logged rather",
-    "  than not worked.",
-    "- Recommend a review. Never a staffing decision.",
-    "",
-    'Reply with JSON only: {"summary": "...", "recommendation": "..."}',
-    "",
-    `Facts: ${JSON.stringify(facts)}`,
-  ].join("\n");
-
-  return {
-    contents: [{ role: "user", parts: [{ text: instruction }] }],
-    generationConfig: {
-      // Low temperature: this is phrasing, not creativity.
-      temperature: 0.2,
-      /* Headroom, not appetite. Two sentences need nowhere near this; the
-       * budget also has to cover any thinking the model does before writing
-       * them, and a budget spent thinking returns no text at all. See the note
-       * on the model chain. */
-      maxOutputTokens: 800,
-      responseMimeType: "application/json",
-    },
-  };
-}
-
-/* ── The single exit point ─────────────────────────────────────────────────── */
+/* `buildGeminiRequest` and `generateNarration` are gone.
+ *
+ * They turned an `AnomalyCondition` into prose — a graded finding about a named
+ * instructor, narrated and then stored against their record or sent to them as
+ * a notification. The grader is deleted, so there is no condition to narrate.
+ *
+ * What stays here is the TRANSPORT: the model chain, the retry, and
+ * `generateStructured`. That is how any prompt reaches a model, and the prompts
+ * that remain describe how to read somebody's own words rather than which
+ * category they fall into. */
 
 type Transport =
   | { ok: true; body: unknown }
@@ -362,53 +323,7 @@ function emptyReason(body: unknown): string {
   return finish ? `no text in the response (${finish})` : "malformed or empty response";
 }
 
-function parseCandidate(body: unknown): { summary: string; recommendation: string } | null {
-  const text = (body as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-    ?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== "string" || text.trim() === "") return null;
 
-  try {
-    const parsed = JSON.parse(text) as { summary?: unknown; recommendation?: unknown };
-    if (typeof parsed.summary !== "string" || typeof parsed.recommendation !== "string") {
-      return null;
-    }
-    if (parsed.summary.trim() === "" || parsed.recommendation.trim() === "") return null;
-    return { summary: parsed.summary.trim(), recommendation: parsed.recommendation.trim() };
-  } catch {
-    return null;
-  }
-}
-
-export async function generateNarration(condition: AnomalyCondition): Promise<GeminiOutcome> {
-  const outcome = await postGenerate(buildGeminiRequest(condition), TIMEOUT_MS);
-  if (!outcome.ok) return outcome;
-
-  const parsed = parseCandidate(outcome.body);
-  if (!parsed) return { ok: false, reason: emptyReason(outcome.body) };
-
-  return { ok: true, ...parsed };
-}
-
-/**
- * A single structured-JSON call, for callers that need something other than a
- * condition narration.
- *
- * The caller supplies the whole instruction and parses its own shape, because
- * the features that use this want different payloads and a shared "generic"
- * schema would fit neither. Returns the raw candidate TEXT, so a malformed
- * model response is a handled outcome rather than an exception.
- *
- * ── `document` reverses this module's privacy stance, deliberately ──────────
- * Everything else here is built so no personal name ever leaves the process —
- * that is what {@link SUBJECT_TOKEN} exists for. Passing a `document` sends the
- * file's BYTES, which for a staff roster means every name, email and employee
- * code in it. That is not an oversight to be tidied up later: it is the whole
- * point of document extraction, and it cannot be done without it. So it is a
- * separate, explicit, opt-in parameter rather than something a caller can
- * enable by accident, it is reached only from an ADMIN-initiated upload, and
- * the extracted result is still validated deterministically afterwards — the
- * provider reads the file, it does not decide what enters the database.
- */
 export async function generateStructured(
   instruction: string,
   opts: {

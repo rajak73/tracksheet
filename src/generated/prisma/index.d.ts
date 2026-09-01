@@ -60,36 +60,6 @@ export type Manager = $Result.DefaultSelection<Prisma.$ManagerPayload>
  */
 export type WorklogDayNote = $Result.DefaultSelection<Prisma.$WorklogDayNotePayload>
 /**
- * Model InstructorCategory
- * What an instructor TEACHES: Technical, English, Aptitude or Mathematics.
- * 
- * ── It is a specialism, not a department ──────────────────────────────────
- * Somebody from any tech discipline delivering programming is TECH; the column
- * says what they teach, not which department they came from. Confirmed against
- * the client's own roster: TECH instructors sit against Programming
- * Foundations, Python, Node JS, DSA and React; ENGLISH against Communicative
- * English Foundation and Advanced; APTITUDE against Logical Reasoning and
- * Quantitative Aptitude; MATH against Numerical Ability and Probability &
- * Statistics. Four categories, ~600 instructors, and the split is clean.
- * 
- * ── Why it cannot be derived, and must be set ─────────────────────────────
- * The obvious shortcut is to read somebody's courses and infer their stream.
- * The data says no: below the top few courses the associations overlap heavily
- * — ENGLISH instructors are attached to "Build Your Own Static Website",
- * MATH instructors to "Generative AI" — because an instructor is linked to the
- * whole programme their students take, not only what they personally deliver.
- * Any inference from activity would therefore be wrong for a large minority,
- * and wrong differently each month: somebody who spent a month on meetings
- * would change category, and a signed-off sheet would reshuffle its own rows
- * between two readings of the same period. Somebody is hired into a stream and
- * stays in it, so an admin sets it and it stays set.
- * 
- * Held as a TABLE rather than an enum for the same reason the activity
- * taxonomy is: adding "Data Science" should be an insert and a seed run, not
- * a migration and a deploy.
- */
-export type InstructorCategory = $Result.DefaultSelection<Prisma.$InstructorCategoryPayload>
-/**
  * Model Instructor
  * 
  */
@@ -961,16 +931,6 @@ export class PrismaClient<
   get worklogDayNote(): Prisma.WorklogDayNoteDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.instructorCategory`: Exposes CRUD operations for the **InstructorCategory** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more InstructorCategories
-    * const instructorCategories = await prisma.instructorCategory.findMany()
-    * ```
-    */
-  get instructorCategory(): Prisma.InstructorCategoryDelegate<ExtArgs, ClientOptions>;
-
-  /**
    * `prisma.instructor`: Exposes CRUD operations for the **Instructor** model.
     * Example usage:
     * ```ts
@@ -1752,7 +1712,6 @@ export namespace Prisma {
     UniversityHoliday: 'UniversityHoliday',
     Manager: 'Manager',
     WorklogDayNote: 'WorklogDayNote',
-    InstructorCategory: 'InstructorCategory',
     Instructor: 'Instructor',
     ActivityType: 'ActivityType',
     LeaveRequest: 'LeaveRequest',
@@ -1801,7 +1760,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "dayExtraction" | "worklogActivityArchive"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "dayExtraction" | "worklogActivityArchive"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -2246,80 +2205,6 @@ export namespace Prisma {
           count: {
             args: Prisma.WorklogDayNoteCountArgs<ExtArgs>
             result: $Utils.Optional<WorklogDayNoteCountAggregateOutputType> | number
-          }
-        }
-      }
-      InstructorCategory: {
-        payload: Prisma.$InstructorCategoryPayload<ExtArgs>
-        fields: Prisma.InstructorCategoryFieldRefs
-        operations: {
-          findUnique: {
-            args: Prisma.InstructorCategoryFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload> | null
-          }
-          findUniqueOrThrow: {
-            args: Prisma.InstructorCategoryFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          findFirst: {
-            args: Prisma.InstructorCategoryFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload> | null
-          }
-          findFirstOrThrow: {
-            args: Prisma.InstructorCategoryFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          findMany: {
-            args: Prisma.InstructorCategoryFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
-          }
-          create: {
-            args: Prisma.InstructorCategoryCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          createMany: {
-            args: Prisma.InstructorCategoryCreateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          createManyAndReturn: {
-            args: Prisma.InstructorCategoryCreateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
-          }
-          delete: {
-            args: Prisma.InstructorCategoryDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          update: {
-            args: Prisma.InstructorCategoryUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          deleteMany: {
-            args: Prisma.InstructorCategoryDeleteManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateMany: {
-            args: Prisma.InstructorCategoryUpdateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateManyAndReturn: {
-            args: Prisma.InstructorCategoryUpdateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>[]
-          }
-          upsert: {
-            args: Prisma.InstructorCategoryUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$InstructorCategoryPayload>
-          }
-          aggregate: {
-            args: Prisma.InstructorCategoryAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateInstructorCategory>
-          }
-          groupBy: {
-            args: Prisma.InstructorCategoryGroupByArgs<ExtArgs>
-            result: $Utils.Optional<InstructorCategoryGroupByOutputType>[]
-          }
-          count: {
-            args: Prisma.InstructorCategoryCountArgs<ExtArgs>
-            result: $Utils.Optional<InstructorCategoryCountAggregateOutputType> | number
           }
         }
       }
@@ -4894,7 +4779,6 @@ export namespace Prisma {
     universityHoliday?: UniversityHolidayOmit
     manager?: ManagerOmit
     worklogDayNote?: WorklogDayNoteOmit
-    instructorCategory?: InstructorCategoryOmit
     instructor?: InstructorOmit
     activityType?: ActivityTypeOmit
     leaveRequest?: LeaveRequestOmit
@@ -5408,46 +5292,6 @@ export namespace Prisma {
    */
   export type ManagerCountOutputTypeCountInstructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: InstructorWhereInput
-  }
-
-
-  /**
-   * Count Type InstructorCategoryCountOutputType
-   */
-
-  export type InstructorCategoryCountOutputType = {
-    instructors: number
-    activityLogs: number
-  }
-
-  export type InstructorCategoryCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    instructors?: boolean | InstructorCategoryCountOutputTypeCountInstructorsArgs
-    activityLogs?: boolean | InstructorCategoryCountOutputTypeCountActivityLogsArgs
-  }
-
-  // Custom InputTypes
-  /**
-   * InstructorCategoryCountOutputType without action
-   */
-  export type InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategoryCountOutputType
-     */
-    select?: InstructorCategoryCountOutputTypeSelect<ExtArgs> | null
-  }
-
-  /**
-   * InstructorCategoryCountOutputType without action
-   */
-  export type InstructorCategoryCountOutputTypeCountInstructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: InstructorWhereInput
-  }
-
-  /**
-   * InstructorCategoryCountOutputType without action
-   */
-  export type InstructorCategoryCountOutputTypeCountActivityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: ActivityLogWhereInput
   }
 
 
@@ -14051,1169 +13895,6 @@ export namespace Prisma {
 
 
   /**
-   * Model InstructorCategory
-   */
-
-  export type AggregateInstructorCategory = {
-    _count: InstructorCategoryCountAggregateOutputType | null
-    _avg: InstructorCategoryAvgAggregateOutputType | null
-    _sum: InstructorCategorySumAggregateOutputType | null
-    _min: InstructorCategoryMinAggregateOutputType | null
-    _max: InstructorCategoryMaxAggregateOutputType | null
-  }
-
-  export type InstructorCategoryAvgAggregateOutputType = {
-    sortOrder: number | null
-  }
-
-  export type InstructorCategorySumAggregateOutputType = {
-    sortOrder: number | null
-  }
-
-  export type InstructorCategoryMinAggregateOutputType = {
-    id: string | null
-    code: string | null
-    label: string | null
-    sortOrder: number | null
-    isActive: boolean | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type InstructorCategoryMaxAggregateOutputType = {
-    id: string | null
-    code: string | null
-    label: string | null
-    sortOrder: number | null
-    isActive: boolean | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type InstructorCategoryCountAggregateOutputType = {
-    id: number
-    code: number
-    label: number
-    sortOrder: number
-    isActive: number
-    createdAt: number
-    updatedAt: number
-    _all: number
-  }
-
-
-  export type InstructorCategoryAvgAggregateInputType = {
-    sortOrder?: true
-  }
-
-  export type InstructorCategorySumAggregateInputType = {
-    sortOrder?: true
-  }
-
-  export type InstructorCategoryMinAggregateInputType = {
-    id?: true
-    code?: true
-    label?: true
-    sortOrder?: true
-    isActive?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type InstructorCategoryMaxAggregateInputType = {
-    id?: true
-    code?: true
-    label?: true
-    sortOrder?: true
-    isActive?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type InstructorCategoryCountAggregateInputType = {
-    id?: true
-    code?: true
-    label?: true
-    sortOrder?: true
-    isActive?: true
-    createdAt?: true
-    updatedAt?: true
-    _all?: true
-  }
-
-  export type InstructorCategoryAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which InstructorCategory to aggregate.
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of InstructorCategories to fetch.
-     */
-    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the start position
-     */
-    cursor?: InstructorCategoryWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` InstructorCategories from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` InstructorCategories.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Count returned InstructorCategories
-    **/
-    _count?: true | InstructorCategoryCountAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to average
-    **/
-    _avg?: InstructorCategoryAvgAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to sum
-    **/
-    _sum?: InstructorCategorySumAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the minimum value
-    **/
-    _min?: InstructorCategoryMinAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the maximum value
-    **/
-    _max?: InstructorCategoryMaxAggregateInputType
-  }
-
-  export type GetInstructorCategoryAggregateType<T extends InstructorCategoryAggregateArgs> = {
-        [P in keyof T & keyof AggregateInstructorCategory]: P extends '_count' | 'count'
-      ? T[P] extends true
-        ? number
-        : GetScalarType<T[P], AggregateInstructorCategory[P]>
-      : GetScalarType<T[P], AggregateInstructorCategory[P]>
-  }
-
-
-
-
-  export type InstructorCategoryGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: InstructorCategoryWhereInput
-    orderBy?: InstructorCategoryOrderByWithAggregationInput | InstructorCategoryOrderByWithAggregationInput[]
-    by: InstructorCategoryScalarFieldEnum[] | InstructorCategoryScalarFieldEnum
-    having?: InstructorCategoryScalarWhereWithAggregatesInput
-    take?: number
-    skip?: number
-    _count?: InstructorCategoryCountAggregateInputType | true
-    _avg?: InstructorCategoryAvgAggregateInputType
-    _sum?: InstructorCategorySumAggregateInputType
-    _min?: InstructorCategoryMinAggregateInputType
-    _max?: InstructorCategoryMaxAggregateInputType
-  }
-
-  export type InstructorCategoryGroupByOutputType = {
-    id: string
-    code: string
-    label: string
-    sortOrder: number
-    isActive: boolean
-    createdAt: Date
-    updatedAt: Date
-    _count: InstructorCategoryCountAggregateOutputType | null
-    _avg: InstructorCategoryAvgAggregateOutputType | null
-    _sum: InstructorCategorySumAggregateOutputType | null
-    _min: InstructorCategoryMinAggregateOutputType | null
-    _max: InstructorCategoryMaxAggregateOutputType | null
-  }
-
-  type GetInstructorCategoryGroupByPayload<T extends InstructorCategoryGroupByArgs> = Prisma.PrismaPromise<
-    Array<
-      PickEnumerable<InstructorCategoryGroupByOutputType, T['by']> &
-        {
-          [P in ((keyof T) & (keyof InstructorCategoryGroupByOutputType))]: P extends '_count'
-            ? T[P] extends boolean
-              ? number
-              : GetScalarType<T[P], InstructorCategoryGroupByOutputType[P]>
-            : GetScalarType<T[P], InstructorCategoryGroupByOutputType[P]>
-        }
-      >
-    >
-
-
-  export type InstructorCategorySelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    code?: boolean
-    label?: boolean
-    sortOrder?: boolean
-    isActive?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    instructors?: boolean | InstructorCategory$instructorsArgs<ExtArgs>
-    activityLogs?: boolean | InstructorCategory$activityLogsArgs<ExtArgs>
-    _count?: boolean | InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs>
-  }, ExtArgs["result"]["instructorCategory"]>
-
-  export type InstructorCategorySelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    code?: boolean
-    label?: boolean
-    sortOrder?: boolean
-    isActive?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }, ExtArgs["result"]["instructorCategory"]>
-
-  export type InstructorCategorySelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    code?: boolean
-    label?: boolean
-    sortOrder?: boolean
-    isActive?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }, ExtArgs["result"]["instructorCategory"]>
-
-  export type InstructorCategorySelectScalar = {
-    id?: boolean
-    code?: boolean
-    label?: boolean
-    sortOrder?: boolean
-    isActive?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }
-
-  export type InstructorCategoryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "code" | "label" | "sortOrder" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["instructorCategory"]>
-  export type InstructorCategoryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    instructors?: boolean | InstructorCategory$instructorsArgs<ExtArgs>
-    activityLogs?: boolean | InstructorCategory$activityLogsArgs<ExtArgs>
-    _count?: boolean | InstructorCategoryCountOutputTypeDefaultArgs<ExtArgs>
-  }
-  export type InstructorCategoryIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
-  export type InstructorCategoryIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
-
-  export type $InstructorCategoryPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "InstructorCategory"
-    objects: {
-      instructors: Prisma.$InstructorPayload<ExtArgs>[]
-      activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
-    }
-    scalars: $Extensions.GetPayloadResult<{
-      id: string
-      code: string
-      label: string
-      sortOrder: number
-      isActive: boolean
-      createdAt: Date
-      updatedAt: Date
-    }, ExtArgs["result"]["instructorCategory"]>
-    composites: {}
-  }
-
-  type InstructorCategoryGetPayload<S extends boolean | null | undefined | InstructorCategoryDefaultArgs> = $Result.GetResult<Prisma.$InstructorCategoryPayload, S>
-
-  type InstructorCategoryCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<InstructorCategoryFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: InstructorCategoryCountAggregateInputType | true
-    }
-
-  export interface InstructorCategoryDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['InstructorCategory'], meta: { name: 'InstructorCategory' } }
-    /**
-     * Find zero or one InstructorCategory that matches the filter.
-     * @param {InstructorCategoryFindUniqueArgs} args - Arguments to find a InstructorCategory
-     * @example
-     * // Get one InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.findUnique({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUnique<T extends InstructorCategoryFindUniqueArgs>(args: SelectSubset<T, InstructorCategoryFindUniqueArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find one InstructorCategory that matches the filter or throw an error with `error.code='P2025'`
-     * if no matches were found.
-     * @param {InstructorCategoryFindUniqueOrThrowArgs} args - Arguments to find a InstructorCategory
-     * @example
-     * // Get one InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.findUniqueOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUniqueOrThrow<T extends InstructorCategoryFindUniqueOrThrowArgs>(args: SelectSubset<T, InstructorCategoryFindUniqueOrThrowArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first InstructorCategory that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryFindFirstArgs} args - Arguments to find a InstructorCategory
-     * @example
-     * // Get one InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.findFirst({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirst<T extends InstructorCategoryFindFirstArgs>(args?: SelectSubset<T, InstructorCategoryFindFirstArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first InstructorCategory that matches the filter or
-     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryFindFirstOrThrowArgs} args - Arguments to find a InstructorCategory
-     * @example
-     * // Get one InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.findFirstOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirstOrThrow<T extends InstructorCategoryFindFirstOrThrowArgs>(args?: SelectSubset<T, InstructorCategoryFindFirstOrThrowArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more InstructorCategories that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryFindManyArgs} args - Arguments to filter and select certain fields only.
-     * @example
-     * // Get all InstructorCategories
-     * const instructorCategories = await prisma.instructorCategory.findMany()
-     * 
-     * // Get first 10 InstructorCategories
-     * const instructorCategories = await prisma.instructorCategory.findMany({ take: 10 })
-     * 
-     * // Only select the `id`
-     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.findMany({ select: { id: true } })
-     * 
-     */
-    findMany<T extends InstructorCategoryFindManyArgs>(args?: SelectSubset<T, InstructorCategoryFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
-
-    /**
-     * Create a InstructorCategory.
-     * @param {InstructorCategoryCreateArgs} args - Arguments to create a InstructorCategory.
-     * @example
-     * // Create one InstructorCategory
-     * const InstructorCategory = await prisma.instructorCategory.create({
-     *   data: {
-     *     // ... data to create a InstructorCategory
-     *   }
-     * })
-     * 
-     */
-    create<T extends InstructorCategoryCreateArgs>(args: SelectSubset<T, InstructorCategoryCreateArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Create many InstructorCategories.
-     * @param {InstructorCategoryCreateManyArgs} args - Arguments to create many InstructorCategories.
-     * @example
-     * // Create many InstructorCategories
-     * const instructorCategory = await prisma.instructorCategory.createMany({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     *     
-     */
-    createMany<T extends InstructorCategoryCreateManyArgs>(args?: SelectSubset<T, InstructorCategoryCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Create many InstructorCategories and returns the data saved in the database.
-     * @param {InstructorCategoryCreateManyAndReturnArgs} args - Arguments to create many InstructorCategories.
-     * @example
-     * // Create many InstructorCategories
-     * const instructorCategory = await prisma.instructorCategory.createManyAndReturn({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Create many InstructorCategories and only return the `id`
-     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.createManyAndReturn({
-     *   select: { id: true },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    createManyAndReturn<T extends InstructorCategoryCreateManyAndReturnArgs>(args?: SelectSubset<T, InstructorCategoryCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Delete a InstructorCategory.
-     * @param {InstructorCategoryDeleteArgs} args - Arguments to delete one InstructorCategory.
-     * @example
-     * // Delete one InstructorCategory
-     * const InstructorCategory = await prisma.instructorCategory.delete({
-     *   where: {
-     *     // ... filter to delete one InstructorCategory
-     *   }
-     * })
-     * 
-     */
-    delete<T extends InstructorCategoryDeleteArgs>(args: SelectSubset<T, InstructorCategoryDeleteArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Update one InstructorCategory.
-     * @param {InstructorCategoryUpdateArgs} args - Arguments to update one InstructorCategory.
-     * @example
-     * // Update one InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.update({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    update<T extends InstructorCategoryUpdateArgs>(args: SelectSubset<T, InstructorCategoryUpdateArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Delete zero or more InstructorCategories.
-     * @param {InstructorCategoryDeleteManyArgs} args - Arguments to filter InstructorCategories to delete.
-     * @example
-     * // Delete a few InstructorCategories
-     * const { count } = await prisma.instructorCategory.deleteMany({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     * 
-     */
-    deleteMany<T extends InstructorCategoryDeleteManyArgs>(args?: SelectSubset<T, InstructorCategoryDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more InstructorCategories.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryUpdateManyArgs} args - Arguments to update one or more rows.
-     * @example
-     * // Update many InstructorCategories
-     * const instructorCategory = await prisma.instructorCategory.updateMany({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    updateMany<T extends InstructorCategoryUpdateManyArgs>(args: SelectSubset<T, InstructorCategoryUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more InstructorCategories and returns the data updated in the database.
-     * @param {InstructorCategoryUpdateManyAndReturnArgs} args - Arguments to update many InstructorCategories.
-     * @example
-     * // Update many InstructorCategories
-     * const instructorCategory = await prisma.instructorCategory.updateManyAndReturn({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Update zero or more InstructorCategories and only return the `id`
-     * const instructorCategoryWithIdOnly = await prisma.instructorCategory.updateManyAndReturn({
-     *   select: { id: true },
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    updateManyAndReturn<T extends InstructorCategoryUpdateManyAndReturnArgs>(args: SelectSubset<T, InstructorCategoryUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Create or update one InstructorCategory.
-     * @param {InstructorCategoryUpsertArgs} args - Arguments to update or create a InstructorCategory.
-     * @example
-     * // Update or create a InstructorCategory
-     * const instructorCategory = await prisma.instructorCategory.upsert({
-     *   create: {
-     *     // ... data to create a InstructorCategory
-     *   },
-     *   update: {
-     *     // ... in case it already exists, update
-     *   },
-     *   where: {
-     *     // ... the filter for the InstructorCategory we want to update
-     *   }
-     * })
-     */
-    upsert<T extends InstructorCategoryUpsertArgs>(args: SelectSubset<T, InstructorCategoryUpsertArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-
-    /**
-     * Count the number of InstructorCategories.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryCountArgs} args - Arguments to filter InstructorCategories to count.
-     * @example
-     * // Count the number of InstructorCategories
-     * const count = await prisma.instructorCategory.count({
-     *   where: {
-     *     // ... the filter for the InstructorCategories we want to count
-     *   }
-     * })
-    **/
-    count<T extends InstructorCategoryCountArgs>(
-      args?: Subset<T, InstructorCategoryCountArgs>,
-    ): Prisma.PrismaPromise<
-      T extends $Utils.Record<'select', any>
-        ? T['select'] extends true
-          ? number
-          : GetScalarType<T['select'], InstructorCategoryCountAggregateOutputType>
-        : number
-    >
-
-    /**
-     * Allows you to perform aggregations operations on a InstructorCategory.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
-     * @example
-     * // Ordered by age ascending
-     * // Where email contains prisma.io
-     * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
-     *   _avg: {
-     *     age: true,
-     *   },
-     *   where: {
-     *     email: {
-     *       contains: "prisma.io",
-     *     },
-     *   },
-     *   orderBy: {
-     *     age: "asc",
-     *   },
-     *   take: 10,
-     * })
-    **/
-    aggregate<T extends InstructorCategoryAggregateArgs>(args: Subset<T, InstructorCategoryAggregateArgs>): Prisma.PrismaPromise<GetInstructorCategoryAggregateType<T>>
-
-    /**
-     * Group by InstructorCategory.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {InstructorCategoryGroupByArgs} args - Group by arguments.
-     * @example
-     * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
-     *   by: ['city', 'createdAt'],
-     *   orderBy: {
-     *     createdAt: true
-     *   },
-     *   _count: {
-     *     _all: true
-     *   },
-     * })
-     * 
-    **/
-    groupBy<
-      T extends InstructorCategoryGroupByArgs,
-      HasSelectOrTake extends Or<
-        Extends<'skip', Keys<T>>,
-        Extends<'take', Keys<T>>
-      >,
-      OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: InstructorCategoryGroupByArgs['orderBy'] }
-        : { orderBy?: InstructorCategoryGroupByArgs['orderBy'] },
-      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
-      ByFields extends MaybeTupleToUnion<T['by']>,
-      ByValid extends Has<ByFields, OrderFields>,
-      HavingFields extends GetHavingFields<T['having']>,
-      HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
-      ? `Error: "by" must not be empty.`
-      : HavingValid extends False
-      ? {
-          [P in HavingFields]: P extends ByFields
-            ? never
-            : P extends string
-            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
-            : [
-                Error,
-                'Field ',
-                P,
-                ` in "having" needs to be provided in "by"`,
-              ]
-        }[HavingFields]
-      : 'take' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "take", you also need to provide "orderBy"'
-      : 'skip' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "skip", you also need to provide "orderBy"'
-      : ByValid extends True
-      ? {}
-      : {
-          [P in OrderFields]: P extends ByFields
-            ? never
-            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-        }[OrderFields]
-    >(args: SubsetIntersection<T, InstructorCategoryGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetInstructorCategoryGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
-  /**
-   * Fields of the InstructorCategory model
-   */
-  readonly fields: InstructorCategoryFieldRefs;
-  }
-
-  /**
-   * The delegate class that acts as a "Promise-like" for InstructorCategory.
-   * Why is this prefixed with `Prisma__`?
-   * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
-   */
-  export interface Prisma__InstructorCategoryClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
-    readonly [Symbol.toStringTag]: "PrismaPromise"
-    instructors<T extends InstructorCategory$instructorsArgs<ExtArgs> = {}>(args?: Subset<T, InstructorCategory$instructorsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    activityLogs<T extends InstructorCategory$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, InstructorCategory$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    /**
-     * Attaches callbacks for the resolution and/or rejection of the Promise.
-     * @param onfulfilled The callback to execute when the Promise is resolved.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of which ever callback is executed.
-     */
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
-    /**
-     * Attaches a callback for only the rejection of the Promise.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of the callback.
-     */
-    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
-    /**
-     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
-     * resolved value cannot be modified from the callback.
-     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
-     * @returns A Promise for the completion of the callback.
-     */
-    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
-  }
-
-
-
-
-  /**
-   * Fields of the InstructorCategory model
-   */
-  interface InstructorCategoryFieldRefs {
-    readonly id: FieldRef<"InstructorCategory", 'String'>
-    readonly code: FieldRef<"InstructorCategory", 'String'>
-    readonly label: FieldRef<"InstructorCategory", 'String'>
-    readonly sortOrder: FieldRef<"InstructorCategory", 'Int'>
-    readonly isActive: FieldRef<"InstructorCategory", 'Boolean'>
-    readonly createdAt: FieldRef<"InstructorCategory", 'DateTime'>
-    readonly updatedAt: FieldRef<"InstructorCategory", 'DateTime'>
-  }
-    
-
-  // Custom InputTypes
-  /**
-   * InstructorCategory findUnique
-   */
-  export type InstructorCategoryFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter, which InstructorCategory to fetch.
-     */
-    where: InstructorCategoryWhereUniqueInput
-  }
-
-  /**
-   * InstructorCategory findUniqueOrThrow
-   */
-  export type InstructorCategoryFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter, which InstructorCategory to fetch.
-     */
-    where: InstructorCategoryWhereUniqueInput
-  }
-
-  /**
-   * InstructorCategory findFirst
-   */
-  export type InstructorCategoryFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter, which InstructorCategory to fetch.
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of InstructorCategories to fetch.
-     */
-    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for InstructorCategories.
-     */
-    cursor?: InstructorCategoryWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` InstructorCategories from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` InstructorCategories.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of InstructorCategories.
-     */
-    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
-  }
-
-  /**
-   * InstructorCategory findFirstOrThrow
-   */
-  export type InstructorCategoryFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter, which InstructorCategory to fetch.
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of InstructorCategories to fetch.
-     */
-    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for InstructorCategories.
-     */
-    cursor?: InstructorCategoryWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` InstructorCategories from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` InstructorCategories.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of InstructorCategories.
-     */
-    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
-  }
-
-  /**
-   * InstructorCategory findMany
-   */
-  export type InstructorCategoryFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter, which InstructorCategories to fetch.
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of InstructorCategories to fetch.
-     */
-    orderBy?: InstructorCategoryOrderByWithRelationInput | InstructorCategoryOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for listing InstructorCategories.
-     */
-    cursor?: InstructorCategoryWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` InstructorCategories from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` InstructorCategories.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of InstructorCategories.
-     */
-    distinct?: InstructorCategoryScalarFieldEnum | InstructorCategoryScalarFieldEnum[]
-  }
-
-  /**
-   * InstructorCategory create
-   */
-  export type InstructorCategoryCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * The data needed to create a InstructorCategory.
-     */
-    data: XOR<InstructorCategoryCreateInput, InstructorCategoryUncheckedCreateInput>
-  }
-
-  /**
-   * InstructorCategory createMany
-   */
-  export type InstructorCategoryCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to create many InstructorCategories.
-     */
-    data: InstructorCategoryCreateManyInput | InstructorCategoryCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * InstructorCategory createManyAndReturn
-   */
-  export type InstructorCategoryCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelectCreateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * The data used to create many InstructorCategories.
-     */
-    data: InstructorCategoryCreateManyInput | InstructorCategoryCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * InstructorCategory update
-   */
-  export type InstructorCategoryUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * The data needed to update a InstructorCategory.
-     */
-    data: XOR<InstructorCategoryUpdateInput, InstructorCategoryUncheckedUpdateInput>
-    /**
-     * Choose, which InstructorCategory to update.
-     */
-    where: InstructorCategoryWhereUniqueInput
-  }
-
-  /**
-   * InstructorCategory updateMany
-   */
-  export type InstructorCategoryUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update InstructorCategories.
-     */
-    data: XOR<InstructorCategoryUpdateManyMutationInput, InstructorCategoryUncheckedUpdateManyInput>
-    /**
-     * Filter which InstructorCategories to update
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * Limit how many InstructorCategories to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * InstructorCategory updateManyAndReturn
-   */
-  export type InstructorCategoryUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelectUpdateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * The data used to update InstructorCategories.
-     */
-    data: XOR<InstructorCategoryUpdateManyMutationInput, InstructorCategoryUncheckedUpdateManyInput>
-    /**
-     * Filter which InstructorCategories to update
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * Limit how many InstructorCategories to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * InstructorCategory upsert
-   */
-  export type InstructorCategoryUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * The filter to search for the InstructorCategory to update in case it exists.
-     */
-    where: InstructorCategoryWhereUniqueInput
-    /**
-     * In case the InstructorCategory found by the `where` argument doesn't exist, create a new InstructorCategory with this data.
-     */
-    create: XOR<InstructorCategoryCreateInput, InstructorCategoryUncheckedCreateInput>
-    /**
-     * In case the InstructorCategory was found with the provided `where` argument, update it with this data.
-     */
-    update: XOR<InstructorCategoryUpdateInput, InstructorCategoryUncheckedUpdateInput>
-  }
-
-  /**
-   * InstructorCategory delete
-   */
-  export type InstructorCategoryDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    /**
-     * Filter which InstructorCategory to delete.
-     */
-    where: InstructorCategoryWhereUniqueInput
-  }
-
-  /**
-   * InstructorCategory deleteMany
-   */
-  export type InstructorCategoryDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which InstructorCategories to delete
-     */
-    where?: InstructorCategoryWhereInput
-    /**
-     * Limit how many InstructorCategories to delete.
-     */
-    limit?: number
-  }
-
-  /**
-   * InstructorCategory.instructors
-   */
-  export type InstructorCategory$instructorsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Instructor
-     */
-    select?: InstructorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Instructor
-     */
-    omit?: InstructorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorInclude<ExtArgs> | null
-    where?: InstructorWhereInput
-    orderBy?: InstructorOrderByWithRelationInput | InstructorOrderByWithRelationInput[]
-    cursor?: InstructorWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: InstructorScalarFieldEnum | InstructorScalarFieldEnum[]
-  }
-
-  /**
-   * InstructorCategory.activityLogs
-   */
-  export type InstructorCategory$activityLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the ActivityLog
-     */
-    select?: ActivityLogSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the ActivityLog
-     */
-    omit?: ActivityLogOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: ActivityLogInclude<ExtArgs> | null
-    where?: ActivityLogWhereInput
-    orderBy?: ActivityLogOrderByWithRelationInput | ActivityLogOrderByWithRelationInput[]
-    cursor?: ActivityLogWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: ActivityLogScalarFieldEnum | ActivityLogScalarFieldEnum[]
-  }
-
-  /**
-   * InstructorCategory without action
-   */
-  export type InstructorCategoryDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-  }
-
-
-  /**
    * Model Instructor
    */
 
@@ -15227,7 +13908,6 @@ export namespace Prisma {
     id: string | null
     userId: string | null
     universityId: string | null
-    categoryId: string | null
     managerId: string | null
     employeeCode: string | null
     createdAt: Date | null
@@ -15238,7 +13918,6 @@ export namespace Prisma {
     id: string | null
     userId: string | null
     universityId: string | null
-    categoryId: string | null
     managerId: string | null
     employeeCode: string | null
     createdAt: Date | null
@@ -15249,7 +13928,6 @@ export namespace Prisma {
     id: number
     userId: number
     universityId: number
-    categoryId: number
     managerId: number
     employeeCode: number
     createdAt: number
@@ -15262,7 +13940,6 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
-    categoryId?: true
     managerId?: true
     employeeCode?: true
     createdAt?: true
@@ -15273,7 +13950,6 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
-    categoryId?: true
     managerId?: true
     employeeCode?: true
     createdAt?: true
@@ -15284,7 +13960,6 @@ export namespace Prisma {
     id?: true
     userId?: true
     universityId?: true
-    categoryId?: true
     managerId?: true
     employeeCode?: true
     createdAt?: true
@@ -15368,7 +14043,6 @@ export namespace Prisma {
     id: string
     userId: string
     universityId: string
-    categoryId: string | null
     managerId: string | null
     employeeCode: string | null
     createdAt: Date
@@ -15396,12 +14070,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
-    categoryId?: boolean
     managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
@@ -15428,12 +14100,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
-    categoryId?: boolean
     managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
@@ -15443,12 +14113,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
-    categoryId?: boolean
     managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
@@ -15458,16 +14126,14 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     universityId?: boolean
-    categoryId?: boolean
     managerId?: boolean
     employeeCode?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type InstructorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "categoryId" | "managerId" | "employeeCode" | "createdAt" | "updatedAt", ExtArgs["result"]["instructor"]>
+  export type InstructorOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "universityId" | "managerId" | "employeeCode" | "createdAt" | "updatedAt", ExtArgs["result"]["instructor"]>
   export type InstructorInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
@@ -15490,13 +14156,11 @@ export namespace Prisma {
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
   }
   export type InstructorIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    category?: boolean | Instructor$categoryArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     manager?: boolean | Instructor$managerArgs<ExtArgs>
@@ -15505,7 +14169,12 @@ export namespace Prisma {
   export type $InstructorPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Instructor"
     objects: {
-      category: Prisma.$InstructorCategoryPayload<ExtArgs> | null
+      /**
+       * Nullable because it is ASSIGNED, never inferred — an instructor nobody has
+       * categorised yet is a real state, and the sheet shows it as blank rather
+       * than guessing. `Restrict`, so a category in use cannot be deleted out from
+       * under the rows that report on it.
+       */
       user: Prisma.$UserPayload<ExtArgs>
       university: Prisma.$UniversityPayload<ExtArgs>
       manager: Prisma.$ManagerPayload<ExtArgs> | null
@@ -15539,13 +14208,6 @@ export namespace Prisma {
       id: string
       userId: string
       universityId: string
-      /**
-       * Nullable because it is ASSIGNED, never inferred — an instructor nobody has
-       * categorised yet is a real state, and the sheet shows it as blank rather
-       * than guessing. `Restrict`, so a category in use cannot be deleted out from
-       * under the rows that report on it.
-       */
-      categoryId: string | null
       /**
        * Who this instructor reports to. Nullable because ownership is assigned by
        * an admin, never inferred: an instructor who has not been placed on a
@@ -15959,7 +14621,6 @@ export namespace Prisma {
    */
   export interface Prisma__InstructorClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    category<T extends Instructor$categoryArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$categoryArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     user<T extends UserDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UserDefaultArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     manager<T extends Instructor$managerArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$managerArgs<ExtArgs>>): Prisma__ManagerClient<$Result.GetResult<Prisma.$ManagerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -16011,7 +14672,6 @@ export namespace Prisma {
     readonly id: FieldRef<"Instructor", 'String'>
     readonly userId: FieldRef<"Instructor", 'String'>
     readonly universityId: FieldRef<"Instructor", 'String'>
-    readonly categoryId: FieldRef<"Instructor", 'String'>
     readonly managerId: FieldRef<"Instructor", 'String'>
     readonly employeeCode: FieldRef<"Instructor", 'String'>
     readonly createdAt: FieldRef<"Instructor", 'DateTime'>
@@ -16414,25 +15074,6 @@ export namespace Prisma {
      * Limit how many Instructors to delete.
      */
     limit?: number
-  }
-
-  /**
-   * Instructor.category
-   */
-  export type Instructor$categoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    where?: InstructorCategoryWhereInput
   }
 
   /**
@@ -20419,7 +19060,6 @@ export namespace Prisma {
     rawQuantity: string | null
     rawWorkingHours: string | null
     submissionId: string | null
-    broadCategoryId: string | null
     deliverableTypeId: string | null
     quantity: number | null
     createdAt: Date | null
@@ -20446,7 +19086,6 @@ export namespace Prisma {
     rawQuantity: string | null
     rawWorkingHours: string | null
     submissionId: string | null
-    broadCategoryId: string | null
     deliverableTypeId: string | null
     quantity: number | null
     createdAt: Date | null
@@ -20473,7 +19112,6 @@ export namespace Prisma {
     rawQuantity: number
     rawWorkingHours: number
     submissionId: number
-    broadCategoryId: number
     deliverableTypeId: number
     quantity: number
     createdAt: number
@@ -20510,7 +19148,6 @@ export namespace Prisma {
     rawQuantity?: true
     rawWorkingHours?: true
     submissionId?: true
-    broadCategoryId?: true
     deliverableTypeId?: true
     quantity?: true
     createdAt?: true
@@ -20537,7 +19174,6 @@ export namespace Prisma {
     rawQuantity?: true
     rawWorkingHours?: true
     submissionId?: true
-    broadCategoryId?: true
     deliverableTypeId?: true
     quantity?: true
     createdAt?: true
@@ -20564,7 +19200,6 @@ export namespace Prisma {
     rawQuantity?: true
     rawWorkingHours?: true
     submissionId?: true
-    broadCategoryId?: true
     deliverableTypeId?: true
     quantity?: true
     createdAt?: true
@@ -20678,7 +19313,6 @@ export namespace Prisma {
     rawQuantity: string | null
     rawWorkingHours: string | null
     submissionId: string | null
-    broadCategoryId: string | null
     deliverableTypeId: string | null
     quantity: number | null
     createdAt: Date
@@ -20724,7 +19358,6 @@ export namespace Prisma {
     rawQuantity?: boolean
     rawWorkingHours?: boolean
     submissionId?: boolean
-    broadCategoryId?: boolean
     deliverableTypeId?: boolean
     quantity?: boolean
     createdAt?: boolean
@@ -20736,7 +19369,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
@@ -20760,7 +19392,6 @@ export namespace Prisma {
     rawQuantity?: boolean
     rawWorkingHours?: boolean
     submissionId?: boolean
-    broadCategoryId?: boolean
     deliverableTypeId?: boolean
     quantity?: boolean
     createdAt?: boolean
@@ -20772,7 +19403,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
@@ -20796,7 +19426,6 @@ export namespace Prisma {
     rawQuantity?: boolean
     rawWorkingHours?: boolean
     submissionId?: boolean
-    broadCategoryId?: boolean
     deliverableTypeId?: boolean
     quantity?: boolean
     createdAt?: boolean
@@ -20808,7 +19437,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }, ExtArgs["result"]["activityLog"]>
 
@@ -20832,14 +19460,13 @@ export namespace Prisma {
     rawQuantity?: boolean
     rawWorkingHours?: boolean
     submissionId?: boolean
-    broadCategoryId?: boolean
     deliverableTypeId?: boolean
     quantity?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "timesStated" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "rawQuantity" | "rawWorkingHours" | "submissionId" | "broadCategoryId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
+  export type ActivityLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "activityTypeId" | "workDate" | "startTime" | "endTime" | "timesStated" | "status" | "remarks" | "source" | "scheduleSlotId" | "deliverableId" | "createdById" | "isOncePerDay" | "rawText" | "rawQuantity" | "rawWorkingHours" | "submissionId" | "deliverableTypeId" | "quantity" | "createdAt" | "updatedAt", ExtArgs["result"]["activityLog"]>
   export type ActivityLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -20848,7 +19475,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
   export type ActivityLogIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -20859,7 +19485,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
   export type ActivityLogIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -20870,7 +19495,6 @@ export namespace Prisma {
     deliverable?: boolean | ActivityLog$deliverableArgs<ExtArgs>
     createdBy?: boolean | ActivityLog$createdByArgs<ExtArgs>
     submission?: boolean | ActivityLog$submissionArgs<ExtArgs>
-    broadCategory?: boolean | ActivityLog$broadCategoryArgs<ExtArgs>
     deliverableType?: boolean | ActivityLog$deliverableTypeArgs<ExtArgs>
   }
 
@@ -20891,7 +19515,6 @@ export namespace Prisma {
        */
       createdBy: Prisma.$UserPayload<ExtArgs> | null
       submission: Prisma.$WorklogSubmissionPayload<ExtArgs> | null
-      broadCategory: Prisma.$InstructorCategoryPayload<ExtArgs> | null
       deliverableType: Prisma.$DeliverableTypePayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -20989,7 +19612,6 @@ export namespace Prisma {
        * 2 to 3" has no subject at all, and filling one in would be inventing the
        * most consequential column in the report.
        */
-      broadCategoryId: string | null
       deliverableTypeId: string | null
       /**
        * How many of that deliverable this row accounts for.
@@ -21417,7 +20039,6 @@ export namespace Prisma {
     deliverable<T extends ActivityLog$deliverableArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$deliverableArgs<ExtArgs>>): Prisma__DeliverableClient<$Result.GetResult<Prisma.$DeliverablePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     createdBy<T extends ActivityLog$createdByArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$createdByArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     submission<T extends ActivityLog$submissionArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$submissionArgs<ExtArgs>>): Prisma__WorklogSubmissionClient<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-    broadCategory<T extends ActivityLog$broadCategoryArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$broadCategoryArgs<ExtArgs>>): Prisma__InstructorCategoryClient<$Result.GetResult<Prisma.$InstructorCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     deliverableType<T extends ActivityLog$deliverableTypeArgs<ExtArgs> = {}>(args?: Subset<T, ActivityLog$deliverableTypeArgs<ExtArgs>>): Prisma__DeliverableTypeClient<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -21467,7 +20088,6 @@ export namespace Prisma {
     readonly rawQuantity: FieldRef<"ActivityLog", 'String'>
     readonly rawWorkingHours: FieldRef<"ActivityLog", 'String'>
     readonly submissionId: FieldRef<"ActivityLog", 'String'>
-    readonly broadCategoryId: FieldRef<"ActivityLog", 'String'>
     readonly deliverableTypeId: FieldRef<"ActivityLog", 'String'>
     readonly quantity: FieldRef<"ActivityLog", 'Int'>
     readonly createdAt: FieldRef<"ActivityLog", 'DateTime'>
@@ -21946,25 +20566,6 @@ export namespace Prisma {
      */
     include?: WorklogSubmissionInclude<ExtArgs> | null
     where?: WorklogSubmissionWhereInput
-  }
-
-  /**
-   * ActivityLog.broadCategory
-   */
-  export type ActivityLog$broadCategoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the InstructorCategory
-     */
-    select?: InstructorCategorySelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the InstructorCategory
-     */
-    omit?: InstructorCategoryOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorCategoryInclude<ExtArgs> | null
-    where?: InstructorCategoryWhereInput
   }
 
   /**
@@ -56256,24 +54857,10 @@ export namespace Prisma {
   export type WorklogDayNoteScalarFieldEnum = (typeof WorklogDayNoteScalarFieldEnum)[keyof typeof WorklogDayNoteScalarFieldEnum]
 
 
-  export const InstructorCategoryScalarFieldEnum: {
-    id: 'id',
-    code: 'code',
-    label: 'label',
-    sortOrder: 'sortOrder',
-    isActive: 'isActive',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
-  };
-
-  export type InstructorCategoryScalarFieldEnum = (typeof InstructorCategoryScalarFieldEnum)[keyof typeof InstructorCategoryScalarFieldEnum]
-
-
   export const InstructorScalarFieldEnum: {
     id: 'id',
     userId: 'userId',
     universityId: 'universityId',
-    categoryId: 'categoryId',
     managerId: 'managerId',
     employeeCode: 'employeeCode',
     createdAt: 'createdAt',
@@ -56351,7 +54938,6 @@ export namespace Prisma {
     rawQuantity: 'rawQuantity',
     rawWorkingHours: 'rawWorkingHours',
     submissionId: 'submissionId',
-    broadCategoryId: 'broadCategoryId',
     deliverableTypeId: 'deliverableTypeId',
     quantity: 'quantity',
     createdAt: 'createdAt',
@@ -57994,76 +56580,6 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"WorklogDayNote"> | Date | string
   }
 
-  export type InstructorCategoryWhereInput = {
-    AND?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
-    OR?: InstructorCategoryWhereInput[]
-    NOT?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
-    id?: StringFilter<"InstructorCategory"> | string
-    code?: StringFilter<"InstructorCategory"> | string
-    label?: StringFilter<"InstructorCategory"> | string
-    sortOrder?: IntFilter<"InstructorCategory"> | number
-    isActive?: BoolFilter<"InstructorCategory"> | boolean
-    createdAt?: DateTimeFilter<"InstructorCategory"> | Date | string
-    updatedAt?: DateTimeFilter<"InstructorCategory"> | Date | string
-    instructors?: InstructorListRelationFilter
-    activityLogs?: ActivityLogListRelationFilter
-  }
-
-  export type InstructorCategoryOrderByWithRelationInput = {
-    id?: SortOrder
-    code?: SortOrder
-    label?: SortOrder
-    sortOrder?: SortOrder
-    isActive?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    instructors?: InstructorOrderByRelationAggregateInput
-    activityLogs?: ActivityLogOrderByRelationAggregateInput
-  }
-
-  export type InstructorCategoryWhereUniqueInput = Prisma.AtLeast<{
-    id?: string
-    code?: string
-    AND?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
-    OR?: InstructorCategoryWhereInput[]
-    NOT?: InstructorCategoryWhereInput | InstructorCategoryWhereInput[]
-    label?: StringFilter<"InstructorCategory"> | string
-    sortOrder?: IntFilter<"InstructorCategory"> | number
-    isActive?: BoolFilter<"InstructorCategory"> | boolean
-    createdAt?: DateTimeFilter<"InstructorCategory"> | Date | string
-    updatedAt?: DateTimeFilter<"InstructorCategory"> | Date | string
-    instructors?: InstructorListRelationFilter
-    activityLogs?: ActivityLogListRelationFilter
-  }, "id" | "code">
-
-  export type InstructorCategoryOrderByWithAggregationInput = {
-    id?: SortOrder
-    code?: SortOrder
-    label?: SortOrder
-    sortOrder?: SortOrder
-    isActive?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    _count?: InstructorCategoryCountOrderByAggregateInput
-    _avg?: InstructorCategoryAvgOrderByAggregateInput
-    _max?: InstructorCategoryMaxOrderByAggregateInput
-    _min?: InstructorCategoryMinOrderByAggregateInput
-    _sum?: InstructorCategorySumOrderByAggregateInput
-  }
-
-  export type InstructorCategoryScalarWhereWithAggregatesInput = {
-    AND?: InstructorCategoryScalarWhereWithAggregatesInput | InstructorCategoryScalarWhereWithAggregatesInput[]
-    OR?: InstructorCategoryScalarWhereWithAggregatesInput[]
-    NOT?: InstructorCategoryScalarWhereWithAggregatesInput | InstructorCategoryScalarWhereWithAggregatesInput[]
-    id?: StringWithAggregatesFilter<"InstructorCategory"> | string
-    code?: StringWithAggregatesFilter<"InstructorCategory"> | string
-    label?: StringWithAggregatesFilter<"InstructorCategory"> | string
-    sortOrder?: IntWithAggregatesFilter<"InstructorCategory"> | number
-    isActive?: BoolWithAggregatesFilter<"InstructorCategory"> | boolean
-    createdAt?: DateTimeWithAggregatesFilter<"InstructorCategory"> | Date | string
-    updatedAt?: DateTimeWithAggregatesFilter<"InstructorCategory"> | Date | string
-  }
-
   export type InstructorWhereInput = {
     AND?: InstructorWhereInput | InstructorWhereInput[]
     OR?: InstructorWhereInput[]
@@ -58071,12 +56587,10 @@ export namespace Prisma {
     id?: StringFilter<"Instructor"> | string
     userId?: StringFilter<"Instructor"> | string
     universityId?: StringFilter<"Instructor"> | string
-    categoryId?: StringNullableFilter<"Instructor"> | string | null
     managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeFilter<"Instructor"> | Date | string
-    category?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
     manager?: XOR<ManagerNullableScalarRelationFilter, ManagerWhereInput> | null
@@ -58102,12 +56616,10 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
-    categoryId?: SortOrderInput | SortOrder
     managerId?: SortOrderInput | SortOrder
     employeeCode?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
-    category?: InstructorCategoryOrderByWithRelationInput
     user?: UserOrderByWithRelationInput
     university?: UniversityOrderByWithRelationInput
     manager?: ManagerOrderByWithRelationInput
@@ -58138,12 +56650,10 @@ export namespace Prisma {
     OR?: InstructorWhereInput[]
     NOT?: InstructorWhereInput | InstructorWhereInput[]
     universityId?: StringFilter<"Instructor"> | string
-    categoryId?: StringNullableFilter<"Instructor"> | string | null
     managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
     updatedAt?: DateTimeFilter<"Instructor"> | Date | string
-    category?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
     manager?: XOR<ManagerNullableScalarRelationFilter, ManagerWhereInput> | null
@@ -58169,7 +56679,6 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
-    categoryId?: SortOrderInput | SortOrder
     managerId?: SortOrderInput | SortOrder
     employeeCode?: SortOrderInput | SortOrder
     createdAt?: SortOrder
@@ -58186,7 +56695,6 @@ export namespace Prisma {
     id?: StringWithAggregatesFilter<"Instructor"> | string
     userId?: StringWithAggregatesFilter<"Instructor"> | string
     universityId?: StringWithAggregatesFilter<"Instructor"> | string
-    categoryId?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
     managerId?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
     employeeCode?: StringNullableWithAggregatesFilter<"Instructor"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Instructor"> | Date | string
@@ -58467,7 +56975,6 @@ export namespace Prisma {
     rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
     rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
-    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
     quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
@@ -58479,7 +56986,6 @@ export namespace Prisma {
     deliverable?: XOR<DeliverableNullableScalarRelationFilter, DeliverableWhereInput> | null
     createdBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
     submission?: XOR<WorklogSubmissionNullableScalarRelationFilter, WorklogSubmissionWhereInput> | null
-    broadCategory?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     deliverableType?: XOR<DeliverableTypeNullableScalarRelationFilter, DeliverableTypeWhereInput> | null
   }
 
@@ -58503,7 +57009,6 @@ export namespace Prisma {
     rawQuantity?: SortOrderInput | SortOrder
     rawWorkingHours?: SortOrderInput | SortOrder
     submissionId?: SortOrderInput | SortOrder
-    broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
     quantity?: SortOrderInput | SortOrder
     createdAt?: SortOrder
@@ -58515,7 +57020,6 @@ export namespace Prisma {
     deliverable?: DeliverableOrderByWithRelationInput
     createdBy?: UserOrderByWithRelationInput
     submission?: WorklogSubmissionOrderByWithRelationInput
-    broadCategory?: InstructorCategoryOrderByWithRelationInput
     deliverableType?: DeliverableTypeOrderByWithRelationInput
   }
 
@@ -58542,7 +57046,6 @@ export namespace Prisma {
     rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
     rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
-    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
     quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
@@ -58554,7 +57057,6 @@ export namespace Prisma {
     deliverable?: XOR<DeliverableNullableScalarRelationFilter, DeliverableWhereInput> | null
     createdBy?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
     submission?: XOR<WorklogSubmissionNullableScalarRelationFilter, WorklogSubmissionWhereInput> | null
-    broadCategory?: XOR<InstructorCategoryNullableScalarRelationFilter, InstructorCategoryWhereInput> | null
     deliverableType?: XOR<DeliverableTypeNullableScalarRelationFilter, DeliverableTypeWhereInput> | null
   }, "id">
 
@@ -58578,7 +57080,6 @@ export namespace Prisma {
     rawQuantity?: SortOrderInput | SortOrder
     rawWorkingHours?: SortOrderInput | SortOrder
     submissionId?: SortOrderInput | SortOrder
-    broadCategoryId?: SortOrderInput | SortOrder
     deliverableTypeId?: SortOrderInput | SortOrder
     quantity?: SortOrderInput | SortOrder
     createdAt?: SortOrder
@@ -58613,7 +57114,6 @@ export namespace Prisma {
     rawQuantity?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     rawWorkingHours?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
-    broadCategoryId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableWithAggregatesFilter<"ActivityLog"> | string | null
     quantity?: IntNullableWithAggregatesFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeWithAggregatesFilter<"ActivityLog"> | Date | string
@@ -62019,90 +60519,11 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type InstructorCategoryCreateInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructors?: InstructorCreateNestedManyWithoutCategoryInput
-    activityLogs?: ActivityLogCreateNestedManyWithoutBroadCategoryInput
-  }
-
-  export type InstructorCategoryUncheckedCreateInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructors?: InstructorUncheckedCreateNestedManyWithoutCategoryInput
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput
-  }
-
-  export type InstructorCategoryUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructors?: InstructorUpdateManyWithoutCategoryNestedInput
-    activityLogs?: ActivityLogUpdateManyWithoutBroadCategoryNestedInput
-  }
-
-  export type InstructorCategoryUncheckedUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructors?: InstructorUncheckedUpdateManyWithoutCategoryNestedInput
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput
-  }
-
-  export type InstructorCategoryCreateManyInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type InstructorCategoryUpdateManyMutationInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type InstructorCategoryUncheckedUpdateManyInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
   export type InstructorCreateInput = {
     id?: string
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -62128,7 +60549,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -62156,7 +60576,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -62182,7 +60601,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62209,7 +60627,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -62227,7 +60644,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62539,7 +60955,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -62563,7 +60978,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -62593,7 +61007,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -62617,7 +61030,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62644,7 +61056,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -62689,7 +61100,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -66506,49 +64916,6 @@ export namespace Prisma {
     updatedAt?: SortOrder
   }
 
-  export type InstructorCategoryCountOrderByAggregateInput = {
-    id?: SortOrder
-    code?: SortOrder
-    label?: SortOrder
-    sortOrder?: SortOrder
-    isActive?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type InstructorCategoryAvgOrderByAggregateInput = {
-    sortOrder?: SortOrder
-  }
-
-  export type InstructorCategoryMaxOrderByAggregateInput = {
-    id?: SortOrder
-    code?: SortOrder
-    label?: SortOrder
-    sortOrder?: SortOrder
-    isActive?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type InstructorCategoryMinOrderByAggregateInput = {
-    id?: SortOrder
-    code?: SortOrder
-    label?: SortOrder
-    sortOrder?: SortOrder
-    isActive?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type InstructorCategorySumOrderByAggregateInput = {
-    sortOrder?: SortOrder
-  }
-
-  export type InstructorCategoryNullableScalarRelationFilter = {
-    is?: InstructorCategoryWhereInput | null
-    isNot?: InstructorCategoryWhereInput | null
-  }
-
   export type WorklogDayNoteListRelationFilter = {
     every?: WorklogDayNoteWhereInput
     some?: WorklogDayNoteWhereInput
@@ -66593,7 +64960,6 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
-    categoryId?: SortOrder
     managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
@@ -66604,7 +64970,6 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
-    categoryId?: SortOrder
     managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
@@ -66615,7 +64980,6 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     universityId?: SortOrder
-    categoryId?: SortOrder
     managerId?: SortOrder
     employeeCode?: SortOrder
     createdAt?: SortOrder
@@ -66849,7 +65213,6 @@ export namespace Prisma {
     rawQuantity?: SortOrder
     rawWorkingHours?: SortOrder
     submissionId?: SortOrder
-    broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
     quantity?: SortOrder
     createdAt?: SortOrder
@@ -66880,7 +65243,6 @@ export namespace Prisma {
     rawQuantity?: SortOrder
     rawWorkingHours?: SortOrder
     submissionId?: SortOrder
-    broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
     quantity?: SortOrder
     createdAt?: SortOrder
@@ -66907,7 +65269,6 @@ export namespace Prisma {
     rawQuantity?: SortOrder
     rawWorkingHours?: SortOrder
     submissionId?: SortOrder
-    broadCategoryId?: SortOrder
     deliverableTypeId?: SortOrder
     quantity?: SortOrder
     createdAt?: SortOrder
@@ -70922,96 +69283,6 @@ export namespace Prisma {
     update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorklogDayNotesInput, InstructorUpdateWithoutWorklogDayNotesInput>, InstructorUncheckedUpdateWithoutWorklogDayNotesInput>
   }
 
-  export type InstructorCreateNestedManyWithoutCategoryInput = {
-    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
-    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
-    createMany?: InstructorCreateManyCategoryInputEnvelope
-    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-  }
-
-  export type ActivityLogCreateNestedManyWithoutBroadCategoryInput = {
-    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
-    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
-    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
-    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-  }
-
-  export type InstructorUncheckedCreateNestedManyWithoutCategoryInput = {
-    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
-    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
-    createMany?: InstructorCreateManyCategoryInputEnvelope
-    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-  }
-
-  export type ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput = {
-    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
-    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
-    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
-    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-  }
-
-  export type InstructorUpdateManyWithoutCategoryNestedInput = {
-    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
-    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
-    upsert?: InstructorUpsertWithWhereUniqueWithoutCategoryInput | InstructorUpsertWithWhereUniqueWithoutCategoryInput[]
-    createMany?: InstructorCreateManyCategoryInputEnvelope
-    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    update?: InstructorUpdateWithWhereUniqueWithoutCategoryInput | InstructorUpdateWithWhereUniqueWithoutCategoryInput[]
-    updateMany?: InstructorUpdateManyWithWhereWithoutCategoryInput | InstructorUpdateManyWithWhereWithoutCategoryInput[]
-    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
-  }
-
-  export type ActivityLogUpdateManyWithoutBroadCategoryNestedInput = {
-    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
-    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
-    upsert?: ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput[]
-    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
-    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    update?: ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput[]
-    updateMany?: ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput | ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput[]
-    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
-  }
-
-  export type InstructorUncheckedUpdateManyWithoutCategoryNestedInput = {
-    create?: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput> | InstructorCreateWithoutCategoryInput[] | InstructorUncheckedCreateWithoutCategoryInput[]
-    connectOrCreate?: InstructorCreateOrConnectWithoutCategoryInput | InstructorCreateOrConnectWithoutCategoryInput[]
-    upsert?: InstructorUpsertWithWhereUniqueWithoutCategoryInput | InstructorUpsertWithWhereUniqueWithoutCategoryInput[]
-    createMany?: InstructorCreateManyCategoryInputEnvelope
-    set?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    disconnect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    delete?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    connect?: InstructorWhereUniqueInput | InstructorWhereUniqueInput[]
-    update?: InstructorUpdateWithWhereUniqueWithoutCategoryInput | InstructorUpdateWithWhereUniqueWithoutCategoryInput[]
-    updateMany?: InstructorUpdateManyWithWhereWithoutCategoryInput | InstructorUpdateManyWithWhereWithoutCategoryInput[]
-    deleteMany?: InstructorScalarWhereInput | InstructorScalarWhereInput[]
-  }
-
-  export type ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput = {
-    create?: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput> | ActivityLogCreateWithoutBroadCategoryInput[] | ActivityLogUncheckedCreateWithoutBroadCategoryInput[]
-    connectOrCreate?: ActivityLogCreateOrConnectWithoutBroadCategoryInput | ActivityLogCreateOrConnectWithoutBroadCategoryInput[]
-    upsert?: ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput[]
-    createMany?: ActivityLogCreateManyBroadCategoryInputEnvelope
-    set?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    disconnect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    delete?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    connect?: ActivityLogWhereUniqueInput | ActivityLogWhereUniqueInput[]
-    update?: ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput | ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput[]
-    updateMany?: ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput | ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput[]
-    deleteMany?: ActivityLogScalarWhereInput | ActivityLogScalarWhereInput[]
-  }
-
-  export type InstructorCategoryCreateNestedOneWithoutInstructorsInput = {
-    create?: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
-    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutInstructorsInput
-    connect?: InstructorCategoryWhereUniqueInput
-  }
-
   export type UserCreateNestedOneWithoutInstructorProfileInput = {
     create?: XOR<UserCreateWithoutInstructorProfileInput, UserUncheckedCreateWithoutInstructorProfileInput>
     connectOrCreate?: UserCreateOrConnectWithoutInstructorProfileInput
@@ -71252,16 +69523,6 @@ export namespace Prisma {
     connectOrCreate?: DayExtractionCreateOrConnectWithoutInstructorInput | DayExtractionCreateOrConnectWithoutInstructorInput[]
     createMany?: DayExtractionCreateManyInstructorInputEnvelope
     connect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
-  }
-
-  export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
-    create?: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
-    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutInstructorsInput
-    upsert?: InstructorCategoryUpsertWithoutInstructorsInput
-    disconnect?: InstructorCategoryWhereInput | boolean
-    delete?: InstructorCategoryWhereInput | boolean
-    connect?: InstructorCategoryWhereUniqueInput
-    update?: XOR<XOR<InstructorCategoryUpdateToOneWithWhereWithoutInstructorsInput, InstructorCategoryUpdateWithoutInstructorsInput>, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
   }
 
   export type UserUpdateOneRequiredWithoutInstructorProfileNestedInput = {
@@ -71952,12 +70213,6 @@ export namespace Prisma {
     connect?: WorklogSubmissionWhereUniqueInput
   }
 
-  export type InstructorCategoryCreateNestedOneWithoutActivityLogsInput = {
-    create?: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
-    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutActivityLogsInput
-    connect?: InstructorCategoryWhereUniqueInput
-  }
-
   export type DeliverableTypeCreateNestedOneWithoutActivityLogsInput = {
     create?: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
     connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityLogsInput
@@ -72042,16 +70297,6 @@ export namespace Prisma {
     delete?: WorklogSubmissionWhereInput | boolean
     connect?: WorklogSubmissionWhereUniqueInput
     update?: XOR<XOR<WorklogSubmissionUpdateToOneWithWhereWithoutActivitiesInput, WorklogSubmissionUpdateWithoutActivitiesInput>, WorklogSubmissionUncheckedUpdateWithoutActivitiesInput>
-  }
-
-  export type InstructorCategoryUpdateOneWithoutActivityLogsNestedInput = {
-    create?: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
-    connectOrCreate?: InstructorCategoryCreateOrConnectWithoutActivityLogsInput
-    upsert?: InstructorCategoryUpsertWithoutActivityLogsInput
-    disconnect?: InstructorCategoryWhereInput | boolean
-    delete?: InstructorCategoryWhereInput | boolean
-    connect?: InstructorCategoryWhereUniqueInput
-    update?: XOR<XOR<InstructorCategoryUpdateToOneWithWhereWithoutActivityLogsInput, InstructorCategoryUpdateWithoutActivityLogsInput>, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
   }
 
   export type DeliverableTypeUpdateOneWithoutActivityLogsNestedInput = {
@@ -74395,7 +72640,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
@@ -74418,7 +72662,6 @@ export namespace Prisma {
 
   export type InstructorUncheckedCreateWithoutUserInput = {
     id?: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -74720,7 +72963,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -74743,7 +72985,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -74963,7 +73204,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
@@ -74986,7 +73226,6 @@ export namespace Prisma {
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
     id?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -75263,7 +73502,6 @@ export namespace Prisma {
     rawQuantity?: StringNullableFilter<"ActivityLog"> | string | null
     rawWorkingHours?: StringNullableFilter<"ActivityLog"> | string | null
     submissionId?: StringNullableFilter<"ActivityLog"> | string | null
-    broadCategoryId?: StringNullableFilter<"ActivityLog"> | string | null
     deliverableTypeId?: StringNullableFilter<"ActivityLog"> | string | null
     quantity?: IntNullableFilter<"ActivityLog"> | number | null
     createdAt?: DateTimeFilter<"ActivityLog"> | Date | string
@@ -75432,7 +73670,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
@@ -75456,7 +73693,6 @@ export namespace Prisma {
   export type InstructorUncheckedCreateWithoutUniversityInput = {
     id?: string
     userId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -75591,7 +73827,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -75614,7 +73849,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -76602,7 +74836,6 @@ export namespace Prisma {
     id?: StringFilter<"Instructor"> | string
     userId?: StringFilter<"Instructor"> | string
     universityId?: StringFilter<"Instructor"> | string
-    categoryId?: StringNullableFilter<"Instructor"> | string | null
     managerId?: StringNullableFilter<"Instructor"> | string | null
     employeeCode?: StringNullableFilter<"Instructor"> | string | null
     createdAt?: DateTimeFilter<"Instructor"> | Date | string
@@ -78102,7 +76335,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
@@ -78126,7 +76358,6 @@ export namespace Prisma {
   export type InstructorUncheckedCreateWithoutManagerInput = {
     id?: string
     userId: string
-    categoryId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -78476,7 +76707,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -78501,7 +76731,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -78544,7 +76773,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -78569,7 +76797,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -78589,189 +76816,6 @@ export namespace Prisma {
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
     dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
-  }
-
-  export type InstructorCreateWithoutCategoryInput = {
-    id?: string
-    employeeCode?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    user: UserCreateNestedOneWithoutInstructorProfileInput
-    university: UniversityCreateNestedOneWithoutInstructorsInput
-    manager?: ManagerCreateNestedOneWithoutInstructorsInput
-    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
-    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
-    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
-    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
-    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
-    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
-    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
-    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
-    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
-    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
-    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
-    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
-    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
-    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
-  }
-
-  export type InstructorUncheckedCreateWithoutCategoryInput = {
-    id?: string
-    userId: string
-    universityId: string
-    managerId?: string | null
-    employeeCode?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
-    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
-    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
-    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
-    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
-    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
-    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
-    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
-    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
-    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
-    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
-    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
-  }
-
-  export type InstructorCreateOrConnectWithoutCategoryInput = {
-    where: InstructorWhereUniqueInput
-    create: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput>
-  }
-
-  export type InstructorCreateManyCategoryInputEnvelope = {
-    data: InstructorCreateManyCategoryInput | InstructorCreateManyCategoryInput[]
-    skipDuplicates?: boolean
-  }
-
-  export type ActivityLogCreateWithoutBroadCategoryInput = {
-    id?: string
-    workDate: Date | string
-    startTime: Date | string
-    endTime: Date | string
-    timesStated?: boolean
-    status?: $Enums.ActivityStatus
-    remarks?: string | null
-    source?: $Enums.ActivitySource
-    isOncePerDay?: boolean
-    rawText?: string | null
-    rawQuantity?: string | null
-    rawWorkingHours?: string | null
-    quantity?: number | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructor: InstructorCreateNestedOneWithoutActivityLogsInput
-    university: UniversityCreateNestedOneWithoutActivityLogsInput
-    activityType: ActivityTypeCreateNestedOneWithoutActivityLogsInput
-    scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
-    deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
-    createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
-    submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
-  }
-
-  export type ActivityLogUncheckedCreateWithoutBroadCategoryInput = {
-    id?: string
-    instructorId: string
-    universityId: string
-    activityTypeId: string
-    workDate: Date | string
-    startTime: Date | string
-    endTime: Date | string
-    timesStated?: boolean
-    status?: $Enums.ActivityStatus
-    remarks?: string | null
-    source?: $Enums.ActivitySource
-    scheduleSlotId?: string | null
-    deliverableId?: string | null
-    createdById?: string | null
-    isOncePerDay?: boolean
-    rawText?: string | null
-    rawQuantity?: string | null
-    rawWorkingHours?: string | null
-    submissionId?: string | null
-    deliverableTypeId?: string | null
-    quantity?: number | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type ActivityLogCreateOrConnectWithoutBroadCategoryInput = {
-    where: ActivityLogWhereUniqueInput
-    create: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput>
-  }
-
-  export type ActivityLogCreateManyBroadCategoryInputEnvelope = {
-    data: ActivityLogCreateManyBroadCategoryInput | ActivityLogCreateManyBroadCategoryInput[]
-    skipDuplicates?: boolean
-  }
-
-  export type InstructorUpsertWithWhereUniqueWithoutCategoryInput = {
-    where: InstructorWhereUniqueInput
-    update: XOR<InstructorUpdateWithoutCategoryInput, InstructorUncheckedUpdateWithoutCategoryInput>
-    create: XOR<InstructorCreateWithoutCategoryInput, InstructorUncheckedCreateWithoutCategoryInput>
-  }
-
-  export type InstructorUpdateWithWhereUniqueWithoutCategoryInput = {
-    where: InstructorWhereUniqueInput
-    data: XOR<InstructorUpdateWithoutCategoryInput, InstructorUncheckedUpdateWithoutCategoryInput>
-  }
-
-  export type InstructorUpdateManyWithWhereWithoutCategoryInput = {
-    where: InstructorScalarWhereInput
-    data: XOR<InstructorUpdateManyMutationInput, InstructorUncheckedUpdateManyWithoutCategoryInput>
-  }
-
-  export type ActivityLogUpsertWithWhereUniqueWithoutBroadCategoryInput = {
-    where: ActivityLogWhereUniqueInput
-    update: XOR<ActivityLogUpdateWithoutBroadCategoryInput, ActivityLogUncheckedUpdateWithoutBroadCategoryInput>
-    create: XOR<ActivityLogCreateWithoutBroadCategoryInput, ActivityLogUncheckedCreateWithoutBroadCategoryInput>
-  }
-
-  export type ActivityLogUpdateWithWhereUniqueWithoutBroadCategoryInput = {
-    where: ActivityLogWhereUniqueInput
-    data: XOR<ActivityLogUpdateWithoutBroadCategoryInput, ActivityLogUncheckedUpdateWithoutBroadCategoryInput>
-  }
-
-  export type ActivityLogUpdateManyWithWhereWithoutBroadCategoryInput = {
-    where: ActivityLogScalarWhereInput
-    data: XOR<ActivityLogUpdateManyMutationInput, ActivityLogUncheckedUpdateManyWithoutBroadCategoryInput>
-  }
-
-  export type InstructorCategoryCreateWithoutInstructorsInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogCreateNestedManyWithoutBroadCategoryInput
-  }
-
-  export type InstructorCategoryUncheckedCreateWithoutInstructorsInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutBroadCategoryInput
-  }
-
-  export type InstructorCategoryCreateOrConnectWithoutInstructorsInput = {
-    where: InstructorCategoryWhereUniqueInput
-    create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
   }
 
   export type UserCreateWithoutInstructorProfileInput = {
@@ -78983,7 +77027,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -79006,7 +77049,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -79643,39 +77685,6 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
-  export type InstructorCategoryUpsertWithoutInstructorsInput = {
-    update: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
-    create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
-    where?: InstructorCategoryWhereInput
-  }
-
-  export type InstructorCategoryUpdateToOneWithWhereWithoutInstructorsInput = {
-    where?: InstructorCategoryWhereInput
-    data: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
-  }
-
-  export type InstructorCategoryUpdateWithoutInstructorsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUpdateManyWithoutBroadCategoryNestedInput
-  }
-
-  export type InstructorCategoryUncheckedUpdateWithoutInstructorsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutBroadCategoryNestedInput
-  }
-
   export type UserUpsertWithoutInstructorProfileInput = {
     update: XOR<UserUpdateWithoutInstructorProfileInput, UserUncheckedUpdateWithoutInstructorProfileInput>
     create: XOR<UserCreateWithoutInstructorProfileInput, UserUncheckedCreateWithoutInstructorProfileInput>
@@ -80214,7 +78223,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -80237,7 +78245,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -80398,7 +78405,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -80423,7 +78429,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -80569,7 +78574,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -80594,7 +78598,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -80850,7 +78853,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -80875,7 +78877,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -81238,33 +79239,6 @@ export namespace Prisma {
     create: XOR<WorklogSubmissionCreateWithoutActivitiesInput, WorklogSubmissionUncheckedCreateWithoutActivitiesInput>
   }
 
-  export type InstructorCategoryCreateWithoutActivityLogsInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructors?: InstructorCreateNestedManyWithoutCategoryInput
-  }
-
-  export type InstructorCategoryUncheckedCreateWithoutActivityLogsInput = {
-    id?: string
-    code: string
-    label: string
-    sortOrder?: number
-    isActive?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructors?: InstructorUncheckedCreateNestedManyWithoutCategoryInput
-  }
-
-  export type InstructorCategoryCreateOrConnectWithoutActivityLogsInput = {
-    where: InstructorCategoryWhereUniqueInput
-    create: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
-  }
-
   export type DeliverableTypeCreateWithoutActivityLogsInput = {
     id?: string
     code: string
@@ -81310,7 +79284,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -81335,7 +79308,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -81729,39 +79701,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type InstructorCategoryUpsertWithoutActivityLogsInput = {
-    update: XOR<InstructorCategoryUpdateWithoutActivityLogsInput, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
-    create: XOR<InstructorCategoryCreateWithoutActivityLogsInput, InstructorCategoryUncheckedCreateWithoutActivityLogsInput>
-    where?: InstructorCategoryWhereInput
-  }
-
-  export type InstructorCategoryUpdateToOneWithWhereWithoutActivityLogsInput = {
-    where?: InstructorCategoryWhereInput
-    data: XOR<InstructorCategoryUpdateWithoutActivityLogsInput, InstructorCategoryUncheckedUpdateWithoutActivityLogsInput>
-  }
-
-  export type InstructorCategoryUpdateWithoutActivityLogsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructors?: InstructorUpdateManyWithoutCategoryNestedInput
-  }
-
-  export type InstructorCategoryUncheckedUpdateWithoutActivityLogsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructors?: InstructorUncheckedUpdateManyWithoutCategoryNestedInput
-  }
-
   export type DeliverableTypeUpsertWithoutActivityLogsInput = {
     update: XOR<DeliverableTypeUpdateWithoutActivityLogsInput, DeliverableTypeUncheckedUpdateWithoutActivityLogsInput>
     create: XOR<DeliverableTypeCreateWithoutActivityLogsInput, DeliverableTypeUncheckedCreateWithoutActivityLogsInput>
@@ -81802,7 +79741,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -81827,7 +79765,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -82070,7 +80007,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -82093,7 +80029,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -82126,7 +80061,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -82151,7 +80085,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -82526,7 +80459,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -82551,7 +80483,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -82750,7 +80681,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -82775,7 +80705,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -82905,7 +80834,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -82930,7 +80858,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -83109,7 +81036,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -83134,7 +81060,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -85602,7 +83527,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -85627,7 +83551,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -85847,7 +83770,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -85872,7 +83794,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -86037,7 +83958,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -86062,7 +83982,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -86285,7 +84204,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -86310,7 +84228,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -86520,7 +84437,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -86545,7 +84461,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -86668,7 +84583,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -86691,7 +84605,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -86868,7 +84781,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -86893,7 +84805,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -87549,7 +85460,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -87574,7 +85484,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -87726,7 +85635,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -87751,7 +85659,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -87881,7 +85788,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -87906,7 +85812,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -88058,7 +85963,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -88083,7 +85987,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -88833,7 +86736,6 @@ export namespace Prisma {
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
     submission?: WorklogSubmissionCreateNestedOneWithoutActivitiesInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
   }
 
   export type ActivityLogUncheckedCreateWithoutDeliverableTypeInput = {
@@ -88856,7 +86758,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -88940,7 +86841,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -88965,7 +86865,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -89174,7 +87073,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotCreateNestedOneWithoutActivityLogsInput
     deliverable?: DeliverableCreateNestedOneWithoutActivityLogsInput
     createdBy?: UserCreateNestedOneWithoutActivityLogsCreatedInput
-    broadCategory?: InstructorCategoryCreateNestedOneWithoutActivityLogsInput
     deliverableType?: DeliverableTypeCreateNestedOneWithoutActivityLogsInput
   }
 
@@ -89197,7 +87095,6 @@ export namespace Prisma {
     rawText?: string | null
     rawQuantity?: string | null
     rawWorkingHours?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -89230,7 +87127,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -89255,7 +87151,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89470,7 +87365,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -89495,7 +87389,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -89641,7 +87534,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -89666,7 +87558,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89802,7 +87693,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -89827,7 +87717,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -89870,7 +87759,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -89895,7 +87783,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89922,7 +87809,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -89947,7 +87833,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -90093,7 +87978,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -90118,7 +88002,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90254,7 +88137,6 @@ export namespace Prisma {
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
     user: UserCreateNestedOneWithoutInstructorProfileInput
     university: UniversityCreateNestedOneWithoutInstructorsInput
     manager?: ManagerCreateNestedOneWithoutInstructorsInput
@@ -90279,7 +88161,6 @@ export namespace Prisma {
     id?: string
     userId: string
     universityId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -90322,7 +88203,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
@@ -90347,7 +88227,6 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90483,7 +88362,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -90815,7 +88693,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -90838,7 +88715,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90864,7 +88740,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90950,7 +88825,6 @@ export namespace Prisma {
   export type InstructorCreateManyUniversityInput = {
     id?: string
     userId: string
-    categoryId?: string | null
     managerId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
@@ -91001,7 +88875,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -91407,7 +89280,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     manager?: ManagerUpdateOneWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
@@ -91431,7 +89303,6 @@ export namespace Prisma {
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -91457,7 +89328,6 @@ export namespace Prisma {
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     managerId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -91561,7 +89431,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -91584,7 +89453,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -91610,7 +89478,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -92553,7 +90420,6 @@ export namespace Prisma {
   export type InstructorCreateManyManagerInput = {
     id?: string
     userId: string
-    categoryId?: string | null
     employeeCode?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -92627,7 +90493,6 @@ export namespace Prisma {
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
     user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
     university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
     activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
@@ -92651,7 +90516,6 @@ export namespace Prisma {
   export type InstructorUncheckedUpdateWithoutManagerInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -92676,184 +90540,7 @@ export namespace Prisma {
   export type InstructorUncheckedUpdateManyWithoutManagerInput = {
     id?: StringFieldUpdateOperationsInput | string
     userId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
     employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type InstructorCreateManyCategoryInput = {
-    id?: string
-    userId: string
-    universityId: string
-    managerId?: string | null
-    employeeCode?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type ActivityLogCreateManyBroadCategoryInput = {
-    id?: string
-    instructorId: string
-    universityId: string
-    activityTypeId: string
-    workDate: Date | string
-    startTime: Date | string
-    endTime: Date | string
-    timesStated?: boolean
-    status?: $Enums.ActivityStatus
-    remarks?: string | null
-    source?: $Enums.ActivitySource
-    scheduleSlotId?: string | null
-    deliverableId?: string | null
-    createdById?: string | null
-    isOncePerDay?: boolean
-    rawText?: string | null
-    rawQuantity?: string | null
-    rawWorkingHours?: string | null
-    submissionId?: string | null
-    deliverableTypeId?: string | null
-    quantity?: number | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type InstructorUpdateWithoutCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
-    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
-    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
-    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
-    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
-    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
-    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
-    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
-    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
-    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
-    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
-    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
-    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
-    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
-    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
-  }
-
-  export type InstructorUncheckedUpdateWithoutCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    userId?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    managerId?: NullableStringFieldUpdateOperationsInput | string | null
-    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
-    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
-    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
-    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
-    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
-    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
-    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
-    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
-    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
-  }
-
-  export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    userId?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    managerId?: NullableStringFieldUpdateOperationsInput | string | null
-    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type ActivityLogUpdateWithoutBroadCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    timesStated?: BoolFieldUpdateOperationsInput | boolean
-    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
-    remarks?: NullableStringFieldUpdateOperationsInput | string | null
-    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
-    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
-    rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructor?: InstructorUpdateOneRequiredWithoutActivityLogsNestedInput
-    university?: UniversityUpdateOneRequiredWithoutActivityLogsNestedInput
-    activityType?: ActivityTypeUpdateOneRequiredWithoutActivityLogsNestedInput
-    scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
-    deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
-    createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
-    submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
-  }
-
-  export type ActivityLogUncheckedUpdateWithoutBroadCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    instructorId?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    activityTypeId?: StringFieldUpdateOperationsInput | string
-    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    timesStated?: BoolFieldUpdateOperationsInput | boolean
-    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
-    remarks?: NullableStringFieldUpdateOperationsInput | string | null
-    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
-    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
-    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdById?: NullableStringFieldUpdateOperationsInput | string | null
-    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
-    rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
-    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: NullableIntFieldUpdateOperationsInput | number | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type ActivityLogUncheckedUpdateManyWithoutBroadCategoryInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    instructorId?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    activityTypeId?: StringFieldUpdateOperationsInput | string
-    workDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    timesStated?: BoolFieldUpdateOperationsInput | boolean
-    status?: EnumActivityStatusFieldUpdateOperationsInput | $Enums.ActivityStatus
-    remarks?: NullableStringFieldUpdateOperationsInput | string | null
-    source?: EnumActivitySourceFieldUpdateOperationsInput | $Enums.ActivitySource
-    scheduleSlotId?: NullableStringFieldUpdateOperationsInput | string | null
-    deliverableId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdById?: NullableStringFieldUpdateOperationsInput | string | null
-    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
-    rawText?: NullableStringFieldUpdateOperationsInput | string | null
-    rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
-    submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -92877,7 +90564,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -93136,7 +90822,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -93159,7 +90844,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -93185,7 +90869,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -93911,7 +91594,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -93966,7 +91648,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -93989,7 +91670,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94015,7 +91695,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94135,7 +91814,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -94200,7 +91878,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -94223,7 +91900,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94249,7 +91925,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94695,7 +92370,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -94724,7 +92398,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -94747,7 +92420,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94773,7 +92445,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94800,7 +92471,6 @@ export namespace Prisma {
     rawQuantity?: string | null
     rawWorkingHours?: string | null
     submissionId?: string | null
-    broadCategoryId?: string | null
     quantity?: number | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -94829,7 +92499,6 @@ export namespace Prisma {
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
     submission?: WorklogSubmissionUpdateOneWithoutActivitiesNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
   }
 
   export type ActivityLogUncheckedUpdateWithoutDeliverableTypeInput = {
@@ -94852,7 +92521,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94878,7 +92546,6 @@ export namespace Prisma {
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
     submissionId?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94903,7 +92570,6 @@ export namespace Prisma {
     rawText?: string | null
     rawQuantity?: string | null
     rawWorkingHours?: string | null
-    broadCategoryId?: string | null
     deliverableTypeId?: string | null
     quantity?: number | null
     createdAt?: Date | string
@@ -94932,7 +92598,6 @@ export namespace Prisma {
     scheduleSlot?: ScheduleSlotUpdateOneWithoutActivityLogsNestedInput
     deliverable?: DeliverableUpdateOneWithoutActivityLogsNestedInput
     createdBy?: UserUpdateOneWithoutActivityLogsCreatedNestedInput
-    broadCategory?: InstructorCategoryUpdateOneWithoutActivityLogsNestedInput
     deliverableType?: DeliverableTypeUpdateOneWithoutActivityLogsNestedInput
   }
 
@@ -94955,7 +92620,6 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94981,7 +92645,6 @@ export namespace Prisma {
     rawText?: NullableStringFieldUpdateOperationsInput | string | null
     rawQuantity?: NullableStringFieldUpdateOperationsInput | string | null
     rawWorkingHours?: NullableStringFieldUpdateOperationsInput | string | null
-    broadCategoryId?: NullableStringFieldUpdateOperationsInput | string | null
     deliverableTypeId?: NullableStringFieldUpdateOperationsInput | string | null
     quantity?: NullableIntFieldUpdateOperationsInput | number | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string

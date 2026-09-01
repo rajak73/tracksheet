@@ -12,10 +12,7 @@
  */
 
 import { prisma } from "@/server/db";
-import { computeAnalytics } from "@/server/analytics/engine";
-import { detectAnomalies } from "@/server/ai/anomalies";
 import { detectExceptions } from "@/server/analytics/exceptions";
-import { narrateCondition } from "@/server/ai/narrate";
 
 export type NotificationInput = {
   userId: string;
@@ -108,12 +105,14 @@ export async function runNotificationSweep(
   from: string,
   to: string,
 ): Promise<{ created: number; suppressed: number }> {
-  const [university, analytics, exceptions] = await Promise.all([
+  /* The analytics pass went with section 3. Nothing left needs a computed
+     figure — the two remaining notifications are about a day nobody filed and
+     a deliverable past its date, both read straight from rows. */
+  const [university, exceptions] = await Promise.all([
     prisma.university.findUnique({
       where: { id: universityId },
       select: { primaryManager: { select: { userId: true } } },
     }),
-    computeAnalytics({ universityId, from, to, includeTrend: true }),
     detectExceptions({ universityId, from, to }),
   ]);
 
@@ -178,31 +177,15 @@ export async function runNotificationSweep(
     });
   }
 
-  // ── 3. Unusual workload ──────────────────────────────────────────────────
-  // Reuses the same conditions the insights layer reports, so a notification
-  // and a dashboard insight can never disagree about what is unusual.
-  for (const condition of detectAnomalies(analytics)) {
-    if (condition.type !== "OVERLOAD" && condition.type !== "LEARNING_DROP") continue;
-    const narration = await narrateCondition(condition);
-
-    const recipients = new Set<string>();
-    if (managerUserId) recipients.add(managerUserId);
-    if (condition.instructorId) {
-      const uid = userIdFor.get(condition.instructorId);
-      if (uid) recipients.add(uid);
-    }
-
-    for (const userId of recipients) {
-      await emit({
-        userId,
-        universityId,
-        type: condition.type,
-        title: narration.title,
-        message: narration.summary,
-        dedupeKey: `${condition.type}:${condition.instructorId ?? universityId}:${from}`,
-      });
-    }
-  }
+  /* Section 3, "Unusual workload", is gone.
+   *
+   * It ran `detectAnomalies` over the analytics result, took the OVERLOAD and
+   * LEARNING_DROP conditions, had a model narrate each into a title and a
+   * sentence, and sent that to the instructor AND their manager. A grader
+   * deciding somebody's week was unusual, and then telling them so.
+   *
+   * The sections above stay: they notify on facts — a day nobody filed, a
+   * deliverable past its date — not on a judgement about a person. */
 
   return { created, suppressed };
 }

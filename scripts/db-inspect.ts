@@ -68,7 +68,6 @@ async function report(db: PrismaClient, url: string) {
     "auditLog",
     "activityType",
     "deliverableType",
-    "instructorCategory",
   ] as const) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     counts[model] = await (db as any)[model].count();
@@ -81,18 +80,16 @@ async function report(db: PrismaClient, url: string) {
    * gets its own line rather than being read off the table above. */
   // Counted from the canonical definitions, not repeated here — this line said
   // "4 categories" and would have gone on saying it after the list grew.
-  const { ACTIVITY_TYPE_COUNT, DELIVERABLE_TYPE_COUNT, INSTRUCTOR_CATEGORY_COUNT } = await import(
+  const { ACTIVITY_TYPE_COUNT, DELIVERABLE_TYPE_COUNT } = await import(
     "../prisma/reference-data.js"
   );
   const ok =
     counts.activityType === ACTIVITY_TYPE_COUNT &&
-    counts.deliverableType === DELIVERABLE_TYPE_COUNT &&
-    counts.instructorCategory === INSTRUCTOR_CATEGORY_COUNT;
+    counts.deliverableType === DELIVERABLE_TYPE_COUNT;
   console.log(
     `\nReference data: ${ok ? "complete" : "INCOMPLETE — run `npm run db:reference-data`"}` +
       `  (${counts.activityType}/${ACTIVITY_TYPE_COUNT} activity types, ` +
-      `${counts.deliverableType}/${DELIVERABLE_TYPE_COUNT} deliverables, ` +
-      `${counts.instructorCategory}/${INSTRUCTOR_CATEGORY_COUNT} categories)`,
+      `${counts.deliverableType}/${DELIVERABLE_TYPE_COUNT} deliverables)`,
   );
 
   if (counts.user === 0) {
@@ -143,7 +140,6 @@ async function report(db: PrismaClient, url: string) {
         user: { select: { name: true, isActive: true } },
         university: { select: { name: true } },
         manager: { select: { user: { select: { name: true } } } },
-        category: { select: { label: true } },
         _count: { select: { activityLogs: true } },
       },
     });
@@ -155,7 +151,6 @@ async function report(db: PrismaClient, url: string) {
         code: i.employeeCode ?? "—",
         university: i.university.name,
         manager: i.manager?.user.name ?? "unassigned",
-        category: i.category?.label ?? "—",
         entries: i._count.activityLogs,
         status: i.user.isActive ? "active" : "former",
       })),

@@ -4,7 +4,6 @@ import { daysAgo, seedDays } from "./helpers/worklog";
 import {
   ACTIVITY_TYPE_CODES,
   DELIVERABLE_TYPES,
-  INSTRUCTOR_CATEGORY_CODES,
 } from "../prisma/reference-data";
 
 /**
@@ -65,7 +64,6 @@ const BANNED_VALUES = ["Unclassified", "Watch"];
 
 const CATEGORY_NAMES = new Set<string>([
   ...ACTIVITY_TYPE_CODES,
-  ...INSTRUCTOR_CATEGORY_CODES,
   ...DELIVERABLE_TYPES.map((d) => d.code),
 ]);
 

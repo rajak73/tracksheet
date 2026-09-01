@@ -210,7 +210,6 @@ export const GET = withAuth(async ({ scope, req }) => {
       id: true,
       employeeCode: true,
       // The assigned Broad Category, which is what the sheet's column prints.
-      category: { select: { code: true, label: true } },
       universityId: true,
       // The photo, so a manager scanning twenty rows recognises a face before
       // they read a name — which is how people actually find somebody in a list.
@@ -276,7 +275,6 @@ export const GET = withAuth(async ({ scope, req }) => {
       // The deliverable and the instructor's own remark are what make the block
       // worth reading: "Lecture — deadlock handling, section A".
       deliverableType: { select: { code: true, label: true, isCountable: true } },
-        broadCategory: { select: { code: true, label: true } },
       quantity: true,
       rawText: true,
       rawQuantity: true,
@@ -390,7 +388,6 @@ export const GET = withAuth(async ({ scope, req }) => {
           status: log.status,
           activityType: log.activityType,
           deliverableType: log.deliverableType,
-          broadCategory: log.broadCategory,
           quantity: log.quantity,
           rawText: log.rawText,
           /* As typed. The sheet prints these; the parsed quantity and the

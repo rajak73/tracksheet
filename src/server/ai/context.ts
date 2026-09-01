@@ -35,7 +35,7 @@ import {
   type PeriodBounds,
 } from "@/server/analytics/roster";
 import { UTILIZATION_BANDS, type PerformanceBand } from "@/server/analytics/bands";
-import { THRESHOLDS } from "@/server/ai/anomalies";
+import { THRESHOLDS } from "@/server/analytics/thresholds";
 
 export type InsightAudience = "ADMIN" | "MANAGER" | "INSTRUCTOR";
 

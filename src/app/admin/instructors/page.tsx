@@ -23,10 +23,9 @@ import {
   TR,
 } from "@/app/_components/ui";
 import Link from "next/link";
-import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
+import { apiGet, useLoad } from "@/app/_lib/api";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { ManagerAssign, useManagerCache } from "@/app/_components/ManagerAssign";
-import { InstructorCategoryPicker } from "@/app/_components/InstructorStream";
 
 type Instructor = {
   id: string;
@@ -88,17 +87,6 @@ export default function AdminInstructorsPage() {
 
   /* The categories somebody may assign, from the same table the write is
    * checked against — so the list offered and the list accepted are one list. */
-  const categories = useLoad(
-    useCallback(
-      () =>
-        apiGet<{ categories: Array<{ code: string; label: string }> }>(
-          "/api/instructor-categories",
-          "Could not load the broad categories.",
-        ).then((r) => r.categories),
-      [],
-    ),
-    "instructor-categories",
-  );
   const [creating, setCreating] = useState(false);
   const rows = data?.instructors ?? [];
 
@@ -173,7 +161,6 @@ export default function AdminInstructorsPage() {
                       { label: "Instructor" },
                       { label: "Email" },
                       { label: "Employee code" },
-                      { label: "Broad Category" },
                       { label: "University" },
                       { label: "Manager" },
                       { label: "Status" },
@@ -189,26 +176,6 @@ export default function AdminInstructorsPage() {
                         </TD>
                         <TD>{i.user.email}</TD>
                         <TD>{i.employeeCode ?? "—"}</TD>
-                        <TD>
-                          {/* Editable again, on the client's instruction: the
-                              Broad Category on their report is supplied and
-                              must be preserved, so somebody has to be able to
-                              supply it. See `InstructorStream`. */}
-                          <InstructorCategoryPicker
-                            value={i.category ?? null}
-                            stream={i.stream ?? null}
-                            options={categories.data ?? []}
-                            onSave={async (code) => {
-                              await apiSend(
-                                `/api/instructors/${i.id}`,
-                                "PATCH",
-                                { categoryCode: code },
-                                "Could not save that broad category.",
-                              );
-                              reload();
-                            }}
-                          />
-                        </TD>
                         <TD>{i.university.name}</TD>
                         <TD>
                           <ManagerAssign

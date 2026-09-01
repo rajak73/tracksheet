@@ -455,8 +455,6 @@ function addQuantity(total: number | null, add: number | null): number | null {
       remarks: true,
       activityType: { select: { code: true, label: true } },
       deliverableType: { select: { code: true, label: true, isCountable: true } },
-      // The subject the model read out of this entry's own sentence.
-      broadCategory: { select: { label: true } },
     },
   });
 
@@ -659,9 +657,6 @@ function addQuantity(total: number | null, add: number | null): number | null {
     // same remark four times in one cell.
     const remark = log.remarks?.trim();
     if (remark && !cell.remarks.includes(remark)) cell.remarks.push(remark);
-
-    const subject = log.broadCategory?.label;
-    if (subject && !cell.subjects.includes(subject)) cell.subjects.push(subject);
 
     if (countable) row.totals.quantity = addQuantity(row.totals.quantity, log.quantity);
     if (log.deliverableType) {
