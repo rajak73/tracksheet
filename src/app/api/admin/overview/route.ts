@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { STORED_METRICS } from "@/server/analytics/stored-metrics";
 import { BRIEF_TYPE } from "@/server/ai/brief-type";
 import { resolvePeriod } from "@/server/analytics/period";
 import { toDateOnly } from "@/server/time/workday";
@@ -313,6 +314,14 @@ export const GET = withAuth(
         // window. When false the figures above are computed over fewer days
         // than were asked for and will not match the live analytics engine.
         rollupComplete: perUniversity.every((u) => u.coverage.complete),
+        /* ── Every hours figure above is currently unbelievable ───────────
+         * They are summed from `UniversityDailyMetric`, a cache over
+         * `ActivityLog` — and the worklog writes `WorklogEntry` now, with
+         * nothing left to refresh the cache. The numbers still come down the
+         * wire because deleting them from the payload would break every
+         * consumer at once; the flag is what tells a consumer not to print
+         * them. See `STORED_METRICS`. */
+        storedMetrics: STORED_METRICS,
       },
       universities: perUniversity,
     });

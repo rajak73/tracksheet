@@ -66,15 +66,25 @@ export function AverageHoursByUniversity() {
 
   const load = useCallback(
     () =>
-      apiGet<{ universities: Row[] }>(
-        `/api/admin/average-hours?view=${view}`,
-        "Could not load average hours.",
-      ).then((body) => body.universities),
+      apiGet<{
+        universities: Row[];
+        storedMetrics?: { available: false; note: string };
+      }>(`/api/admin/average-hours?view=${view}`, "Could not load average hours.").then((body) => ({
+        rows: body.universities,
+        /* Absent means usable — the flag only ever says NO. See
+           `STORED_METRICS`: every average on this card is a mean over
+           `UniversityDailyMetric`, which the worklog no longer writes to. */
+        note: body.storedMetrics?.available === false ? body.storedMetrics.note : null,
+      })),
     [view],
   );
   const { data, error, loading, reload } = useLoad(load, `admin-average-hours:${view}`);
 
-  const rows = data ?? [];
+  const unavailable = data?.note ?? null;
+  /* Emptied rather than dimmed. A bar chart whose bars are still drawn beside a
+     warning is read as data with a caveat; these are not data with a caveat,
+     they are figures with no writer behind them. */
+  const rows = unavailable ? [] : (data?.rows ?? []);
   const widest = rows.reduce((n, r) => Math.max(n, r.averageMinutes ?? 0), 0);
 
   return (
@@ -100,6 +110,8 @@ export function AverageHoursByUniversity() {
         <div className="p-5">
           <TableSkeleton rows={3} />
         </div>
+      ) : unavailable ? (
+        <p className="px-5 py-6 text-sm text-muted">{unavailable}</p>
       ) : rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted">No universities yet.</p>
       ) : (

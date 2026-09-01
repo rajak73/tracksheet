@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { STORED_METRICS } from "@/server/analytics/stored-metrics";
 import { ApiError } from "@/server/http/errors";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { workDateFor } from "@/server/time/workday";
@@ -165,7 +166,10 @@ export const GET = withAuth(
       }),
     );
 
-    return NextResponse.json({ view, universities: rows });
+    /* Averaged from `UniversityDailyMetric`, which no longer has a writer.
+       See `STORED_METRICS` — the rows still travel so the shape holds, and the
+       flag is what stops them being printed as fact. */
+    return NextResponse.json({ view, universities: rows, storedMetrics: STORED_METRICS });
   },
   { roles: ["ADMIN"] },
 );

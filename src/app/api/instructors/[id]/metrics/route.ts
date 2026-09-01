@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
+import { STORED_METRICS } from "@/server/analytics/stored-metrics";
 import { ApiError } from "@/server/http/errors";
 import { resolvePeriod } from "@/server/analytics/period";
 import { loadUniversityConfig } from "@/server/universities/config";
@@ -61,6 +62,9 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
   const productiveHours = toHours(sum((r) => r.productiveMinutes));
 
   return NextResponse.json({
+    /* Read from `InstructorDailyMetric` / `InstructorWeeklyMetric`, a cache over
+       `ActivityLog` with no writer left. See `STORED_METRICS`. */
+    storedMetrics: STORED_METRICS,
     from: period.from,
     to: period.to,
     totals: {

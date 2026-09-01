@@ -38,6 +38,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   ButtonLink,
   Card,
   CardHeader,
@@ -89,8 +90,15 @@ type OverviewRow = {
 type Row = University & {
   instructors: number;
   managers: number;
-  /** Hours, from every productive minute the rollup recorded — see the header. */
-  recordedHours: number;
+  /**
+   * Hours, from every productive minute the rollup recorded.
+   *
+   * NULL while the stored metrics are being migrated. Nullable rather than a
+   * number with a flag beside it, because a number that must not be printed and
+   * a number that may be printed should not have the same type — the compiler
+   * is what stops the second render site being missed.
+   */
+  recordedHours: number | null;
   deliverables: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
@@ -98,6 +106,8 @@ type Row = University & {
 
 type UniversitiesResponse = {
   rows: Row[];
+  /** Set only while the stored metrics cannot be believed. See `STORED_METRICS`. */
+  storedMetricsNote: string | null;
   overview: Overview | null;
   page: number;
   limit: number;
@@ -137,13 +147,20 @@ export default function AdminUniversitiesPage() {
         total: number;
         hasMore: boolean;
       }>(`/api/universities?${params.toString()}`, "Could not load universities."),
-      apiGet<{ overview: Overview; universities: OverviewRow[] }>(
-        "/api/admin/overview",
-        "Could not load performance metrics.",
-      ).catch(() => ({ overview: null as Overview | null, universities: [] as OverviewRow[] })),
+      apiGet<{
+        overview: (Overview & { storedMetrics?: { available: false; note: string } }) | null;
+        universities: OverviewRow[];
+      }>("/api/admin/overview", "Could not load performance metrics.").catch(() => ({
+        overview: null,
+        universities: [] as OverviewRow[],
+      })),
     ]);
 
     const perf = new Map(overview.universities.map((u) => [u.universityId, u]));
+    /* Absent means usable. The flag only ever says NO — a response that has not
+       been marked is one whose figures were never in question, and defaulting
+       the other way would blank every screen the moment a route was missed. */
+    const metricsUsable = overview.overview?.storedMetrics?.available !== false;
 
     const rows = universities.universities.map((u) => {
       const p = perf.get(u.id);
@@ -151,7 +168,10 @@ export default function AdminUniversitiesPage() {
         ...u,
         instructors: u._count.instructors,
         managers: u._count.managers,
-        recordedHours: p?.productiveHours ?? 0,
+        /* Never `?? 0`. A stale figure and an absent one are both unknown,
+           and rendering either as zero states that no work was recorded — which
+           a reader acts on. See `STORED_METRICS`. */
+        recordedHours: metricsUsable ? (p?.productiveHours ?? null) : null,
         deliverables: p?.deliverables ?? 0,
         openingCompliancePct: p?.openingCompliancePct ?? null,
         closingCompliancePct: p?.closingCompliancePct ?? null,
@@ -160,6 +180,10 @@ export default function AdminUniversitiesPage() {
 
     return {
       rows,
+      /* Carried to the render so the page can SAY why a column is empty. A
+         cell reading "Unavailable" with nothing explaining it invites the
+         reader to assume a bug and go looking for the number elsewhere. */
+      storedMetricsNote: metricsUsable ? null : (overview.overview?.storedMetrics?.note ?? null),
       overview: overview.overview ?? null,
       page: universities.page,
       limit: universities.limit,
@@ -253,6 +277,12 @@ export default function AdminUniversitiesPage() {
         actions={actions}
       />
 
+      {data.storedMetricsNote ? (
+        <Alert tone="warning" title="Recorded hours are unavailable">
+          {data.storedMetricsNote}
+        </Alert>
+      ) : null}
+
       {/* Network totals. Every figure is the API's own aggregate — nothing here
           is summed in the browser, so these cards and the table below cannot
           disagree. Three counts and no percentage: the fourth card ranked the
@@ -331,7 +361,11 @@ export default function AdminUniversitiesPage() {
                         <TD align="right">{u.managers}</TD>
                         <TD align="right">{u.instructors}</TD>
                         <TD align="right">
-                          <span className="tabular">{formatHours(u.recordedHours)}</span>
+                          {u.recordedHours === null ? (
+                            <span className="text-subtle">Unavailable</span>
+                          ) : (
+                            <span className="tabular">{formatHours(u.recordedHours)}</span>
+                          )}
                         </TD>
                         <TD align="right">
                           <span className="tabular">{u.deliverables}</span>
@@ -367,7 +401,9 @@ export default function AdminUniversitiesPage() {
                     // about.
                     meta={
                       <span className="tabular text-sm text-muted">
-                        {formatHours(u.recordedHours)} recorded
+                        {u.recordedHours === null
+                          ? "Hours unavailable"
+                          : `${formatHours(u.recordedHours)} recorded`}
                       </span>
                     }
                   />
