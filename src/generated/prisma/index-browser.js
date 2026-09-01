@@ -466,19 +466,6 @@ exports.Prisma.BreakPolicyScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.WorkloadTargetScalarFieldEnum = {
-  id: 'id',
-  universityId: 'universityId',
-  instructorId: 'instructorId',
-  activityTypeId: 'activityTypeId',
-  targetMinutes: 'targetMinutes',
-  periodType: 'periodType',
-  effectiveFrom: 'effectiveFrom',
-  effectiveTo: 'effectiveTo',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.ReportingPeriodScalarFieldEnum = {
   id: 'id',
   universityId: 'universityId',
@@ -953,7 +940,6 @@ exports.Prisma.ModelName = {
   Schedule: 'Schedule',
   ScheduleSlot: 'ScheduleSlot',
   BreakPolicy: 'BreakPolicy',
-  WorkloadTarget: 'WorkloadTarget',
   ReportingPeriod: 'ReportingPeriod',
   InstructorDailyMetric: 'InstructorDailyMetric',
   InstructorWeeklyMetric: 'InstructorWeeklyMetric',

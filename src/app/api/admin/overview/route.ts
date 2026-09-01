@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
 import { STORED_METRICS } from "@/server/analytics/stored-metrics";
+import { worklogFigures } from "@/server/analytics/worklog-figures";
 import { BRIEF_TYPE } from "@/server/ai/brief-type";
 import { resolvePeriod } from "@/server/analytics/period";
 import { toDateOnly } from "@/server/time/workday";
@@ -121,9 +122,8 @@ export const GET = withAuth(
       period: { from: string; to: string };
       agg: MetricAgg | undefined;
       coveredDays: number;
-      byType: Record<string, number>;
     }) {
-      const { u, period, agg, coveredDays, byType } = args;
+      const { u, period, agg, coveredDays } = args;
       const expectedDays =
         Math.round(
           (Date.parse(`${period.to}T00:00:00Z`) - Date.parse(`${period.from}T00:00:00Z`)) / 86_400_000,
@@ -165,9 +165,6 @@ export const GET = withAuth(
         utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
         openingCompliancePct: ratioPct(agg?._sum.openingsLogged, agg?._sum.expectedInstructorDays),
         closingCompliancePct: ratioPct(agg?._sum.closingsLogged, agg?._sum.expectedInstructorDays),
-        hoursByActivityType: Object.fromEntries(
-          Object.entries(byType).map(([code, minutes]) => [code, round(minutes / 60)]),
-        ),
         coverage,
       };
     }
@@ -178,7 +175,7 @@ export const GET = withAuth(
         metricDate: { gte: toDateOnly(period.from), lte: toDateOnly(period.to) },
       };
 
-      const [aggRows, coveredRows, typeRows, deliverableRows] = await Promise.all([
+      const [aggRows, coveredRows, deliverableRows] = await Promise.all([
         prisma.universityDailyMetric.groupBy({
           by: ["universityId"],
           where: dateWhere,
@@ -217,13 +214,6 @@ export const GET = withAuth(
           select: { universityId: true, metricDate: true },
           distinct: ["universityId", "metricDate"],
         }),
-        // Prisma cannot aggregate inside a JSON column, so the per-type
-        // breakdown is summed here in application code over the same rows the
-        // aggregate above already covers.
-        prisma.universityDailyMetric.findMany({
-          where: dateWhere,
-          select: { universityId: true, minutesByActivityType: true },
-        }),
         // Deliverable quantity for the same window. Not derivable from the
         // daily metric rows — those summarise TIME — so it is read from the
         // logs themselves, grouped in one query rather than per university.
@@ -251,17 +241,6 @@ export const GET = withAuth(
         );
       }
 
-      const byTypeByUniversity = new Map<string, Record<string, number>>();
-      for (const row of typeRows) {
-        const byType = byTypeByUniversity.get(row.universityId) ?? {};
-        for (const [code, minutes] of Object.entries(
-          (row.minutesByActivityType ?? {}) as Record<string, number>,
-        )) {
-          byType[code] = (byType[code] ?? 0) + Number(minutes);
-        }
-        byTypeByUniversity.set(row.universityId, byType);
-      }
-
       for (const universityId of universityIds) {
         const u = universities.find((x) => x.id === universityId)!;
         perUniversityById.set(
@@ -271,13 +250,38 @@ export const GET = withAuth(
             period,
             agg: aggByUniversity.get(universityId),
             coveredDays: coveredDaysByUniversity.get(universityId) ?? 0,
-            byType: byTypeByUniversity.get(universityId) ?? {},
           }),
         );
       }
     }
 
     // Preserve the original name-sorted order, not group-insertion order.
+    /* ── The vocabulary-free figures, per university ─────────────────────
+     * Computed per university rather than once globally, because each resolves
+     * its own period from its own timezone — `periodOf` above. Summing across
+     * a single window would quietly report one tenant's Monday inside another's
+     * Sunday. */
+    const instructorsByUniversity = new Map<string, string[]>();
+    for (const row of await prisma.instructor.findMany({
+      where: { universityId: { in: universities.map((u) => u.id) } },
+      select: { id: true, universityId: true },
+    })) {
+      const list = instructorsByUniversity.get(row.universityId) ?? [];
+      list.push(row.id);
+      instructorsByUniversity.set(row.universityId, list);
+    }
+    const figuresByUniversity = new Map(
+      await Promise.all(
+        universities.map(async (u) => {
+          const period = periodOf.get(u.id)!;
+          return [
+            u.id,
+            await worklogFigures(instructorsByUniversity.get(u.id) ?? [], period.from, period.to),
+          ] as const;
+        }),
+      ),
+    );
+
     const perUniversity = universities.map((u) => perUniversityById.get(u.id)!);
 
     const sum = (pick: (u: (typeof perUniversity)[number]) => number) =>
@@ -286,14 +290,27 @@ export const GET = withAuth(
     const capacityHours = sum((u) => u.capacityHours);
     const productiveHours = sum((u) => u.productiveHours);
 
-    // Global hours per activity type, so "global teaching hours" and "global
-    // learning hours" are real measurements rather than a single lumped total.
-    const hoursByActivityType: Record<string, number> = {};
-    for (const u of perUniversity) {
-      for (const [code, hrs] of Object.entries(u.hoursByActivityType)) {
-        hoursByActivityType[code] = round((hoursByActivityType[code] ?? 0) + hrs);
-      }
-    }
+    /* ── What replaced teaching and learning hours ────────────────────────
+     * The dashboard led with "global teaching hours" and "global learning
+     * hours", both read out of the TEACHING and LEARNING codes. That is a
+     * two-item taxonomy at the top of the admin dashboard: keeping those
+     * numbers would have meant keeping a classification system for exactly two
+     * labels, and every instructor being made to file their work under one of
+     * them.
+     *
+     * These three need no shared vocabulary — they count days and add up hours,
+     * which mean the same thing in every instructor's own words. See
+     * `worklogFigures`. Read from `WorklogEntry` rather than the stored
+     * metrics, so they are real figures rather than ones marked unavailable
+     * beside them. */
+    const figures = [...figuresByUniversity.values()].reduce(
+      (acc, f) => ({
+        totalHours: Math.round((acc.totalHours + f.totalHours) * 100) / 100,
+        daysLogged: acc.daysLogged + f.daysLogged,
+        instructorsLogging: acc.instructorsLogging + f.instructorsLogging,
+      }),
+      { totalHours: 0, daysLogged: 0, instructorsLogging: 0 },
+    );
 
     return NextResponse.json({
       overview: {
@@ -307,9 +324,12 @@ export const GET = withAuth(
         unutilizedHours: sum((u) => u.unutilizedHours),
         missingDataHours: sum((u) => u.missingDataHours),
         utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
-        teachingHours: hoursByActivityType.TEACHING ?? 0,
-        learningHours: hoursByActivityType.LEARNING ?? 0,
-        hoursByActivityType,
+        /* Hours, days and how many people filed. No category anywhere: see the
+           note above `figures`, and `worklogFigures` for why these three are
+           the only cross-instructor figures that survive. */
+        totalHours: figures.totalHours,
+        daysLogged: figures.daysLogged,
+        instructorsLogging: figures.instructorsLogging,
         // True only when every university's rollup covers the whole requested
         // window. When false the figures above are computed over fewer days
         // than were asked for and will not match the live analytics engine.

@@ -152,7 +152,6 @@ model University {
   schedules               Schedule[]
   scheduleSlots           ScheduleSlot[]
   breakPolicies           BreakPolicy[]
-  workloadTargets         WorkloadTarget[]
   reportingPeriods        ReportingPeriod[]
   instructorDailyMetrics  InstructorDailyMetric[]
   instructorWeeklyMetrics InstructorWeeklyMetric[]
@@ -346,7 +345,6 @@ model Instructor {
   courseAssignments       CourseAssignment[]
   schedules               Schedule[]
   scheduleSlots           ScheduleSlot[]
-  workloadTargets         WorkloadTarget[]
   deliverableLogs         DeliverableLog[]
   instructorDailyMetrics  InstructorDailyMetric[]
   instructorWeeklyMetrics InstructorWeeklyMetric[]
@@ -426,10 +424,9 @@ model ActivityType {
 
   activityLogs ActivityLog[]
 
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  scheduleSlots   ScheduleSlot[]
-  workloadTargets WorkloadTarget[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  scheduleSlots ScheduleSlot[]
 
   deliverableTypes DeliverableType[]
 
@@ -1126,32 +1123,6 @@ model BreakPolicy {
 // ═══════════════════════════════════════════════════════════════════════════
 // WORKLOAD TARGETS & REPORTING PERIODS (§21, §22)
 // ═══════════════════════════════════════════════════════════════════════════
-
-/// Per-university expectation for how much time an activity type should take.
-/// Effective-dated so changing a target does not rewrite history.
-model WorkloadTarget {
-  id           String     @id @default(cuid())
-  universityId String
-  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-
-  /// Null instructorId = the university-wide default for this activity type.
-  instructorId String?
-  instructor   Instructor? @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-
-  activityTypeId String?
-  activityType   ActivityType? @relation(fields: [activityTypeId], references: [id], onDelete: Cascade)
-
-  targetMinutes Int
-  periodType    ReportingPeriodType @default(WEEKLY)
-  effectiveFrom DateTime            @db.Date
-  effectiveTo   DateTime?           @db.Date
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([universityId, activityTypeId, effectiveFrom])
-  @@index([instructorId, effectiveFrom])
-}
 
 model ReportingPeriod {
   id           String      @id @default(cuid())

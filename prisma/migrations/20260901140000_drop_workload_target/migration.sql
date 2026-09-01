@@ -1,0 +1,21 @@
+-- `WorkloadTarget` goes with the taxonomy it was keyed on.
+--
+-- The feature was actual-versus-target hours PER ACTIVITY TYPE: somebody
+-- configured "8 hours of TEACHING a week" for a university or a person, and the
+-- analytics engine reported the variance. Without the sixteen activity types
+-- there is nothing to set a target against — a target cannot be expressed
+-- against free text, and rebuilding it against TOTAL hours would be a different
+-- feature answering a different question.
+--
+-- ── Nothing configured was lost ─────────────────────────────────────────────
+-- The table held ZERO rows in both databases, checked before this was written:
+--
+--   dev  (tracksheet)      0
+--   test (tracksheet_test) 0
+--
+-- So there was nothing to dump. Had there been rows they would have been
+-- written to a timestamped JSON file in the repo first and named in the commit
+-- message: somebody configured those targets, and the record of what they set
+-- costs nothing to keep and is gone forever otherwise.
+
+DROP TABLE IF EXISTS "WorkloadTarget";

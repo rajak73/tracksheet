@@ -156,25 +156,29 @@ describe("the rollup agrees with the live engine", () => {
     expect(north.productiveHours).toBe(analytics.body.analytics.totals.productiveHours);
   });
 
-  test("the per-activity-type split survives the rollup", async () => {
-    // The admin dashboard promises separate teaching and learning figures. The
-    // rollup used to store an empty map, so both read as 0 no matter what had
-    // been logged — a visibly wrong number rather than a silent one.
-    const overview = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
-    const north = overview.body.universities.find(
-      (u: { universityId: string }) => u.universityId === northId,
-    );
-    expect(Object.keys(north.hoursByActivityType).length).toBeGreaterThan(0);
-    expect(north.hoursByActivityType.TEACHING).toBeGreaterThan(0);
+  test("the dashboard's headline figures need no shared vocabulary", async () => {
+    /* This asserted that TEACHING and LEARNING hours survived the rollup. Those
+       two numbers led the admin dashboard and were read out of the TEACHING and
+       LEARNING codes — a two-item taxonomy at the top of the page, which every
+       instructor had to file their work under for the figures to mean anything.
 
-    // And it agrees with the engine for the same window — admin on both halves,
-    // so the only difference between them is the code path. See the note above.
-    const analytics = await admin.get(
-      `/api/universities/${northId}/analytics?from=${WEEK_FROM}&to=${WEEK_TO}`,
-    );
-    expect(north.hoursByActivityType.TEACHING).toBe(
-      analytics.body.analytics.totals.hoursByActivityType.TEACHING,
-    );
+       What replaced them counts days and adds up hours, and both mean the same
+       thing in every instructor's own words. Read from `WorklogEntry`, so they
+       are also the only headline figures on that page that are not currently
+       marked unavailable. */
+    const overview = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
+    expect(overview.status).toBe(200);
+
+    for (const field of ["totalHours", "daysLogged", "instructorsLogging"]) {
+      expect(overview.body.overview, field).toHaveProperty(field);
+      expect(typeof overview.body.overview[field], field).toBe("number");
+      expect(overview.body.overview[field], field).toBeGreaterThanOrEqual(0);
+    }
+
+    // And the category split is gone from the payload, not merely unrendered.
+    expect(overview.body.overview).not.toHaveProperty("hoursByActivityType");
+    expect(overview.body.overview).not.toHaveProperty("teachingHours");
+    expect(overview.body.overview).not.toHaveProperty("learningHours");
   });
 
   test("missing data is preserved through the rollup, not folded into unutilized", async () => {

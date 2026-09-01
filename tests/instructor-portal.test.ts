@@ -109,9 +109,10 @@ describe("an instructor cannot reach manager or admin surfaces", () => {
     expect(res.status).toBe(403);
   });
 
-  test("workload targets stay closed", async () => {
-    expect((await inst1.get(`/api/universities/${northId}/workload-targets`)).status).toBe(403);
-  });
+  /* "workload targets stay closed" was deleted, not ported to expect a 404.
+     The route is gone with the feature — targets were set per activity type —
+     so the test would have asserted that a door nobody built is shut, which is
+     true of every path that does not exist and says nothing about access. */
 
   test("creating a university is refused", async () => {
     const res = await inst1.post("/api/universities", {

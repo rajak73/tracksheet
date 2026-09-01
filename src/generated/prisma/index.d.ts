@@ -206,12 +206,6 @@ export type ScheduleSlot = $Result.DefaultSelection<Prisma.$ScheduleSlotPayload>
  */
 export type BreakPolicy = $Result.DefaultSelection<Prisma.$BreakPolicyPayload>
 /**
- * Model WorkloadTarget
- * Per-university expectation for how much time an activity type should take.
- * Effective-dated so changing a target does not rewrite history.
- */
-export type WorkloadTarget = $Result.DefaultSelection<Prisma.$WorkloadTargetPayload>
-/**
  * Model ReportingPeriod
  * 
  */
@@ -1167,16 +1161,6 @@ export class PrismaClient<
   get breakPolicy(): Prisma.BreakPolicyDelegate<ExtArgs, ClientOptions>;
 
   /**
-   * `prisma.workloadTarget`: Exposes CRUD operations for the **WorkloadTarget** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more WorkloadTargets
-    * const workloadTargets = await prisma.workloadTarget.findMany()
-    * ```
-    */
-  get workloadTarget(): Prisma.WorkloadTargetDelegate<ExtArgs, ClientOptions>;
-
-  /**
    * `prisma.reportingPeriod`: Exposes CRUD operations for the **ReportingPeriod** model.
     * Example usage:
     * ```ts
@@ -1788,7 +1772,6 @@ export namespace Prisma {
     Schedule: 'Schedule',
     ScheduleSlot: 'ScheduleSlot',
     BreakPolicy: 'BreakPolicy',
-    WorkloadTarget: 'WorkloadTarget',
     ReportingPeriod: 'ReportingPeriod',
     InstructorDailyMetric: 'InstructorDailyMetric',
     InstructorWeeklyMetric: 'InstructorWeeklyMetric',
@@ -1818,7 +1801,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "dayExtraction" | "worklogActivityArchive"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "dayExtraction" | "worklogActivityArchive"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -3746,80 +3729,6 @@ export namespace Prisma {
           }
         }
       }
-      WorkloadTarget: {
-        payload: Prisma.$WorkloadTargetPayload<ExtArgs>
-        fields: Prisma.WorkloadTargetFieldRefs
-        operations: {
-          findUnique: {
-            args: Prisma.WorkloadTargetFindUniqueArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload> | null
-          }
-          findUniqueOrThrow: {
-            args: Prisma.WorkloadTargetFindUniqueOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          findFirst: {
-            args: Prisma.WorkloadTargetFindFirstArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload> | null
-          }
-          findFirstOrThrow: {
-            args: Prisma.WorkloadTargetFindFirstOrThrowArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          findMany: {
-            args: Prisma.WorkloadTargetFindManyArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>[]
-          }
-          create: {
-            args: Prisma.WorkloadTargetCreateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          createMany: {
-            args: Prisma.WorkloadTargetCreateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          createManyAndReturn: {
-            args: Prisma.WorkloadTargetCreateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>[]
-          }
-          delete: {
-            args: Prisma.WorkloadTargetDeleteArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          update: {
-            args: Prisma.WorkloadTargetUpdateArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          deleteMany: {
-            args: Prisma.WorkloadTargetDeleteManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateMany: {
-            args: Prisma.WorkloadTargetUpdateManyArgs<ExtArgs>
-            result: BatchPayload
-          }
-          updateManyAndReturn: {
-            args: Prisma.WorkloadTargetUpdateManyAndReturnArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>[]
-          }
-          upsert: {
-            args: Prisma.WorkloadTargetUpsertArgs<ExtArgs>
-            result: $Utils.PayloadToResult<Prisma.$WorkloadTargetPayload>
-          }
-          aggregate: {
-            args: Prisma.WorkloadTargetAggregateArgs<ExtArgs>
-            result: $Utils.Optional<AggregateWorkloadTarget>
-          }
-          groupBy: {
-            args: Prisma.WorkloadTargetGroupByArgs<ExtArgs>
-            result: $Utils.Optional<WorkloadTargetGroupByOutputType>[]
-          }
-          count: {
-            args: Prisma.WorkloadTargetCountArgs<ExtArgs>
-            result: $Utils.Optional<WorkloadTargetCountAggregateOutputType> | number
-          }
-        }
-      }
       ReportingPeriod: {
         payload: Prisma.$ReportingPeriodPayload<ExtArgs>
         fields: Prisma.ReportingPeriodFieldRefs
@@ -5005,7 +4914,6 @@ export namespace Prisma {
     schedule?: ScheduleOmit
     scheduleSlot?: ScheduleSlotOmit
     breakPolicy?: BreakPolicyOmit
-    workloadTarget?: WorkloadTargetOmit
     reportingPeriod?: ReportingPeriodOmit
     instructorDailyMetric?: InstructorDailyMetricOmit
     instructorWeeklyMetric?: InstructorWeeklyMetricOmit
@@ -5214,7 +5122,6 @@ export namespace Prisma {
     schedules: number
     scheduleSlots: number
     breakPolicies: number
-    workloadTargets: number
     reportingPeriods: number
     instructorDailyMetrics: number
     instructorWeeklyMetrics: number
@@ -5246,7 +5153,6 @@ export namespace Prisma {
     schedules?: boolean | UniversityCountOutputTypeCountSchedulesArgs
     scheduleSlots?: boolean | UniversityCountOutputTypeCountScheduleSlotsArgs
     breakPolicies?: boolean | UniversityCountOutputTypeCountBreakPoliciesArgs
-    workloadTargets?: boolean | UniversityCountOutputTypeCountWorkloadTargetsArgs
     reportingPeriods?: boolean | UniversityCountOutputTypeCountReportingPeriodsArgs
     instructorDailyMetrics?: boolean | UniversityCountOutputTypeCountInstructorDailyMetricsArgs
     instructorWeeklyMetrics?: boolean | UniversityCountOutputTypeCountInstructorWeeklyMetricsArgs
@@ -5411,13 +5317,6 @@ export namespace Prisma {
   /**
    * UniversityCountOutputType without action
    */
-  export type UniversityCountOutputTypeCountWorkloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: WorkloadTargetWhereInput
-  }
-
-  /**
-   * UniversityCountOutputType without action
-   */
   export type UniversityCountOutputTypeCountReportingPeriodsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ReportingPeriodWhereInput
   }
@@ -5564,7 +5463,6 @@ export namespace Prisma {
     courseAssignments: number
     schedules: number
     scheduleSlots: number
-    workloadTargets: number
     deliverableLogs: number
     instructorDailyMetrics: number
     instructorWeeklyMetrics: number
@@ -5584,7 +5482,6 @@ export namespace Prisma {
     courseAssignments?: boolean | InstructorCountOutputTypeCountCourseAssignmentsArgs
     schedules?: boolean | InstructorCountOutputTypeCountSchedulesArgs
     scheduleSlots?: boolean | InstructorCountOutputTypeCountScheduleSlotsArgs
-    workloadTargets?: boolean | InstructorCountOutputTypeCountWorkloadTargetsArgs
     deliverableLogs?: boolean | InstructorCountOutputTypeCountDeliverableLogsArgs
     instructorDailyMetrics?: boolean | InstructorCountOutputTypeCountInstructorDailyMetricsArgs
     instructorWeeklyMetrics?: boolean | InstructorCountOutputTypeCountInstructorWeeklyMetricsArgs
@@ -5659,13 +5556,6 @@ export namespace Prisma {
   /**
    * InstructorCountOutputType without action
    */
-  export type InstructorCountOutputTypeCountWorkloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: WorkloadTargetWhereInput
-  }
-
-  /**
-   * InstructorCountOutputType without action
-   */
   export type InstructorCountOutputTypeCountDeliverableLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: DeliverableLogWhereInput
   }
@@ -5734,14 +5624,12 @@ export namespace Prisma {
   export type ActivityTypeCountOutputType = {
     activityLogs: number
     scheduleSlots: number
-    workloadTargets: number
     deliverableTypes: number
   }
 
   export type ActivityTypeCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     activityLogs?: boolean | ActivityTypeCountOutputTypeCountActivityLogsArgs
     scheduleSlots?: boolean | ActivityTypeCountOutputTypeCountScheduleSlotsArgs
-    workloadTargets?: boolean | ActivityTypeCountOutputTypeCountWorkloadTargetsArgs
     deliverableTypes?: boolean | ActivityTypeCountOutputTypeCountDeliverableTypesArgs
   }
 
@@ -5768,13 +5656,6 @@ export namespace Prisma {
    */
   export type ActivityTypeCountOutputTypeCountScheduleSlotsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: ScheduleSlotWhereInput
-  }
-
-  /**
-   * ActivityTypeCountOutputType without action
-   */
-  export type ActivityTypeCountOutputTypeCountWorkloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: WorkloadTargetWhereInput
   }
 
   /**
@@ -7934,7 +7815,6 @@ export namespace Prisma {
     schedules?: boolean | University$schedulesArgs<ExtArgs>
     scheduleSlots?: boolean | University$scheduleSlotsArgs<ExtArgs>
     breakPolicies?: boolean | University$breakPoliciesArgs<ExtArgs>
-    workloadTargets?: boolean | University$workloadTargetsArgs<ExtArgs>
     reportingPeriods?: boolean | University$reportingPeriodsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | University$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | University$instructorWeeklyMetricsArgs<ExtArgs>
@@ -8035,7 +7915,6 @@ export namespace Prisma {
     schedules?: boolean | University$schedulesArgs<ExtArgs>
     scheduleSlots?: boolean | University$scheduleSlotsArgs<ExtArgs>
     breakPolicies?: boolean | University$breakPoliciesArgs<ExtArgs>
-    workloadTargets?: boolean | University$workloadTargetsArgs<ExtArgs>
     reportingPeriods?: boolean | University$reportingPeriodsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | University$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | University$instructorWeeklyMetricsArgs<ExtArgs>
@@ -8078,7 +7957,6 @@ export namespace Prisma {
       schedules: Prisma.$SchedulePayload<ExtArgs>[]
       scheduleSlots: Prisma.$ScheduleSlotPayload<ExtArgs>[]
       breakPolicies: Prisma.$BreakPolicyPayload<ExtArgs>[]
-      workloadTargets: Prisma.$WorkloadTargetPayload<ExtArgs>[]
       reportingPeriods: Prisma.$ReportingPeriodPayload<ExtArgs>[]
       instructorDailyMetrics: Prisma.$InstructorDailyMetricPayload<ExtArgs>[]
       instructorWeeklyMetrics: Prisma.$InstructorWeeklyMetricPayload<ExtArgs>[]
@@ -8551,7 +8429,6 @@ export namespace Prisma {
     schedules<T extends University$schedulesArgs<ExtArgs> = {}>(args?: Subset<T, University$schedulesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SchedulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scheduleSlots<T extends University$scheduleSlotsArgs<ExtArgs> = {}>(args?: Subset<T, University$scheduleSlotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScheduleSlotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     breakPolicies<T extends University$breakPoliciesArgs<ExtArgs> = {}>(args?: Subset<T, University$breakPoliciesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$BreakPolicyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    workloadTargets<T extends University$workloadTargetsArgs<ExtArgs> = {}>(args?: Subset<T, University$workloadTargetsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     reportingPeriods<T extends University$reportingPeriodsArgs<ExtArgs> = {}>(args?: Subset<T, University$reportingPeriodsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ReportingPeriodPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorDailyMetrics<T extends University$instructorDailyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, University$instructorDailyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorDailyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorWeeklyMetrics<T extends University$instructorWeeklyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, University$instructorWeeklyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorWeeklyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -9523,30 +9400,6 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: BreakPolicyScalarFieldEnum | BreakPolicyScalarFieldEnum[]
-  }
-
-  /**
-   * University.workloadTargets
-   */
-  export type University$workloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    where?: WorkloadTargetWhereInput
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    cursor?: WorkloadTargetWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
   }
 
   /**
@@ -15559,7 +15412,6 @@ export namespace Prisma {
     courseAssignments?: boolean | Instructor$courseAssignmentsArgs<ExtArgs>
     schedules?: boolean | Instructor$schedulesArgs<ExtArgs>
     scheduleSlots?: boolean | Instructor$scheduleSlotsArgs<ExtArgs>
-    workloadTargets?: boolean | Instructor$workloadTargetsArgs<ExtArgs>
     deliverableLogs?: boolean | Instructor$deliverableLogsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | Instructor$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
@@ -15626,7 +15478,6 @@ export namespace Prisma {
     courseAssignments?: boolean | Instructor$courseAssignmentsArgs<ExtArgs>
     schedules?: boolean | Instructor$schedulesArgs<ExtArgs>
     scheduleSlots?: boolean | Instructor$scheduleSlotsArgs<ExtArgs>
-    workloadTargets?: boolean | Instructor$workloadTargetsArgs<ExtArgs>
     deliverableLogs?: boolean | Instructor$deliverableLogsArgs<ExtArgs>
     instructorDailyMetrics?: boolean | Instructor$instructorDailyMetricsArgs<ExtArgs>
     instructorWeeklyMetrics?: boolean | Instructor$instructorWeeklyMetricsArgs<ExtArgs>
@@ -15665,7 +15516,6 @@ export namespace Prisma {
       courseAssignments: Prisma.$CourseAssignmentPayload<ExtArgs>[]
       schedules: Prisma.$SchedulePayload<ExtArgs>[]
       scheduleSlots: Prisma.$ScheduleSlotPayload<ExtArgs>[]
-      workloadTargets: Prisma.$WorkloadTargetPayload<ExtArgs>[]
       deliverableLogs: Prisma.$DeliverableLogPayload<ExtArgs>[]
       instructorDailyMetrics: Prisma.$InstructorDailyMetricPayload<ExtArgs>[]
       instructorWeeklyMetrics: Prisma.$InstructorWeeklyMetricPayload<ExtArgs>[]
@@ -16120,7 +15970,6 @@ export namespace Prisma {
     courseAssignments<T extends Instructor$courseAssignmentsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$courseAssignmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CourseAssignmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     schedules<T extends Instructor$schedulesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$schedulesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SchedulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scheduleSlots<T extends Instructor$scheduleSlotsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$scheduleSlotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScheduleSlotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    workloadTargets<T extends Instructor$workloadTargetsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$workloadTargetsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverableLogs<T extends Instructor$deliverableLogsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$deliverableLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorDailyMetrics<T extends Instructor$instructorDailyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$instructorDailyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorDailyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     instructorWeeklyMetrics<T extends Instructor$instructorWeeklyMetricsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$instructorWeeklyMetricsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InstructorWeeklyMetricPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -16774,30 +16623,6 @@ export namespace Prisma {
   }
 
   /**
-   * Instructor.workloadTargets
-   */
-  export type Instructor$workloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    where?: WorkloadTargetWhereInput
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    cursor?: WorkloadTargetWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
-  }
-
-  /**
    * Instructor.deliverableLogs
    */
   export type Instructor$deliverableLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -17296,7 +17121,6 @@ export namespace Prisma {
     updatedAt?: boolean
     activityLogs?: boolean | ActivityType$activityLogsArgs<ExtArgs>
     scheduleSlots?: boolean | ActivityType$scheduleSlotsArgs<ExtArgs>
-    workloadTargets?: boolean | ActivityType$workloadTargetsArgs<ExtArgs>
     deliverableTypes?: boolean | ActivityType$deliverableTypesArgs<ExtArgs>
     _count?: boolean | ActivityTypeCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["activityType"]>
@@ -17353,7 +17177,6 @@ export namespace Prisma {
   export type ActivityTypeInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     activityLogs?: boolean | ActivityType$activityLogsArgs<ExtArgs>
     scheduleSlots?: boolean | ActivityType$scheduleSlotsArgs<ExtArgs>
-    workloadTargets?: boolean | ActivityType$workloadTargetsArgs<ExtArgs>
     deliverableTypes?: boolean | ActivityType$deliverableTypesArgs<ExtArgs>
     _count?: boolean | ActivityTypeCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -17365,7 +17188,6 @@ export namespace Prisma {
     objects: {
       activityLogs: Prisma.$ActivityLogPayload<ExtArgs>[]
       scheduleSlots: Prisma.$ScheduleSlotPayload<ExtArgs>[]
-      workloadTargets: Prisma.$WorkloadTargetPayload<ExtArgs>[]
       deliverableTypes: Prisma.$DeliverableTypePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -17803,7 +17625,6 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     activityLogs<T extends ActivityType$activityLogsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$activityLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ActivityLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     scheduleSlots<T extends ActivityType$scheduleSlotsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$scheduleSlotsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ScheduleSlotPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-    workloadTargets<T extends ActivityType$workloadTargetsArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$workloadTargetsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     deliverableTypes<T extends ActivityType$deliverableTypesArgs<ExtArgs> = {}>(args?: Subset<T, ActivityType$deliverableTypesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DeliverableTypePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -18285,30 +18106,6 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: ScheduleSlotScalarFieldEnum | ScheduleSlotScalarFieldEnum[]
-  }
-
-  /**
-   * ActivityType.workloadTargets
-   */
-  export type ActivityType$workloadTargetsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    where?: WorkloadTargetWhereInput
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    cursor?: WorkloadTargetWhereUniqueInput
-    take?: number
-    skip?: number
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
   }
 
   /**
@@ -38994,1225 +38791,6 @@ export namespace Prisma {
 
 
   /**
-   * Model WorkloadTarget
-   */
-
-  export type AggregateWorkloadTarget = {
-    _count: WorkloadTargetCountAggregateOutputType | null
-    _avg: WorkloadTargetAvgAggregateOutputType | null
-    _sum: WorkloadTargetSumAggregateOutputType | null
-    _min: WorkloadTargetMinAggregateOutputType | null
-    _max: WorkloadTargetMaxAggregateOutputType | null
-  }
-
-  export type WorkloadTargetAvgAggregateOutputType = {
-    targetMinutes: number | null
-  }
-
-  export type WorkloadTargetSumAggregateOutputType = {
-    targetMinutes: number | null
-  }
-
-  export type WorkloadTargetMinAggregateOutputType = {
-    id: string | null
-    universityId: string | null
-    instructorId: string | null
-    activityTypeId: string | null
-    targetMinutes: number | null
-    periodType: $Enums.ReportingPeriodType | null
-    effectiveFrom: Date | null
-    effectiveTo: Date | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type WorkloadTargetMaxAggregateOutputType = {
-    id: string | null
-    universityId: string | null
-    instructorId: string | null
-    activityTypeId: string | null
-    targetMinutes: number | null
-    periodType: $Enums.ReportingPeriodType | null
-    effectiveFrom: Date | null
-    effectiveTo: Date | null
-    createdAt: Date | null
-    updatedAt: Date | null
-  }
-
-  export type WorkloadTargetCountAggregateOutputType = {
-    id: number
-    universityId: number
-    instructorId: number
-    activityTypeId: number
-    targetMinutes: number
-    periodType: number
-    effectiveFrom: number
-    effectiveTo: number
-    createdAt: number
-    updatedAt: number
-    _all: number
-  }
-
-
-  export type WorkloadTargetAvgAggregateInputType = {
-    targetMinutes?: true
-  }
-
-  export type WorkloadTargetSumAggregateInputType = {
-    targetMinutes?: true
-  }
-
-  export type WorkloadTargetMinAggregateInputType = {
-    id?: true
-    universityId?: true
-    instructorId?: true
-    activityTypeId?: true
-    targetMinutes?: true
-    periodType?: true
-    effectiveFrom?: true
-    effectiveTo?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type WorkloadTargetMaxAggregateInputType = {
-    id?: true
-    universityId?: true
-    instructorId?: true
-    activityTypeId?: true
-    targetMinutes?: true
-    periodType?: true
-    effectiveFrom?: true
-    effectiveTo?: true
-    createdAt?: true
-    updatedAt?: true
-  }
-
-  export type WorkloadTargetCountAggregateInputType = {
-    id?: true
-    universityId?: true
-    instructorId?: true
-    activityTypeId?: true
-    targetMinutes?: true
-    periodType?: true
-    effectiveFrom?: true
-    effectiveTo?: true
-    createdAt?: true
-    updatedAt?: true
-    _all?: true
-  }
-
-  export type WorkloadTargetAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which WorkloadTarget to aggregate.
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of WorkloadTargets to fetch.
-     */
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the start position
-     */
-    cursor?: WorkloadTargetWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` WorkloadTargets from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` WorkloadTargets.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Count returned WorkloadTargets
-    **/
-    _count?: true | WorkloadTargetCountAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to average
-    **/
-    _avg?: WorkloadTargetAvgAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to sum
-    **/
-    _sum?: WorkloadTargetSumAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the minimum value
-    **/
-    _min?: WorkloadTargetMinAggregateInputType
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
-     * 
-     * Select which fields to find the maximum value
-    **/
-    _max?: WorkloadTargetMaxAggregateInputType
-  }
-
-  export type GetWorkloadTargetAggregateType<T extends WorkloadTargetAggregateArgs> = {
-        [P in keyof T & keyof AggregateWorkloadTarget]: P extends '_count' | 'count'
-      ? T[P] extends true
-        ? number
-        : GetScalarType<T[P], AggregateWorkloadTarget[P]>
-      : GetScalarType<T[P], AggregateWorkloadTarget[P]>
-  }
-
-
-
-
-  export type WorkloadTargetGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    where?: WorkloadTargetWhereInput
-    orderBy?: WorkloadTargetOrderByWithAggregationInput | WorkloadTargetOrderByWithAggregationInput[]
-    by: WorkloadTargetScalarFieldEnum[] | WorkloadTargetScalarFieldEnum
-    having?: WorkloadTargetScalarWhereWithAggregatesInput
-    take?: number
-    skip?: number
-    _count?: WorkloadTargetCountAggregateInputType | true
-    _avg?: WorkloadTargetAvgAggregateInputType
-    _sum?: WorkloadTargetSumAggregateInputType
-    _min?: WorkloadTargetMinAggregateInputType
-    _max?: WorkloadTargetMaxAggregateInputType
-  }
-
-  export type WorkloadTargetGroupByOutputType = {
-    id: string
-    universityId: string
-    instructorId: string | null
-    activityTypeId: string | null
-    targetMinutes: number
-    periodType: $Enums.ReportingPeriodType
-    effectiveFrom: Date
-    effectiveTo: Date | null
-    createdAt: Date
-    updatedAt: Date
-    _count: WorkloadTargetCountAggregateOutputType | null
-    _avg: WorkloadTargetAvgAggregateOutputType | null
-    _sum: WorkloadTargetSumAggregateOutputType | null
-    _min: WorkloadTargetMinAggregateOutputType | null
-    _max: WorkloadTargetMaxAggregateOutputType | null
-  }
-
-  type GetWorkloadTargetGroupByPayload<T extends WorkloadTargetGroupByArgs> = Prisma.PrismaPromise<
-    Array<
-      PickEnumerable<WorkloadTargetGroupByOutputType, T['by']> &
-        {
-          [P in ((keyof T) & (keyof WorkloadTargetGroupByOutputType))]: P extends '_count'
-            ? T[P] extends boolean
-              ? number
-              : GetScalarType<T[P], WorkloadTargetGroupByOutputType[P]>
-            : GetScalarType<T[P], WorkloadTargetGroupByOutputType[P]>
-        }
-      >
-    >
-
-
-  export type WorkloadTargetSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    universityId?: boolean
-    instructorId?: boolean
-    activityTypeId?: boolean
-    targetMinutes?: boolean
-    periodType?: boolean
-    effectiveFrom?: boolean
-    effectiveTo?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }, ExtArgs["result"]["workloadTarget"]>
-
-  export type WorkloadTargetSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    universityId?: boolean
-    instructorId?: boolean
-    activityTypeId?: boolean
-    targetMinutes?: boolean
-    periodType?: boolean
-    effectiveFrom?: boolean
-    effectiveTo?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }, ExtArgs["result"]["workloadTarget"]>
-
-  export type WorkloadTargetSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
-    id?: boolean
-    universityId?: boolean
-    instructorId?: boolean
-    activityTypeId?: boolean
-    targetMinutes?: boolean
-    periodType?: boolean
-    effectiveFrom?: boolean
-    effectiveTo?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }, ExtArgs["result"]["workloadTarget"]>
-
-  export type WorkloadTargetSelectScalar = {
-    id?: boolean
-    universityId?: boolean
-    instructorId?: boolean
-    activityTypeId?: boolean
-    targetMinutes?: boolean
-    periodType?: boolean
-    effectiveFrom?: boolean
-    effectiveTo?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
-  }
-
-  export type WorkloadTargetOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "instructorId" | "activityTypeId" | "targetMinutes" | "periodType" | "effectiveFrom" | "effectiveTo" | "createdAt" | "updatedAt", ExtArgs["result"]["workloadTarget"]>
-  export type WorkloadTargetInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }
-  export type WorkloadTargetIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }
-  export type WorkloadTargetIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    university?: boolean | UniversityDefaultArgs<ExtArgs>
-    instructor?: boolean | WorkloadTarget$instructorArgs<ExtArgs>
-    activityType?: boolean | WorkloadTarget$activityTypeArgs<ExtArgs>
-  }
-
-  export type $WorkloadTargetPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    name: "WorkloadTarget"
-    objects: {
-      university: Prisma.$UniversityPayload<ExtArgs>
-      instructor: Prisma.$InstructorPayload<ExtArgs> | null
-      activityType: Prisma.$ActivityTypePayload<ExtArgs> | null
-    }
-    scalars: $Extensions.GetPayloadResult<{
-      id: string
-      universityId: string
-      /**
-       * Null instructorId = the university-wide default for this activity type.
-       */
-      instructorId: string | null
-      activityTypeId: string | null
-      targetMinutes: number
-      periodType: $Enums.ReportingPeriodType
-      effectiveFrom: Date
-      effectiveTo: Date | null
-      createdAt: Date
-      updatedAt: Date
-    }, ExtArgs["result"]["workloadTarget"]>
-    composites: {}
-  }
-
-  type WorkloadTargetGetPayload<S extends boolean | null | undefined | WorkloadTargetDefaultArgs> = $Result.GetResult<Prisma.$WorkloadTargetPayload, S>
-
-  type WorkloadTargetCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
-    Omit<WorkloadTargetFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
-      select?: WorkloadTargetCountAggregateInputType | true
-    }
-
-  export interface WorkloadTargetDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
-    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['WorkloadTarget'], meta: { name: 'WorkloadTarget' } }
-    /**
-     * Find zero or one WorkloadTarget that matches the filter.
-     * @param {WorkloadTargetFindUniqueArgs} args - Arguments to find a WorkloadTarget
-     * @example
-     * // Get one WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.findUnique({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUnique<T extends WorkloadTargetFindUniqueArgs>(args: SelectSubset<T, WorkloadTargetFindUniqueArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find one WorkloadTarget that matches the filter or throw an error with `error.code='P2025'`
-     * if no matches were found.
-     * @param {WorkloadTargetFindUniqueOrThrowArgs} args - Arguments to find a WorkloadTarget
-     * @example
-     * // Get one WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.findUniqueOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findUniqueOrThrow<T extends WorkloadTargetFindUniqueOrThrowArgs>(args: SelectSubset<T, WorkloadTargetFindUniqueOrThrowArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first WorkloadTarget that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetFindFirstArgs} args - Arguments to find a WorkloadTarget
-     * @example
-     * // Get one WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.findFirst({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirst<T extends WorkloadTargetFindFirstArgs>(args?: SelectSubset<T, WorkloadTargetFindFirstArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find the first WorkloadTarget that matches the filter or
-     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetFindFirstOrThrowArgs} args - Arguments to find a WorkloadTarget
-     * @example
-     * // Get one WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.findFirstOrThrow({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     */
-    findFirstOrThrow<T extends WorkloadTargetFindFirstOrThrowArgs>(args?: SelectSubset<T, WorkloadTargetFindFirstOrThrowArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Find zero or more WorkloadTargets that matches the filter.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetFindManyArgs} args - Arguments to filter and select certain fields only.
-     * @example
-     * // Get all WorkloadTargets
-     * const workloadTargets = await prisma.workloadTarget.findMany()
-     * 
-     * // Get first 10 WorkloadTargets
-     * const workloadTargets = await prisma.workloadTarget.findMany({ take: 10 })
-     * 
-     * // Only select the `id`
-     * const workloadTargetWithIdOnly = await prisma.workloadTarget.findMany({ select: { id: true } })
-     * 
-     */
-    findMany<T extends WorkloadTargetFindManyArgs>(args?: SelectSubset<T, WorkloadTargetFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
-
-    /**
-     * Create a WorkloadTarget.
-     * @param {WorkloadTargetCreateArgs} args - Arguments to create a WorkloadTarget.
-     * @example
-     * // Create one WorkloadTarget
-     * const WorkloadTarget = await prisma.workloadTarget.create({
-     *   data: {
-     *     // ... data to create a WorkloadTarget
-     *   }
-     * })
-     * 
-     */
-    create<T extends WorkloadTargetCreateArgs>(args: SelectSubset<T, WorkloadTargetCreateArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Create many WorkloadTargets.
-     * @param {WorkloadTargetCreateManyArgs} args - Arguments to create many WorkloadTargets.
-     * @example
-     * // Create many WorkloadTargets
-     * const workloadTarget = await prisma.workloadTarget.createMany({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     *     
-     */
-    createMany<T extends WorkloadTargetCreateManyArgs>(args?: SelectSubset<T, WorkloadTargetCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Create many WorkloadTargets and returns the data saved in the database.
-     * @param {WorkloadTargetCreateManyAndReturnArgs} args - Arguments to create many WorkloadTargets.
-     * @example
-     * // Create many WorkloadTargets
-     * const workloadTarget = await prisma.workloadTarget.createManyAndReturn({
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Create many WorkloadTargets and only return the `id`
-     * const workloadTargetWithIdOnly = await prisma.workloadTarget.createManyAndReturn({
-     *   select: { id: true },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    createManyAndReturn<T extends WorkloadTargetCreateManyAndReturnArgs>(args?: SelectSubset<T, WorkloadTargetCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Delete a WorkloadTarget.
-     * @param {WorkloadTargetDeleteArgs} args - Arguments to delete one WorkloadTarget.
-     * @example
-     * // Delete one WorkloadTarget
-     * const WorkloadTarget = await prisma.workloadTarget.delete({
-     *   where: {
-     *     // ... filter to delete one WorkloadTarget
-     *   }
-     * })
-     * 
-     */
-    delete<T extends WorkloadTargetDeleteArgs>(args: SelectSubset<T, WorkloadTargetDeleteArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Update one WorkloadTarget.
-     * @param {WorkloadTargetUpdateArgs} args - Arguments to update one WorkloadTarget.
-     * @example
-     * // Update one WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.update({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    update<T extends WorkloadTargetUpdateArgs>(args: SelectSubset<T, WorkloadTargetUpdateArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-    /**
-     * Delete zero or more WorkloadTargets.
-     * @param {WorkloadTargetDeleteManyArgs} args - Arguments to filter WorkloadTargets to delete.
-     * @example
-     * // Delete a few WorkloadTargets
-     * const { count } = await prisma.workloadTarget.deleteMany({
-     *   where: {
-     *     // ... provide filter here
-     *   }
-     * })
-     * 
-     */
-    deleteMany<T extends WorkloadTargetDeleteManyArgs>(args?: SelectSubset<T, WorkloadTargetDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more WorkloadTargets.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetUpdateManyArgs} args - Arguments to update one or more rows.
-     * @example
-     * // Update many WorkloadTargets
-     * const workloadTarget = await prisma.workloadTarget.updateMany({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: {
-     *     // ... provide data here
-     *   }
-     * })
-     * 
-     */
-    updateMany<T extends WorkloadTargetUpdateManyArgs>(args: SelectSubset<T, WorkloadTargetUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
-
-    /**
-     * Update zero or more WorkloadTargets and returns the data updated in the database.
-     * @param {WorkloadTargetUpdateManyAndReturnArgs} args - Arguments to update many WorkloadTargets.
-     * @example
-     * // Update many WorkloadTargets
-     * const workloadTarget = await prisma.workloadTarget.updateManyAndReturn({
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * 
-     * // Update zero or more WorkloadTargets and only return the `id`
-     * const workloadTargetWithIdOnly = await prisma.workloadTarget.updateManyAndReturn({
-     *   select: { id: true },
-     *   where: {
-     *     // ... provide filter here
-     *   },
-     *   data: [
-     *     // ... provide data here
-     *   ]
-     * })
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * 
-     */
-    updateManyAndReturn<T extends WorkloadTargetUpdateManyAndReturnArgs>(args: SelectSubset<T, WorkloadTargetUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
-
-    /**
-     * Create or update one WorkloadTarget.
-     * @param {WorkloadTargetUpsertArgs} args - Arguments to update or create a WorkloadTarget.
-     * @example
-     * // Update or create a WorkloadTarget
-     * const workloadTarget = await prisma.workloadTarget.upsert({
-     *   create: {
-     *     // ... data to create a WorkloadTarget
-     *   },
-     *   update: {
-     *     // ... in case it already exists, update
-     *   },
-     *   where: {
-     *     // ... the filter for the WorkloadTarget we want to update
-     *   }
-     * })
-     */
-    upsert<T extends WorkloadTargetUpsertArgs>(args: SelectSubset<T, WorkloadTargetUpsertArgs<ExtArgs>>): Prisma__WorkloadTargetClient<$Result.GetResult<Prisma.$WorkloadTargetPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
-
-
-    /**
-     * Count the number of WorkloadTargets.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetCountArgs} args - Arguments to filter WorkloadTargets to count.
-     * @example
-     * // Count the number of WorkloadTargets
-     * const count = await prisma.workloadTarget.count({
-     *   where: {
-     *     // ... the filter for the WorkloadTargets we want to count
-     *   }
-     * })
-    **/
-    count<T extends WorkloadTargetCountArgs>(
-      args?: Subset<T, WorkloadTargetCountArgs>,
-    ): Prisma.PrismaPromise<
-      T extends $Utils.Record<'select', any>
-        ? T['select'] extends true
-          ? number
-          : GetScalarType<T['select'], WorkloadTargetCountAggregateOutputType>
-        : number
-    >
-
-    /**
-     * Allows you to perform aggregations operations on a WorkloadTarget.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
-     * @example
-     * // Ordered by age ascending
-     * // Where email contains prisma.io
-     * // Limited to the 10 users
-     * const aggregations = await prisma.user.aggregate({
-     *   _avg: {
-     *     age: true,
-     *   },
-     *   where: {
-     *     email: {
-     *       contains: "prisma.io",
-     *     },
-     *   },
-     *   orderBy: {
-     *     age: "asc",
-     *   },
-     *   take: 10,
-     * })
-    **/
-    aggregate<T extends WorkloadTargetAggregateArgs>(args: Subset<T, WorkloadTargetAggregateArgs>): Prisma.PrismaPromise<GetWorkloadTargetAggregateType<T>>
-
-    /**
-     * Group by WorkloadTarget.
-     * Note, that providing `undefined` is treated as the value not being there.
-     * Read more here: https://pris.ly/d/null-undefined
-     * @param {WorkloadTargetGroupByArgs} args - Group by arguments.
-     * @example
-     * // Group by city, order by createdAt, get count
-     * const result = await prisma.user.groupBy({
-     *   by: ['city', 'createdAt'],
-     *   orderBy: {
-     *     createdAt: true
-     *   },
-     *   _count: {
-     *     _all: true
-     *   },
-     * })
-     * 
-    **/
-    groupBy<
-      T extends WorkloadTargetGroupByArgs,
-      HasSelectOrTake extends Or<
-        Extends<'skip', Keys<T>>,
-        Extends<'take', Keys<T>>
-      >,
-      OrderByArg extends True extends HasSelectOrTake
-        ? { orderBy: WorkloadTargetGroupByArgs['orderBy'] }
-        : { orderBy?: WorkloadTargetGroupByArgs['orderBy'] },
-      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
-      ByFields extends MaybeTupleToUnion<T['by']>,
-      ByValid extends Has<ByFields, OrderFields>,
-      HavingFields extends GetHavingFields<T['having']>,
-      HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
-      ? `Error: "by" must not be empty.`
-      : HavingValid extends False
-      ? {
-          [P in HavingFields]: P extends ByFields
-            ? never
-            : P extends string
-            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
-            : [
-                Error,
-                'Field ',
-                P,
-                ` in "having" needs to be provided in "by"`,
-              ]
-        }[HavingFields]
-      : 'take' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "take", you also need to provide "orderBy"'
-      : 'skip' extends Keys<T>
-      ? 'orderBy' extends Keys<T>
-        ? ByValid extends True
-          ? {}
-          : {
-              [P in OrderFields]: P extends ByFields
-                ? never
-                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-            }[OrderFields]
-        : 'Error: If you provide "skip", you also need to provide "orderBy"'
-      : ByValid extends True
-      ? {}
-      : {
-          [P in OrderFields]: P extends ByFields
-            ? never
-            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
-        }[OrderFields]
-    >(args: SubsetIntersection<T, WorkloadTargetGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetWorkloadTargetGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
-  /**
-   * Fields of the WorkloadTarget model
-   */
-  readonly fields: WorkloadTargetFieldRefs;
-  }
-
-  /**
-   * The delegate class that acts as a "Promise-like" for WorkloadTarget.
-   * Why is this prefixed with `Prisma__`?
-   * Because we want to prevent naming conflicts as mentioned in
-   * https://github.com/prisma/prisma-client-js/issues/707
-   */
-  export interface Prisma__WorkloadTargetClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
-    readonly [Symbol.toStringTag]: "PrismaPromise"
-    university<T extends UniversityDefaultArgs<ExtArgs> = {}>(args?: Subset<T, UniversityDefaultArgs<ExtArgs>>): Prisma__UniversityClient<$Result.GetResult<Prisma.$UniversityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
-    instructor<T extends WorkloadTarget$instructorArgs<ExtArgs> = {}>(args?: Subset<T, WorkloadTarget$instructorArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-    activityType<T extends WorkloadTarget$activityTypeArgs<ExtArgs> = {}>(args?: Subset<T, WorkloadTarget$activityTypeArgs<ExtArgs>>): Prisma__ActivityTypeClient<$Result.GetResult<Prisma.$ActivityTypePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-    /**
-     * Attaches callbacks for the resolution and/or rejection of the Promise.
-     * @param onfulfilled The callback to execute when the Promise is resolved.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of which ever callback is executed.
-     */
-    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
-    /**
-     * Attaches a callback for only the rejection of the Promise.
-     * @param onrejected The callback to execute when the Promise is rejected.
-     * @returns A Promise for the completion of the callback.
-     */
-    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
-    /**
-     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
-     * resolved value cannot be modified from the callback.
-     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
-     * @returns A Promise for the completion of the callback.
-     */
-    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
-  }
-
-
-
-
-  /**
-   * Fields of the WorkloadTarget model
-   */
-  interface WorkloadTargetFieldRefs {
-    readonly id: FieldRef<"WorkloadTarget", 'String'>
-    readonly universityId: FieldRef<"WorkloadTarget", 'String'>
-    readonly instructorId: FieldRef<"WorkloadTarget", 'String'>
-    readonly activityTypeId: FieldRef<"WorkloadTarget", 'String'>
-    readonly targetMinutes: FieldRef<"WorkloadTarget", 'Int'>
-    readonly periodType: FieldRef<"WorkloadTarget", 'ReportingPeriodType'>
-    readonly effectiveFrom: FieldRef<"WorkloadTarget", 'DateTime'>
-    readonly effectiveTo: FieldRef<"WorkloadTarget", 'DateTime'>
-    readonly createdAt: FieldRef<"WorkloadTarget", 'DateTime'>
-    readonly updatedAt: FieldRef<"WorkloadTarget", 'DateTime'>
-  }
-    
-
-  // Custom InputTypes
-  /**
-   * WorkloadTarget findUnique
-   */
-  export type WorkloadTargetFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter, which WorkloadTarget to fetch.
-     */
-    where: WorkloadTargetWhereUniqueInput
-  }
-
-  /**
-   * WorkloadTarget findUniqueOrThrow
-   */
-  export type WorkloadTargetFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter, which WorkloadTarget to fetch.
-     */
-    where: WorkloadTargetWhereUniqueInput
-  }
-
-  /**
-   * WorkloadTarget findFirst
-   */
-  export type WorkloadTargetFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter, which WorkloadTarget to fetch.
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of WorkloadTargets to fetch.
-     */
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for WorkloadTargets.
-     */
-    cursor?: WorkloadTargetWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` WorkloadTargets from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` WorkloadTargets.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of WorkloadTargets.
-     */
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
-  }
-
-  /**
-   * WorkloadTarget findFirstOrThrow
-   */
-  export type WorkloadTargetFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter, which WorkloadTarget to fetch.
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of WorkloadTargets to fetch.
-     */
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for searching for WorkloadTargets.
-     */
-    cursor?: WorkloadTargetWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` WorkloadTargets from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` WorkloadTargets.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of WorkloadTargets.
-     */
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
-  }
-
-  /**
-   * WorkloadTarget findMany
-   */
-  export type WorkloadTargetFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter, which WorkloadTargets to fetch.
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
-     * 
-     * Determine the order of WorkloadTargets to fetch.
-     */
-    orderBy?: WorkloadTargetOrderByWithRelationInput | WorkloadTargetOrderByWithRelationInput[]
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
-     * 
-     * Sets the position for listing WorkloadTargets.
-     */
-    cursor?: WorkloadTargetWhereUniqueInput
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Take `±n` WorkloadTargets from the position of the cursor.
-     */
-    take?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
-     * 
-     * Skip the first `n` WorkloadTargets.
-     */
-    skip?: number
-    /**
-     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
-     * 
-     * Filter by unique combinations of WorkloadTargets.
-     */
-    distinct?: WorkloadTargetScalarFieldEnum | WorkloadTargetScalarFieldEnum[]
-  }
-
-  /**
-   * WorkloadTarget create
-   */
-  export type WorkloadTargetCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * The data needed to create a WorkloadTarget.
-     */
-    data: XOR<WorkloadTargetCreateInput, WorkloadTargetUncheckedCreateInput>
-  }
-
-  /**
-   * WorkloadTarget createMany
-   */
-  export type WorkloadTargetCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to create many WorkloadTargets.
-     */
-    data: WorkloadTargetCreateManyInput | WorkloadTargetCreateManyInput[]
-    skipDuplicates?: boolean
-  }
-
-  /**
-   * WorkloadTarget createManyAndReturn
-   */
-  export type WorkloadTargetCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelectCreateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * The data used to create many WorkloadTargets.
-     */
-    data: WorkloadTargetCreateManyInput | WorkloadTargetCreateManyInput[]
-    skipDuplicates?: boolean
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetIncludeCreateManyAndReturn<ExtArgs> | null
-  }
-
-  /**
-   * WorkloadTarget update
-   */
-  export type WorkloadTargetUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * The data needed to update a WorkloadTarget.
-     */
-    data: XOR<WorkloadTargetUpdateInput, WorkloadTargetUncheckedUpdateInput>
-    /**
-     * Choose, which WorkloadTarget to update.
-     */
-    where: WorkloadTargetWhereUniqueInput
-  }
-
-  /**
-   * WorkloadTarget updateMany
-   */
-  export type WorkloadTargetUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * The data used to update WorkloadTargets.
-     */
-    data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyInput>
-    /**
-     * Filter which WorkloadTargets to update
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * Limit how many WorkloadTargets to update.
-     */
-    limit?: number
-  }
-
-  /**
-   * WorkloadTarget updateManyAndReturn
-   */
-  export type WorkloadTargetUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelectUpdateManyAndReturn<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * The data used to update WorkloadTargets.
-     */
-    data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyInput>
-    /**
-     * Filter which WorkloadTargets to update
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * Limit how many WorkloadTargets to update.
-     */
-    limit?: number
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetIncludeUpdateManyAndReturn<ExtArgs> | null
-  }
-
-  /**
-   * WorkloadTarget upsert
-   */
-  export type WorkloadTargetUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * The filter to search for the WorkloadTarget to update in case it exists.
-     */
-    where: WorkloadTargetWhereUniqueInput
-    /**
-     * In case the WorkloadTarget found by the `where` argument doesn't exist, create a new WorkloadTarget with this data.
-     */
-    create: XOR<WorkloadTargetCreateInput, WorkloadTargetUncheckedCreateInput>
-    /**
-     * In case the WorkloadTarget was found with the provided `where` argument, update it with this data.
-     */
-    update: XOR<WorkloadTargetUpdateInput, WorkloadTargetUncheckedUpdateInput>
-  }
-
-  /**
-   * WorkloadTarget delete
-   */
-  export type WorkloadTargetDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-    /**
-     * Filter which WorkloadTarget to delete.
-     */
-    where: WorkloadTargetWhereUniqueInput
-  }
-
-  /**
-   * WorkloadTarget deleteMany
-   */
-  export type WorkloadTargetDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Filter which WorkloadTargets to delete
-     */
-    where?: WorkloadTargetWhereInput
-    /**
-     * Limit how many WorkloadTargets to delete.
-     */
-    limit?: number
-  }
-
-  /**
-   * WorkloadTarget.instructor
-   */
-  export type WorkloadTarget$instructorArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the Instructor
-     */
-    select?: InstructorSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the Instructor
-     */
-    omit?: InstructorOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: InstructorInclude<ExtArgs> | null
-    where?: InstructorWhereInput
-  }
-
-  /**
-   * WorkloadTarget.activityType
-   */
-  export type WorkloadTarget$activityTypeArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the ActivityType
-     */
-    select?: ActivityTypeSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the ActivityType
-     */
-    omit?: ActivityTypeOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: ActivityTypeInclude<ExtArgs> | null
-    where?: ActivityTypeWhereInput
-  }
-
-  /**
-   * WorkloadTarget without action
-   */
-  export type WorkloadTargetDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    /**
-     * Select specific fields to fetch from the WorkloadTarget
-     */
-    select?: WorkloadTargetSelect<ExtArgs> | null
-    /**
-     * Omit specific fields from the WorkloadTarget
-     */
-    omit?: WorkloadTargetOmit<ExtArgs> | null
-    /**
-     * Choose, which related nodes to fetch as well
-     */
-    include?: WorkloadTargetInclude<ExtArgs> | null
-  }
-
-
-  /**
    * Model ReportingPeriod
    */
 
@@ -58011,22 +56589,6 @@ export namespace Prisma {
   export type BreakPolicyScalarFieldEnum = (typeof BreakPolicyScalarFieldEnum)[keyof typeof BreakPolicyScalarFieldEnum]
 
 
-  export const WorkloadTargetScalarFieldEnum: {
-    id: 'id',
-    universityId: 'universityId',
-    instructorId: 'instructorId',
-    activityTypeId: 'activityTypeId',
-    targetMinutes: 'targetMinutes',
-    periodType: 'periodType',
-    effectiveFrom: 'effectiveFrom',
-    effectiveTo: 'effectiveTo',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
-  };
-
-  export type WorkloadTargetScalarFieldEnum = (typeof WorkloadTargetScalarFieldEnum)[keyof typeof WorkloadTargetScalarFieldEnum]
-
-
   export const ReportingPeriodScalarFieldEnum: {
     id: 'id',
     universityId: 'universityId',
@@ -59012,7 +57574,6 @@ export namespace Prisma {
     schedules?: ScheduleListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
     breakPolicies?: BreakPolicyListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     reportingPeriods?: ReportingPeriodListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
@@ -59064,7 +57625,6 @@ export namespace Prisma {
     schedules?: ScheduleOrderByRelationAggregateInput
     scheduleSlots?: ScheduleSlotOrderByRelationAggregateInput
     breakPolicies?: BreakPolicyOrderByRelationAggregateInput
-    workloadTargets?: WorkloadTargetOrderByRelationAggregateInput
     reportingPeriods?: ReportingPeriodOrderByRelationAggregateInput
     instructorDailyMetrics?: InstructorDailyMetricOrderByRelationAggregateInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricOrderByRelationAggregateInput
@@ -59119,7 +57679,6 @@ export namespace Prisma {
     schedules?: ScheduleListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
     breakPolicies?: BreakPolicyListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     reportingPeriods?: ReportingPeriodListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
@@ -59528,7 +58087,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentListRelationFilter
     schedules?: ScheduleListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
@@ -59560,7 +58118,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentOrderByRelationAggregateInput
     schedules?: ScheduleOrderByRelationAggregateInput
     scheduleSlots?: ScheduleSlotOrderByRelationAggregateInput
-    workloadTargets?: WorkloadTargetOrderByRelationAggregateInput
     deliverableLogs?: DeliverableLogOrderByRelationAggregateInput
     instructorDailyMetrics?: InstructorDailyMetricOrderByRelationAggregateInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricOrderByRelationAggregateInput
@@ -59597,7 +58154,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentListRelationFilter
     schedules?: ScheduleListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     deliverableLogs?: DeliverableLogListRelationFilter
     instructorDailyMetrics?: InstructorDailyMetricListRelationFilter
     instructorWeeklyMetrics?: InstructorWeeklyMetricListRelationFilter
@@ -59656,7 +58212,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"ActivityType"> | Date | string
     activityLogs?: ActivityLogListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     deliverableTypes?: DeliverableTypeListRelationFilter
   }
 
@@ -59676,7 +58231,6 @@ export namespace Prisma {
     updatedAt?: SortOrder
     activityLogs?: ActivityLogOrderByRelationAggregateInput
     scheduleSlots?: ScheduleSlotOrderByRelationAggregateInput
-    workloadTargets?: WorkloadTargetOrderByRelationAggregateInput
     deliverableTypes?: DeliverableTypeOrderByRelationAggregateInput
   }
 
@@ -59699,7 +58253,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"ActivityType"> | Date | string
     activityLogs?: ActivityLogListRelationFilter
     scheduleSlots?: ScheduleSlotListRelationFilter
-    workloadTargets?: WorkloadTargetListRelationFilter
     deliverableTypes?: DeliverableTypeListRelationFilter
   }, "id" | "code">
 
@@ -61314,94 +59867,6 @@ export namespace Prisma {
     isActive?: BoolWithAggregatesFilter<"BreakPolicy"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"BreakPolicy"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"BreakPolicy"> | Date | string
-  }
-
-  export type WorkloadTargetWhereInput = {
-    AND?: WorkloadTargetWhereInput | WorkloadTargetWhereInput[]
-    OR?: WorkloadTargetWhereInput[]
-    NOT?: WorkloadTargetWhereInput | WorkloadTargetWhereInput[]
-    id?: StringFilter<"WorkloadTarget"> | string
-    universityId?: StringFilter<"WorkloadTarget"> | string
-    instructorId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    activityTypeId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    targetMinutes?: IntFilter<"WorkloadTarget"> | number
-    periodType?: EnumReportingPeriodTypeFilter<"WorkloadTarget"> | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    effectiveTo?: DateTimeNullableFilter<"WorkloadTarget"> | Date | string | null
-    createdAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    updatedAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
-    instructor?: XOR<InstructorNullableScalarRelationFilter, InstructorWhereInput> | null
-    activityType?: XOR<ActivityTypeNullableScalarRelationFilter, ActivityTypeWhereInput> | null
-  }
-
-  export type WorkloadTargetOrderByWithRelationInput = {
-    id?: SortOrder
-    universityId?: SortOrder
-    instructorId?: SortOrderInput | SortOrder
-    activityTypeId?: SortOrderInput | SortOrder
-    targetMinutes?: SortOrder
-    periodType?: SortOrder
-    effectiveFrom?: SortOrder
-    effectiveTo?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    university?: UniversityOrderByWithRelationInput
-    instructor?: InstructorOrderByWithRelationInput
-    activityType?: ActivityTypeOrderByWithRelationInput
-  }
-
-  export type WorkloadTargetWhereUniqueInput = Prisma.AtLeast<{
-    id?: string
-    AND?: WorkloadTargetWhereInput | WorkloadTargetWhereInput[]
-    OR?: WorkloadTargetWhereInput[]
-    NOT?: WorkloadTargetWhereInput | WorkloadTargetWhereInput[]
-    universityId?: StringFilter<"WorkloadTarget"> | string
-    instructorId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    activityTypeId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    targetMinutes?: IntFilter<"WorkloadTarget"> | number
-    periodType?: EnumReportingPeriodTypeFilter<"WorkloadTarget"> | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    effectiveTo?: DateTimeNullableFilter<"WorkloadTarget"> | Date | string | null
-    createdAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    updatedAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
-    instructor?: XOR<InstructorNullableScalarRelationFilter, InstructorWhereInput> | null
-    activityType?: XOR<ActivityTypeNullableScalarRelationFilter, ActivityTypeWhereInput> | null
-  }, "id">
-
-  export type WorkloadTargetOrderByWithAggregationInput = {
-    id?: SortOrder
-    universityId?: SortOrder
-    instructorId?: SortOrderInput | SortOrder
-    activityTypeId?: SortOrderInput | SortOrder
-    targetMinutes?: SortOrder
-    periodType?: SortOrder
-    effectiveFrom?: SortOrder
-    effectiveTo?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-    _count?: WorkloadTargetCountOrderByAggregateInput
-    _avg?: WorkloadTargetAvgOrderByAggregateInput
-    _max?: WorkloadTargetMaxOrderByAggregateInput
-    _min?: WorkloadTargetMinOrderByAggregateInput
-    _sum?: WorkloadTargetSumOrderByAggregateInput
-  }
-
-  export type WorkloadTargetScalarWhereWithAggregatesInput = {
-    AND?: WorkloadTargetScalarWhereWithAggregatesInput | WorkloadTargetScalarWhereWithAggregatesInput[]
-    OR?: WorkloadTargetScalarWhereWithAggregatesInput[]
-    NOT?: WorkloadTargetScalarWhereWithAggregatesInput | WorkloadTargetScalarWhereWithAggregatesInput[]
-    id?: StringWithAggregatesFilter<"WorkloadTarget"> | string
-    universityId?: StringWithAggregatesFilter<"WorkloadTarget"> | string
-    instructorId?: StringNullableWithAggregatesFilter<"WorkloadTarget"> | string | null
-    activityTypeId?: StringNullableWithAggregatesFilter<"WorkloadTarget"> | string | null
-    targetMinutes?: IntWithAggregatesFilter<"WorkloadTarget"> | number
-    periodType?: EnumReportingPeriodTypeWithAggregatesFilter<"WorkloadTarget"> | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeWithAggregatesFilter<"WorkloadTarget"> | Date | string
-    effectiveTo?: DateTimeNullableWithAggregatesFilter<"WorkloadTarget"> | Date | string | null
-    createdAt?: DateTimeWithAggregatesFilter<"WorkloadTarget"> | Date | string
-    updatedAt?: DateTimeWithAggregatesFilter<"WorkloadTarget"> | Date | string
   }
 
   export type ReportingPeriodWhereInput = {
@@ -63080,7 +61545,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -63131,7 +61595,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -63182,7 +61645,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -63233,7 +61695,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -63652,7 +62113,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -63680,7 +62140,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -63708,7 +62167,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -63736,7 +62194,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -63793,7 +62250,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -63813,7 +62269,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -63833,7 +62288,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -63853,7 +62307,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -65551,94 +64004,6 @@ export namespace Prisma {
     startMinute?: IntFieldUpdateOperationsInput | number
     endMinute?: IntFieldUpdateOperationsInput | number
     isActive?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetCreateInput = {
-    id?: string
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    university: UniversityCreateNestedOneWithoutWorkloadTargetsInput
-    instructor?: InstructorCreateNestedOneWithoutWorkloadTargetsInput
-    activityType?: ActivityTypeCreateNestedOneWithoutWorkloadTargetsInput
-  }
-
-  export type WorkloadTargetUncheckedCreateInput = {
-    id?: string
-    universityId: string
-    instructorId?: string | null
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    university?: UniversityUpdateOneRequiredWithoutWorkloadTargetsNestedInput
-    instructor?: InstructorUpdateOneWithoutWorkloadTargetsNestedInput
-    activityType?: ActivityTypeUpdateOneWithoutWorkloadTargetsNestedInput
-  }
-
-  export type WorkloadTargetUncheckedUpdateInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetCreateManyInput = {
-    id?: string
-    universityId: string
-    instructorId?: string | null
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetUpdateManyMutationInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -67748,12 +66113,6 @@ export namespace Prisma {
     none?: BreakPolicyWhereInput
   }
 
-  export type WorkloadTargetListRelationFilter = {
-    every?: WorkloadTargetWhereInput
-    some?: WorkloadTargetWhereInput
-    none?: WorkloadTargetWhereInput
-  }
-
   export type ReportingPeriodListRelationFilter = {
     every?: ReportingPeriodWhereInput
     some?: ReportingPeriodWhereInput
@@ -67853,10 +66212,6 @@ export namespace Prisma {
   }
 
   export type BreakPolicyOrderByRelationAggregateInput = {
-    _count?: SortOrder
-  }
-
-  export type WorkloadTargetOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -69510,68 +67865,6 @@ export namespace Prisma {
     not?: NestedEnumReportingPeriodTypeFilter<$PrismaModel> | $Enums.ReportingPeriodType
   }
 
-  export type ActivityTypeNullableScalarRelationFilter = {
-    is?: ActivityTypeWhereInput | null
-    isNot?: ActivityTypeWhereInput | null
-  }
-
-  export type WorkloadTargetCountOrderByAggregateInput = {
-    id?: SortOrder
-    universityId?: SortOrder
-    instructorId?: SortOrder
-    activityTypeId?: SortOrder
-    targetMinutes?: SortOrder
-    periodType?: SortOrder
-    effectiveFrom?: SortOrder
-    effectiveTo?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type WorkloadTargetAvgOrderByAggregateInput = {
-    targetMinutes?: SortOrder
-  }
-
-  export type WorkloadTargetMaxOrderByAggregateInput = {
-    id?: SortOrder
-    universityId?: SortOrder
-    instructorId?: SortOrder
-    activityTypeId?: SortOrder
-    targetMinutes?: SortOrder
-    periodType?: SortOrder
-    effectiveFrom?: SortOrder
-    effectiveTo?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type WorkloadTargetMinOrderByAggregateInput = {
-    id?: SortOrder
-    universityId?: SortOrder
-    instructorId?: SortOrder
-    activityTypeId?: SortOrder
-    targetMinutes?: SortOrder
-    periodType?: SortOrder
-    effectiveFrom?: SortOrder
-    effectiveTo?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
-  }
-
-  export type WorkloadTargetSumOrderByAggregateInput = {
-    targetMinutes?: SortOrder
-  }
-
-  export type EnumReportingPeriodTypeWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.ReportingPeriodType | EnumReportingPeriodTypeFieldRefInput<$PrismaModel>
-    in?: $Enums.ReportingPeriodType[] | ListEnumReportingPeriodTypeFieldRefInput<$PrismaModel>
-    notIn?: $Enums.ReportingPeriodType[] | ListEnumReportingPeriodTypeFieldRefInput<$PrismaModel>
-    not?: NestedEnumReportingPeriodTypeWithAggregatesFilter<$PrismaModel> | $Enums.ReportingPeriodType
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumReportingPeriodTypeFilter<$PrismaModel>
-    _max?: NestedEnumReportingPeriodTypeFilter<$PrismaModel>
-  }
-
   export type ReportingPeriodUniversityIdTypeStartDateEndDateCompoundUniqueInput = {
     universityId: string
     type: $Enums.ReportingPeriodType
@@ -69607,6 +67900,16 @@ export namespace Prisma {
     startDate?: SortOrder
     endDate?: SortOrder
     createdAt?: SortOrder
+  }
+
+  export type EnumReportingPeriodTypeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.ReportingPeriodType | EnumReportingPeriodTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.ReportingPeriodType[] | ListEnumReportingPeriodTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.ReportingPeriodType[] | ListEnumReportingPeriodTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumReportingPeriodTypeWithAggregatesFilter<$PrismaModel> | $Enums.ReportingPeriodType
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumReportingPeriodTypeFilter<$PrismaModel>
+    _max?: NestedEnumReportingPeriodTypeFilter<$PrismaModel>
   }
 
   export type FloatNullableFilter<$PrismaModel = never> = {
@@ -71349,13 +69652,6 @@ export namespace Prisma {
     connect?: BreakPolicyWhereUniqueInput | BreakPolicyWhereUniqueInput[]
   }
 
-  export type WorkloadTargetCreateNestedManyWithoutUniversityInput = {
-    create?: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput> | WorkloadTargetCreateWithoutUniversityInput[] | WorkloadTargetUncheckedCreateWithoutUniversityInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutUniversityInput | WorkloadTargetCreateOrConnectWithoutUniversityInput[]
-    createMany?: WorkloadTargetCreateManyUniversityInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-  }
-
   export type ReportingPeriodCreateNestedManyWithoutUniversityInput = {
     create?: XOR<ReportingPeriodCreateWithoutUniversityInput, ReportingPeriodUncheckedCreateWithoutUniversityInput> | ReportingPeriodCreateWithoutUniversityInput[] | ReportingPeriodUncheckedCreateWithoutUniversityInput[]
     connectOrCreate?: ReportingPeriodCreateOrConnectWithoutUniversityInput | ReportingPeriodCreateOrConnectWithoutUniversityInput[]
@@ -71556,13 +69852,6 @@ export namespace Prisma {
     connectOrCreate?: BreakPolicyCreateOrConnectWithoutUniversityInput | BreakPolicyCreateOrConnectWithoutUniversityInput[]
     createMany?: BreakPolicyCreateManyUniversityInputEnvelope
     connect?: BreakPolicyWhereUniqueInput | BreakPolicyWhereUniqueInput[]
-  }
-
-  export type WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput = {
-    create?: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput> | WorkloadTargetCreateWithoutUniversityInput[] | WorkloadTargetUncheckedCreateWithoutUniversityInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutUniversityInput | WorkloadTargetCreateOrConnectWithoutUniversityInput[]
-    createMany?: WorkloadTargetCreateManyUniversityInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
   }
 
   export type ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput = {
@@ -71931,20 +70220,6 @@ export namespace Prisma {
     update?: BreakPolicyUpdateWithWhereUniqueWithoutUniversityInput | BreakPolicyUpdateWithWhereUniqueWithoutUniversityInput[]
     updateMany?: BreakPolicyUpdateManyWithWhereWithoutUniversityInput | BreakPolicyUpdateManyWithWhereWithoutUniversityInput[]
     deleteMany?: BreakPolicyScalarWhereInput | BreakPolicyScalarWhereInput[]
-  }
-
-  export type WorkloadTargetUpdateManyWithoutUniversityNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput> | WorkloadTargetCreateWithoutUniversityInput[] | WorkloadTargetUncheckedCreateWithoutUniversityInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutUniversityInput | WorkloadTargetCreateOrConnectWithoutUniversityInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutUniversityInput | WorkloadTargetUpsertWithWhereUniqueWithoutUniversityInput[]
-    createMany?: WorkloadTargetCreateManyUniversityInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutUniversityInput | WorkloadTargetUpdateWithWhereUniqueWithoutUniversityInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutUniversityInput | WorkloadTargetUpdateManyWithWhereWithoutUniversityInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
   export type ReportingPeriodUpdateManyWithoutUniversityNestedInput = {
@@ -72347,20 +70622,6 @@ export namespace Prisma {
     update?: BreakPolicyUpdateWithWhereUniqueWithoutUniversityInput | BreakPolicyUpdateWithWhereUniqueWithoutUniversityInput[]
     updateMany?: BreakPolicyUpdateManyWithWhereWithoutUniversityInput | BreakPolicyUpdateManyWithWhereWithoutUniversityInput[]
     deleteMany?: BreakPolicyScalarWhereInput | BreakPolicyScalarWhereInput[]
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput> | WorkloadTargetCreateWithoutUniversityInput[] | WorkloadTargetUncheckedCreateWithoutUniversityInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutUniversityInput | WorkloadTargetCreateOrConnectWithoutUniversityInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutUniversityInput | WorkloadTargetUpsertWithWhereUniqueWithoutUniversityInput[]
-    createMany?: WorkloadTargetCreateManyUniversityInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutUniversityInput | WorkloadTargetUpdateWithWhereUniqueWithoutUniversityInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutUniversityInput | WorkloadTargetUpdateManyWithWhereWithoutUniversityInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
   export type ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput = {
@@ -72818,13 +71079,6 @@ export namespace Prisma {
     connect?: ScheduleSlotWhereUniqueInput | ScheduleSlotWhereUniqueInput[]
   }
 
-  export type WorkloadTargetCreateNestedManyWithoutInstructorInput = {
-    create?: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput> | WorkloadTargetCreateWithoutInstructorInput[] | WorkloadTargetUncheckedCreateWithoutInstructorInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutInstructorInput | WorkloadTargetCreateOrConnectWithoutInstructorInput[]
-    createMany?: WorkloadTargetCreateManyInstructorInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-  }
-
   export type DeliverableLogCreateNestedManyWithoutInstructorInput = {
     create?: XOR<DeliverableLogCreateWithoutInstructorInput, DeliverableLogUncheckedCreateWithoutInstructorInput> | DeliverableLogCreateWithoutInstructorInput[] | DeliverableLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: DeliverableLogCreateOrConnectWithoutInstructorInput | DeliverableLogCreateOrConnectWithoutInstructorInput[]
@@ -72935,13 +71189,6 @@ export namespace Prisma {
     connectOrCreate?: ScheduleSlotCreateOrConnectWithoutInstructorInput | ScheduleSlotCreateOrConnectWithoutInstructorInput[]
     createMany?: ScheduleSlotCreateManyInstructorInputEnvelope
     connect?: ScheduleSlotWhereUniqueInput | ScheduleSlotWhereUniqueInput[]
-  }
-
-  export type WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput = {
-    create?: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput> | WorkloadTargetCreateWithoutInstructorInput[] | WorkloadTargetUncheckedCreateWithoutInstructorInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutInstructorInput | WorkloadTargetCreateOrConnectWithoutInstructorInput[]
-    createMany?: WorkloadTargetCreateManyInstructorInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
   }
 
   export type DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput = {
@@ -73139,20 +71386,6 @@ export namespace Prisma {
     update?: ScheduleSlotUpdateWithWhereUniqueWithoutInstructorInput | ScheduleSlotUpdateWithWhereUniqueWithoutInstructorInput[]
     updateMany?: ScheduleSlotUpdateManyWithWhereWithoutInstructorInput | ScheduleSlotUpdateManyWithWhereWithoutInstructorInput[]
     deleteMany?: ScheduleSlotScalarWhereInput | ScheduleSlotScalarWhereInput[]
-  }
-
-  export type WorkloadTargetUpdateManyWithoutInstructorNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput> | WorkloadTargetCreateWithoutInstructorInput[] | WorkloadTargetUncheckedCreateWithoutInstructorInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutInstructorInput | WorkloadTargetCreateOrConnectWithoutInstructorInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutInstructorInput | WorkloadTargetUpsertWithWhereUniqueWithoutInstructorInput[]
-    createMany?: WorkloadTargetCreateManyInstructorInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutInstructorInput | WorkloadTargetUpdateWithWhereUniqueWithoutInstructorInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutInstructorInput | WorkloadTargetUpdateManyWithWhereWithoutInstructorInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
   export type DeliverableLogUpdateManyWithoutInstructorNestedInput = {
@@ -73379,20 +71612,6 @@ export namespace Prisma {
     deleteMany?: ScheduleSlotScalarWhereInput | ScheduleSlotScalarWhereInput[]
   }
 
-  export type WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput> | WorkloadTargetCreateWithoutInstructorInput[] | WorkloadTargetUncheckedCreateWithoutInstructorInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutInstructorInput | WorkloadTargetCreateOrConnectWithoutInstructorInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutInstructorInput | WorkloadTargetUpsertWithWhereUniqueWithoutInstructorInput[]
-    createMany?: WorkloadTargetCreateManyInstructorInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutInstructorInput | WorkloadTargetUpdateWithWhereUniqueWithoutInstructorInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutInstructorInput | WorkloadTargetUpdateManyWithWhereWithoutInstructorInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
-  }
-
   export type DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<DeliverableLogCreateWithoutInstructorInput, DeliverableLogUncheckedCreateWithoutInstructorInput> | DeliverableLogCreateWithoutInstructorInput[] | DeliverableLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: DeliverableLogCreateOrConnectWithoutInstructorInput | DeliverableLogCreateOrConnectWithoutInstructorInput[]
@@ -73533,13 +71752,6 @@ export namespace Prisma {
     connect?: ScheduleSlotWhereUniqueInput | ScheduleSlotWhereUniqueInput[]
   }
 
-  export type WorkloadTargetCreateNestedManyWithoutActivityTypeInput = {
-    create?: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput> | WorkloadTargetCreateWithoutActivityTypeInput[] | WorkloadTargetUncheckedCreateWithoutActivityTypeInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutActivityTypeInput | WorkloadTargetCreateOrConnectWithoutActivityTypeInput[]
-    createMany?: WorkloadTargetCreateManyActivityTypeInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-  }
-
   export type DeliverableTypeCreateNestedManyWithoutActivityTypeInput = {
     create?: XOR<DeliverableTypeCreateWithoutActivityTypeInput, DeliverableTypeUncheckedCreateWithoutActivityTypeInput> | DeliverableTypeCreateWithoutActivityTypeInput[] | DeliverableTypeUncheckedCreateWithoutActivityTypeInput[]
     connectOrCreate?: DeliverableTypeCreateOrConnectWithoutActivityTypeInput | DeliverableTypeCreateOrConnectWithoutActivityTypeInput[]
@@ -73559,13 +71771,6 @@ export namespace Prisma {
     connectOrCreate?: ScheduleSlotCreateOrConnectWithoutActivityTypeInput | ScheduleSlotCreateOrConnectWithoutActivityTypeInput[]
     createMany?: ScheduleSlotCreateManyActivityTypeInputEnvelope
     connect?: ScheduleSlotWhereUniqueInput | ScheduleSlotWhereUniqueInput[]
-  }
-
-  export type WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput = {
-    create?: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput> | WorkloadTargetCreateWithoutActivityTypeInput[] | WorkloadTargetUncheckedCreateWithoutActivityTypeInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutActivityTypeInput | WorkloadTargetCreateOrConnectWithoutActivityTypeInput[]
-    createMany?: WorkloadTargetCreateManyActivityTypeInputEnvelope
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
   }
 
   export type DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput = {
@@ -73601,20 +71806,6 @@ export namespace Prisma {
     update?: ScheduleSlotUpdateWithWhereUniqueWithoutActivityTypeInput | ScheduleSlotUpdateWithWhereUniqueWithoutActivityTypeInput[]
     updateMany?: ScheduleSlotUpdateManyWithWhereWithoutActivityTypeInput | ScheduleSlotUpdateManyWithWhereWithoutActivityTypeInput[]
     deleteMany?: ScheduleSlotScalarWhereInput | ScheduleSlotScalarWhereInput[]
-  }
-
-  export type WorkloadTargetUpdateManyWithoutActivityTypeNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput> | WorkloadTargetCreateWithoutActivityTypeInput[] | WorkloadTargetUncheckedCreateWithoutActivityTypeInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutActivityTypeInput | WorkloadTargetCreateOrConnectWithoutActivityTypeInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutActivityTypeInput | WorkloadTargetUpsertWithWhereUniqueWithoutActivityTypeInput[]
-    createMany?: WorkloadTargetCreateManyActivityTypeInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput | WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput | WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
   export type DeliverableTypeUpdateManyWithoutActivityTypeNestedInput = {
@@ -73657,20 +71848,6 @@ export namespace Prisma {
     update?: ScheduleSlotUpdateWithWhereUniqueWithoutActivityTypeInput | ScheduleSlotUpdateWithWhereUniqueWithoutActivityTypeInput[]
     updateMany?: ScheduleSlotUpdateManyWithWhereWithoutActivityTypeInput | ScheduleSlotUpdateManyWithWhereWithoutActivityTypeInput[]
     deleteMany?: ScheduleSlotScalarWhereInput | ScheduleSlotScalarWhereInput[]
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput = {
-    create?: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput> | WorkloadTargetCreateWithoutActivityTypeInput[] | WorkloadTargetUncheckedCreateWithoutActivityTypeInput[]
-    connectOrCreate?: WorkloadTargetCreateOrConnectWithoutActivityTypeInput | WorkloadTargetCreateOrConnectWithoutActivityTypeInput[]
-    upsert?: WorkloadTargetUpsertWithWhereUniqueWithoutActivityTypeInput | WorkloadTargetUpsertWithWhereUniqueWithoutActivityTypeInput[]
-    createMany?: WorkloadTargetCreateManyActivityTypeInputEnvelope
-    set?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    disconnect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    delete?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    connect?: WorkloadTargetWhereUniqueInput | WorkloadTargetWhereUniqueInput[]
-    update?: WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput | WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput[]
-    updateMany?: WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput | WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput[]
-    deleteMany?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
   }
 
   export type DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput = {
@@ -74887,60 +73064,14 @@ export namespace Prisma {
     update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutBreakPoliciesInput, UniversityUpdateWithoutBreakPoliciesInput>, UniversityUncheckedUpdateWithoutBreakPoliciesInput>
   }
 
-  export type UniversityCreateNestedOneWithoutWorkloadTargetsInput = {
-    create?: XOR<UniversityCreateWithoutWorkloadTargetsInput, UniversityUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: UniversityCreateOrConnectWithoutWorkloadTargetsInput
-    connect?: UniversityWhereUniqueInput
-  }
-
-  export type InstructorCreateNestedOneWithoutWorkloadTargetsInput = {
-    create?: XOR<InstructorCreateWithoutWorkloadTargetsInput, InstructorUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: InstructorCreateOrConnectWithoutWorkloadTargetsInput
-    connect?: InstructorWhereUniqueInput
-  }
-
-  export type ActivityTypeCreateNestedOneWithoutWorkloadTargetsInput = {
-    create?: XOR<ActivityTypeCreateWithoutWorkloadTargetsInput, ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: ActivityTypeCreateOrConnectWithoutWorkloadTargetsInput
-    connect?: ActivityTypeWhereUniqueInput
-  }
-
-  export type EnumReportingPeriodTypeFieldUpdateOperationsInput = {
-    set?: $Enums.ReportingPeriodType
-  }
-
-  export type UniversityUpdateOneRequiredWithoutWorkloadTargetsNestedInput = {
-    create?: XOR<UniversityCreateWithoutWorkloadTargetsInput, UniversityUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: UniversityCreateOrConnectWithoutWorkloadTargetsInput
-    upsert?: UniversityUpsertWithoutWorkloadTargetsInput
-    connect?: UniversityWhereUniqueInput
-    update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorkloadTargetsInput, UniversityUpdateWithoutWorkloadTargetsInput>, UniversityUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
-  export type InstructorUpdateOneWithoutWorkloadTargetsNestedInput = {
-    create?: XOR<InstructorCreateWithoutWorkloadTargetsInput, InstructorUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: InstructorCreateOrConnectWithoutWorkloadTargetsInput
-    upsert?: InstructorUpsertWithoutWorkloadTargetsInput
-    disconnect?: InstructorWhereInput | boolean
-    delete?: InstructorWhereInput | boolean
-    connect?: InstructorWhereUniqueInput
-    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutWorkloadTargetsInput, InstructorUpdateWithoutWorkloadTargetsInput>, InstructorUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
-  export type ActivityTypeUpdateOneWithoutWorkloadTargetsNestedInput = {
-    create?: XOR<ActivityTypeCreateWithoutWorkloadTargetsInput, ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput>
-    connectOrCreate?: ActivityTypeCreateOrConnectWithoutWorkloadTargetsInput
-    upsert?: ActivityTypeUpsertWithoutWorkloadTargetsInput
-    disconnect?: ActivityTypeWhereInput | boolean
-    delete?: ActivityTypeWhereInput | boolean
-    connect?: ActivityTypeWhereUniqueInput
-    update?: XOR<XOR<ActivityTypeUpdateToOneWithWhereWithoutWorkloadTargetsInput, ActivityTypeUpdateWithoutWorkloadTargetsInput>, ActivityTypeUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
   export type UniversityCreateNestedOneWithoutReportingPeriodsInput = {
     create?: XOR<UniversityCreateWithoutReportingPeriodsInput, UniversityUncheckedCreateWithoutReportingPeriodsInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutReportingPeriodsInput
     connect?: UniversityWhereUniqueInput
+  }
+
+  export type EnumReportingPeriodTypeFieldUpdateOperationsInput = {
+    set?: $Enums.ReportingPeriodType
   }
 
   export type UniversityUpdateOneWithoutReportingPeriodsNestedInput = {
@@ -76169,7 +74300,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -76219,7 +74349,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -76276,7 +74405,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -76302,7 +74430,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -76729,7 +74856,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -76779,7 +74905,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -76848,7 +74973,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -76874,7 +74998,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -77319,7 +75442,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -77346,7 +75468,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -78036,40 +76157,6 @@ export namespace Prisma {
 
   export type BreakPolicyCreateManyUniversityInputEnvelope = {
     data: BreakPolicyCreateManyUniversityInput | BreakPolicyCreateManyUniversityInput[]
-    skipDuplicates?: boolean
-  }
-
-  export type WorkloadTargetCreateWithoutUniversityInput = {
-    id?: string
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    instructor?: InstructorCreateNestedOneWithoutWorkloadTargetsInput
-    activityType?: ActivityTypeCreateNestedOneWithoutWorkloadTargetsInput
-  }
-
-  export type WorkloadTargetUncheckedCreateWithoutUniversityInput = {
-    id?: string
-    instructorId?: string | null
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetCreateOrConnectWithoutUniversityInput = {
-    where: WorkloadTargetWhereUniqueInput
-    create: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput>
-  }
-
-  export type WorkloadTargetCreateManyUniversityInputEnvelope = {
-    data: WorkloadTargetCreateManyUniversityInput | WorkloadTargetCreateManyUniversityInput[]
     skipDuplicates?: boolean
   }
 
@@ -79010,38 +77097,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"BreakPolicy"> | Date | string
   }
 
-  export type WorkloadTargetUpsertWithWhereUniqueWithoutUniversityInput = {
-    where: WorkloadTargetWhereUniqueInput
-    update: XOR<WorkloadTargetUpdateWithoutUniversityInput, WorkloadTargetUncheckedUpdateWithoutUniversityInput>
-    create: XOR<WorkloadTargetCreateWithoutUniversityInput, WorkloadTargetUncheckedCreateWithoutUniversityInput>
-  }
-
-  export type WorkloadTargetUpdateWithWhereUniqueWithoutUniversityInput = {
-    where: WorkloadTargetWhereUniqueInput
-    data: XOR<WorkloadTargetUpdateWithoutUniversityInput, WorkloadTargetUncheckedUpdateWithoutUniversityInput>
-  }
-
-  export type WorkloadTargetUpdateManyWithWhereWithoutUniversityInput = {
-    where: WorkloadTargetScalarWhereInput
-    data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyWithoutUniversityInput>
-  }
-
-  export type WorkloadTargetScalarWhereInput = {
-    AND?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
-    OR?: WorkloadTargetScalarWhereInput[]
-    NOT?: WorkloadTargetScalarWhereInput | WorkloadTargetScalarWhereInput[]
-    id?: StringFilter<"WorkloadTarget"> | string
-    universityId?: StringFilter<"WorkloadTarget"> | string
-    instructorId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    activityTypeId?: StringNullableFilter<"WorkloadTarget"> | string | null
-    targetMinutes?: IntFilter<"WorkloadTarget"> | number
-    periodType?: EnumReportingPeriodTypeFilter<"WorkloadTarget"> | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    effectiveTo?: DateTimeNullableFilter<"WorkloadTarget"> | Date | string | null
-    createdAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-    updatedAt?: DateTimeFilter<"WorkloadTarget"> | Date | string
-  }
-
   export type ReportingPeriodUpsertWithWhereUniqueWithoutUniversityInput = {
     where: ReportingPeriodWhereUniqueInput
     update: XOR<ReportingPeriodUpdateWithoutUniversityInput, ReportingPeriodUncheckedUpdateWithoutUniversityInput>
@@ -79342,7 +77397,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -79392,7 +77446,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -79458,7 +77511,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -79508,7 +77560,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -79558,7 +77609,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -79608,7 +77658,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -79674,7 +77723,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -79724,7 +77772,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -79831,7 +77878,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -79881,7 +77927,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -79936,7 +77981,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -79986,7 +78030,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -80069,7 +78112,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -80095,7 +78137,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -80230,7 +78271,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -80280,7 +78320,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -80341,7 +78380,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -80391,7 +78429,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -80450,7 +78487,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -80477,7 +78513,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -80520,7 +78555,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -80547,7 +78581,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -80573,7 +78606,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -80600,7 +78632,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -80839,7 +78870,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -80889,7 +78919,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -81233,40 +79262,6 @@ export namespace Prisma {
 
   export type ScheduleSlotCreateManyInstructorInputEnvelope = {
     data: ScheduleSlotCreateManyInstructorInput | ScheduleSlotCreateManyInstructorInput[]
-    skipDuplicates?: boolean
-  }
-
-  export type WorkloadTargetCreateWithoutInstructorInput = {
-    id?: string
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    university: UniversityCreateNestedOneWithoutWorkloadTargetsInput
-    activityType?: ActivityTypeCreateNestedOneWithoutWorkloadTargetsInput
-  }
-
-  export type WorkloadTargetUncheckedCreateWithoutInstructorInput = {
-    id?: string
-    universityId: string
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetCreateOrConnectWithoutInstructorInput = {
-    where: WorkloadTargetWhereUniqueInput
-    create: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput>
-  }
-
-  export type WorkloadTargetCreateManyInstructorInputEnvelope = {
-    data: WorkloadTargetCreateManyInstructorInput | WorkloadTargetCreateManyInstructorInput[]
     skipDuplicates?: boolean
   }
 
@@ -81794,7 +79789,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -81844,7 +79838,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -81998,22 +79991,6 @@ export namespace Prisma {
   export type ScheduleSlotUpdateManyWithWhereWithoutInstructorInput = {
     where: ScheduleSlotScalarWhereInput
     data: XOR<ScheduleSlotUpdateManyMutationInput, ScheduleSlotUncheckedUpdateManyWithoutInstructorInput>
-  }
-
-  export type WorkloadTargetUpsertWithWhereUniqueWithoutInstructorInput = {
-    where: WorkloadTargetWhereUniqueInput
-    update: XOR<WorkloadTargetUpdateWithoutInstructorInput, WorkloadTargetUncheckedUpdateWithoutInstructorInput>
-    create: XOR<WorkloadTargetCreateWithoutInstructorInput, WorkloadTargetUncheckedCreateWithoutInstructorInput>
-  }
-
-  export type WorkloadTargetUpdateWithWhereUniqueWithoutInstructorInput = {
-    where: WorkloadTargetWhereUniqueInput
-    data: XOR<WorkloadTargetUpdateWithoutInstructorInput, WorkloadTargetUncheckedUpdateWithoutInstructorInput>
-  }
-
-  export type WorkloadTargetUpdateManyWithWhereWithoutInstructorInput = {
-    where: WorkloadTargetScalarWhereInput
-    data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyWithoutInstructorInput>
   }
 
   export type DeliverableLogUpsertWithWhereUniqueWithoutInstructorInput = {
@@ -82319,40 +80296,6 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
-  export type WorkloadTargetCreateWithoutActivityTypeInput = {
-    id?: string
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    university: UniversityCreateNestedOneWithoutWorkloadTargetsInput
-    instructor?: InstructorCreateNestedOneWithoutWorkloadTargetsInput
-  }
-
-  export type WorkloadTargetUncheckedCreateWithoutActivityTypeInput = {
-    id?: string
-    universityId: string
-    instructorId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetCreateOrConnectWithoutActivityTypeInput = {
-    where: WorkloadTargetWhereUniqueInput
-    create: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput>
-  }
-
-  export type WorkloadTargetCreateManyActivityTypeInputEnvelope = {
-    data: WorkloadTargetCreateManyActivityTypeInput | WorkloadTargetCreateManyActivityTypeInput[]
-    skipDuplicates?: boolean
-  }
-
   export type DeliverableTypeCreateWithoutActivityTypeInput = {
     id?: string
     code: string
@@ -82419,22 +80362,6 @@ export namespace Prisma {
     data: XOR<ScheduleSlotUpdateManyMutationInput, ScheduleSlotUncheckedUpdateManyWithoutActivityTypeInput>
   }
 
-  export type WorkloadTargetUpsertWithWhereUniqueWithoutActivityTypeInput = {
-    where: WorkloadTargetWhereUniqueInput
-    update: XOR<WorkloadTargetUpdateWithoutActivityTypeInput, WorkloadTargetUncheckedUpdateWithoutActivityTypeInput>
-    create: XOR<WorkloadTargetCreateWithoutActivityTypeInput, WorkloadTargetUncheckedCreateWithoutActivityTypeInput>
-  }
-
-  export type WorkloadTargetUpdateWithWhereUniqueWithoutActivityTypeInput = {
-    where: WorkloadTargetWhereUniqueInput
-    data: XOR<WorkloadTargetUpdateWithoutActivityTypeInput, WorkloadTargetUncheckedUpdateWithoutActivityTypeInput>
-  }
-
-  export type WorkloadTargetUpdateManyWithWhereWithoutActivityTypeInput = {
-    where: WorkloadTargetScalarWhereInput
-    data: XOR<WorkloadTargetUpdateManyMutationInput, WorkloadTargetUncheckedUpdateManyWithoutActivityTypeInput>
-  }
-
   export type DeliverableTypeUpsertWithWhereUniqueWithoutActivityTypeInput = {
     where: DeliverableTypeWhereUniqueInput
     update: XOR<DeliverableTypeUpdateWithoutActivityTypeInput, DeliverableTypeUncheckedUpdateWithoutActivityTypeInput>
@@ -82481,7 +80408,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -82508,7 +80434,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -82564,7 +80489,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -82614,7 +80538,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -82656,7 +80579,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -82683,7 +80605,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -82745,7 +80666,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -82795,7 +80715,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -82941,7 +80860,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -82968,7 +80886,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -83024,7 +80941,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -83074,7 +80990,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -83105,7 +81020,6 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -83124,7 +81038,6 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -83407,7 +81320,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -83434,7 +81346,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -83496,7 +81407,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -83546,7 +81456,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -83583,7 +81492,6 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -83602,7 +81510,6 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -83905,7 +81812,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -83932,7 +81838,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -83988,7 +81893,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -84038,7 +81942,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -84233,7 +82136,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -84260,7 +82162,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -84322,7 +82223,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -84372,7 +82272,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -84559,7 +82458,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -84609,7 +82507,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -84640,7 +82537,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
@@ -84667,7 +82563,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
@@ -84781,7 +82676,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -84831,7 +82725,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -84868,7 +82761,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
@@ -84895,7 +82787,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
@@ -84945,7 +82836,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -84995,7 +82885,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -85026,7 +82915,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -85053,7 +82941,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -85147,7 +83034,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -85197,7 +83083,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -85234,7 +83119,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -85261,7 +83145,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -85345,7 +83228,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -85395,7 +83277,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -85518,7 +83399,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -85568,7 +83448,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -85738,7 +83617,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -85788,7 +83666,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -85917,7 +83794,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -85967,7 +83843,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -86017,7 +83892,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -86067,7 +83941,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -86133,7 +84006,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -86183,7 +84055,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -86233,7 +84104,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -86283,7 +84153,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -86419,7 +84288,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -86469,7 +84337,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -86551,7 +84418,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -86601,7 +84467,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -86732,7 +84597,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -86782,7 +84646,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -86881,7 +84744,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -86931,7 +84793,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -87067,7 +84928,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -87117,7 +84977,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -87199,7 +85058,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -87249,7 +85107,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -87447,7 +85304,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -87497,7 +85353,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -87645,7 +85500,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -87695,7 +85549,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -87759,7 +85612,6 @@ export namespace Prisma {
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -87786,7 +85638,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -87882,7 +85733,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -87932,7 +85782,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -88008,7 +85857,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -88035,7 +85883,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -88121,7 +85968,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -88171,7 +86017,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -88202,7 +86047,6 @@ export namespace Prisma {
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -88229,7 +86073,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -88367,7 +86210,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -88417,7 +86259,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -88454,7 +86295,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -88481,7 +86321,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -88583,7 +86422,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -88633,7 +86471,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -88693,7 +86530,6 @@ export namespace Prisma {
     aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -88720,7 +86556,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -88785,7 +86620,6 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -88804,7 +86638,6 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
     deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
@@ -88925,7 +86758,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -88975,7 +86807,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -89047,7 +86878,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -89074,7 +86904,6 @@ export namespace Prisma {
     aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -89151,7 +86980,6 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -89170,7 +86998,6 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
     deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
@@ -89229,7 +87056,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -89279,7 +87105,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -89345,7 +87170,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -89395,7 +87219,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -89404,438 +87227,6 @@ export namespace Prisma {
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
-  }
-
-  export type UniversityCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    name: string
-    slug: string
-    code: string
-    status?: $Enums.UniversityStatus
-    country?: string | null
-    state?: string | null
-    city?: string | null
-    contactEmail?: string | null
-    contactPhone?: string | null
-    deletedAt?: Date | string | null
-    timezone: string
-    openingDurationMin?: number
-    closingDurationMin?: number
-    breakDurationMin?: number
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    primaryManager?: ManagerCreateNestedOneWithoutPrimaryOfInput
-    users?: UserCreateNestedManyWithoutUniversityInput
-    managers?: ManagerCreateNestedManyWithoutUniversityInput
-    instructors?: InstructorCreateNestedManyWithoutUniversityInput
-    workingHours?: UniversityWorkingHoursCreateNestedManyWithoutUniversityInput
-    holidays?: UniversityHolidayCreateNestedManyWithoutUniversityInput
-    leaveRequests?: LeaveRequestCreateNestedManyWithoutUniversityInput
-    activityLogs?: ActivityLogCreateNestedManyWithoutUniversityInput
-    deliverables?: DeliverableCreateNestedManyWithoutUniversityInput
-    aiInsights?: AiInsightCreateNestedManyWithoutUniversityInput
-    auditLogs?: AuditLogCreateNestedManyWithoutUniversityInput
-    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutUniversityInput
-    notifications?: NotificationCreateNestedManyWithoutUniversityInput
-    universitySettings?: UniversitySettingsCreateNestedOneWithoutUniversityInput
-    departments?: DepartmentCreateNestedManyWithoutUniversityInput
-    programs?: ProgramCreateNestedManyWithoutUniversityInput
-    academicTerms?: AcademicTermCreateNestedManyWithoutUniversityInput
-    courses?: CourseCreateNestedManyWithoutUniversityInput
-    courseAssignments?: CourseAssignmentCreateNestedManyWithoutUniversityInput
-    schedules?: ScheduleCreateNestedManyWithoutUniversityInput
-    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
-    breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
-    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
-    universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
-    reportJobs?: ReportJobCreateNestedManyWithoutUniversityInput
-    deliverableLogs?: DeliverableLogCreateNestedManyWithoutUniversityInput
-    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutUniversityInput
-    worklogEntries?: WorklogEntryCreateNestedManyWithoutUniversityInput
-  }
-
-  export type UniversityUncheckedCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    name: string
-    slug: string
-    code: string
-    status?: $Enums.UniversityStatus
-    country?: string | null
-    state?: string | null
-    city?: string | null
-    contactEmail?: string | null
-    contactPhone?: string | null
-    deletedAt?: Date | string | null
-    timezone: string
-    openingDurationMin?: number
-    closingDurationMin?: number
-    breakDurationMin?: number
-    primaryManagerId?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    users?: UserUncheckedCreateNestedManyWithoutUniversityInput
-    managers?: ManagerUncheckedCreateNestedManyWithoutUniversityInput
-    instructors?: InstructorUncheckedCreateNestedManyWithoutUniversityInput
-    workingHours?: UniversityWorkingHoursUncheckedCreateNestedManyWithoutUniversityInput
-    holidays?: UniversityHolidayUncheckedCreateNestedManyWithoutUniversityInput
-    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutUniversityInput
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutUniversityInput
-    deliverables?: DeliverableUncheckedCreateNestedManyWithoutUniversityInput
-    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutUniversityInput
-    auditLogs?: AuditLogUncheckedCreateNestedManyWithoutUniversityInput
-    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutUniversityInput
-    notifications?: NotificationUncheckedCreateNestedManyWithoutUniversityInput
-    universitySettings?: UniversitySettingsUncheckedCreateNestedOneWithoutUniversityInput
-    departments?: DepartmentUncheckedCreateNestedManyWithoutUniversityInput
-    programs?: ProgramUncheckedCreateNestedManyWithoutUniversityInput
-    academicTerms?: AcademicTermUncheckedCreateNestedManyWithoutUniversityInput
-    courses?: CourseUncheckedCreateNestedManyWithoutUniversityInput
-    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutUniversityInput
-    schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
-    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
-    breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
-    universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
-    reportJobs?: ReportJobUncheckedCreateNestedManyWithoutUniversityInput
-    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutUniversityInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutUniversityInput
-    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutUniversityInput
-  }
-
-  export type UniversityCreateOrConnectWithoutWorkloadTargetsInput = {
-    where: UniversityWhereUniqueInput
-    create: XOR<UniversityCreateWithoutWorkloadTargetsInput, UniversityUncheckedCreateWithoutWorkloadTargetsInput>
-  }
-
-  export type InstructorCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    employeeCode?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
-    user: UserCreateNestedOneWithoutInstructorProfileInput
-    university: UniversityCreateNestedOneWithoutInstructorsInput
-    manager?: ManagerCreateNestedOneWithoutInstructorsInput
-    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
-    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
-    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
-    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
-    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
-    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
-    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
-    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
-    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
-    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
-    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
-    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
-    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
-    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
-  }
-
-  export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    userId: string
-    universityId: string
-    categoryId?: string | null
-    managerId?: string | null
-    employeeCode?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
-    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
-    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
-    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
-    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
-    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
-    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
-    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
-    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
-    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
-    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
-    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
-  }
-
-  export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
-    where: InstructorWhereUniqueInput
-    create: XOR<InstructorCreateWithoutWorkloadTargetsInput, InstructorUncheckedCreateWithoutWorkloadTargetsInput>
-  }
-
-  export type ActivityTypeCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    code: string
-    label: string
-    description?: string | null
-    sortOrder?: number
-    isActive?: boolean
-    isSystem?: boolean
-    isOncePerDay?: boolean
-    isDerivedFromWorkingHours?: boolean
-    countsAsProductive?: boolean
-    isUnutilized?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
-    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
-    deliverableTypes?: DeliverableTypeCreateNestedManyWithoutActivityTypeInput
-  }
-
-  export type ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput = {
-    id?: string
-    code: string
-    label: string
-    description?: string | null
-    sortOrder?: number
-    isActive?: boolean
-    isSystem?: boolean
-    isOncePerDay?: boolean
-    isDerivedFromWorkingHours?: boolean
-    countsAsProductive?: boolean
-    isUnutilized?: boolean
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
-    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
-    deliverableTypes?: DeliverableTypeUncheckedCreateNestedManyWithoutActivityTypeInput
-  }
-
-  export type ActivityTypeCreateOrConnectWithoutWorkloadTargetsInput = {
-    where: ActivityTypeWhereUniqueInput
-    create: XOR<ActivityTypeCreateWithoutWorkloadTargetsInput, ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput>
-  }
-
-  export type UniversityUpsertWithoutWorkloadTargetsInput = {
-    update: XOR<UniversityUpdateWithoutWorkloadTargetsInput, UniversityUncheckedUpdateWithoutWorkloadTargetsInput>
-    create: XOR<UniversityCreateWithoutWorkloadTargetsInput, UniversityUncheckedCreateWithoutWorkloadTargetsInput>
-    where?: UniversityWhereInput
-  }
-
-  export type UniversityUpdateToOneWithWhereWithoutWorkloadTargetsInput = {
-    where?: UniversityWhereInput
-    data: XOR<UniversityUpdateWithoutWorkloadTargetsInput, UniversityUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
-  export type UniversityUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    name?: StringFieldUpdateOperationsInput | string
-    slug?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
-    country?: NullableStringFieldUpdateOperationsInput | string | null
-    state?: NullableStringFieldUpdateOperationsInput | string | null
-    city?: NullableStringFieldUpdateOperationsInput | string | null
-    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
-    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
-    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    timezone?: StringFieldUpdateOperationsInput | string
-    openingDurationMin?: IntFieldUpdateOperationsInput | number
-    closingDurationMin?: IntFieldUpdateOperationsInput | number
-    breakDurationMin?: IntFieldUpdateOperationsInput | number
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    primaryManager?: ManagerUpdateOneWithoutPrimaryOfNestedInput
-    users?: UserUpdateManyWithoutUniversityNestedInput
-    managers?: ManagerUpdateManyWithoutUniversityNestedInput
-    instructors?: InstructorUpdateManyWithoutUniversityNestedInput
-    workingHours?: UniversityWorkingHoursUpdateManyWithoutUniversityNestedInput
-    holidays?: UniversityHolidayUpdateManyWithoutUniversityNestedInput
-    leaveRequests?: LeaveRequestUpdateManyWithoutUniversityNestedInput
-    activityLogs?: ActivityLogUpdateManyWithoutUniversityNestedInput
-    deliverables?: DeliverableUpdateManyWithoutUniversityNestedInput
-    aiInsights?: AiInsightUpdateManyWithoutUniversityNestedInput
-    auditLogs?: AuditLogUpdateManyWithoutUniversityNestedInput
-    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutUniversityNestedInput
-    notifications?: NotificationUpdateManyWithoutUniversityNestedInput
-    universitySettings?: UniversitySettingsUpdateOneWithoutUniversityNestedInput
-    departments?: DepartmentUpdateManyWithoutUniversityNestedInput
-    programs?: ProgramUpdateManyWithoutUniversityNestedInput
-    academicTerms?: AcademicTermUpdateManyWithoutUniversityNestedInput
-    courses?: CourseUpdateManyWithoutUniversityNestedInput
-    courseAssignments?: CourseAssignmentUpdateManyWithoutUniversityNestedInput
-    schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
-    scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
-    breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
-    universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
-    reportJobs?: ReportJobUpdateManyWithoutUniversityNestedInput
-    deliverableLogs?: DeliverableLogUpdateManyWithoutUniversityNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutUniversityNestedInput
-    worklogEntries?: WorklogEntryUpdateManyWithoutUniversityNestedInput
-  }
-
-  export type UniversityUncheckedUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    name?: StringFieldUpdateOperationsInput | string
-    slug?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    status?: EnumUniversityStatusFieldUpdateOperationsInput | $Enums.UniversityStatus
-    country?: NullableStringFieldUpdateOperationsInput | string | null
-    state?: NullableStringFieldUpdateOperationsInput | string | null
-    city?: NullableStringFieldUpdateOperationsInput | string | null
-    contactEmail?: NullableStringFieldUpdateOperationsInput | string | null
-    contactPhone?: NullableStringFieldUpdateOperationsInput | string | null
-    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    timezone?: StringFieldUpdateOperationsInput | string
-    openingDurationMin?: IntFieldUpdateOperationsInput | number
-    closingDurationMin?: IntFieldUpdateOperationsInput | number
-    breakDurationMin?: IntFieldUpdateOperationsInput | number
-    primaryManagerId?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    users?: UserUncheckedUpdateManyWithoutUniversityNestedInput
-    managers?: ManagerUncheckedUpdateManyWithoutUniversityNestedInput
-    instructors?: InstructorUncheckedUpdateManyWithoutUniversityNestedInput
-    workingHours?: UniversityWorkingHoursUncheckedUpdateManyWithoutUniversityNestedInput
-    holidays?: UniversityHolidayUncheckedUpdateManyWithoutUniversityNestedInput
-    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutUniversityNestedInput
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutUniversityNestedInput
-    deliverables?: DeliverableUncheckedUpdateManyWithoutUniversityNestedInput
-    aiInsights?: AiInsightUncheckedUpdateManyWithoutUniversityNestedInput
-    auditLogs?: AuditLogUncheckedUpdateManyWithoutUniversityNestedInput
-    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutUniversityNestedInput
-    notifications?: NotificationUncheckedUpdateManyWithoutUniversityNestedInput
-    universitySettings?: UniversitySettingsUncheckedUpdateOneWithoutUniversityNestedInput
-    departments?: DepartmentUncheckedUpdateManyWithoutUniversityNestedInput
-    programs?: ProgramUncheckedUpdateManyWithoutUniversityNestedInput
-    academicTerms?: AcademicTermUncheckedUpdateManyWithoutUniversityNestedInput
-    courses?: CourseUncheckedUpdateManyWithoutUniversityNestedInput
-    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutUniversityNestedInput
-    schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
-    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
-    breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
-    universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
-    reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
-    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
-    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutUniversityNestedInput
-  }
-
-  export type InstructorUpsertWithoutWorkloadTargetsInput = {
-    update: XOR<InstructorUpdateWithoutWorkloadTargetsInput, InstructorUncheckedUpdateWithoutWorkloadTargetsInput>
-    create: XOR<InstructorCreateWithoutWorkloadTargetsInput, InstructorUncheckedCreateWithoutWorkloadTargetsInput>
-    where?: InstructorWhereInput
-  }
-
-  export type InstructorUpdateToOneWithWhereWithoutWorkloadTargetsInput = {
-    where?: InstructorWhereInput
-    data: XOR<InstructorUpdateWithoutWorkloadTargetsInput, InstructorUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
-  export type InstructorUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
-    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
-    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
-    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
-    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
-    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
-    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
-    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
-    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
-    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
-    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
-    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
-    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
-    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
-    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
-    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
-  }
-
-  export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    userId?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
-    managerId?: NullableStringFieldUpdateOperationsInput | string | null
-    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
-    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
-    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
-    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
-    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
-    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
-    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
-    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
-    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
-    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
-    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
-    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
-  }
-
-  export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
-    update: XOR<ActivityTypeUpdateWithoutWorkloadTargetsInput, ActivityTypeUncheckedUpdateWithoutWorkloadTargetsInput>
-    create: XOR<ActivityTypeCreateWithoutWorkloadTargetsInput, ActivityTypeUncheckedCreateWithoutWorkloadTargetsInput>
-    where?: ActivityTypeWhereInput
-  }
-
-  export type ActivityTypeUpdateToOneWithWhereWithoutWorkloadTargetsInput = {
-    where?: ActivityTypeWhereInput
-    data: XOR<ActivityTypeUpdateWithoutWorkloadTargetsInput, ActivityTypeUncheckedUpdateWithoutWorkloadTargetsInput>
-  }
-
-  export type ActivityTypeUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    description?: NullableStringFieldUpdateOperationsInput | string | null
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    isSystem?: BoolFieldUpdateOperationsInput | boolean
-    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
-    isDerivedFromWorkingHours?: BoolFieldUpdateOperationsInput | boolean
-    countsAsProductive?: BoolFieldUpdateOperationsInput | boolean
-    isUnutilized?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
-    scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
-    deliverableTypes?: DeliverableTypeUpdateManyWithoutActivityTypeNestedInput
-  }
-
-  export type ActivityTypeUncheckedUpdateWithoutWorkloadTargetsInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    code?: StringFieldUpdateOperationsInput | string
-    label?: StringFieldUpdateOperationsInput | string
-    description?: NullableStringFieldUpdateOperationsInput | string | null
-    sortOrder?: IntFieldUpdateOperationsInput | number
-    isActive?: BoolFieldUpdateOperationsInput | boolean
-    isSystem?: BoolFieldUpdateOperationsInput | boolean
-    isOncePerDay?: BoolFieldUpdateOperationsInput | boolean
-    isDerivedFromWorkingHours?: BoolFieldUpdateOperationsInput | boolean
-    countsAsProductive?: BoolFieldUpdateOperationsInput | boolean
-    isUnutilized?: BoolFieldUpdateOperationsInput | boolean
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
-    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
-    deliverableTypes?: DeliverableTypeUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type UniversityCreateWithoutReportingPeriodsInput = {
@@ -89878,7 +87269,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
@@ -89928,7 +87318,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -89994,7 +87383,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
@@ -90044,7 +87432,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -90094,7 +87481,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
@@ -90144,7 +87530,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -90175,7 +87560,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
@@ -90202,7 +87586,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
@@ -90269,7 +87652,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
@@ -90319,7 +87701,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -90356,7 +87737,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
@@ -90383,7 +87763,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
@@ -90434,7 +87813,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricCreateNestedManyWithoutUniversityInput
@@ -90484,7 +87862,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -90515,7 +87892,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
@@ -90542,7 +87918,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
@@ -90609,7 +87984,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUpdateManyWithoutUniversityNestedInput
@@ -90659,7 +88033,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -90696,7 +88069,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
@@ -90723,7 +88095,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
@@ -90774,7 +88145,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -90824,7 +88194,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -90890,7 +88259,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -90940,7 +88308,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -90990,7 +88357,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -91040,7 +88406,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -91163,7 +88528,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -91213,7 +88577,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -91422,7 +88785,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeUncheckedCreateWithoutDeliverableTypesInput = {
@@ -91441,7 +88803,6 @@ export namespace Prisma {
     updatedAt?: Date | string
     activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutActivityTypeInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutActivityTypeInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutActivityTypeInput
   }
 
   export type ActivityTypeCreateOrConnectWithoutDeliverableTypesInput = {
@@ -91538,7 +88899,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityTypeUncheckedUpdateWithoutDeliverableTypesInput = {
@@ -91557,7 +88917,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     activityLogs?: ActivityLogUncheckedUpdateManyWithoutActivityTypeNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutActivityTypeNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutActivityTypeNestedInput
   }
 
   export type ActivityLogUpsertWithWhereUniqueWithoutDeliverableTypeInput = {
@@ -91592,7 +88951,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -91619,7 +88977,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -91674,7 +89031,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -91724,7 +89080,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -91886,7 +89241,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -91913,7 +89267,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -91974,7 +89327,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -92024,7 +89376,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -92130,7 +89481,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -92157,7 +89507,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -92213,7 +89562,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -92263,7 +89611,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -92305,7 +89652,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -92332,7 +89678,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -92394,7 +89739,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -92444,7 +89788,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -92470,7 +89813,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -92497,7 +89839,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -92540,7 +89881,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -92567,7 +89907,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -92594,7 +89933,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -92621,7 +89959,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -92677,7 +90014,6 @@ export namespace Prisma {
     schedules?: ScheduleCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutUniversityInput
@@ -92727,7 +90063,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedCreateNestedManyWithoutUniversityInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutUniversityInput
     breakPolicies?: BreakPolicyUncheckedCreateNestedManyWithoutUniversityInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutUniversityInput
     reportingPeriods?: ReportingPeriodUncheckedCreateNestedManyWithoutUniversityInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutUniversityInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutUniversityInput
@@ -92769,7 +90104,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -92796,7 +90130,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -92858,7 +90191,6 @@ export namespace Prisma {
     schedules?: ScheduleUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutUniversityNestedInput
@@ -92908,7 +90240,6 @@ export namespace Prisma {
     schedules?: ScheduleUncheckedUpdateManyWithoutUniversityNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutUniversityNestedInput
     breakPolicies?: BreakPolicyUncheckedUpdateManyWithoutUniversityNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutUniversityNestedInput
     reportingPeriods?: ReportingPeriodUncheckedUpdateManyWithoutUniversityNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutUniversityNestedInput
@@ -92934,7 +90265,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
@@ -92961,7 +90291,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
     schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
     scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
-    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
     deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
@@ -93004,7 +90333,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -93031,7 +90359,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -93856,18 +91183,6 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
-  export type WorkloadTargetCreateManyUniversityInput = {
-    id?: string
-    instructorId?: string | null
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
   export type ReportingPeriodCreateManyUniversityInput = {
     id?: string
     type: $Enums.ReportingPeriodType
@@ -94102,7 +91417,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -94129,7 +91443,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -94853,42 +92166,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type WorkloadTargetUpdateWithoutUniversityInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    instructor?: InstructorUpdateOneWithoutWorkloadTargetsNestedInput
-    activityType?: ActivityTypeUpdateOneWithoutWorkloadTargetsNestedInput
-  }
-
-  export type WorkloadTargetUncheckedUpdateWithoutUniversityInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyWithoutUniversityInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
   export type ReportingPeriodUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     type?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
@@ -95360,7 +92637,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -95386,7 +92662,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -95458,7 +92733,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
@@ -95485,7 +92759,6 @@ export namespace Prisma {
     courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
     schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
     scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
-    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
     instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
@@ -95694,18 +92967,6 @@ export namespace Prisma {
     endTime: Date | string
     location?: string | null
     status?: $Enums.ScheduleSlotStatus
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
-  export type WorkloadTargetCreateManyInstructorInput = {
-    id?: string
-    universityId: string
-    activityTypeId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -96200,42 +93461,6 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
-  export type WorkloadTargetUpdateWithoutInstructorInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    university?: UniversityUpdateOneRequiredWithoutWorkloadTargetsNestedInput
-    activityType?: ActivityTypeUpdateOneWithoutWorkloadTargetsNestedInput
-  }
-
-  export type WorkloadTargetUncheckedUpdateWithoutInstructorInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyWithoutInstructorInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    activityTypeId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
   export type DeliverableLogUpdateWithoutInstructorInput = {
     id?: StringFieldUpdateOperationsInput | string
     workDate?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -96708,18 +93933,6 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
-  export type WorkloadTargetCreateManyActivityTypeInput = {
-    id?: string
-    universityId: string
-    instructorId?: string | null
-    targetMinutes: number
-    periodType?: $Enums.ReportingPeriodType
-    effectiveFrom: Date | string
-    effectiveTo?: Date | string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
-  }
-
   export type DeliverableTypeCreateManyActivityTypeInput = {
     id?: string
     code: string
@@ -96852,42 +94065,6 @@ export namespace Prisma {
     endTime?: DateTimeFieldUpdateOperationsInput | Date | string
     location?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumScheduleSlotStatusFieldUpdateOperationsInput | $Enums.ScheduleSlotStatus
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetUpdateWithoutActivityTypeInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    university?: UniversityUpdateOneRequiredWithoutWorkloadTargetsNestedInput
-    instructor?: InstructorUpdateOneWithoutWorkloadTargetsNestedInput
-  }
-
-  export type WorkloadTargetUncheckedUpdateWithoutActivityTypeInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-  }
-
-  export type WorkloadTargetUncheckedUpdateManyWithoutActivityTypeInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    universityId?: StringFieldUpdateOperationsInput | string
-    instructorId?: NullableStringFieldUpdateOperationsInput | string | null
-    targetMinutes?: IntFieldUpdateOperationsInput | number
-    periodType?: EnumReportingPeriodTypeFieldUpdateOperationsInput | $Enums.ReportingPeriodType
-    effectiveFrom?: DateTimeFieldUpdateOperationsInput | Date | string
-    effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

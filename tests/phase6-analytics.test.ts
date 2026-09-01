@@ -53,15 +53,6 @@ beforeAll(async () => {
     activityTypeCode: "TEACHING", startTime: ist(WK2_MON, "10:00"), endTime: ist(WK2_MON, "12:00"),
   });
 
-  // A weekly teaching target of 8h, so variance is measurable.
-  const target = await admin.post(`/api/universities/${northId}/workload-targets`, {
-    activityTypeCode: "TEACHING",
-    targetMinutes: 480,
-    periodType: "WEEKLY",
-    effectiveFrom: "2027-01-01",
-  });
-  expect(target.status).toBe(201);
-
   // A deliverable with progress logged across three separate dates.
   const created = await mgrN.post(`/api/instructors/${n1Id}/deliverables`, {
     title: "Python assignments", category: "Teaching",
@@ -91,56 +82,15 @@ async function analytics(from: string, to: string, trend = false) {
   return res.body.analytics;
 }
 
-describe("workload variance", () => {
-  test("actual is compared against the configured target", async () => {
-    const a = await analytics(WK1_FROM, WK1_TO);
-    const mine = a.instructors.find((i: { instructorId: string }) => i.instructorId === n1Id);
-    const teaching = mine.workloadVariance.find(
-      (v: { activityTypeCode: string }) => v.activityTypeCode === "TEACHING",
-    );
-
-    expect(teaching.targetHours).toBe(8);
-    expect(teaching.actualHours).toBe(6);
-    expect(teaching.varianceHours).toBe(-2);
-    expect(teaching.variancePct).toBe(-25);
-  });
-
-  test("the target scales to the requested period", async () => {
-    // Feb 1-14 is exactly two weeks against an 8h/week target -> 16h.
-    const a = await analytics(WK1_FROM, "2027-02-14");
-    const mine = a.instructors.find((i: { instructorId: string }) => i.instructorId === n1Id);
-    const teaching = mine.workloadVariance.find(
-      (v: { activityTypeCode: string }) => v.activityTypeCode === "TEACHING",
-    );
-    expect(teaching.targetHours).toBe(16);
-    expect(teaching.actualHours).toBe(8); // 6h week 1 + 2h week 2
-  });
-
-  test("the target is pro-rated for a partial period", async () => {
-    // Feb 1-12 is 12 days = 1.71 weeks, so an 8h/week target is 13.71h.
-    const a = await analytics(WK1_FROM, WK2_TO);
-    const mine = a.instructors.find((i: { instructorId: string }) => i.instructorId === n1Id);
-    const teaching = mine.workloadVariance.find(
-      (v: { activityTypeCode: string }) => v.activityTypeCode === "TEACHING",
-    );
-    expect(teaching.targetHours).toBe(13.71);
-  });
-
-  test("a target is not hard-coded — only configured types appear", async () => {
-    const a = await analytics(WK1_FROM, WK1_TO);
-    const mine = a.instructors.find((i: { instructorId: string }) => i.instructorId === n1Id);
-    const codes = mine.workloadVariance.map((v: { activityTypeCode: string }) => v.activityTypeCode);
-    expect(codes).toEqual(["TEACHING"]);
-  });
-
-  test("only an admin can set targets", async () => {
-    const res = await mgrN.post(`/api/universities/${northId}/workload-targets`, {
-      activityTypeCode: "LEARNING", targetMinutes: 60, effectiveFrom: "2027-01-01",
-    });
-    expect(res.status).toBe(403);
-  });
-});
-
+/**
+ * The "workload variance" block was deleted rather than ported.
+ *
+ * It configured a weekly TEACHING target and asserted the engine reported
+ * actual-versus-target against it — per activity type, five tests deep. The
+ * `WorkloadTarget` table is dropped and the sixteen types with it: a target
+ * cannot be set against free text, and there is nothing left for a variance to
+ * be a variance FROM.
+ */
 describe("deliverable completion", () => {
   test("progress logged across three dates sums against the target", async () => {
     const a = await analytics(WK1_FROM, WK1_TO);
@@ -221,7 +171,6 @@ describe("Gate — one dataset produces one set of numbers", () => {
 
     expect(mineViaSelf.productiveHours).toBe(mineViaManager.productiveHours);
     expect(mineViaSelf.utilizationPct).toBe(mineViaManager.utilizationPct);
-    expect(mineViaSelf.workloadVariance).toEqual(mineViaManager.workloadVariance);
     expect(mineViaSelf.deliverables).toEqual(mineViaManager.deliverables);
   });
 });

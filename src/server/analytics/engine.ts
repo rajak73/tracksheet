@@ -68,15 +68,15 @@ export type DayBreakdown = {
   hoursByActivityType: Record<string, number>;
 };
 
-/** Actual vs configured target for one activity type over the period. */
-export type WorkloadVariance = {
-  activityTypeCode: string;
-  targetHours: number;
-  actualHours: number;
-  /** actual - target. Negative means under target. */
-  varianceHours: number;
-  variancePct: number | null;
-};
+/* `WorkloadVariance` is gone.
+ *
+ * It was actual-versus-target hours PER ACTIVITY TYPE, configured on
+ * `WorkloadTarget` and keyed on the sixteen types. Without the types there is
+ * no feature: a target of "8 hours of TEACHING a week" cannot be expressed
+ * against free text, and rebuilding it against total hours would be a different
+ * feature with a different meaning. Both tables held zero rows, in dev and in
+ * test, so nothing configured was lost.
+ */
 
 export type DeliverableProgress = {
   total: number;
@@ -107,7 +107,6 @@ export type InstructorBreakdown = {
   expectedWorkingDays: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
-  workloadVariance: WorkloadVariance[];
   deliverables: DeliverableProgress;
   days: DayBreakdown[];
 };
@@ -126,8 +125,7 @@ export type AnalyticsResult = {
     openingCompliancePct: number | null;
     closingCompliancePct: number | null;
     hoursByActivityType: Record<string, number>;
-    workloadVariance: WorkloadVariance[];
-    deliverables: DeliverableProgress;
+      deliverables: DeliverableProgress;
   };
   instructors: InstructorBreakdown[];
   /**
@@ -385,7 +383,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   const fromDate = new Date(`${from}T00:00:00.000Z`);
   const toDate = new Date(`${to}T00:00:00.000Z`);
 
-  const [logs, leaves, targets, deliverables] = await Promise.all([
+  const [logs, leaves, deliverables] = await Promise.all([
     prisma.activityLog.findMany({
       where: {
         universityId,
@@ -412,20 +410,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
       },
       select: { instructorId: true, startDate: true, endDate: true },
-    }),
-    // Effective-dated targets: only those in force during the period.
-    prisma.workloadTarget.findMany({
-      where: {
-        universityId,
-        effectiveFrom: { lte: toDate },
-        OR: [{ effectiveTo: null }, { effectiveTo: { gte: fromDate } }],
-      },
-      select: {
-        instructorId: true,
-        targetMinutes: true,
-        periodType: true,
-        activityType: { select: { code: true } },
-      },
     }),
     prisma.deliverable.findMany({
       where: {
@@ -638,43 +622,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       });
     }
 
-    // ── Workload variance ────────────────────────────────────────────────
-    // An instructor-specific target overrides the university default for the
-    // same activity type; without that, a per-person target would be additive
-    // rather than an override.
-    const weeks = Math.max(1, dates.length / 7);
-    const applicable = new Map<string, number>();
-    for (const t of targets) {
-      if (!t.activityType) continue;
-      const isForThisInstructor = t.instructorId === inst.id;
-      if (t.instructorId && !isForThisInstructor) continue;
-      const code = t.activityType.code;
-      // Scale the target to the requested period.
-      const scaled =
-        t.periodType === "WEEKLY"
-          ? t.targetMinutes * weeks
-          : t.periodType === "DAILY"
-            ? t.targetMinutes * dates.length
-            : t.periodType === "MONTHLY"
-              ? (t.targetMinutes * dates.length) / 30
-              : t.targetMinutes;
-      if (isForThisInstructor || !applicable.has(code)) applicable.set(code, scaled);
-    }
-
-    const workloadVariance: WorkloadVariance[] = [...applicable.entries()].map(
-      ([code, targetMinutes]) => {
-        const targetHrs = round(targetMinutes / 60);
-        const actualHrs = round(hoursByType[code] ?? 0);
-        return {
-          activityTypeCode: code,
-          targetHours: targetHrs,
-          actualHours: actualHrs,
-          varianceHours: round(actualHrs - targetHrs),
-          variancePct: targetHrs > 0 ? round(((actualHrs - targetHrs) / targetHrs) * 100) : null,
-        };
-      },
-    );
-
     // ── Deliverable completion ───────────────────────────────────────────
     const mine = deliverables.filter((d) => d.instructorId === inst.id);
     const deliverableProgress = summariseDeliverables(mine, from, to);
@@ -694,7 +641,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       expectedWorkingDays: expectedDays,
       openingCompliancePct: expectedDays > 0 ? round((openingCount / expectedDays) * 100) : null,
       closingCompliancePct: expectedDays > 0 ? round((closingCount / expectedDays) * 100) : null,
-      workloadVariance,
       deliverables: deliverableProgress,
       days,
     };
@@ -719,18 +665,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   for (const b of breakdowns) {
     for (const [code, hrs] of Object.entries(b.hoursByActivityType)) {
       totalsByType[code] = round((totalsByType[code] ?? 0) + hrs);
-    }
-  }
-
-  // Totals reuse the same helper so a university figure is the same
-  // calculation as an instructor one, not a parallel implementation.
-  const totalVariance = new Map<string, { target: number; actual: number }>();
-  for (const b of breakdowns) {
-    for (const v of b.workloadVariance) {
-      const acc = totalVariance.get(v.activityTypeCode) ?? { target: 0, actual: 0 };
-      acc.target += v.targetHours;
-      acc.actual += v.actualHours;
-      totalVariance.set(v.activityTypeCode, acc);
     }
   }
 
@@ -807,13 +741,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       closingCompliancePct:
         totalExpectedDays > 0 ? round((totalClosings / totalExpectedDays) * 100) : null,
       hoursByActivityType: totalsByType,
-      workloadVariance: [...totalVariance.entries()].map(([code, v]) => ({
-        activityTypeCode: code,
-        targetHours: round(v.target),
-        actualHours: round(v.actual),
-        varianceHours: round(v.actual - v.target),
-        variancePct: v.target > 0 ? round(((v.actual - v.target) / v.target) * 100) : null,
-      })),
       deliverables: summariseDeliverables(deliverables, from, to),
     },
     instructors: breakdowns,
