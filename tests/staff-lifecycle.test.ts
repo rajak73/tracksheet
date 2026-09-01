@@ -14,7 +14,10 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * database, so isolation comes from picking an unused window.
  */
 
-const MON = "2035-04-02"; // a Tuesday-safe Monday: 2035-04-02 is a Monday
+/* A past Monday. It was 2035 — isolated by being unreachable, which worked
+   while this wrote to `ActivityLog`. A day that has not happened cannot be
+   written to the worklog by anybody, so isolation comes from distance now. */
+const MON = "2025-04-07";
 const NEW_INSTRUCTOR = "lifecycle.instructor@example.edu";
 const NEW_MANAGER = "lifecycle.manager@example.edu";
 const PASSWORD = "Password123!";
@@ -161,11 +164,15 @@ describe("deactivation preserves history and revokes access", () => {
     // Give the new instructor real history to protect.
     const them = new ApiClient("lifecycle");
     await them.login(NEW_INSTRUCTOR, PASSWORD);
-    const act = await them.post(`/api/instructors/${createdInstructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: MON, start: "09:00", end: "13:00" },
+    /* Written through the worklog route, which is what the tracker and its CSV
+       read. The activity post this replaced went to a table neither looks at,
+       so "hours unchanged" would have compared zero to zero. */
+    const act = await them.post(`/api/instructors/${createdInstructorId}/worklog/entry`, {
+      date: MON,
+      deliverable: "Four hours of teaching",
+      workingHours: "4h",
     });
-    expect(act.status).toBe(201);
+    expect(act.status, JSON.stringify(act.body)).toBe(201);
 
     const deliverable = await admin.post(`/api/instructors/${createdInstructorId}/deliverables`, {
       title: "Lifecycle Deliverable",
@@ -216,12 +223,15 @@ describe("deactivation preserves history and revokes access", () => {
     expect(res.status).toBe(401);
   });
 
-  test("historical activity survives", async () => {
+  test("historical worklog survives", async () => {
+    /* The claim is unchanged — a departed person's record stays readable — and
+       only where it is read from moved. The explorer answers days now, so
+       `activities` is `days` and the count is of instructor-days. */
     const res = await admin.get(
-      `/api/instructors/${createdInstructorId}/activities?from=${MON}&to=${MON}`,
+      `/api/activities?instructorId=${createdInstructorId}&from=${MON}&to=${MON}`,
     );
     expect(res.status).toBe(200);
-    expect(res.body.activities.length).toBeGreaterThan(0);
+    expect(res.body.days.length).toBeGreaterThan(0);
   });
 
   test("historical deliverable logs survive", async () => {
@@ -244,18 +254,46 @@ describe("deactivation preserves history and revokes access", () => {
     expect(row).toBeDefined();
     expect(row.isActive).toBe(false);
     expect(row.totals.totalWorkingHours).toBe(4);
-    expect(row.totals.deliverableHours).toBe(3);
+    /* One instructor-day, and the row says so. `deliverableHours` — hours on
+       entries that named a deliverable — went with the taxonomy. */
+    expect(row.totals.daysLogged).toBe(1);
     expect(row.employeeCode).toBe("NF-LIFE-1");
   });
 
-  test("they are excluded from operational analytics", async () => {
+  test("they are excluded from analytics for a period AFTER they left", async () => {
+    /* The engine's rule, stated precisely: somebody who left in September did
+       real work in August, so August includes them and September does not. It
+       is a DATE test, not an isActive test.
+       
+       The old version of this asserted plain exclusion and passed only because
+       its window sat in 2035 — after a deactivation that happens today. Moving
+       the fixture into the past made the engine correctly INCLUDE them, and the
+       assertion failed while the rule it meant to check still held. So the
+       window is now explicitly after the departure, and says why. */
+    const afterTheyLeft = new Date();
+    afterTheyLeft.setUTCDate(afterTheyLeft.getUTCDate() + 30);
+    const after = afterTheyLeft.toISOString().slice(0, 10);
+
+    const res = await admin.get(
+      `/api/universities/${universityId}/analytics?from=${after}&to=${after}`,
+    );
+    const present = res.body.analytics.instructors.some(
+      (i: { instructorId: string }) => i.instructorId === createdInstructorId,
+    );
+    expect(present, "a departed person carries no capacity into later periods").toBe(false);
+  });
+
+  test("and INCLUDED for a period they actually worked", async () => {
+    /* The other half, which the old test never had. Dropping them from a window
+       they worked would rewrite history — and the rollup upserts, so it would
+       rewrite the stored figures too. */
     const res = await admin.get(
       `/api/universities/${universityId}/analytics?from=${MON}&to=${MON}`,
     );
     const present = res.body.analytics.instructors.some(
       (i: { instructorId: string }) => i.instructorId === createdInstructorId,
     );
-    expect(present).toBe(false);
+    expect(present, "a period they worked must still show them").toBe(true);
   });
 
   test("they appear under the 'former' filter, not the default 'active' one", async () => {
@@ -324,7 +362,9 @@ describe("reactivation", () => {
       (r: { instructorId: string }) => r.instructorId === createdInstructorId,
     );
     expect(row.totals.totalWorkingHours).toBe(4);
-    expect(row.totals.deliverableHours).toBe(3);
+    /* One instructor-day, and the row says so. `deliverableHours` — hours on
+       entries that named a deliverable — went with the taxonomy. */
+    expect(row.totals.daysLogged).toBe(1);
     expect(row.isActive).toBe(true);
   });
 

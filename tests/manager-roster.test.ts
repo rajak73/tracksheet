@@ -315,10 +315,15 @@ describe("manager-scoped tracker", () => {
     for (const row of t.rows) {
       expect(row).toHaveProperty("instructorName");
       expect(row).toHaveProperty("employeeCode");
-      expect(row).toHaveProperty("category");
       expect(row).toHaveProperty("cells");
       expect(row.totals).toHaveProperty("totalWorkingHours");
-      expect(row.totals).toHaveProperty("deliverableHours");
+      expect(row.totals).toHaveProperty("daysLogged");
+      /* `category` and `deliverableHours` are gone. The first was a row's
+         dominant activity type; the second was hours on entries that named a
+         deliverable. Both needed the taxonomy. Asserted absent rather than
+         simply dropped, so the shape cannot quietly grow them back. */
+      expect(row).not.toHaveProperty("category");
+      expect(row.totals).not.toHaveProperty("deliverableHours");
     }
   });
 

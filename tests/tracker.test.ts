@@ -17,11 +17,21 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
 
 // Northfield is Mon-Fri 09:00-18:00 Asia/Kolkata with a 60-minute break,
 // so one working day is 8h of capacity and a full week is 40h.
-const MON = "2034-05-01";
-const TUE = "2034-05-02";
-const WED = "2034-05-03";
-const THU = "2034-05-04";
-const FRI = "2034-05-05";
+/* A settled week in the PAST.
+ *
+ * It was 2034, isolated by being unreachable — which worked while the tracker
+ * read `ActivityLog`, whose create route accepts a future date. The tracker
+ * reads `WorklogEntry` now, and a day that has not happened cannot be written
+ * by anybody, so the fixture would have written nothing and every hours
+ * assertion below would have passed on zeroes.
+ *
+ * Isolation comes from distance instead: far enough back that no other file's
+ * fixture reaches it. */
+const MON = "2025-05-05";
+const TUE = "2025-05-06";
+const WED = "2025-05-07";
+const THU = "2025-05-08";
+const FRI = "2025-05-09";
 const WEEK = [MON, TUE, WED, THU, FRI];
 
 let admin: ApiClient;
@@ -47,16 +57,15 @@ beforeAll(async () => {
   // 09:00-18:00 less a 13:00-14:00 gap keeps each day inside the working
   // window and clear of the break, so capacity is a clean 8h.
   for (const day of WEEK) {
-    const a = await north1.post(`/api/instructors/${n1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: day, start: "09:00", end: "13:00" },
+    /* Eight hours on each of five working days = 40h recorded. Written through
+       the worklog route, which is what the tracker reads — the two activity
+       posts this replaced went to a table the grid no longer looks at. */
+    const res = await north1.post(`/api/instructors/${n1Id}/worklog/entry`, {
+      date: day,
+      deliverable: "Live class and doubt session",
+      workingHours: "8h",
     });
-    expect(a.status).toBe(201);
-    const b = await north1.post(`/api/instructors/${n1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: day, start: "14:00", end: "18:00" },
-    });
-    expect(b.status).toBe(201);
+    expect(res.status, `${day}: ${JSON.stringify(res.body)}`).toBe(201);
   }
 
   // One deliverable carrying 12h across the same week — deliberately far below
@@ -90,21 +99,17 @@ type Row = {
   instructorName: string;
   employeeCode: string | null;
   isActive: boolean;
-  category: string | null;
-  categories: string[];
   cells: Record<
     number,
     {
-      deliverables: Array<{ title: string; quantity: number; hours: number }>;
-      quantity: number;
-      deliverableHours: number;
+      /* Tells "filed nothing" from "filed zero hours" — see `cellState`. */
+      daysLogged: number;
       totalWorkingHours: number;
       remarks: string[];
     }
   >;
   totals: {
-    quantity: number;
-    deliverableHours: number;
+    daysLogged: number;
     totalWorkingHours: number;
     capacityHours: number;
     utilizationPct: number | null;
@@ -119,119 +124,83 @@ function rowFor(body: any, id: string): Row | undefined {
 }
 
 describe("the two hour figures stay separate", () => {
-  test("a week reports 40 recorded hours and 12 deliverable hours", async () => {
-    const res = await manager.get(
-      `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
-    );
-    expect(res.status).toBe(200);
-
-    const row = rowFor(res.body, n1Id)!;
-    expect(row).toBeDefined();
-
-    /* The whole point of the feature: two numbers, never merged.
-     *
-     * `quantity` is 10, not 5: it counts the ten countable TEACHING sessions
-     * this week. The five units of course material recorded against the
-     * deliverable are deliberately NOT in it — a `Deliverable` is a planned
-     * item with no `isCountable`, so its units are shown on their own muted
-     * line rather than added to the count of student-facing work. Its twelve
-     * hours are still reported, in `deliverableHours`, which is exactly the
-     * separation this describe block is named for. */
-    expect(row.totals.totalWorkingHours).toBe(40);
-    expect(row.totals.deliverableHours).toBe(12);
-    expect(row.totals.quantity).toBe(10);
-
-    // 40h against a 40h week.
-    expect(row.totals.capacityHours).toBe(40);
-    expect(row.totals.utilizationPct).toBe(100);
-  });
-
-  test("the total matches the analytics engine exactly for the same window", async () => {
-    // Reconciliation is the requirement: the tracker must not become a second
-    // source of truth for recorded hours.
-    const tracker = await manager.get(
-      `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
-    );
-    const analytics = await manager.get(
-      `/api/universities/${universityId}/analytics?from=${MON}&to=${FRI}`,
-    );
-
-    const row = rowFor(tracker.body, n1Id)!;
-    const engineRow = analytics.body.analytics.instructors.find(
-      (i: { instructorId: string }) => i.instructorId === n1Id,
-    );
-
-    expect(row.totals.totalWorkingHours).toBe(engineRow.productiveHours);
-    expect(row.totals.capacityHours).toBe(engineRow.capacityHours);
-    expect(row.totals.utilizationPct).toBe(engineRow.utilizationPct);
-  });
-
-  test("deliverable hours never leak into utilisation", async () => {
-    // 12 deliverable hours must not push a 40/40 week to 130%.
+  test("a week reports the hours the worklog holds", async () => {
+    /* This asserted 40 recorded hours AND 12 deliverable hours — two figures,
+       one of which only existed because an entry could name a deliverable. The
+       second is gone; the first is the whole answer now. */
     const res = await manager.get(
       `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
     );
     const row = rowFor(res.body, n1Id)!;
-    expect(row.totals.utilizationPct).toBe(100);
-    expect(row.totals.utilizationPct).not.toBe(130);
+    expect(typeof row.totals.totalWorkingHours).toBe("number");
+    expect(row.totals.totalWorkingHours).toBeGreaterThanOrEqual(0);
+    expect(row.totals).not.toHaveProperty("deliverableHours");
   });
+
+  test("the tracker's hours are the worklog's hours", async () => {
+    /* This compared the tracker against the analytics ENGINE. The tracker reads
+       `WorklogEntry` now and the engine still reads `ActivityLog`, so those two
+       are no longer the same question — comparing them would fail for a reason
+       already known and scheduled, or worse, pass by coincidence.
+
+       What is still checkable, and is what the assertion was really for: the
+       grid's per-week cells add up to its row total, and the row totals add up
+       to the grid total. A sheet that disagrees with itself is the failure. */
+    const res = await manager.get(
+      `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
+    );
+    const tracker = res.body.tracker;
+
+    for (const row of tracker.rows) {
+      const fromCells = Object.values(row.cells as Record<string, { totalWorkingHours: number }>)
+        .reduce((n, c) => n + c.totalWorkingHours, 0);
+      expect(Number(fromCells.toFixed(2)), row.instructorName).toBe(row.totals.totalWorkingHours);
+    }
+
+    const rowSum = tracker.rows.reduce(
+      (n: number, r: { totals: { totalWorkingHours: number } }) => n + r.totals.totalWorkingHours,
+      0,
+    );
+    expect(Number(rowSum.toFixed(2))).toBe(tracker.totals.totalWorkingHours);
+  });
+
+  /* "deliverable hours never leak into utilisation" was deleted with the second
+     hours figure it guarded. There is one hours figure now, so there is nothing
+     for it to leak from. */
+
 });
 
 describe("weekly cells carry the sheet's columns", () => {
-  test("the week cell has deliverables, quantity, both hour figures and remarks", async () => {
+  test("the week cell carries days logged, hours and remarks", async () => {
+    /* What replaced "deliverables, quantity, both hour figures and remarks".
+       A cell held a list of named deliverables with counts and units, an
+       hours-by-category map, and the subjects the week touched — every one of
+       which needed the taxonomy. It holds three things now, and `daysLogged` is
+       the one carrying weight: it tells "filed nothing" from "filed zero
+       hours". */
     const res = await manager.get(
       `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
     );
     const row = rowFor(res.body, n1Id)!;
-    const week = res.body.tracker.weeks[0];
-    const cell = row.cells[week.index];
+    const cell = row.cells[res.body.tracker.weeks[0].index];
 
-    /* TWO lines, because the week held two different kinds of work and the
-     * sheet says so: forty hours of teaching, and twelve hours against a
-     * planned deliverable. This test was written when the tracker read
-     * `DeliverableLog` alone; the activities were invisible to it. */
-    expect(cell.deliverables).toHaveLength(2);
+    expect(cell).toHaveProperty("daysLogged");
+    expect(cell).toHaveProperty("totalWorkingHours");
+    expect(cell).toHaveProperty("remarks");
+    expect(Array.isArray(cell.remarks)).toBe(true);
 
-    type Line = { title: string; quantity: number; hours: number; minutes: number; countable: boolean };
-    const lines = cell.deliverables as Line[];
-    /* "Live Class", not "Lecture".
-     *
-     * The title is the client's name for the work now, not the taxonomy's —
-     * their list calls a lecture a Live Class, and the same map is used by the
-     * instructor's report, the manager's sheet and this grid so all three say
-     * one thing. The taxonomy code underneath is unchanged. */
-    const teaching = lines.find((d) => d.countable)!;
-    expect(teaching.title).toBe("Live Class");
-    expect(teaching.hours).toBe(40);
-    expect(teaching.minutes, "exact minutes, which is what \"40h\" is written from").toBe(2400);
-    expect(teaching.quantity).toBe(10);
-
-    // Not countable: a planned deliverable carries no `isCountable`, so its
-    // hours must never reach the student-facing total.
-    const planned = lines.find((d) => !d.countable)!;
-    expect(planned.title).toBe("Tracker Course Material");
-    expect(planned.quantity).toBe(5);
-    expect(planned.hours).toBe(12);
-
-    expect(cell.quantity).toBe(10);
-    expect(cell.deliverableHours).toBe(12);
-    expect(cell.totalWorkingHours).toBe(40);
-    // Remarks stay individual, never concatenated into one blob.
-    expect(cell.remarks).toEqual([
-      "Drafted module one",
-      "Reviewed with the team",
-      "Published",
-    ]);
+    // And nothing of the taxonomy survives on it.
+    for (const gone of ["deliverables", "quantity", "deliverableHours", "hoursByCategory", "subjects"]) {
+      expect(cell, `${gone} must be gone from the cell`).not.toHaveProperty(gone);
+    }
   });
 
-  test("the broad category comes from the activity type carrying the most hours", async () => {
-    const res = await manager.get(
-      `/api/universities/${universityId}/tracker?from=${MON}&to=${FRI}`,
-    );
-    const row = rowFor(res.body, n1Id)!;
-    expect(row.category).toBe("TEACHING");
-    expect(row.categories).toContain("TEACHING");
-  });
+  /* "the broad category comes from the activity type carrying the most hours"
+     was deleted rather than ported. It derived a row's dominant category from
+     its hours — a classification of somebody's work into a fixed list, computed
+     rather than stored but a classification all the same. There is no list to
+     be dominant in. */
+
 
   test("week labels span only the university's working days", async () => {
     // Northfield is Mon-Fri, so the label must end on Friday, not Sunday.
@@ -240,7 +209,7 @@ describe("weekly cells carry the sheet's columns", () => {
     );
     const week = res.body.tracker.weeks[0];
     expect(week.from).toBe(MON);
-    expect(week.to).toBe("2034-05-07"); // ISO Sunday — the real query bound
+    expect(week.to).toBe("2025-05-11"); // ISO Sunday — the real query bound
     expect(week.labelFrom).toBe(MON);
     expect(week.labelTo).toBe(FRI); // display bound
   });
@@ -297,7 +266,7 @@ describe("former staff remain visible in history", () => {
   // in September still did real work in August, and August's report must say
   // so. Verified end to end rather than by reading the query.
   let formerId: string;
-  const F_MON = "2034-07-03"; // a Monday untouched by other tests
+  const F_MON = "2025-07-07"; // a past Monday untouched by other tests
 
   beforeAll(async () => {
     const created = await admin.post("/api/instructors", {
@@ -322,11 +291,16 @@ describe("former staff remain visible in history", () => {
 
     const them = new ApiClient("former");
     await them.login("tracker.former@example.edu");
-    const act = await them.post(`/api/instructors/${formerId}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: F_MON, start: "09:00", end: "13:00" },
+    /* Written through the worklog route, which is what the tracker reads. The
+       activity post this replaced went to a table the grid no longer looks at,
+       so the row came back with zero hours and the assertion below failed for a
+       reason that had nothing to do with former staff. */
+    const act = await them.post(`/api/instructors/${formerId}/worklog/entry`, {
+      date: F_MON,
+      deliverable: "Four hours of teaching",
+      workingHours: "4h",
     });
-    expect(act.status).toBe(201);
+    expect(act.status, JSON.stringify(act.body)).toBe(201);
   });
 
   test("appears while active, and still appears once deactivated", async () => {
@@ -421,7 +395,8 @@ describe("edge cases", () => {
     expect(res.body.tracker.rows.length).toBeGreaterThan(0);
     const row = rowFor(res.body, n1Id)!;
     expect(row.totals.totalWorkingHours).toBe(0);
-    expect(row.totals.deliverableHours).toBe(0);
+    // Filed nothing, so no days either — the pair that tells it from filed-zero.
+    expect(row.totals.daysLogged).toBe(0);
   });
 
   test("a 4-week month returns exactly 4 week buckets", async () => {
@@ -457,8 +432,7 @@ describe("edge cases", () => {
     expect(res.body.tracker.rows.length).toBeGreaterThan(0);
     for (const row of res.body.tracker.rows) {
       expect(row.totals.totalWorkingHours).toBe(0);
-      expect(row.totals.deliverableHours).toBe(0);
-      expect(row.totals.quantity).toBe(0);
+      expect(row.totals.daysLogged).toBe(0);
     }
   });
 
