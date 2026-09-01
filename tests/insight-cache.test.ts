@@ -62,31 +62,25 @@ function counter() {
 /** One day row, written straight to the table — this file is about the cache. */
 async function writeDay(input: {
   date: string;
-  activities: Array<{ label: string; quantity?: string | null; hours?: number | null }>;
+  deliverable: string;
+  quantity?: string | null;
+  hours?: number;
   remarks?: string | null;
 }) {
   const { universityId } = await prisma.instructor.findUniqueOrThrow({
     where: { id: instructorId },
     select: { universityId: true },
   });
-  const activities = input.activities.map((a) => ({
-    label: a.label,
-    quantity: a.quantity ?? null,
-    hours: a.hours ?? null,
-  }));
-  const totalHours = activities.reduce((n, a) => n + (a.hours ?? 0), 0);
-
+  const data = {
+    deliverable: input.deliverable,
+    deliverableQuantity: input.quantity ?? null,
+    workingHours: input.hours ?? 0,
+    remarks: input.remarks ?? null,
+  };
   return prisma.worklogEntry.upsert({
     where: { instructorId_logDate: { instructorId, logDate: toDateOnly(input.date) } },
-    create: {
-      instructorId,
-      universityId,
-      logDate: toDateOnly(input.date),
-      activities,
-      totalHours,
-      remarks: input.remarks ?? null,
-    },
-    update: { activities, totalHours, remarks: input.remarks ?? null },
+    create: { instructorId, universityId, logDate: toDateOnly(input.date), ...data },
+    update: data,
   });
 }
 
@@ -122,7 +116,7 @@ beforeEach(async () => {
 describe("the cache pays once per state of the data", () => {
   /* 1 */
   test("opening the same period twice with no change makes exactly one call", async () => {
-    await writeDay({ date: D1, activities: [{ label: "Reviewed the OAuth token expiry", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "Reviewed the OAuth token expiry", hours: 3 });
     const { generate, calls } = counter();
 
     const first = await serveInsight(scope("DAY", D1, D1), generate);
@@ -136,14 +130,11 @@ describe("the cache pays once per state of the data", () => {
 
   /* 2 */
   test("editing a description makes a second call", async () => {
-    await writeDay({ date: D1, activities: [{ label: "Original description", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "Original description", hours: 3 });
     const { generate, calls } = counter();
 
     await serveInsight(scope("DAY", D1, D1), generate);
-    await writeDay({
-      date: D1,
-      activities: [{ label: "A materially different description", hours: 3 }],
-    });
+    await writeDay({ date: D1, deliverable: "A materially different description", hours: 3 });
     const second = await serveInsight(scope("DAY", D1, D1), generate);
 
     expect(calls(), "changed meaning must regenerate").toBe(2);
@@ -152,7 +143,7 @@ describe("the cache pays once per state of the data", () => {
 
   /* 3 */
   test("touching only updatedAt makes NO new call", async () => {
-    const entry = await writeDay({ date: D1, activities: [{ label: "Unchanged work", hours: 3 }] });
+    const entry = await writeDay({ date: D1, deliverable: "Unchanged work", hours: 3 });
     const { generate, calls } = counter();
 
     await serveInsight(scope("DAY", D1, D1), generate);
@@ -164,45 +155,38 @@ describe("the cache pays once per state of the data", () => {
     expect(second.cached).toBe(true);
   });
 
-  /* 4 */
-  test("database return order makes NO difference", async () => {
-    await writeDay({
-      date: D1,
-      activities: [
-        { label: "Bravo task", hours: 2 },
-        { label: "Alpha task", hours: 1 },
-      ],
+  /* 4 — days appear in date order however the database returns them, and a
+     day with no row is omitted rather than serialised as an empty object. A
+     quiet week must hash the same whether it is read on its own or inside a
+     longer window. */
+  test("days are ordered by date, and empty days are absent", async () => {
+    // Written out of order on purpose.
+    await writeDay({ date: D2, deliverable: "The later day", hours: 2 });
+    await writeDay({ date: D1, deliverable: "The earlier day", hours: 1 });
+
+    const context = await buildCanonicalContext({
+      instructorId,
+      periodStart: D1,
+      periodEnd: day(3),
     });
 
-    /* Built twice; the second time the rows are very likely returned in a
-       different physical order after an update rewrites one of them. The
-       canonical form sorts, so the bytes must be identical either way. */
-    const before = canonicalJson(await buildCanonicalContext(scope("DAY", D1, D1)));
-    /* The SAME activities, written in the opposite order. Canonicalisation sorts
-       by label, so the bytes must be identical either way — an array is a list of
-       things that happened, and reordering it says nothing new. */
-    await writeDay({
-      date: D1,
-      activities: [
-        { label: "Alpha task", hours: 1 },
-        { label: "Bravo task", hours: 2 },
-      ],
-    });
-    const after = canonicalJson(await buildCanonicalContext(scope("DAY", D1, D1)));
+    expect(context.days.map((d) => d.log_date)).toEqual([D1, D2]);
+    // Six other dates fall inside that window and hold nothing.
+    expect(context.days).toHaveLength(2);
 
-    expect(after).toBe(before);
+    const json = canonicalJson(context);
+    expect(json.indexOf(D1), "the earlier day must serialise first").toBeLessThan(
+      json.indexOf(D2),
+    );
   });
 
   /* 5 */
   test("whitespace-only changes make NO new call", async () => {
-    await writeDay({ date: D1, activities: [{ label: "Reviewed the pull request", hours: 2 }] });
+    await writeDay({ date: D1, deliverable: "Reviewed the pull request", hours: 2 });
     const { generate, calls } = counter();
 
     await serveInsight(scope("DAY", D1, D1), generate);
-    await writeDay({
-      date: D1,
-      activities: [{ label: "  Reviewed   the\n\npull  request  ", hours: 2 }],
-    });
+    await writeDay({ date: D1, deliverable: "  Reviewed   the\n\npull  request  ", hours: 2 });
     const second = await serveInsight(scope("DAY", D1, D1), generate);
 
     expect(calls(), "whitespace cannot change what an insight says").toBe(1);
@@ -211,7 +195,7 @@ describe("the cache pays once per state of the data", () => {
 
   /* 6 */
   test("a new prompt version invalidates every scope", async () => {
-    await writeDay({ date: D1, activities: [{ label: "Work worth summarising", hours: 4 }] });
+    await writeDay({ date: D1, deliverable: "Work worth summarising", hours: 4 });
     const { generate, calls } = counter();
 
     await serveInsight(scope("DAY", D1, D1), generate);
@@ -232,7 +216,7 @@ describe("the cache pays once per state of the data", () => {
 
   /* 7 */
   test("adding a day invalidates that day, its week and its month — not its neighbour", async () => {
-    await writeDay({ date: D1, activities: [{ label: "First day of work", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "First day of work", hours: 3 });
     const { generate, calls } = counter();
 
     const weekStart = D1;
@@ -247,13 +231,11 @@ describe("the cache pays once per state of the data", () => {
     // D2 is empty, so it never called: DAY(D1), WEEK, MONTH = 3.
     expect(calls()).toBe(3);
 
-    // A new entry on D1 only.
+    // D1's text changes; nothing else does.
     await writeDay({
       date: D1,
-      activities: [
-        { label: "First day of work", hours: 3 },
-        { label: "More work the same day", hours: 2 },
-      ],
+      deliverable: "First day of work, and more work the same day",
+      hours: 5,
     });
 
     const d1 = await serveInsight(scope("DAY", D1, D1), generate);
@@ -281,14 +263,8 @@ describe("the cache pays once per state of the data", () => {
     const monthStart = day(20);
     const { generate, calls } = counter();
 
-    await writeDay({
-      date: D1,
-      activities: [{ label: "Java class", quantity: "2 classes", hours: 4 }],
-    });
-    await writeDay({
-      date: D2,
-      activities: [{ label: "Untouched neighbour", quantity: "1 class", hours: 2 }],
-    });
+    await writeDay({ date: D1, deliverable: "Java class", quantity: "2 classes", hours: 4 });
+    await writeDay({ date: D2, deliverable: "Untouched neighbour", quantity: "1 class", hours: 2 });
 
     await serveInsight(scope("DAY", D1, D1), generate);
     await serveInsight(scope("DAY", D2, D2), generate);
@@ -297,10 +273,7 @@ describe("the cache pays once per state of the data", () => {
     expect(calls()).toBe(4);
 
     // Only the quantity moves, and only on D1.
-    await writeDay({
-      date: D1,
-      activities: [{ label: "Java class", quantity: "3 classes", hours: 4 }],
-    });
+    await writeDay({ date: D1, deliverable: "Java class", quantity: "3 classes", hours: 4 });
 
     expect((await serveInsight(scope("DAY", D1, D1), generate)).cached).toBe(false);
     expect((await serveInsight(scope("WEEK", weekStart, weekEnd), generate)).cached).toBe(false);
@@ -318,7 +291,7 @@ describe("the cache pays once per state of the data", () => {
     const weekEnd = day(3);
     const { generate, calls } = counter();
 
-    await writeDay({ date: D1, activities: [{ label: "Work to summarise", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "Work to summarise", hours: 3 });
     await serveInsight(scope("DAY", D1, D1), generate);
     await serveInsight(scope("WEEK", weekStart, weekEnd), generate);
     expect(calls()).toBe(2);
@@ -355,13 +328,13 @@ describe("the cache pays once per state of the data", () => {
 
   /* 9 */
   test("a provider failure keeps the previous insight and flags it stale", async () => {
-    await writeDay({ date: D1, activities: [{ label: "The good day", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "The good day", hours: 3 });
     const { generate } = counter();
     const good = await serveInsight(scope("DAY", D1, D1), generate);
     expect(good.insight).toBeTruthy();
 
     // Change the data so the next open is a miss, then fail the generation.
-    await writeDay({ date: D1, activities: [{ label: "Something else entirely", hours: 3 }] });
+    await writeDay({ date: D1, deliverable: "Something else entirely", hours: 3 });
     const failing = async () => {
       throw new Error("provider exploded");
     };
@@ -379,7 +352,7 @@ describe("the cache pays once per state of the data", () => {
 
   /* 10 */
   test("two concurrent requests for the same uncached scope make exactly one call", async () => {
-    await writeDay({ date: D1, activities: [{ label: "Concurrently viewed work", hours: 5 }] });
+    await writeDay({ date: D1, deliverable: "Concurrently viewed work", hours: 5 });
 
     let calls = 0;
     const slow = async () => {

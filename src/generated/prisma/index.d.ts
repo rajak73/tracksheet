@@ -349,20 +349,34 @@ export type WorklogDaySummary = $Result.DefaultSelection<Prisma.$WorklogDaySumma
 export type AiInsightCache = $Result.DefaultSelection<Prisma.$AiInsightCachePayload>
 /**
  * Model WorklogEntry
- * One row per instructor per day. The worklog's source of truth.
+ * One row per instructor per day. The only source of truth.
  * 
- * ── Why a day and not an activity ─────────────────────────────────────────
- * A day is what somebody fills in, what they correct, and what a manager reads.
- * Storing one row per ACTIVITY meant a correction had to delete and rewrite a
- * set of rows, the "one row per employee per date" the client's report asks for
- * had to be reassembled on every read, and a day had no identity of its own to
- * hang a remark or a status on.
+ * ── The shape is the form ─────────────────────────────────────────────────
+ * Four fields, and they are exactly the four boxes an instructor fills in: what
+ * they did, how much of it, how long the day was, and a note. Nothing here is
+ * derived and nothing is parsed on the way in.
  * 
- * The activities live in a JSON array on the day. They are a list belonging to
- * that day, never queried across days on their own, and never joined to — so a
- * table would buy nothing and cost the reassembly on every read.
+ * An earlier shape held a JSON array of activities, parsed out of the text at
+ * write time. That put a parser between somebody and their own words, and made
+ * the stored row a claim about what they meant rather than a record of what
+ * they wrote. The structure is now derived AFTER the fact, into
+ * `DayExtraction`, where it can be wrong without damaging the record.
  */
 export type WorklogEntry = $Result.DefaultSelection<Prisma.$WorklogEntryPayload>
+/**
+ * Model DayExtraction
+ * What the model made of one day's text, parsed once and reused.
+ * 
+ * ── Why a table and not a step ────────────────────────────────────────────
+ * Extraction is per DAY, and a week contains seven of them. Without this,
+ * opening a week re-parses seven days that were already parsed when the
+ * instructor opened each of them, and opening the month re-parses thirty.
+ * 
+ * `sourceHash` is the day's own canonical context. Because a day's context is a
+ * subset of its week's and its month's, one edit moves all three hashes and
+ * invalidates all three — no cascade code, which is the point.
+ */
+export type DayExtraction = $Result.DefaultSelection<Prisma.$DayExtractionPayload>
 /**
  * Model WorklogActivityArchive
  * The categories and deliverables that were dropped, keyed by the row they came
@@ -629,6 +643,14 @@ export const InsightCacheStatus: {
 export type InsightCacheStatus = (typeof InsightCacheStatus)[keyof typeof InsightCacheStatus]
 
 
+export const DayExtractionStatus: {
+  READY: 'READY',
+  FAILED: 'FAILED'
+};
+
+export type DayExtractionStatus = (typeof DayExtractionStatus)[keyof typeof DayExtractionStatus]
+
+
 export const WorklogEntryStatus: {
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
@@ -742,6 +764,10 @@ export const InsightScopeType: typeof $Enums.InsightScopeType
 export type InsightCacheStatus = $Enums.InsightCacheStatus
 
 export const InsightCacheStatus: typeof $Enums.InsightCacheStatus
+
+export type DayExtractionStatus = $Enums.DayExtractionStatus
+
+export const DayExtractionStatus: typeof $Enums.DayExtractionStatus
 
 export type WorklogEntryStatus = $Enums.WorklogEntryStatus
 
@@ -1259,6 +1285,16 @@ export class PrismaClient<
   get worklogEntry(): Prisma.WorklogEntryDelegate<ExtArgs, ClientOptions>;
 
   /**
+   * `prisma.dayExtraction`: Exposes CRUD operations for the **DayExtraction** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more DayExtractions
+    * const dayExtractions = await prisma.dayExtraction.findMany()
+    * ```
+    */
+  get dayExtraction(): Prisma.DayExtractionDelegate<ExtArgs, ClientOptions>;
+
+  /**
    * `prisma.worklogActivityArchive`: Exposes CRUD operations for the **WorklogActivityArchive** model.
     * Example usage:
     * ```ts
@@ -1753,6 +1789,7 @@ export namespace Prisma {
     WorklogDaySummary: 'WorklogDaySummary',
     AiInsightCache: 'AiInsightCache',
     WorklogEntry: 'WorklogEntry',
+    DayExtraction: 'DayExtraction',
     WorklogActivityArchive: 'WorklogActivityArchive'
   };
 
@@ -1769,7 +1806,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "worklogActivityArchive"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache" | "worklogEntry" | "dayExtraction" | "worklogActivityArchive"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -4659,6 +4696,80 @@ export namespace Prisma {
           }
         }
       }
+      DayExtraction: {
+        payload: Prisma.$DayExtractionPayload<ExtArgs>
+        fields: Prisma.DayExtractionFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.DayExtractionFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.DayExtractionFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          findFirst: {
+            args: Prisma.DayExtractionFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.DayExtractionFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          findMany: {
+            args: Prisma.DayExtractionFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>[]
+          }
+          create: {
+            args: Prisma.DayExtractionCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          createMany: {
+            args: Prisma.DayExtractionCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.DayExtractionCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>[]
+          }
+          delete: {
+            args: Prisma.DayExtractionDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          update: {
+            args: Prisma.DayExtractionUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          deleteMany: {
+            args: Prisma.DayExtractionDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.DayExtractionUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.DayExtractionUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>[]
+          }
+          upsert: {
+            args: Prisma.DayExtractionUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DayExtractionPayload>
+          }
+          aggregate: {
+            args: Prisma.DayExtractionAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateDayExtraction>
+          }
+          groupBy: {
+            args: Prisma.DayExtractionGroupByArgs<ExtArgs>
+            result: $Utils.Optional<DayExtractionGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.DayExtractionCountArgs<ExtArgs>
+            result: $Utils.Optional<DayExtractionCountAggregateOutputType> | number
+          }
+        }
+      }
       WorklogActivityArchive: {
         payload: Prisma.$WorklogActivityArchivePayload<ExtArgs>
         fields: Prisma.WorklogActivityArchiveFieldRefs
@@ -4895,6 +5006,7 @@ export namespace Prisma {
     worklogDaySummary?: WorklogDaySummaryOmit
     aiInsightCache?: AiInsightCacheOmit
     worklogEntry?: WorklogEntryOmit
+    dayExtraction?: DayExtractionOmit
     worklogActivityArchive?: WorklogActivityArchiveOmit
   }
 
@@ -5449,6 +5561,7 @@ export namespace Prisma {
     worklogDaySummaries: number
     insightCaches: number
     worklogEntries: number
+    dayExtractions: number
   }
 
   export type InstructorCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -5468,6 +5581,7 @@ export namespace Prisma {
     worklogDaySummaries?: boolean | InstructorCountOutputTypeCountWorklogDaySummariesArgs
     insightCaches?: boolean | InstructorCountOutputTypeCountInsightCachesArgs
     worklogEntries?: boolean | InstructorCountOutputTypeCountWorklogEntriesArgs
+    dayExtractions?: boolean | InstructorCountOutputTypeCountDayExtractionsArgs
   }
 
   // Custom InputTypes
@@ -5591,6 +5705,13 @@ export namespace Prisma {
    */
   export type InstructorCountOutputTypeCountWorklogEntriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: WorklogEntryWhereInput
+  }
+
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountDayExtractionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DayExtractionWhereInput
   }
 
 
@@ -15435,6 +15556,7 @@ export namespace Prisma {
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
     worklogEntries?: boolean | Instructor$worklogEntriesArgs<ExtArgs>
+    dayExtractions?: boolean | Instructor$dayExtractionsArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
@@ -15501,6 +15623,7 @@ export namespace Prisma {
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
     insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
     worklogEntries?: boolean | Instructor$worklogEntriesArgs<ExtArgs>
+    dayExtractions?: boolean | Instructor$dayExtractionsArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -15545,6 +15668,10 @@ export namespace Prisma {
        * One row per day. See `WorklogEntry`.
        */
       worklogEntries: Prisma.$WorklogEntryPayload<ExtArgs>[]
+      /**
+       * Parsed structure per day. See `DayExtraction`.
+       */
+      dayExtractions: Prisma.$DayExtractionPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -15990,6 +16117,7 @@ export namespace Prisma {
     worklogDaySummaries<T extends Instructor$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     insightCaches<T extends Instructor$insightCachesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$insightCachesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogEntries<T extends Instructor$worklogEntriesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    dayExtractions<T extends Instructor$dayExtractionsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$dayExtractionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -16847,6 +16975,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: WorklogEntryScalarFieldEnum | WorklogEntryScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.dayExtractions
+   */
+  export type Instructor$dayExtractionsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    where?: DayExtractionWhereInput
+    orderBy?: DayExtractionOrderByWithRelationInput | DayExtractionOrderByWithRelationInput[]
+    cursor?: DayExtractionWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: DayExtractionScalarFieldEnum | DayExtractionScalarFieldEnum[]
   }
 
   /**
@@ -52623,7 +52775,7 @@ export namespace Prisma {
     periodStart: number
     periodEnd: number
     contextHash: number
-    contextSnapshot: number
+    rawContext: number
     insightPayload: number
     promptVersion: number
     modelId: number
@@ -52694,7 +52846,7 @@ export namespace Prisma {
     periodStart?: true
     periodEnd?: true
     contextHash?: true
-    contextSnapshot?: true
+    rawContext?: true
     insightPayload?: true
     promptVersion?: true
     modelId?: true
@@ -52802,7 +52954,7 @@ export namespace Prisma {
     periodStart: Date
     periodEnd: Date
     contextHash: string
-    contextSnapshot: JsonValue
+    rawContext: JsonValue
     insightPayload: JsonValue
     promptVersion: string
     modelId: string
@@ -52842,7 +52994,7 @@ export namespace Prisma {
     periodStart?: boolean
     periodEnd?: boolean
     contextHash?: boolean
-    contextSnapshot?: boolean
+    rawContext?: boolean
     insightPayload?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52864,7 +53016,7 @@ export namespace Prisma {
     periodStart?: boolean
     periodEnd?: boolean
     contextHash?: boolean
-    contextSnapshot?: boolean
+    rawContext?: boolean
     insightPayload?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52886,7 +53038,7 @@ export namespace Prisma {
     periodStart?: boolean
     periodEnd?: boolean
     contextHash?: boolean
-    contextSnapshot?: boolean
+    rawContext?: boolean
     insightPayload?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52908,7 +53060,7 @@ export namespace Prisma {
     periodStart?: boolean
     periodEnd?: boolean
     contextHash?: boolean
-    contextSnapshot?: boolean
+    rawContext?: boolean
     insightPayload?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52922,7 +53074,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type AiInsightCacheOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "scopeType" | "periodStart" | "periodEnd" | "contextHash" | "contextSnapshot" | "insightPayload" | "promptVersion" | "modelId" | "status" | "generatedAt" | "lastServedAt" | "serveCount" | "failureCount" | "lastError" | "createdAt" | "updatedAt", ExtArgs["result"]["aiInsightCache"]>
+  export type AiInsightCacheOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "scopeType" | "periodStart" | "periodEnd" | "contextHash" | "rawContext" | "insightPayload" | "promptVersion" | "modelId" | "status" | "generatedAt" | "lastServedAt" | "serveCount" | "failureCount" | "lastError" | "createdAt" | "updatedAt", ExtArgs["result"]["aiInsightCache"]>
   export type AiInsightCacheInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
   }
@@ -52949,15 +53101,19 @@ export namespace Prisma {
        */
       contextHash: string
       /**
-       * The exact canonical JSON the model was shown, frozen at generation.
+       * The frozen combined context of every day in the period.
        * 
-       * Stored deliberately, and separately from the live worklog rows: it is the
-       * record of what the answer was actually derived from, and the worklog can
-       * move underneath it. Never write this without writing `insightPayload`,
-       * `contextHash` and `generatedAt` in the same transaction — the four are one
-       * fact and disagree only if something is broken.
+       * Looks redundant against `WorklogEntry` and is not. That table is LIVE — the
+       * instructor can edit any day at any moment. This is what the insight was
+       * actually built from, frozen at generation.
+       * 
+       * Comparing the two is how staleness is detected, and it is the only way to
+       * answer "what was this insight based on?" — the question asked the first
+       * time an insight looks wrong in front of a client. Never write it without
+       * writing `insightPayload`, `contextHash` and `generatedAt` in the same
+       * transaction: the four are one fact and disagree only if something is broken.
        */
-      contextSnapshot: Prisma.JsonValue
+      rawContext: Prisma.JsonValue
       /**
        * The model's reply, stored as returned.
        */
@@ -53410,7 +53566,7 @@ export namespace Prisma {
     readonly periodStart: FieldRef<"AiInsightCache", 'DateTime'>
     readonly periodEnd: FieldRef<"AiInsightCache", 'DateTime'>
     readonly contextHash: FieldRef<"AiInsightCache", 'String'>
-    readonly contextSnapshot: FieldRef<"AiInsightCache", 'Json'>
+    readonly rawContext: FieldRef<"AiInsightCache", 'Json'>
     readonly insightPayload: FieldRef<"AiInsightCache", 'Json'>
     readonly promptVersion: FieldRef<"AiInsightCache", 'String'>
     readonly modelId: FieldRef<"AiInsightCache", 'String'>
@@ -53854,11 +54010,11 @@ export namespace Prisma {
   }
 
   export type WorklogEntryAvgAggregateOutputType = {
-    totalHours: Decimal | null
+    workingHours: Decimal | null
   }
 
   export type WorklogEntrySumAggregateOutputType = {
-    totalHours: Decimal | null
+    workingHours: Decimal | null
   }
 
   export type WorklogEntryMinAggregateOutputType = {
@@ -53866,7 +54022,9 @@ export namespace Prisma {
     instructorId: string | null
     universityId: string | null
     logDate: Date | null
-    totalHours: Decimal | null
+    deliverable: string | null
+    deliverableQuantity: string | null
+    workingHours: Decimal | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
     createdAt: Date | null
@@ -53878,7 +54036,9 @@ export namespace Prisma {
     instructorId: string | null
     universityId: string | null
     logDate: Date | null
-    totalHours: Decimal | null
+    deliverable: string | null
+    deliverableQuantity: string | null
+    workingHours: Decimal | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
     createdAt: Date | null
@@ -53890,8 +54050,9 @@ export namespace Prisma {
     instructorId: number
     universityId: number
     logDate: number
-    activities: number
-    totalHours: number
+    deliverable: number
+    deliverableQuantity: number
+    workingHours: number
     remarks: number
     status: number
     createdAt: number
@@ -53901,11 +54062,11 @@ export namespace Prisma {
 
 
   export type WorklogEntryAvgAggregateInputType = {
-    totalHours?: true
+    workingHours?: true
   }
 
   export type WorklogEntrySumAggregateInputType = {
-    totalHours?: true
+    workingHours?: true
   }
 
   export type WorklogEntryMinAggregateInputType = {
@@ -53913,7 +54074,9 @@ export namespace Prisma {
     instructorId?: true
     universityId?: true
     logDate?: true
-    totalHours?: true
+    deliverable?: true
+    deliverableQuantity?: true
+    workingHours?: true
     remarks?: true
     status?: true
     createdAt?: true
@@ -53925,7 +54088,9 @@ export namespace Prisma {
     instructorId?: true
     universityId?: true
     logDate?: true
-    totalHours?: true
+    deliverable?: true
+    deliverableQuantity?: true
+    workingHours?: true
     remarks?: true
     status?: true
     createdAt?: true
@@ -53937,8 +54102,9 @@ export namespace Prisma {
     instructorId?: true
     universityId?: true
     logDate?: true
-    activities?: true
-    totalHours?: true
+    deliverable?: true
+    deliverableQuantity?: true
+    workingHours?: true
     remarks?: true
     status?: true
     createdAt?: true
@@ -54037,8 +54203,9 @@ export namespace Prisma {
     instructorId: string
     universityId: string
     logDate: Date
-    activities: JsonValue
-    totalHours: Decimal
+    deliverable: string
+    deliverableQuantity: string | null
+    workingHours: Decimal
     remarks: string | null
     status: $Enums.WorklogEntryStatus
     createdAt: Date
@@ -54069,8 +54236,9 @@ export namespace Prisma {
     instructorId?: boolean
     universityId?: boolean
     logDate?: boolean
-    activities?: boolean
-    totalHours?: boolean
+    deliverable?: boolean
+    deliverableQuantity?: boolean
+    workingHours?: boolean
     remarks?: boolean
     status?: boolean
     createdAt?: boolean
@@ -54084,8 +54252,9 @@ export namespace Prisma {
     instructorId?: boolean
     universityId?: boolean
     logDate?: boolean
-    activities?: boolean
-    totalHours?: boolean
+    deliverable?: boolean
+    deliverableQuantity?: boolean
+    workingHours?: boolean
     remarks?: boolean
     status?: boolean
     createdAt?: boolean
@@ -54099,8 +54268,9 @@ export namespace Prisma {
     instructorId?: boolean
     universityId?: boolean
     logDate?: boolean
-    activities?: boolean
-    totalHours?: boolean
+    deliverable?: boolean
+    deliverableQuantity?: boolean
+    workingHours?: boolean
     remarks?: boolean
     status?: boolean
     createdAt?: boolean
@@ -54114,15 +54284,16 @@ export namespace Prisma {
     instructorId?: boolean
     universityId?: boolean
     logDate?: boolean
-    activities?: boolean
-    totalHours?: boolean
+    deliverable?: boolean
+    deliverableQuantity?: boolean
+    workingHours?: boolean
     remarks?: boolean
     status?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "activities" | "totalHours" | "remarks" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
+  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingHours" | "remarks" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
   export type WorklogEntryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -54156,23 +54327,23 @@ export namespace Prisma {
        */
       logDate: Date
       /**
-       * `[{ label, quantity, hours }]`, as written.
+       * What they did, in their own words. Typically names how many and how long.
+       */
+      deliverable: string
+      /**
+       * A corroborating note — "5 class", "2 batches", "half day", or nothing.
+       * Free text, stored and shown verbatim, never coerced to a number.
+       */
+      deliverableQuantity: string | null
+      /**
+       * The day's total, entered SEPARATELY by the instructor.
        * 
-       * `quantity` is how many times that activity happened that day; `hours` is the
-       * TOTAL across those occurrences, not per occurrence. Both may be null, and
-       * null is never zero: an unrecorded count and a count of none are different
-       * facts, and they render differently.
+       * That separateness is what makes it useful: it is independent of whatever
+       * the text says, so extracted hours can be reconciled against it. Hours the
+       * text attributes to nothing are the difference, and that difference is a
+       * fact worth showing rather than an error to hide.
        */
-      activities: Prisma.JsonValue
-      /**
-       * Summed from `activities` on write. A CACHE, never the source of truth —
-       * anything that must be correct recomputes from the array. It exists so a
-       * month of a large roster can be totalled without reading every JSON blob.
-       */
-      totalHours: Prisma.Decimal
-      /**
-       * One note for the whole day.
-       */
+      workingHours: Prisma.Decimal
       remarks: string | null
       status: $Enums.WorklogEntryStatus
       createdAt: Date
@@ -54606,8 +54777,9 @@ export namespace Prisma {
     readonly instructorId: FieldRef<"WorklogEntry", 'String'>
     readonly universityId: FieldRef<"WorklogEntry", 'String'>
     readonly logDate: FieldRef<"WorklogEntry", 'DateTime'>
-    readonly activities: FieldRef<"WorklogEntry", 'Json'>
-    readonly totalHours: FieldRef<"WorklogEntry", 'Decimal'>
+    readonly deliverable: FieldRef<"WorklogEntry", 'String'>
+    readonly deliverableQuantity: FieldRef<"WorklogEntry", 'String'>
+    readonly workingHours: FieldRef<"WorklogEntry", 'Decimal'>
     readonly remarks: FieldRef<"WorklogEntry", 'String'>
     readonly status: FieldRef<"WorklogEntry", 'WorklogEntryStatus'>
     readonly createdAt: FieldRef<"WorklogEntry", 'DateTime'>
@@ -55028,6 +55200,1205 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: WorklogEntryInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model DayExtraction
+   */
+
+  export type AggregateDayExtraction = {
+    _count: DayExtractionCountAggregateOutputType | null
+    _avg: DayExtractionAvgAggregateOutputType | null
+    _sum: DayExtractionSumAggregateOutputType | null
+    _min: DayExtractionMinAggregateOutputType | null
+    _max: DayExtractionMaxAggregateOutputType | null
+  }
+
+  export type DayExtractionAvgAggregateOutputType = {
+    unallocatedHours: Decimal | null
+  }
+
+  export type DayExtractionSumAggregateOutputType = {
+    unallocatedHours: Decimal | null
+  }
+
+  export type DayExtractionMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    logDate: Date | null
+    sourceHash: string | null
+    unallocatedHours: Decimal | null
+    status: $Enums.DayExtractionStatus | null
+    promptVersion: string | null
+    modelId: string | null
+    generatedAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DayExtractionMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    logDate: Date | null
+    sourceHash: string | null
+    unallocatedHours: Decimal | null
+    status: $Enums.DayExtractionStatus | null
+    promptVersion: string | null
+    modelId: string | null
+    generatedAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DayExtractionCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    logDate: number
+    sourceHash: number
+    rawContext: number
+    items: number
+    unallocatedHours: number
+    status: number
+    promptVersion: number
+    modelId: number
+    generatedAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type DayExtractionAvgAggregateInputType = {
+    unallocatedHours?: true
+  }
+
+  export type DayExtractionSumAggregateInputType = {
+    unallocatedHours?: true
+  }
+
+  export type DayExtractionMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    logDate?: true
+    sourceHash?: true
+    unallocatedHours?: true
+    status?: true
+    promptVersion?: true
+    modelId?: true
+    generatedAt?: true
+    updatedAt?: true
+  }
+
+  export type DayExtractionMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    logDate?: true
+    sourceHash?: true
+    unallocatedHours?: true
+    status?: true
+    promptVersion?: true
+    modelId?: true
+    generatedAt?: true
+    updatedAt?: true
+  }
+
+  export type DayExtractionCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    logDate?: true
+    sourceHash?: true
+    rawContext?: true
+    items?: true
+    unallocatedHours?: true
+    status?: true
+    promptVersion?: true
+    modelId?: true
+    generatedAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type DayExtractionAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which DayExtraction to aggregate.
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DayExtractions to fetch.
+     */
+    orderBy?: DayExtractionOrderByWithRelationInput | DayExtractionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: DayExtractionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DayExtractions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DayExtractions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned DayExtractions
+    **/
+    _count?: true | DayExtractionCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: DayExtractionAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: DayExtractionSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: DayExtractionMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: DayExtractionMaxAggregateInputType
+  }
+
+  export type GetDayExtractionAggregateType<T extends DayExtractionAggregateArgs> = {
+        [P in keyof T & keyof AggregateDayExtraction]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateDayExtraction[P]>
+      : GetScalarType<T[P], AggregateDayExtraction[P]>
+  }
+
+
+
+
+  export type DayExtractionGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DayExtractionWhereInput
+    orderBy?: DayExtractionOrderByWithAggregationInput | DayExtractionOrderByWithAggregationInput[]
+    by: DayExtractionScalarFieldEnum[] | DayExtractionScalarFieldEnum
+    having?: DayExtractionScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: DayExtractionCountAggregateInputType | true
+    _avg?: DayExtractionAvgAggregateInputType
+    _sum?: DayExtractionSumAggregateInputType
+    _min?: DayExtractionMinAggregateInputType
+    _max?: DayExtractionMaxAggregateInputType
+  }
+
+  export type DayExtractionGroupByOutputType = {
+    id: string
+    instructorId: string
+    logDate: Date
+    sourceHash: string
+    rawContext: JsonValue
+    items: JsonValue
+    unallocatedHours: Decimal
+    status: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt: Date
+    updatedAt: Date
+    _count: DayExtractionCountAggregateOutputType | null
+    _avg: DayExtractionAvgAggregateOutputType | null
+    _sum: DayExtractionSumAggregateOutputType | null
+    _min: DayExtractionMinAggregateOutputType | null
+    _max: DayExtractionMaxAggregateOutputType | null
+  }
+
+  type GetDayExtractionGroupByPayload<T extends DayExtractionGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<DayExtractionGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof DayExtractionGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], DayExtractionGroupByOutputType[P]>
+            : GetScalarType<T[P], DayExtractionGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type DayExtractionSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    logDate?: boolean
+    sourceHash?: boolean
+    rawContext?: boolean
+    items?: boolean
+    unallocatedHours?: boolean
+    status?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    generatedAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["dayExtraction"]>
+
+  export type DayExtractionSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    logDate?: boolean
+    sourceHash?: boolean
+    rawContext?: boolean
+    items?: boolean
+    unallocatedHours?: boolean
+    status?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    generatedAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["dayExtraction"]>
+
+  export type DayExtractionSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    logDate?: boolean
+    sourceHash?: boolean
+    rawContext?: boolean
+    items?: boolean
+    unallocatedHours?: boolean
+    status?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    generatedAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["dayExtraction"]>
+
+  export type DayExtractionSelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    logDate?: boolean
+    sourceHash?: boolean
+    rawContext?: boolean
+    items?: boolean
+    unallocatedHours?: boolean
+    status?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    generatedAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type DayExtractionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "logDate" | "sourceHash" | "rawContext" | "items" | "unallocatedHours" | "status" | "promptVersion" | "modelId" | "generatedAt" | "updatedAt", ExtArgs["result"]["dayExtraction"]>
+  export type DayExtractionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type DayExtractionIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type DayExtractionIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+
+  export type $DayExtractionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "DayExtraction"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      logDate: Date
+      /**
+       * SHA-256 over this day's canonical context, prompt version and model id.
+       */
+      sourceHash: string
+      /**
+       * The exact canonical JSON that was parsed. Frozen; see `AiInsightCache`.
+       */
+      rawContext: Prisma.JsonValue
+      /**
+       * `[{ label, sessions, hours }]`. `sessions` and `hours` are null wherever
+       * the text did not state them — null is the correct answer to silence, and a
+       * guess never is.
+       */
+      items: Prisma.JsonValue
+      /**
+       * The day's hours the text attributed to no activity.
+       * 
+       * `workingHours` minus the extracted hours. Commonly the whole day, when
+       * somebody wrote what they did without saying how long each part took. Shown
+       * rather than hidden: without it the group hours look as though they should
+       * add up to the total, and somebody eventually tries to reconcile them.
+       */
+      unallocatedHours: Prisma.Decimal
+      status: $Enums.DayExtractionStatus
+      promptVersion: string
+      modelId: string
+      generatedAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["dayExtraction"]>
+    composites: {}
+  }
+
+  type DayExtractionGetPayload<S extends boolean | null | undefined | DayExtractionDefaultArgs> = $Result.GetResult<Prisma.$DayExtractionPayload, S>
+
+  type DayExtractionCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<DayExtractionFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: DayExtractionCountAggregateInputType | true
+    }
+
+  export interface DayExtractionDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['DayExtraction'], meta: { name: 'DayExtraction' } }
+    /**
+     * Find zero or one DayExtraction that matches the filter.
+     * @param {DayExtractionFindUniqueArgs} args - Arguments to find a DayExtraction
+     * @example
+     * // Get one DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends DayExtractionFindUniqueArgs>(args: SelectSubset<T, DayExtractionFindUniqueArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one DayExtraction that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {DayExtractionFindUniqueOrThrowArgs} args - Arguments to find a DayExtraction
+     * @example
+     * // Get one DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends DayExtractionFindUniqueOrThrowArgs>(args: SelectSubset<T, DayExtractionFindUniqueOrThrowArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first DayExtraction that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionFindFirstArgs} args - Arguments to find a DayExtraction
+     * @example
+     * // Get one DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends DayExtractionFindFirstArgs>(args?: SelectSubset<T, DayExtractionFindFirstArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first DayExtraction that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionFindFirstOrThrowArgs} args - Arguments to find a DayExtraction
+     * @example
+     * // Get one DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends DayExtractionFindFirstOrThrowArgs>(args?: SelectSubset<T, DayExtractionFindFirstOrThrowArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more DayExtractions that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all DayExtractions
+     * const dayExtractions = await prisma.dayExtraction.findMany()
+     * 
+     * // Get first 10 DayExtractions
+     * const dayExtractions = await prisma.dayExtraction.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const dayExtractionWithIdOnly = await prisma.dayExtraction.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends DayExtractionFindManyArgs>(args?: SelectSubset<T, DayExtractionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a DayExtraction.
+     * @param {DayExtractionCreateArgs} args - Arguments to create a DayExtraction.
+     * @example
+     * // Create one DayExtraction
+     * const DayExtraction = await prisma.dayExtraction.create({
+     *   data: {
+     *     // ... data to create a DayExtraction
+     *   }
+     * })
+     * 
+     */
+    create<T extends DayExtractionCreateArgs>(args: SelectSubset<T, DayExtractionCreateArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many DayExtractions.
+     * @param {DayExtractionCreateManyArgs} args - Arguments to create many DayExtractions.
+     * @example
+     * // Create many DayExtractions
+     * const dayExtraction = await prisma.dayExtraction.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends DayExtractionCreateManyArgs>(args?: SelectSubset<T, DayExtractionCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many DayExtractions and returns the data saved in the database.
+     * @param {DayExtractionCreateManyAndReturnArgs} args - Arguments to create many DayExtractions.
+     * @example
+     * // Create many DayExtractions
+     * const dayExtraction = await prisma.dayExtraction.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many DayExtractions and only return the `id`
+     * const dayExtractionWithIdOnly = await prisma.dayExtraction.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends DayExtractionCreateManyAndReturnArgs>(args?: SelectSubset<T, DayExtractionCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a DayExtraction.
+     * @param {DayExtractionDeleteArgs} args - Arguments to delete one DayExtraction.
+     * @example
+     * // Delete one DayExtraction
+     * const DayExtraction = await prisma.dayExtraction.delete({
+     *   where: {
+     *     // ... filter to delete one DayExtraction
+     *   }
+     * })
+     * 
+     */
+    delete<T extends DayExtractionDeleteArgs>(args: SelectSubset<T, DayExtractionDeleteArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one DayExtraction.
+     * @param {DayExtractionUpdateArgs} args - Arguments to update one DayExtraction.
+     * @example
+     * // Update one DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends DayExtractionUpdateArgs>(args: SelectSubset<T, DayExtractionUpdateArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more DayExtractions.
+     * @param {DayExtractionDeleteManyArgs} args - Arguments to filter DayExtractions to delete.
+     * @example
+     * // Delete a few DayExtractions
+     * const { count } = await prisma.dayExtraction.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends DayExtractionDeleteManyArgs>(args?: SelectSubset<T, DayExtractionDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more DayExtractions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many DayExtractions
+     * const dayExtraction = await prisma.dayExtraction.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends DayExtractionUpdateManyArgs>(args: SelectSubset<T, DayExtractionUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more DayExtractions and returns the data updated in the database.
+     * @param {DayExtractionUpdateManyAndReturnArgs} args - Arguments to update many DayExtractions.
+     * @example
+     * // Update many DayExtractions
+     * const dayExtraction = await prisma.dayExtraction.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more DayExtractions and only return the `id`
+     * const dayExtractionWithIdOnly = await prisma.dayExtraction.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends DayExtractionUpdateManyAndReturnArgs>(args: SelectSubset<T, DayExtractionUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one DayExtraction.
+     * @param {DayExtractionUpsertArgs} args - Arguments to update or create a DayExtraction.
+     * @example
+     * // Update or create a DayExtraction
+     * const dayExtraction = await prisma.dayExtraction.upsert({
+     *   create: {
+     *     // ... data to create a DayExtraction
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the DayExtraction we want to update
+     *   }
+     * })
+     */
+    upsert<T extends DayExtractionUpsertArgs>(args: SelectSubset<T, DayExtractionUpsertArgs<ExtArgs>>): Prisma__DayExtractionClient<$Result.GetResult<Prisma.$DayExtractionPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of DayExtractions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionCountArgs} args - Arguments to filter DayExtractions to count.
+     * @example
+     * // Count the number of DayExtractions
+     * const count = await prisma.dayExtraction.count({
+     *   where: {
+     *     // ... the filter for the DayExtractions we want to count
+     *   }
+     * })
+    **/
+    count<T extends DayExtractionCountArgs>(
+      args?: Subset<T, DayExtractionCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], DayExtractionCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a DayExtraction.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends DayExtractionAggregateArgs>(args: Subset<T, DayExtractionAggregateArgs>): Prisma.PrismaPromise<GetDayExtractionAggregateType<T>>
+
+    /**
+     * Group by DayExtraction.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DayExtractionGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends DayExtractionGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: DayExtractionGroupByArgs['orderBy'] }
+        : { orderBy?: DayExtractionGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, DayExtractionGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetDayExtractionGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the DayExtraction model
+   */
+  readonly fields: DayExtractionFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for DayExtraction.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__DayExtractionClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the DayExtraction model
+   */
+  interface DayExtractionFieldRefs {
+    readonly id: FieldRef<"DayExtraction", 'String'>
+    readonly instructorId: FieldRef<"DayExtraction", 'String'>
+    readonly logDate: FieldRef<"DayExtraction", 'DateTime'>
+    readonly sourceHash: FieldRef<"DayExtraction", 'String'>
+    readonly rawContext: FieldRef<"DayExtraction", 'Json'>
+    readonly items: FieldRef<"DayExtraction", 'Json'>
+    readonly unallocatedHours: FieldRef<"DayExtraction", 'Decimal'>
+    readonly status: FieldRef<"DayExtraction", 'DayExtractionStatus'>
+    readonly promptVersion: FieldRef<"DayExtraction", 'String'>
+    readonly modelId: FieldRef<"DayExtraction", 'String'>
+    readonly generatedAt: FieldRef<"DayExtraction", 'DateTime'>
+    readonly updatedAt: FieldRef<"DayExtraction", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * DayExtraction findUnique
+   */
+  export type DayExtractionFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter, which DayExtraction to fetch.
+     */
+    where: DayExtractionWhereUniqueInput
+  }
+
+  /**
+   * DayExtraction findUniqueOrThrow
+   */
+  export type DayExtractionFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter, which DayExtraction to fetch.
+     */
+    where: DayExtractionWhereUniqueInput
+  }
+
+  /**
+   * DayExtraction findFirst
+   */
+  export type DayExtractionFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter, which DayExtraction to fetch.
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DayExtractions to fetch.
+     */
+    orderBy?: DayExtractionOrderByWithRelationInput | DayExtractionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for DayExtractions.
+     */
+    cursor?: DayExtractionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DayExtractions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DayExtractions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DayExtractions.
+     */
+    distinct?: DayExtractionScalarFieldEnum | DayExtractionScalarFieldEnum[]
+  }
+
+  /**
+   * DayExtraction findFirstOrThrow
+   */
+  export type DayExtractionFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter, which DayExtraction to fetch.
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DayExtractions to fetch.
+     */
+    orderBy?: DayExtractionOrderByWithRelationInput | DayExtractionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for DayExtractions.
+     */
+    cursor?: DayExtractionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DayExtractions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DayExtractions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DayExtractions.
+     */
+    distinct?: DayExtractionScalarFieldEnum | DayExtractionScalarFieldEnum[]
+  }
+
+  /**
+   * DayExtraction findMany
+   */
+  export type DayExtractionFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter, which DayExtractions to fetch.
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of DayExtractions to fetch.
+     */
+    orderBy?: DayExtractionOrderByWithRelationInput | DayExtractionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing DayExtractions.
+     */
+    cursor?: DayExtractionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` DayExtractions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` DayExtractions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of DayExtractions.
+     */
+    distinct?: DayExtractionScalarFieldEnum | DayExtractionScalarFieldEnum[]
+  }
+
+  /**
+   * DayExtraction create
+   */
+  export type DayExtractionCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * The data needed to create a DayExtraction.
+     */
+    data: XOR<DayExtractionCreateInput, DayExtractionUncheckedCreateInput>
+  }
+
+  /**
+   * DayExtraction createMany
+   */
+  export type DayExtractionCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many DayExtractions.
+     */
+    data: DayExtractionCreateManyInput | DayExtractionCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * DayExtraction createManyAndReturn
+   */
+  export type DayExtractionCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * The data used to create many DayExtractions.
+     */
+    data: DayExtractionCreateManyInput | DayExtractionCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * DayExtraction update
+   */
+  export type DayExtractionUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * The data needed to update a DayExtraction.
+     */
+    data: XOR<DayExtractionUpdateInput, DayExtractionUncheckedUpdateInput>
+    /**
+     * Choose, which DayExtraction to update.
+     */
+    where: DayExtractionWhereUniqueInput
+  }
+
+  /**
+   * DayExtraction updateMany
+   */
+  export type DayExtractionUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update DayExtractions.
+     */
+    data: XOR<DayExtractionUpdateManyMutationInput, DayExtractionUncheckedUpdateManyInput>
+    /**
+     * Filter which DayExtractions to update
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * Limit how many DayExtractions to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * DayExtraction updateManyAndReturn
+   */
+  export type DayExtractionUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * The data used to update DayExtractions.
+     */
+    data: XOR<DayExtractionUpdateManyMutationInput, DayExtractionUncheckedUpdateManyInput>
+    /**
+     * Filter which DayExtractions to update
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * Limit how many DayExtractions to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * DayExtraction upsert
+   */
+  export type DayExtractionUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * The filter to search for the DayExtraction to update in case it exists.
+     */
+    where: DayExtractionWhereUniqueInput
+    /**
+     * In case the DayExtraction found by the `where` argument doesn't exist, create a new DayExtraction with this data.
+     */
+    create: XOR<DayExtractionCreateInput, DayExtractionUncheckedCreateInput>
+    /**
+     * In case the DayExtraction was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<DayExtractionUpdateInput, DayExtractionUncheckedUpdateInput>
+  }
+
+  /**
+   * DayExtraction delete
+   */
+  export type DayExtractionDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
+    /**
+     * Filter which DayExtraction to delete.
+     */
+    where: DayExtractionWhereUniqueInput
+  }
+
+  /**
+   * DayExtraction deleteMany
+   */
+  export type DayExtractionDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which DayExtractions to delete
+     */
+    where?: DayExtractionWhereInput
+    /**
+     * Limit how many DayExtractions to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * DayExtraction without action
+   */
+  export type DayExtractionDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DayExtraction
+     */
+    select?: DayExtractionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the DayExtraction
+     */
+    omit?: DayExtractionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DayExtractionInclude<ExtArgs> | null
   }
 
 
@@ -56828,7 +58199,7 @@ export namespace Prisma {
     periodStart: 'periodStart',
     periodEnd: 'periodEnd',
     contextHash: 'contextHash',
-    contextSnapshot: 'contextSnapshot',
+    rawContext: 'rawContext',
     insightPayload: 'insightPayload',
     promptVersion: 'promptVersion',
     modelId: 'modelId',
@@ -56850,8 +58221,9 @@ export namespace Prisma {
     instructorId: 'instructorId',
     universityId: 'universityId',
     logDate: 'logDate',
-    activities: 'activities',
-    totalHours: 'totalHours',
+    deliverable: 'deliverable',
+    deliverableQuantity: 'deliverableQuantity',
+    workingHours: 'workingHours',
     remarks: 'remarks',
     status: 'status',
     createdAt: 'createdAt',
@@ -56859,6 +58231,24 @@ export namespace Prisma {
   };
 
   export type WorklogEntryScalarFieldEnum = (typeof WorklogEntryScalarFieldEnum)[keyof typeof WorklogEntryScalarFieldEnum]
+
+
+  export const DayExtractionScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    logDate: 'logDate',
+    sourceHash: 'sourceHash',
+    rawContext: 'rawContext',
+    items: 'items',
+    unallocatedHours: 'unallocatedHours',
+    status: 'status',
+    promptVersion: 'promptVersion',
+    modelId: 'modelId',
+    generatedAt: 'generatedAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type DayExtractionScalarFieldEnum = (typeof DayExtractionScalarFieldEnum)[keyof typeof DayExtractionScalarFieldEnum]
 
 
   export const WorklogActivityArchiveScalarFieldEnum: {
@@ -57370,6 +58760,20 @@ export namespace Prisma {
    * Reference to a field of type 'WorklogEntryStatus[]'
    */
   export type ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntryStatus[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'DayExtractionStatus'
+   */
+  export type EnumDayExtractionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DayExtractionStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'DayExtractionStatus[]'
+   */
+  export type ListEnumDayExtractionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DayExtractionStatus[]'>
     
   /**
    * Deep Input Types
@@ -58076,6 +59480,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
     insightCaches?: AiInsightCacheListRelationFilter
     worklogEntries?: WorklogEntryListRelationFilter
+    dayExtractions?: DayExtractionListRelationFilter
   }
 
   export type InstructorOrderByWithRelationInput = {
@@ -58107,6 +59512,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
     insightCaches?: AiInsightCacheOrderByRelationAggregateInput
     worklogEntries?: WorklogEntryOrderByRelationAggregateInput
+    dayExtractions?: DayExtractionOrderByRelationAggregateInput
   }
 
   export type InstructorWhereUniqueInput = Prisma.AtLeast<{
@@ -58143,6 +59549,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
     insightCaches?: AiInsightCacheListRelationFilter
     worklogEntries?: WorklogEntryListRelationFilter
+    dayExtractions?: DayExtractionListRelationFilter
   }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
 
   export type InstructorOrderByWithAggregationInput = {
@@ -61027,7 +62434,7 @@ export namespace Prisma {
     periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
     periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
     contextHash?: StringFilter<"AiInsightCache"> | string
-    contextSnapshot?: JsonFilter<"AiInsightCache">
+    rawContext?: JsonFilter<"AiInsightCache">
     insightPayload?: JsonFilter<"AiInsightCache">
     promptVersion?: StringFilter<"AiInsightCache"> | string
     modelId?: StringFilter<"AiInsightCache"> | string
@@ -61049,7 +62456,7 @@ export namespace Prisma {
     periodStart?: SortOrder
     periodEnd?: SortOrder
     contextHash?: SortOrder
-    contextSnapshot?: SortOrder
+    rawContext?: SortOrder
     insightPayload?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -61075,7 +62482,7 @@ export namespace Prisma {
     periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
     periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
     contextHash?: StringFilter<"AiInsightCache"> | string
-    contextSnapshot?: JsonFilter<"AiInsightCache">
+    rawContext?: JsonFilter<"AiInsightCache">
     insightPayload?: JsonFilter<"AiInsightCache">
     promptVersion?: StringFilter<"AiInsightCache"> | string
     modelId?: StringFilter<"AiInsightCache"> | string
@@ -61097,7 +62504,7 @@ export namespace Prisma {
     periodStart?: SortOrder
     periodEnd?: SortOrder
     contextHash?: SortOrder
-    contextSnapshot?: SortOrder
+    rawContext?: SortOrder
     insightPayload?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -61126,7 +62533,7 @@ export namespace Prisma {
     periodStart?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
     periodEnd?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
     contextHash?: StringWithAggregatesFilter<"AiInsightCache"> | string
-    contextSnapshot?: JsonWithAggregatesFilter<"AiInsightCache">
+    rawContext?: JsonWithAggregatesFilter<"AiInsightCache">
     insightPayload?: JsonWithAggregatesFilter<"AiInsightCache">
     promptVersion?: StringWithAggregatesFilter<"AiInsightCache"> | string
     modelId?: StringWithAggregatesFilter<"AiInsightCache"> | string
@@ -61148,8 +62555,9 @@ export namespace Prisma {
     instructorId?: StringFilter<"WorklogEntry"> | string
     universityId?: StringFilter<"WorklogEntry"> | string
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
-    activities?: JsonFilter<"WorklogEntry">
-    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFilter<"WorklogEntry"> | string
+    deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
@@ -61163,8 +62571,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     logDate?: SortOrder
-    activities?: SortOrder
-    totalHours?: SortOrder
+    deliverable?: SortOrder
+    deliverableQuantity?: SortOrderInput | SortOrder
+    workingHours?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
     createdAt?: SortOrder
@@ -61182,8 +62591,9 @@ export namespace Prisma {
     instructorId?: StringFilter<"WorklogEntry"> | string
     universityId?: StringFilter<"WorklogEntry"> | string
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
-    activities?: JsonFilter<"WorklogEntry">
-    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFilter<"WorklogEntry"> | string
+    deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
@@ -61197,8 +62607,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     logDate?: SortOrder
-    activities?: SortOrder
-    totalHours?: SortOrder
+    deliverable?: SortOrder
+    deliverableQuantity?: SortOrderInput | SortOrder
+    workingHours?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
     createdAt?: SortOrder
@@ -61218,12 +62629,106 @@ export namespace Prisma {
     instructorId?: StringWithAggregatesFilter<"WorklogEntry"> | string
     universityId?: StringWithAggregatesFilter<"WorklogEntry"> | string
     logDate?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
-    activities?: JsonWithAggregatesFilter<"WorklogEntry">
-    totalHours?: DecimalWithAggregatesFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    deliverable?: StringWithAggregatesFilter<"WorklogEntry"> | string
+    deliverableQuantity?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
+    workingHours?: DecimalWithAggregatesFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     createdAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
+  }
+
+  export type DayExtractionWhereInput = {
+    AND?: DayExtractionWhereInput | DayExtractionWhereInput[]
+    OR?: DayExtractionWhereInput[]
+    NOT?: DayExtractionWhereInput | DayExtractionWhereInput[]
+    id?: StringFilter<"DayExtraction"> | string
+    instructorId?: StringFilter<"DayExtraction"> | string
+    logDate?: DateTimeFilter<"DayExtraction"> | Date | string
+    sourceHash?: StringFilter<"DayExtraction"> | string
+    rawContext?: JsonFilter<"DayExtraction">
+    items?: JsonFilter<"DayExtraction">
+    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    promptVersion?: StringFilter<"DayExtraction"> | string
+    modelId?: StringFilter<"DayExtraction"> | string
+    generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
+    updatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }
+
+  export type DayExtractionOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    logDate?: SortOrder
+    sourceHash?: SortOrder
+    rawContext?: SortOrder
+    items?: SortOrder
+    unallocatedHours?: SortOrder
+    status?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    generatedAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+  }
+
+  export type DayExtractionWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    instructorId_logDate?: DayExtractionInstructorIdLogDateCompoundUniqueInput
+    AND?: DayExtractionWhereInput | DayExtractionWhereInput[]
+    OR?: DayExtractionWhereInput[]
+    NOT?: DayExtractionWhereInput | DayExtractionWhereInput[]
+    instructorId?: StringFilter<"DayExtraction"> | string
+    logDate?: DateTimeFilter<"DayExtraction"> | Date | string
+    sourceHash?: StringFilter<"DayExtraction"> | string
+    rawContext?: JsonFilter<"DayExtraction">
+    items?: JsonFilter<"DayExtraction">
+    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    promptVersion?: StringFilter<"DayExtraction"> | string
+    modelId?: StringFilter<"DayExtraction"> | string
+    generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
+    updatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }, "id" | "instructorId_logDate">
+
+  export type DayExtractionOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    logDate?: SortOrder
+    sourceHash?: SortOrder
+    rawContext?: SortOrder
+    items?: SortOrder
+    unallocatedHours?: SortOrder
+    status?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    generatedAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: DayExtractionCountOrderByAggregateInput
+    _avg?: DayExtractionAvgOrderByAggregateInput
+    _max?: DayExtractionMaxOrderByAggregateInput
+    _min?: DayExtractionMinOrderByAggregateInput
+    _sum?: DayExtractionSumOrderByAggregateInput
+  }
+
+  export type DayExtractionScalarWhereWithAggregatesInput = {
+    AND?: DayExtractionScalarWhereWithAggregatesInput | DayExtractionScalarWhereWithAggregatesInput[]
+    OR?: DayExtractionScalarWhereWithAggregatesInput[]
+    NOT?: DayExtractionScalarWhereWithAggregatesInput | DayExtractionScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"DayExtraction"> | string
+    instructorId?: StringWithAggregatesFilter<"DayExtraction"> | string
+    logDate?: DateTimeWithAggregatesFilter<"DayExtraction"> | Date | string
+    sourceHash?: StringWithAggregatesFilter<"DayExtraction"> | string
+    rawContext?: JsonWithAggregatesFilter<"DayExtraction">
+    items?: JsonWithAggregatesFilter<"DayExtraction">
+    unallocatedHours?: DecimalWithAggregatesFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusWithAggregatesFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    promptVersion?: StringWithAggregatesFilter<"DayExtraction"> | string
+    modelId?: StringWithAggregatesFilter<"DayExtraction"> | string
+    generatedAt?: DateTimeWithAggregatesFilter<"DayExtraction"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"DayExtraction"> | Date | string
   }
 
   export type WorklogActivityArchiveWhereInput = {
@@ -62094,6 +63599,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateInput = {
@@ -62121,6 +63627,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUpdateInput = {
@@ -62148,6 +63655,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateInput = {
@@ -62175,6 +63683,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateManyInput = {
@@ -65310,7 +66819,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -65332,7 +66841,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -65352,7 +66861,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -65374,7 +66883,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -65395,7 +66904,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -65415,7 +66924,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -65436,7 +66945,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -65453,8 +66962,9 @@ export namespace Prisma {
   export type WorklogEntryCreateInput = {
     id?: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -65468,8 +66978,9 @@ export namespace Prisma {
     instructorId: string
     universityId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -65479,8 +66990,9 @@ export namespace Prisma {
   export type WorklogEntryUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -65494,8 +67006,9 @@ export namespace Prisma {
     instructorId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -65507,8 +67020,9 @@ export namespace Prisma {
     instructorId: string
     universityId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -65518,8 +67032,9 @@ export namespace Prisma {
   export type WorklogEntryUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -65531,11 +67046,116 @@ export namespace Prisma {
     instructorId?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionCreateInput = {
+    id?: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutDayExtractionsInput
+  }
+
+  export type DayExtractionUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DayExtractionUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutDayExtractionsNestedInput
+  }
+
+  export type DayExtractionUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionCreateManyInput = {
+    id?: string
+    instructorId: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DayExtractionUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -66517,11 +68137,21 @@ export namespace Prisma {
     none?: AiInsightCacheWhereInput
   }
 
+  export type DayExtractionListRelationFilter = {
+    every?: DayExtractionWhereInput
+    some?: DayExtractionWhereInput
+    none?: DayExtractionWhereInput
+  }
+
   export type WorklogDayNoteOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
   export type AiInsightCacheOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type DayExtractionOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -68733,7 +70363,7 @@ export namespace Prisma {
     periodStart?: SortOrder
     periodEnd?: SortOrder
     contextHash?: SortOrder
-    contextSnapshot?: SortOrder
+    rawContext?: SortOrder
     insightPayload?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -68843,8 +70473,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     logDate?: SortOrder
-    activities?: SortOrder
-    totalHours?: SortOrder
+    deliverable?: SortOrder
+    deliverableQuantity?: SortOrder
+    workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     createdAt?: SortOrder
@@ -68852,7 +70483,7 @@ export namespace Prisma {
   }
 
   export type WorklogEntryAvgOrderByAggregateInput = {
-    totalHours?: SortOrder
+    workingHours?: SortOrder
   }
 
   export type WorklogEntryMaxOrderByAggregateInput = {
@@ -68860,7 +70491,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     logDate?: SortOrder
-    totalHours?: SortOrder
+    deliverable?: SortOrder
+    deliverableQuantity?: SortOrder
+    workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     createdAt?: SortOrder
@@ -68872,7 +70505,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     universityId?: SortOrder
     logDate?: SortOrder
-    totalHours?: SortOrder
+    deliverable?: SortOrder
+    deliverableQuantity?: SortOrder
+    workingHours?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     createdAt?: SortOrder
@@ -68880,7 +70515,7 @@ export namespace Prisma {
   }
 
   export type WorklogEntrySumOrderByAggregateInput = {
-    totalHours?: SortOrder
+    workingHours?: SortOrder
   }
 
   export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
@@ -68907,6 +70542,77 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
     _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
+  }
+
+  export type EnumDayExtractionStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumDayExtractionStatusFilter<$PrismaModel> | $Enums.DayExtractionStatus
+  }
+
+  export type DayExtractionInstructorIdLogDateCompoundUniqueInput = {
+    instructorId: string
+    logDate: Date | string
+  }
+
+  export type DayExtractionCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    logDate?: SortOrder
+    sourceHash?: SortOrder
+    rawContext?: SortOrder
+    items?: SortOrder
+    unallocatedHours?: SortOrder
+    status?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    generatedAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DayExtractionAvgOrderByAggregateInput = {
+    unallocatedHours?: SortOrder
+  }
+
+  export type DayExtractionMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    logDate?: SortOrder
+    sourceHash?: SortOrder
+    unallocatedHours?: SortOrder
+    status?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    generatedAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DayExtractionMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    logDate?: SortOrder
+    sourceHash?: SortOrder
+    unallocatedHours?: SortOrder
+    status?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    generatedAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DayExtractionSumOrderByAggregateInput = {
+    unallocatedHours?: SortOrder
+  }
+
+  export type EnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumDayExtractionStatusWithAggregatesFilter<$PrismaModel> | $Enums.DayExtractionStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumDayExtractionStatusFilter<$PrismaModel>
+    _max?: NestedEnumDayExtractionStatusFilter<$PrismaModel>
   }
 
   export type WorklogActivityArchiveCountOrderByAggregateInput = {
@@ -71086,6 +72792,13 @@ export namespace Prisma {
     connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
   }
 
+  export type DayExtractionCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput> | DayExtractionCreateWithoutInstructorInput[] | DayExtractionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: DayExtractionCreateOrConnectWithoutInstructorInput | DayExtractionCreateOrConnectWithoutInstructorInput[]
+    createMany?: DayExtractionCreateManyInstructorInputEnvelope
+    connect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutInstructorInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -71196,6 +72909,13 @@ export namespace Prisma {
     connectOrCreate?: WorklogEntryCreateOrConnectWithoutInstructorInput | WorklogEntryCreateOrConnectWithoutInstructorInput[]
     createMany?: WorklogEntryCreateManyInstructorInputEnvelope
     connect?: WorklogEntryWhereUniqueInput | WorklogEntryWhereUniqueInput[]
+  }
+
+  export type DayExtractionUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput> | DayExtractionCreateWithoutInstructorInput[] | DayExtractionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: DayExtractionCreateOrConnectWithoutInstructorInput | DayExtractionCreateOrConnectWithoutInstructorInput[]
+    createMany?: DayExtractionCreateManyInstructorInputEnvelope
+    connect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
   }
 
   export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
@@ -71458,6 +73178,20 @@ export namespace Prisma {
     deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
   }
 
+  export type DayExtractionUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput> | DayExtractionCreateWithoutInstructorInput[] | DayExtractionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: DayExtractionCreateOrConnectWithoutInstructorInput | DayExtractionCreateOrConnectWithoutInstructorInput[]
+    upsert?: DayExtractionUpsertWithWhereUniqueWithoutInstructorInput | DayExtractionUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: DayExtractionCreateManyInstructorInputEnvelope
+    set?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    disconnect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    delete?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    connect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    update?: DayExtractionUpdateWithWhereUniqueWithoutInstructorInput | DayExtractionUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: DayExtractionUpdateManyWithWhereWithoutInstructorInput | DayExtractionUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: DayExtractionScalarWhereInput | DayExtractionScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -71680,6 +73414,20 @@ export namespace Prisma {
     update?: WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput | WorklogEntryUpdateWithWhereUniqueWithoutInstructorInput[]
     updateMany?: WorklogEntryUpdateManyWithWhereWithoutInstructorInput | WorklogEntryUpdateManyWithWhereWithoutInstructorInput[]
     deleteMany?: WorklogEntryScalarWhereInput | WorklogEntryScalarWhereInput[]
+  }
+
+  export type DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput> | DayExtractionCreateWithoutInstructorInput[] | DayExtractionUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: DayExtractionCreateOrConnectWithoutInstructorInput | DayExtractionCreateOrConnectWithoutInstructorInput[]
+    upsert?: DayExtractionUpsertWithWhereUniqueWithoutInstructorInput | DayExtractionUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: DayExtractionCreateManyInstructorInputEnvelope
+    set?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    disconnect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    delete?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    connect?: DayExtractionWhereUniqueInput | DayExtractionWhereUniqueInput[]
+    update?: DayExtractionUpdateWithWhereUniqueWithoutInstructorInput | DayExtractionUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: DayExtractionUpdateManyWithWhereWithoutInstructorInput | DayExtractionUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: DayExtractionScalarWhereInput | DayExtractionScalarWhereInput[]
   }
 
   export type ActivityLogCreateNestedManyWithoutActivityTypeInput = {
@@ -73506,6 +75254,24 @@ export namespace Prisma {
     update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorklogEntriesInput, UniversityUpdateWithoutWorklogEntriesInput>, UniversityUncheckedUpdateWithoutWorklogEntriesInput>
   }
 
+  export type InstructorCreateNestedOneWithoutDayExtractionsInput = {
+    create?: XOR<InstructorCreateWithoutDayExtractionsInput, InstructorUncheckedCreateWithoutDayExtractionsInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutDayExtractionsInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type EnumDayExtractionStatusFieldUpdateOperationsInput = {
+    set?: $Enums.DayExtractionStatus
+  }
+
+  export type InstructorUpdateOneRequiredWithoutDayExtractionsNestedInput = {
+    create?: XOR<InstructorCreateWithoutDayExtractionsInput, InstructorUncheckedCreateWithoutDayExtractionsInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutDayExtractionsInput
+    upsert?: InstructorUpsertWithoutDayExtractionsInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutDayExtractionsInput, InstructorUpdateWithoutDayExtractionsInput>, InstructorUncheckedUpdateWithoutDayExtractionsInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -74237,6 +76003,23 @@ export namespace Prisma {
     _max?: NestedEnumWorklogEntryStatusFilter<$PrismaModel>
   }
 
+  export type NestedEnumDayExtractionStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumDayExtractionStatusFilter<$PrismaModel> | $Enums.DayExtractionStatus
+  }
+
+  export type NestedEnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumDayExtractionStatusWithAggregatesFilter<$PrismaModel> | $Enums.DayExtractionStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumDayExtractionStatusFilter<$PrismaModel>
+    _max?: NestedEnumDayExtractionStatusFilter<$PrismaModel>
+  }
+
   export type UniversityCreateWithoutUsersInput = {
     id?: string
     name: string
@@ -74392,6 +76175,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUserInput = {
@@ -74417,6 +76201,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUserInput = {
@@ -74962,6 +76747,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
@@ -74987,6 +76773,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -75431,6 +77218,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUniversityInput = {
@@ -75457,6 +77245,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUniversityInput = {
@@ -76461,8 +78250,9 @@ export namespace Prisma {
   export type WorklogEntryCreateWithoutUniversityInput = {
     id?: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -76474,8 +78264,9 @@ export namespace Prisma {
     id?: string
     instructorId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -77390,8 +79181,9 @@ export namespace Prisma {
     instructorId?: StringFilter<"WorklogEntry"> | string
     universityId?: StringFilter<"WorklogEntry"> | string
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
-    activities?: JsonFilter<"WorklogEntry">
-    totalHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFilter<"WorklogEntry"> | string
+    deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFilter<"WorklogEntry"> | Date | string
@@ -78173,6 +79965,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutManagerInput = {
@@ -78198,6 +79991,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutManagerInput = {
@@ -78551,6 +80345,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDayNotesInput = {
@@ -78577,6 +80372,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDayNotesInput = {
@@ -78619,6 +80415,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDayNotesInput = {
@@ -78645,6 +80442,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateWithoutCategoryInput = {
@@ -78671,6 +80469,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCategoryInput = {
@@ -78697,6 +80496,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCategoryInput = {
@@ -79615,7 +81415,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -79635,7 +81435,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -79662,8 +81462,9 @@ export namespace Prisma {
   export type WorklogEntryCreateWithoutInstructorInput = {
     id?: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -79675,8 +81476,9 @@ export namespace Prisma {
     id?: string
     universityId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -79690,6 +81492,44 @@ export namespace Prisma {
 
   export type WorklogEntryCreateManyInstructorInputEnvelope = {
     data: WorklogEntryCreateManyInstructorInput | WorklogEntryCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type DayExtractionCreateWithoutInstructorInput = {
+    id?: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DayExtractionUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DayExtractionCreateOrConnectWithoutInstructorInput = {
+    where: DayExtractionWhereUniqueInput
+    create: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type DayExtractionCreateManyInstructorInputEnvelope = {
+    data: DayExtractionCreateManyInstructorInput | DayExtractionCreateManyInstructorInput[]
     skipDuplicates?: boolean
   }
 
@@ -80196,7 +82036,7 @@ export namespace Prisma {
     periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
     periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
     contextHash?: StringFilter<"AiInsightCache"> | string
-    contextSnapshot?: JsonFilter<"AiInsightCache">
+    rawContext?: JsonFilter<"AiInsightCache">
     insightPayload?: JsonFilter<"AiInsightCache">
     promptVersion?: StringFilter<"AiInsightCache"> | string
     modelId?: StringFilter<"AiInsightCache"> | string
@@ -80224,6 +82064,40 @@ export namespace Prisma {
   export type WorklogEntryUpdateManyWithWhereWithoutInstructorInput = {
     where: WorklogEntryScalarWhereInput
     data: XOR<WorklogEntryUpdateManyMutationInput, WorklogEntryUncheckedUpdateManyWithoutInstructorInput>
+  }
+
+  export type DayExtractionUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: DayExtractionWhereUniqueInput
+    update: XOR<DayExtractionUpdateWithoutInstructorInput, DayExtractionUncheckedUpdateWithoutInstructorInput>
+    create: XOR<DayExtractionCreateWithoutInstructorInput, DayExtractionUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type DayExtractionUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: DayExtractionWhereUniqueInput
+    data: XOR<DayExtractionUpdateWithoutInstructorInput, DayExtractionUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type DayExtractionUpdateManyWithWhereWithoutInstructorInput = {
+    where: DayExtractionScalarWhereInput
+    data: XOR<DayExtractionUpdateManyMutationInput, DayExtractionUncheckedUpdateManyWithoutInstructorInput>
+  }
+
+  export type DayExtractionScalarWhereInput = {
+    AND?: DayExtractionScalarWhereInput | DayExtractionScalarWhereInput[]
+    OR?: DayExtractionScalarWhereInput[]
+    NOT?: DayExtractionScalarWhereInput | DayExtractionScalarWhereInput[]
+    id?: StringFilter<"DayExtraction"> | string
+    instructorId?: StringFilter<"DayExtraction"> | string
+    logDate?: DateTimeFilter<"DayExtraction"> | Date | string
+    sourceHash?: StringFilter<"DayExtraction"> | string
+    rawContext?: JsonFilter<"DayExtraction">
+    items?: JsonFilter<"DayExtraction">
+    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    promptVersion?: StringFilter<"DayExtraction"> | string
+    modelId?: StringFilter<"DayExtraction"> | string
+    generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
+    updatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
   }
 
   export type ActivityLogCreateWithoutActivityTypeInput = {
@@ -80501,6 +82375,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutLeaveRequestsInput = {
@@ -80527,6 +82402,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutLeaveRequestsInput = {
@@ -80674,6 +82550,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -80700,6 +82577,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutLeaveRequestsInput = {
@@ -80957,6 +82835,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutActivityLogsInput = {
@@ -80983,6 +82862,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutActivityLogsInput = {
@@ -81421,6 +83301,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutActivityLogsInput = {
@@ -81447,6 +83328,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutActivityLogsInput = {
@@ -81917,6 +83799,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverablesInput = {
@@ -81943,6 +83826,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverablesInput = {
@@ -82243,6 +84127,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverablesInput = {
@@ -82269,6 +84154,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutDeliverablesInput = {
@@ -82647,6 +84533,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverableLogsInput = {
@@ -82673,6 +84560,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverableLogsInput = {
@@ -82873,6 +84761,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -82899,6 +84788,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutAiInsightsInput = {
@@ -83030,6 +84920,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutAiInsightsInput = {
@@ -83056,6 +84947,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutAiInsightsInput = {
@@ -83236,6 +85128,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutAiInsightsInput = {
@@ -83262,6 +85155,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ManagerUpsertWithoutAiInsightsInput = {
@@ -85759,6 +87653,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -85785,6 +87680,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -86006,6 +87902,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -86032,6 +87929,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutAssignmentsInput = {
@@ -86198,6 +88096,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutSchedulesInput = {
@@ -86224,6 +88123,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutSchedulesInput = {
@@ -86448,6 +88348,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutSchedulesInput = {
@@ -86474,6 +88375,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutSchedulesInput = {
@@ -86685,6 +88587,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutScheduleSlotsInput = {
@@ -86711,6 +88614,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutScheduleSlotsInput = {
@@ -87037,6 +88941,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -87063,6 +88968,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type CourseUpsertWithoutScheduleSlotsInput = {
@@ -87514,6 +89420,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -87540,6 +89447,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -87736,6 +89644,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -87762,6 +89671,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
@@ -88158,6 +90068,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -88184,6 +90095,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -88337,6 +90249,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -88363,6 +90276,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutInstructorWeeklyMetricsInput = {
@@ -88494,6 +90408,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -88520,6 +90435,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -88673,6 +90589,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -88699,6 +90616,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutUniversityDailyMetricsInput = {
@@ -89567,6 +91485,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -89593,6 +91512,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -89859,6 +91779,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -89885,6 +91806,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogSubmissionsInput = {
@@ -90101,6 +92023,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDaySummariesInput = {
@@ -90127,6 +92050,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDaySummariesInput = {
@@ -90274,6 +92198,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDaySummariesInput = {
@@ -90300,6 +92225,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogDaySummariesInput = {
@@ -90437,6 +92363,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInsightCachesInput = {
@@ -90463,6 +92390,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInsightCachesInput = {
@@ -90505,6 +92433,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInsightCachesInput = {
@@ -90531,6 +92460,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateWithoutWorklogEntriesInput = {
@@ -90557,6 +92487,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogEntriesInput = {
@@ -90583,6 +92514,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
     insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    dayExtractions?: DayExtractionUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogEntriesInput = {
@@ -90730,6 +92662,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogEntriesInput = {
@@ -90756,6 +92689,7 @@ export namespace Prisma {
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogEntriesInput = {
@@ -90867,6 +92801,130 @@ export namespace Prisma {
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type InstructorCreateWithoutDayExtractionsInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutDayExtractionsInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
+    worklogEntries?: WorklogEntryUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutDayExtractionsInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutDayExtractionsInput, InstructorUncheckedCreateWithoutDayExtractionsInput>
+  }
+
+  export type InstructorUpsertWithoutDayExtractionsInput = {
+    update: XOR<InstructorUpdateWithoutDayExtractionsInput, InstructorUncheckedUpdateWithoutDayExtractionsInput>
+    create: XOR<InstructorCreateWithoutDayExtractionsInput, InstructorUncheckedCreateWithoutDayExtractionsInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutDayExtractionsInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutDayExtractionsInput, InstructorUncheckedUpdateWithoutDayExtractionsInput>
+  }
+
+  export type InstructorUpdateWithoutDayExtractionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutDayExtractionsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionCreateManyUserInput = {
@@ -91806,8 +93864,9 @@ export namespace Prisma {
     id?: string
     instructorId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
@@ -91936,6 +93995,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
@@ -91962,6 +94022,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
@@ -93036,8 +95097,9 @@ export namespace Prisma {
   export type WorklogEntryUpdateWithoutUniversityInput = {
     id?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -93049,8 +95111,9 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     instructorId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -93061,8 +95124,9 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     instructorId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -93186,6 +95250,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutManagerInput = {
@@ -93211,6 +95276,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutManagerInput = {
@@ -93282,6 +95348,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCategoryInput = {
@@ -93308,6 +95375,7 @@ export namespace Prisma {
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
     insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
     worklogEntries?: WorklogEntryUncheckedUpdateManyWithoutInstructorNestedInput
+    dayExtractions?: DayExtractionUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
@@ -93624,7 +95692,7 @@ export namespace Prisma {
     periodStart: Date | string
     periodEnd: Date | string
     contextHash: string
-    contextSnapshot: JsonNullValueInput | InputJsonValue
+    rawContext: JsonNullValueInput | InputJsonValue
     insightPayload: JsonNullValueInput | InputJsonValue
     promptVersion: string
     modelId: string
@@ -93642,11 +95710,26 @@ export namespace Prisma {
     id?: string
     universityId: string
     logDate: Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: Decimal | DecimalJsLike | number | string
+    deliverable: string
+    deliverableQuantity?: string | null
+    workingHours?: Decimal | DecimalJsLike | number | string
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DayExtractionCreateManyInstructorInput = {
+    id?: string
+    logDate: Date | string
+    sourceHash: string
+    rawContext: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    status?: $Enums.DayExtractionStatus
+    promptVersion: string
+    modelId: string
+    generatedAt?: Date | string
     updatedAt?: Date | string
   }
 
@@ -94326,7 +96409,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -94346,7 +96429,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -94366,7 +96449,7 @@ export namespace Prisma {
     periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
     periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
     contextHash?: StringFieldUpdateOperationsInput | string
-    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    rawContext?: JsonNullValueInput | InputJsonValue
     insightPayload?: JsonNullValueInput | InputJsonValue
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -94383,8 +96466,9 @@ export namespace Prisma {
   export type WorklogEntryUpdateWithoutInstructorInput = {
     id?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94396,8 +96480,9 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -94408,11 +96493,54 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     universityId?: StringFieldUpdateOperationsInput | string
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    activities?: JsonNullValueInput | InputJsonValue
-    totalHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    deliverable?: StringFieldUpdateOperationsInput | string
+    deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DayExtractionUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    logDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    sourceHash?: StringFieldUpdateOperationsInput | string
+    rawContext?: JsonNullValueInput | InputJsonValue
+    items?: JsonNullValueInput | InputJsonValue
+    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 

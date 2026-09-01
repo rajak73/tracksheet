@@ -378,6 +378,9 @@ model Instructor {
 
   /// One row per day. See `WorklogEntry`.
   worklogEntries WorklogEntry[]
+
+  /// Parsed structure per day. See `DayExtraction`.
+  dayExtractions DayExtraction[]
 }
 
 /// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
@@ -1762,14 +1765,18 @@ model AiInsightCache {
   /// SHA-256 hex of canonical JSON + prompt version + model id.
   contextHash String @db.Char(64)
 
-  /// The exact canonical JSON the model was shown, frozen at generation.
+  /// The frozen combined context of every day in the period.
   ///
-  /// Stored deliberately, and separately from the live worklog rows: it is the
-  /// record of what the answer was actually derived from, and the worklog can
-  /// move underneath it. Never write this without writing `insightPayload`,
-  /// `contextHash` and `generatedAt` in the same transaction — the four are one
-  /// fact and disagree only if something is broken.
-  contextSnapshot Json
+  /// Looks redundant against `WorklogEntry` and is not. That table is LIVE — the
+  /// instructor can edit any day at any moment. This is what the insight was
+  /// actually built from, frozen at generation.
+  ///
+  /// Comparing the two is how staleness is detected, and it is the only way to
+  /// answer "what was this insight based on?" — the question asked the first
+  /// time an insight looks wrong in front of a client. Never write it without
+  /// writing `insightPayload`, `contextHash` and `generatedAt` in the same
+  /// transaction: the four are one fact and disagree only if something is broken.
+  rawContext Json
 
   /// The model's reply, stored as returned.
   insightPayload Json
@@ -1811,18 +1818,18 @@ enum InsightCacheStatus {
   FAILED
 }
 
-/// One row per instructor per day. The worklog's source of truth.
+/// One row per instructor per day. The only source of truth.
 ///
-/// ── Why a day and not an activity ─────────────────────────────────────────
-/// A day is what somebody fills in, what they correct, and what a manager reads.
-/// Storing one row per ACTIVITY meant a correction had to delete and rewrite a
-/// set of rows, the "one row per employee per date" the client's report asks for
-/// had to be reassembled on every read, and a day had no identity of its own to
-/// hang a remark or a status on.
+/// ── The shape is the form ─────────────────────────────────────────────────
+/// Four fields, and they are exactly the four boxes an instructor fills in: what
+/// they did, how much of it, how long the day was, and a note. Nothing here is
+/// derived and nothing is parsed on the way in.
 ///
-/// The activities live in a JSON array on the day. They are a list belonging to
-/// that day, never queried across days on their own, and never joined to — so a
-/// table would buy nothing and cost the reassembly on every read.
+/// An earlier shape held a JSON array of activities, parsed out of the text at
+/// write time. That put a parser between somebody and their own words, and made
+/// the stored row a claim about what they meant rather than a record of what
+/// they wrote. The structure is now derived AFTER the fact, into
+/// `DayExtraction`, where it can be wrong without damaging the record.
 model WorklogEntry {
   id String @id @default(cuid())
 
@@ -1838,20 +1845,21 @@ model WorklogEntry {
   /// The day the work was done, in the university's zone.
   logDate DateTime @db.Date
 
-  /// `[{ label, quantity, hours }]`, as written.
+  /// What they did, in their own words. Typically names how many and how long.
+  deliverable String
+
+  /// A corroborating note — "5 class", "2 batches", "half day", or nothing.
+  /// Free text, stored and shown verbatim, never coerced to a number.
+  deliverableQuantity String?
+
+  /// The day's total, entered SEPARATELY by the instructor.
   ///
-  /// `quantity` is how many times that activity happened that day; `hours` is the
-  /// TOTAL across those occurrences, not per occurrence. Both may be null, and
-  /// null is never zero: an unrecorded count and a count of none are different
-  /// facts, and they render differently.
-  activities Json @default("[]")
+  /// That separateness is what makes it useful: it is independent of whatever
+  /// the text says, so extracted hours can be reconciled against it. Hours the
+  /// text attributes to nothing are the difference, and that difference is a
+  /// fact worth showing rather than an error to hide.
+  workingHours Decimal @default(0) @db.Decimal(6, 2)
 
-  /// Summed from `activities` on write. A CACHE, never the source of truth —
-  /// anything that must be correct recomputes from the array. It exists so a
-  /// month of a large roster can be totalled without reading every JSON blob.
-  totalHours Decimal @default(0) @db.Decimal(6, 2)
-
-  /// One note for the whole day.
   remarks String?
 
   status WorklogEntryStatus @default(SUBMITTED)
@@ -1859,10 +1867,65 @@ model WorklogEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// One row per instructor per day, enforced by the database. The old shape
-  /// allowed a day to exist twice and relied on the writer to prevent it.
+  /// One row per instructor per day, enforced by the database rather than by a
+  /// writer remembering to check.
   @@unique([instructorId, logDate])
+  /// A manager's period view reads by date across instructors.
+  @@index([logDate])
   @@index([universityId, logDate])
+}
+
+/// What the model made of one day's text, parsed once and reused.
+///
+/// ── Why a table and not a step ────────────────────────────────────────────
+/// Extraction is per DAY, and a week contains seven of them. Without this,
+/// opening a week re-parses seven days that were already parsed when the
+/// instructor opened each of them, and opening the month re-parses thirty.
+///
+/// `sourceHash` is the day's own canonical context. Because a day's context is a
+/// subset of its week's and its month's, one edit moves all three hashes and
+/// invalidates all three — no cascade code, which is the point.
+model DayExtraction {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  logDate DateTime @db.Date
+
+  /// SHA-256 over this day's canonical context, prompt version and model id.
+  sourceHash String @db.Char(64)
+
+  /// The exact canonical JSON that was parsed. Frozen; see `AiInsightCache`.
+  rawContext Json
+
+  /// `[{ label, sessions, hours }]`. `sessions` and `hours` are null wherever
+  /// the text did not state them — null is the correct answer to silence, and a
+  /// guess never is.
+  items Json @default("[]")
+
+  /// The day's hours the text attributed to no activity.
+  ///
+  /// `workingHours` minus the extracted hours. Commonly the whole day, when
+  /// somebody wrote what they did without saying how long each part took. Shown
+  /// rather than hidden: without it the group hours look as though they should
+  /// add up to the total, and somebody eventually tries to reconcile them.
+  unallocatedHours Decimal @default(0) @db.Decimal(6, 2)
+
+  status DayExtractionStatus @default(READY)
+
+  promptVersion String
+  modelId       String
+
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([instructorId, logDate])
+}
+
+enum DayExtractionStatus {
+  READY
+  FAILED
 }
 
 enum WorklogEntryStatus {

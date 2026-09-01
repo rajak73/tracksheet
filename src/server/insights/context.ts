@@ -24,10 +24,9 @@ import { toDateOnly } from "@/server/time/workday";
  * answer that could not have differed — silently, because everything still
  * works. It just costs.
  *
- * `totalHours` is excluded for a different reason: it is DERIVED. It is summed
- * from the activities on write and is a cache column, so a stale one must not be
- * able to change the hash — the hours that matter are already here, on the
- * activities themselves.
+ * What remains is the four fields the form collects. `workingHours` is included
+ * because the instructor entered it — it is not derived from anything, and it is
+ * the independent figure an extraction is later reconciled against.
  */
 
 /**
@@ -43,6 +42,7 @@ import { toDateOnly } from "@/server/time/workday";
  * of that scope's insight changes. Do NOT increment for a refactor that leaves
  * the sent text byte-identical.
  */
+export const PROMPT_VERSION_EXTRACT = "extract_v1";
 export const PROMPT_VERSION_DAY = "day_v1";
 export const PROMPT_VERSION_WEEK = "week_v1";
 export const PROMPT_VERSION_MONTH = "month_v1";
@@ -75,33 +75,28 @@ export type InsightScope = {
 };
 
 /**
- * One activity, as written.
+ * One day, as it was written.
  *
- * `quantity` is FREE TEXT and stays free text here. The instructor writes
- * whatever describes the work — "5 class", "2 batches", "half day", "3 sections
- * + lab" — and it is context, not a measurement. Coercing it to a number
- * anywhere in this module would make two different things ("2 classes taken" and
- * "2") hash identically, and would hand the model a number to reason about when
- * the whole point is that it never sees one worth reading.
+ * The four fields the form collects and nothing else. `deliverable` and
+ * `deliverableQuantity` are free text and stay free text: coercing either to a
+ * number here would make "2 classes taken" and "2" hash identically, and would
+ * hand a parser's opinion to the thing that is supposed to be reading the words.
  *
- * `hours` is the only reliable numeric field, and may be null.
+ * `workingHours` is the day total the instructor entered separately, which is
+ * what makes it useful — it is independent of the text, so an extraction can be
+ * reconciled against it.
  */
-export type CanonicalActivity = {
-  label: string | null;
-  quantity: string | null;
-  hours: number | null;
-};
-
 export type CanonicalDay = {
   /** YYYY-MM-DD. */
   log_date: string;
-  activities: CanonicalActivity[];
+  deliverable: string | null;
+  deliverable_quantity: string | null;
+  working_hours: number | null;
   remarks: string | null;
   status: string;
 };
 
 export type CanonicalContext = {
-  scope_type: ScopeType;
   period_start: string;
   period_end: string;
   days: CanonicalDay[];
@@ -153,85 +148,69 @@ export function stableStringify(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
 }
 
-/** The stored shape of one activity, before it is trusted. */
-type StoredActivity = { label?: unknown; quantity?: unknown; hours?: unknown };
-
-/**
- * Reads the JSON column defensively.
- *
- * `activities` is `Json`, so nothing about its shape is guaranteed by the type
- * system. A malformed item yields nulls rather than throwing: an insight is worth
- * less than the day it describes, and a bad row must not make the day unreadable.
- */
-function readActivities(value: unknown): CanonicalActivity[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((raw) => {
-    const item = (raw ?? {}) as StoredActivity;
-    return {
-      label: normaliseText(typeof item.label === "string" ? item.label : null),
-      // Text, always. See `CanonicalActivity`.
-      quantity: normaliseText(typeof item.quantity === "string" ? item.quantity : null),
-      hours: normaliseNumber(typeof item.hours === "number" ? item.hours : Number(item.hours)),
-    };
-  });
-}
-
 /**
  * The days a scope covers, canonicalised and deterministically ordered.
  *
- * Days by date, activities within a day by label, and never by whatever the
- * database or the JSON array happened to hold. Order is not a property of the
- * data — a reordered array says the same thing — and letting it into the hash
- * would invalidate the cache for no reason at all.
+ * By date, and never by whatever the database returned. Row order is not a
+ * property of the data — it changes with the plan the planner picks — and
+ * letting it into the hash would invalidate the cache for no reason at all.
  */
-export async function buildCanonicalContext(scope: InsightScope): Promise<CanonicalContext> {
+export async function buildCanonicalContext(scope: {
+  instructorId: string;
+  periodStart: string;
+  periodEnd: string;
+}): Promise<CanonicalContext> {
   const rows = await prisma.worklogEntry.findMany({
     where: {
       instructorId: scope.instructorId,
       logDate: { gte: toDateOnly(scope.periodStart), lte: toDateOnly(scope.periodEnd) },
     },
-    // The allowlist, expressed as the query. `totalHours`, the ids and the
-    // timestamps are not selected, so they cannot reach the hash by accident.
-    select: { logDate: true, activities: true, remarks: true, status: true },
+    /* The allowlist, expressed as the query. The ids and the timestamps are not
+       selected at all, so they cannot reach the hash by accident — a field that
+       is never read cannot be forgotten about later. */
+    select: {
+      logDate: true,
+      deliverable: true,
+      deliverableQuantity: true,
+      workingHours: true,
+      remarks: true,
+      status: true,
+    },
+    /* Ordered here AND sorted below. The query's order is a hint; the sort is
+       the guarantee, because a planner may return rows in any order it likes. */
+    orderBy: { logDate: "asc" },
   });
 
-  const days: CanonicalDay[] = rows.map((row) => {
-    const activities = readActivities(row.activities);
-    activities.sort((a, b) => {
-      const left = a.label ?? "";
-      const right = b.label ?? "";
-      if (left !== right) return left < right ? -1 : 1;
-      // Two items sharing a label are separated by their own values, so an
-      // array holding both cannot serialise two ways.
-      const q = (a.quantity ?? "").localeCompare(b.quantity ?? "");
-      if (q !== 0) return q;
-      return (a.hours ?? 0) - (b.hours ?? 0);
-    });
-
-    return {
-      log_date: row.logDate.toISOString().slice(0, 10),
-      activities,
-      remarks: normaliseText(row.remarks),
-      status: row.status,
-    };
-  });
+  /* Days with no worklog row are omitted entirely rather than represented as
+     empty objects. A day nobody logged is an absence, and an absence that
+     serialises as `{}` would make a quiet week hash differently from the same
+     quiet week viewed over a longer window. */
+  const days: CanonicalDay[] = rows.map((row) => ({
+    log_date: row.logDate.toISOString().slice(0, 10),
+    deliverable: normaliseText(row.deliverable),
+    deliverable_quantity: normaliseText(row.deliverableQuantity),
+    working_hours: normaliseNumber(Number(row.workingHours)),
+    remarks: normaliseText(row.remarks),
+    status: row.status,
+  }));
 
   days.sort((a, b) => (a.log_date < b.log_date ? -1 : a.log_date > b.log_date ? 1 : 0));
 
-  return {
-    scope_type: scope.scopeType,
-    period_start: scope.periodStart,
-    period_end: scope.periodEnd,
-    days,
-  };
+  return { period_start: scope.periodStart, period_end: scope.periodEnd, days };
 }
 
 /** The canonical JSON. This is what is hashed and what the model is shown. */
 export const canonicalJson = (context: CanonicalContext): string => stableStringify(context);
 
-/** Every activity in the period, in canonical order. The basis for all counting. */
-export function activitiesIn(context: CanonicalContext): CanonicalActivity[] {
-  return context.days.flatMap((day) => day.activities);
+/** The day rows a period actually holds. Zero means there is nothing to say. */
+export function daysIn(context: CanonicalContext): CanonicalDay[] {
+  return context.days;
+}
+
+/** The period's hours, summed from RAW rows and never from anything derived. */
+export function totalHoursIn(context: CanonicalContext): number {
+  const total = context.days.reduce((n, day) => n + (day.working_hours ?? 0), 0);
+  return Math.round(total * 100) / 100;
 }
 
 /**

@@ -25,11 +25,11 @@ import type { InsightPayload } from "@/server/insights/cache";
  */
 
 /** Bump `PROMPT_VERSION` in `context.ts` whenever this text changes. */
-function instructionFor(context: CanonicalContext): string {
+function instructionFor(context: CanonicalContext, scopeType: string): string {
   const scope =
-    context.scope_type === "DAY"
+    scopeType === "DAY"
       ? "one day"
-      : context.scope_type === "WEEK"
+      : scopeType === "WEEK"
         ? "one week"
         : "one month";
 
@@ -69,12 +69,15 @@ function instructionFor(context: CanonicalContext): string {
  * model had written it, and the next viewer would be served invented prose that
  * looks exactly like a real insight.
  */
-export async function generateInsight(context: CanonicalContext): Promise<InsightPayload> {
+export async function generateInsight(
+  context: CanonicalContext,
+  scopeType = "WEEK",
+): Promise<InsightPayload> {
   if (!isGeminiConfigured()) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const outcome = await generateStructured(instructionFor(context), { maxOutputTokens: 400 });
+  const outcome = await generateStructured(instructionFor(context, scopeType), { maxOutputTokens: 400 });
   if (!outcome.ok) throw new Error(outcome.reason);
 
   const summary = readSummary(outcome.text);

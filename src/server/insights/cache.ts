@@ -1,7 +1,6 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
 import {
-  activitiesIn,
   buildCanonicalContext,
   canonicalJson,
   contextHash,
@@ -143,7 +142,7 @@ export async function serveInsight(
   /* A period with nothing in it has nothing to summarise. No call, and no row
      either — an empty cache row would have to be invalidated later by the same
      hash it never had. */
-  if (activitiesIn(context).length === 0) {
+  if (context.days.length === 0) {
     return {
       scope: { type: scope.scopeType, period_start: scope.periodStart, period_end: scope.periodEnd },
       insight: null,
@@ -258,7 +257,7 @@ async function generateUnderLock(input: {
            audited. */
         const data = {
           contextHash: currentHash,
-          contextSnapshot: JSON.parse(canonical) as object,
+          rawContext: JSON.parse(canonical) as object,
           insightPayload: payload as unknown as object,
           promptVersion,
           modelId: model,

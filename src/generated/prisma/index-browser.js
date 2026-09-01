@@ -663,7 +663,7 @@ exports.Prisma.AiInsightCacheScalarFieldEnum = {
   periodStart: 'periodStart',
   periodEnd: 'periodEnd',
   contextHash: 'contextHash',
-  contextSnapshot: 'contextSnapshot',
+  rawContext: 'rawContext',
   insightPayload: 'insightPayload',
   promptVersion: 'promptVersion',
   modelId: 'modelId',
@@ -682,11 +682,27 @@ exports.Prisma.WorklogEntryScalarFieldEnum = {
   instructorId: 'instructorId',
   universityId: 'universityId',
   logDate: 'logDate',
-  activities: 'activities',
-  totalHours: 'totalHours',
+  deliverable: 'deliverable',
+  deliverableQuantity: 'deliverableQuantity',
+  workingHours: 'workingHours',
   remarks: 'remarks',
   status: 'status',
   createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DayExtractionScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  logDate: 'logDate',
+  sourceHash: 'sourceHash',
+  rawContext: 'rawContext',
+  items: 'items',
+  unallocatedHours: 'unallocatedHours',
+  status: 'status',
+  promptVersion: 'promptVersion',
+  modelId: 'modelId',
+  generatedAt: 'generatedAt',
   updatedAt: 'updatedAt'
 };
 
@@ -899,6 +915,11 @@ exports.WorklogEntryStatus = exports.$Enums.WorklogEntryStatus = {
   APPROVED: 'APPROVED'
 };
 
+exports.DayExtractionStatus = exports.$Enums.DayExtractionStatus = {
+  READY: 'READY',
+  FAILED: 'FAILED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   University: 'University',
@@ -939,6 +960,7 @@ exports.Prisma.ModelName = {
   WorklogDaySummary: 'WorklogDaySummary',
   AiInsightCache: 'AiInsightCache',
   WorklogEntry: 'WorklogEntry',
+  DayExtraction: 'DayExtraction',
   WorklogActivityArchive: 'WorklogActivityArchive'
 };
 
