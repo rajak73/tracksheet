@@ -197,6 +197,84 @@ These are enforced, not merely documented:
    [src/domain/README.md](src/domain/README.md) for what belongs there and
    why it exists.
 
+## AI insights — how the cache works
+
+An insight is a short summary of what a period was spent on. It is generated **at
+most once per distinct state of the underlying work logs**, and only when
+somebody actually opens the view. There is no background job, no pre-warming and
+nothing on write: a period nobody looks at is never paid for.
+
+### What decides a regeneration
+
+```
+context_hash = SHA256( canonical_json + "|" + prompt_version + "|" + model_id )
+```
+
+One comparison decides everything. If the stored hash equals the current one the
+stored insight is returned and **no provider call is made** — no AI client is
+even constructed on that path.
+
+Invalidation is **content-based only**. There is no TTL, deliberately: an insight
+that still matches its data is still correct however old it is, and one that no
+longer matches is wrong however fresh.
+
+Nothing cascades. Editing one day changes that day's hash, and also the week's
+and the month's, because their contexts *contain* that day's rows. An untouched
+neighbouring day is unaffected. There is no cascade code and there must not be —
+it would be a second description of a relationship the data already has.
+
+### `prompt_version`
+
+A hand-incremented string constant in `src/server/insights/context.ts`. Because
+it is inside the hash, bumping it invalidates every cached insight at once and
+each scope regenerates the next time somebody opens it. There is no purge and no
+migration.
+
+**Increment it when** the prompt wording, the instruction, the output shape or
+the meaning of the insight changes — anything that could make the model answer
+differently for identical data.
+
+**Do not increment it** for a refactor that leaves the sent text byte-identical.
+
+`model_id` is read from `GEMINI_MODEL` rather than pinned, so switching models
+invalidates by the same mechanism.
+
+### Canonicalisation rules
+
+The canonical context is built by `buildCanonicalContext`, and the **same value**
+is both hashed and sent to the model. Nothing else may assemble a prompt from the
+rows — if the hashed bytes and the sent bytes could differ, the cache would be
+claiming an insight came from data it never saw.
+
+| Rule | Why |
+|---|---|
+| **Allowlist**: `log_date`, `description`, `duration`, `status` | Only these can change what an insight says |
+| **Excluded**: `id`, `createdAt`, `updatedAt`, row version, DB return order | None can change the answer; all would throw the cache away |
+| Sort by date, then description, then duration | Row order is not a property of the data — it changes with the query plan |
+| Unicode NFC | Two spellings of one character are one character |
+| Trim, and collapse internal whitespace (newlines included) | Re-typing with a line break elsewhere says the same thing |
+| `null` and `""` are one value, emitted as `null` | "Wrote nothing" told two ways |
+| Dates as `YYYY-MM-DD`, numbers to 2 decimals | Fixed forms, so formatting cannot move the hash |
+| **Casing is preserved** | "OAuth" and "oauth" are not the same word to a reader |
+| JSON with keys sorted at every level, no insignificant whitespace | `JSON.stringify` preserves insertion order, which is incidental |
+
+A canonicalisation bug is silent — everything still works, it just costs. The
+hit/miss counters (`insightCacheCounters()`) and the per-request `[insight]` log
+line are how that is caught.
+
+### Failure behaviour
+
+A failed generation may never destroy a good answer. The previous insight keeps
+its payload, its snapshot and its hash; only `failureCount` and `lastError` move,
+and the stale insight is served with `is_stale: true`. After **three consecutive
+failures** the view stops trying on its own and offers a manual retry — a broken
+provider retried once per page load is a bill, not a retry. Any success resets
+the count.
+
+Two people opening the same period at once take a `pg_advisory_xact_lock` on the
+scope key, so they make **one** call between them. It is a database lock, not an
+in-memory one, because the app runs more than one instance.
+
 ## Working Hours
 
 The figure the client's report is read for, and the one number every screen has

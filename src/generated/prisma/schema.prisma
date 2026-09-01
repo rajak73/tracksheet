@@ -353,6 +353,9 @@ model Instructor {
 
   worklogDaySummaries WorklogDaySummary[]
 
+  /// Cached AI insights for this instructor's periods. See `AiInsightCache`.
+  insightCaches AiInsightCache[]
+
   @@unique([userId, universityId])
   @@unique([universityId, employeeCode])
   // The paginated GET /api/instructors route always orders by createdAt.
@@ -1721,4 +1724,80 @@ model WorklogDaySummary {
 
   @@unique([instructorId, workDate])
   @@index([universityId, workDate])
+}
+
+/// One cached AI insight per (instructor, scope, period).
+///
+/// The insight is generated at most once per distinct state of the underlying
+/// work logs. `contextHash` is what decides that: it is SHA-256 over the
+/// canonical context, the prompt version and the model id, so a data edit, a
+/// prompt edit and a model switch all invalidate by the same comparison.
+///
+/// Invalidation is content-based ONLY. There is no TTL and no scheduled
+/// regeneration — an insight that still matches its data is still correct
+/// however old it is, and one that does not is wrong however fresh.
+///
+/// Nothing cascades. Changing a day changes the DAY hash, and also the WEEK and
+/// MONTH hashes, because those contexts contain that day's rows. That falls out
+/// of hashing and needs no code.
+model AiInsightCache {
+  id String @id @default(cuid())
+
+  instructorId String
+  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  scopeType   InsightScopeType
+  periodStart DateTime         @db.Date
+  periodEnd   DateTime         @db.Date
+
+  /// SHA-256 hex of canonical JSON + prompt version + model id.
+  contextHash String @db.Char(64)
+
+  /// The exact canonical JSON the model was shown, frozen at generation.
+  ///
+  /// Stored deliberately, and separately from the live worklog rows: it is the
+  /// record of what the answer was actually derived from, and the worklog can
+  /// move underneath it. Never write this without writing `insightPayload`,
+  /// `contextHash` and `generatedAt` in the same transaction — the four are one
+  /// fact and disagree only if something is broken.
+  contextSnapshot Json
+
+  /// The model's reply, stored as returned.
+  insightPayload Json
+
+  promptVersion String
+  modelId       String
+
+  status InsightCacheStatus @default(READY)
+
+  generatedAt  DateTime  @default(now())
+  lastServedAt DateTime?
+  /// Incremented on every cache hit. This is how the saving is measured.
+  serveCount   Int       @default(0)
+
+  /// CONSECUTIVE failures; reset to zero by any success. At three the view
+  /// stops trying on its own and offers a manual retry instead, so a broken
+  /// provider cannot be re-billed once per page load.
+  failureCount Int     @default(0)
+  lastError    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One row per scope: the cache is keyed by what it describes, not by when it
+  /// was written, so a regeneration replaces rather than accumulates.
+  @@unique([instructorId, scopeType, periodStart, periodEnd])
+  @@index([contextHash])
+}
+
+enum InsightScopeType {
+  DAY
+  WEEK
+  MONTH
+}
+
+enum InsightCacheStatus {
+  READY
+  GENERATING
+  FAILED
 }

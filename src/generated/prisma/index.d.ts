@@ -329,6 +329,24 @@ export type WorklogSubmission = $Result.DefaultSelection<Prisma.$WorklogSubmissi
  * rebuilt rather than shown against data it no longer describes.
  */
 export type WorklogDaySummary = $Result.DefaultSelection<Prisma.$WorklogDaySummaryPayload>
+/**
+ * Model AiInsightCache
+ * One cached AI insight per (instructor, scope, period).
+ * 
+ * The insight is generated at most once per distinct state of the underlying
+ * work logs. `contextHash` is what decides that: it is SHA-256 over the
+ * canonical context, the prompt version and the model id, so a data edit, a
+ * prompt edit and a model switch all invalidate by the same comparison.
+ * 
+ * Invalidation is content-based ONLY. There is no TTL and no scheduled
+ * regeneration — an insight that still matches its data is still correct
+ * however old it is, and one that does not is wrong however fresh.
+ * 
+ * Nothing cascades. Changing a day changes the DAY hash, and also the WEEK and
+ * MONTH hashes, because those contexts contain that day's rows. That falls out
+ * of hashing and needs no code.
+ */
+export type AiInsightCache = $Result.DefaultSelection<Prisma.$AiInsightCachePayload>
 
 /**
  * Enums
@@ -566,6 +584,24 @@ export const WorklogInputMode: {
 
 export type WorklogInputMode = (typeof WorklogInputMode)[keyof typeof WorklogInputMode]
 
+
+export const InsightScopeType: {
+  DAY: 'DAY',
+  WEEK: 'WEEK',
+  MONTH: 'MONTH'
+};
+
+export type InsightScopeType = (typeof InsightScopeType)[keyof typeof InsightScopeType]
+
+
+export const InsightCacheStatus: {
+  READY: 'READY',
+  GENERATING: 'GENERATING',
+  FAILED: 'FAILED'
+};
+
+export type InsightCacheStatus = (typeof InsightCacheStatus)[keyof typeof InsightCacheStatus]
+
 }
 
 export type Role = $Enums.Role
@@ -663,6 +699,14 @@ export const WorklogParseStatus: typeof $Enums.WorklogParseStatus
 export type WorklogInputMode = $Enums.WorklogInputMode
 
 export const WorklogInputMode: typeof $Enums.WorklogInputMode
+
+export type InsightScopeType = $Enums.InsightScopeType
+
+export const InsightScopeType: typeof $Enums.InsightScopeType
+
+export type InsightCacheStatus = $Enums.InsightCacheStatus
+
+export const InsightCacheStatus: typeof $Enums.InsightCacheStatus
 
 /**
  * ##  Prisma Client ʲˢ
@@ -1154,6 +1198,16 @@ export class PrismaClient<
     * ```
     */
   get worklogDaySummary(): Prisma.WorklogDaySummaryDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.aiInsightCache`: Exposes CRUD operations for the **AiInsightCache** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more AiInsightCaches
+    * const aiInsightCaches = await prisma.aiInsightCache.findMany()
+    * ```
+    */
+  get aiInsightCache(): Prisma.AiInsightCacheDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1637,7 +1691,8 @@ export namespace Prisma {
     ImportJob: 'ImportJob',
     DeliverableType: 'DeliverableType',
     WorklogSubmission: 'WorklogSubmission',
-    WorklogDaySummary: 'WorklogDaySummary'
+    WorklogDaySummary: 'WorklogDaySummary',
+    AiInsightCache: 'AiInsightCache'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1653,7 +1708,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary"
+      modelProps: "user" | "university" | "universityWorkingHours" | "universityHoliday" | "manager" | "worklogDayNote" | "instructorCategory" | "instructor" | "activityType" | "leaveRequest" | "session" | "activityLog" | "deliverable" | "deliverableLog" | "aiInsight" | "auditLog" | "notification" | "universitySettings" | "department" | "program" | "academicTerm" | "course" | "courseAssignment" | "schedule" | "scheduleSlot" | "breakPolicy" | "workloadTarget" | "reportingPeriod" | "instructorDailyMetric" | "instructorWeeklyMetric" | "universityDailyMetric" | "reportJob" | "metricsJobRun" | "importJob" | "deliverableType" | "worklogSubmission" | "worklogDaySummary" | "aiInsightCache"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -4395,6 +4450,80 @@ export namespace Prisma {
           }
         }
       }
+      AiInsightCache: {
+        payload: Prisma.$AiInsightCachePayload<ExtArgs>
+        fields: Prisma.AiInsightCacheFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.AiInsightCacheFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.AiInsightCacheFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          findFirst: {
+            args: Prisma.AiInsightCacheFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.AiInsightCacheFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          findMany: {
+            args: Prisma.AiInsightCacheFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>[]
+          }
+          create: {
+            args: Prisma.AiInsightCacheCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          createMany: {
+            args: Prisma.AiInsightCacheCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.AiInsightCacheCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>[]
+          }
+          delete: {
+            args: Prisma.AiInsightCacheDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          update: {
+            args: Prisma.AiInsightCacheUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          deleteMany: {
+            args: Prisma.AiInsightCacheDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.AiInsightCacheUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.AiInsightCacheUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>[]
+          }
+          upsert: {
+            args: Prisma.AiInsightCacheUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AiInsightCachePayload>
+          }
+          aggregate: {
+            args: Prisma.AiInsightCacheAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateAiInsightCache>
+          }
+          groupBy: {
+            args: Prisma.AiInsightCacheGroupByArgs<ExtArgs>
+            result: $Utils.Optional<AiInsightCacheGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.AiInsightCacheCountArgs<ExtArgs>
+            result: $Utils.Optional<AiInsightCacheCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -4555,6 +4684,7 @@ export namespace Prisma {
     deliverableType?: DeliverableTypeOmit
     worklogSubmission?: WorklogSubmissionOmit
     worklogDaySummary?: WorklogDaySummaryOmit
+    aiInsightCache?: AiInsightCacheOmit
   }
 
   /* Types for Logging */
@@ -5097,6 +5227,7 @@ export namespace Prisma {
     worklogDayNotes: number
     worklogSubmissions: number
     worklogDaySummaries: number
+    insightCaches: number
   }
 
   export type InstructorCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -5114,6 +5245,7 @@ export namespace Prisma {
     worklogDayNotes?: boolean | InstructorCountOutputTypeCountWorklogDayNotesArgs
     worklogSubmissions?: boolean | InstructorCountOutputTypeCountWorklogSubmissionsArgs
     worklogDaySummaries?: boolean | InstructorCountOutputTypeCountWorklogDaySummariesArgs
+    insightCaches?: boolean | InstructorCountOutputTypeCountInsightCachesArgs
   }
 
   // Custom InputTypes
@@ -5223,6 +5355,13 @@ export namespace Prisma {
    */
   export type InstructorCountOutputTypeCountWorklogDaySummariesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: WorklogDaySummaryWhereInput
+  }
+
+  /**
+   * InstructorCountOutputType without action
+   */
+  export type InstructorCountOutputTypeCountInsightCachesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: AiInsightCacheWhereInput
   }
 
 
@@ -15034,6 +15173,7 @@ export namespace Prisma {
     worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
+    insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["instructor"]>
 
@@ -15098,6 +15238,7 @@ export namespace Prisma {
     worklogDayNotes?: boolean | Instructor$worklogDayNotesArgs<ExtArgs>
     worklogSubmissions?: boolean | Instructor$worklogSubmissionsArgs<ExtArgs>
     worklogDaySummaries?: boolean | Instructor$worklogDaySummariesArgs<ExtArgs>
+    insightCaches?: boolean | Instructor$insightCachesArgs<ExtArgs>
     _count?: boolean | InstructorCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type InstructorIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -15134,6 +15275,10 @@ export namespace Prisma {
       worklogDayNotes: Prisma.$WorklogDayNotePayload<ExtArgs>[]
       worklogSubmissions: Prisma.$WorklogSubmissionPayload<ExtArgs>[]
       worklogDaySummaries: Prisma.$WorklogDaySummaryPayload<ExtArgs>[]
+      /**
+       * Cached AI insights for this instructor's periods. See `AiInsightCache`.
+       */
+      insightCaches: Prisma.$AiInsightCachePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -15577,6 +15722,7 @@ export namespace Prisma {
     worklogDayNotes<T extends Instructor$worklogDayNotesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDayNotesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDayNotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogSubmissions<T extends Instructor$worklogSubmissionsArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     worklogDaySummaries<T extends Instructor$worklogDaySummariesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$worklogDaySummariesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WorklogDaySummaryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    insightCaches<T extends Instructor$insightCachesArgs<ExtArgs> = {}>(args?: Subset<T, Instructor$insightCachesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -16386,6 +16532,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: WorklogDaySummaryScalarFieldEnum | WorklogDaySummaryScalarFieldEnum[]
+  }
+
+  /**
+   * Instructor.insightCaches
+   */
+  export type Instructor$insightCachesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    where?: AiInsightCacheWhereInput
+    orderBy?: AiInsightCacheOrderByWithRelationInput | AiInsightCacheOrderByWithRelationInput[]
+    cursor?: AiInsightCacheWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: AiInsightCacheScalarFieldEnum | AiInsightCacheScalarFieldEnum[]
   }
 
   /**
@@ -52096,6 +52266,1291 @@ export namespace Prisma {
 
 
   /**
+   * Model AiInsightCache
+   */
+
+  export type AggregateAiInsightCache = {
+    _count: AiInsightCacheCountAggregateOutputType | null
+    _avg: AiInsightCacheAvgAggregateOutputType | null
+    _sum: AiInsightCacheSumAggregateOutputType | null
+    _min: AiInsightCacheMinAggregateOutputType | null
+    _max: AiInsightCacheMaxAggregateOutputType | null
+  }
+
+  export type AiInsightCacheAvgAggregateOutputType = {
+    serveCount: number | null
+    failureCount: number | null
+  }
+
+  export type AiInsightCacheSumAggregateOutputType = {
+    serveCount: number | null
+    failureCount: number | null
+  }
+
+  export type AiInsightCacheMinAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    scopeType: $Enums.InsightScopeType | null
+    periodStart: Date | null
+    periodEnd: Date | null
+    contextHash: string | null
+    promptVersion: string | null
+    modelId: string | null
+    status: $Enums.InsightCacheStatus | null
+    generatedAt: Date | null
+    lastServedAt: Date | null
+    serveCount: number | null
+    failureCount: number | null
+    lastError: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type AiInsightCacheMaxAggregateOutputType = {
+    id: string | null
+    instructorId: string | null
+    scopeType: $Enums.InsightScopeType | null
+    periodStart: Date | null
+    periodEnd: Date | null
+    contextHash: string | null
+    promptVersion: string | null
+    modelId: string | null
+    status: $Enums.InsightCacheStatus | null
+    generatedAt: Date | null
+    lastServedAt: Date | null
+    serveCount: number | null
+    failureCount: number | null
+    lastError: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type AiInsightCacheCountAggregateOutputType = {
+    id: number
+    instructorId: number
+    scopeType: number
+    periodStart: number
+    periodEnd: number
+    contextHash: number
+    contextSnapshot: number
+    insightPayload: number
+    promptVersion: number
+    modelId: number
+    status: number
+    generatedAt: number
+    lastServedAt: number
+    serveCount: number
+    failureCount: number
+    lastError: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type AiInsightCacheAvgAggregateInputType = {
+    serveCount?: true
+    failureCount?: true
+  }
+
+  export type AiInsightCacheSumAggregateInputType = {
+    serveCount?: true
+    failureCount?: true
+  }
+
+  export type AiInsightCacheMinAggregateInputType = {
+    id?: true
+    instructorId?: true
+    scopeType?: true
+    periodStart?: true
+    periodEnd?: true
+    contextHash?: true
+    promptVersion?: true
+    modelId?: true
+    status?: true
+    generatedAt?: true
+    lastServedAt?: true
+    serveCount?: true
+    failureCount?: true
+    lastError?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type AiInsightCacheMaxAggregateInputType = {
+    id?: true
+    instructorId?: true
+    scopeType?: true
+    periodStart?: true
+    periodEnd?: true
+    contextHash?: true
+    promptVersion?: true
+    modelId?: true
+    status?: true
+    generatedAt?: true
+    lastServedAt?: true
+    serveCount?: true
+    failureCount?: true
+    lastError?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type AiInsightCacheCountAggregateInputType = {
+    id?: true
+    instructorId?: true
+    scopeType?: true
+    periodStart?: true
+    periodEnd?: true
+    contextHash?: true
+    contextSnapshot?: true
+    insightPayload?: true
+    promptVersion?: true
+    modelId?: true
+    status?: true
+    generatedAt?: true
+    lastServedAt?: true
+    serveCount?: true
+    failureCount?: true
+    lastError?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type AiInsightCacheAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which AiInsightCache to aggregate.
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AiInsightCaches to fetch.
+     */
+    orderBy?: AiInsightCacheOrderByWithRelationInput | AiInsightCacheOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: AiInsightCacheWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AiInsightCaches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AiInsightCaches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned AiInsightCaches
+    **/
+    _count?: true | AiInsightCacheCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: AiInsightCacheAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: AiInsightCacheSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: AiInsightCacheMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: AiInsightCacheMaxAggregateInputType
+  }
+
+  export type GetAiInsightCacheAggregateType<T extends AiInsightCacheAggregateArgs> = {
+        [P in keyof T & keyof AggregateAiInsightCache]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateAiInsightCache[P]>
+      : GetScalarType<T[P], AggregateAiInsightCache[P]>
+  }
+
+
+
+
+  export type AiInsightCacheGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: AiInsightCacheWhereInput
+    orderBy?: AiInsightCacheOrderByWithAggregationInput | AiInsightCacheOrderByWithAggregationInput[]
+    by: AiInsightCacheScalarFieldEnum[] | AiInsightCacheScalarFieldEnum
+    having?: AiInsightCacheScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: AiInsightCacheCountAggregateInputType | true
+    _avg?: AiInsightCacheAvgAggregateInputType
+    _sum?: AiInsightCacheSumAggregateInputType
+    _min?: AiInsightCacheMinAggregateInputType
+    _max?: AiInsightCacheMaxAggregateInputType
+  }
+
+  export type AiInsightCacheGroupByOutputType = {
+    id: string
+    instructorId: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date
+    periodEnd: Date
+    contextHash: string
+    contextSnapshot: JsonValue
+    insightPayload: JsonValue
+    promptVersion: string
+    modelId: string
+    status: $Enums.InsightCacheStatus
+    generatedAt: Date
+    lastServedAt: Date | null
+    serveCount: number
+    failureCount: number
+    lastError: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: AiInsightCacheCountAggregateOutputType | null
+    _avg: AiInsightCacheAvgAggregateOutputType | null
+    _sum: AiInsightCacheSumAggregateOutputType | null
+    _min: AiInsightCacheMinAggregateOutputType | null
+    _max: AiInsightCacheMaxAggregateOutputType | null
+  }
+
+  type GetAiInsightCacheGroupByPayload<T extends AiInsightCacheGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<AiInsightCacheGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof AiInsightCacheGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], AiInsightCacheGroupByOutputType[P]>
+            : GetScalarType<T[P], AiInsightCacheGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type AiInsightCacheSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    scopeType?: boolean
+    periodStart?: boolean
+    periodEnd?: boolean
+    contextHash?: boolean
+    contextSnapshot?: boolean
+    insightPayload?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    status?: boolean
+    generatedAt?: boolean
+    lastServedAt?: boolean
+    serveCount?: boolean
+    failureCount?: boolean
+    lastError?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["aiInsightCache"]>
+
+  export type AiInsightCacheSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    scopeType?: boolean
+    periodStart?: boolean
+    periodEnd?: boolean
+    contextHash?: boolean
+    contextSnapshot?: boolean
+    insightPayload?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    status?: boolean
+    generatedAt?: boolean
+    lastServedAt?: boolean
+    serveCount?: boolean
+    failureCount?: boolean
+    lastError?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["aiInsightCache"]>
+
+  export type AiInsightCacheSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    instructorId?: boolean
+    scopeType?: boolean
+    periodStart?: boolean
+    periodEnd?: boolean
+    contextHash?: boolean
+    contextSnapshot?: boolean
+    insightPayload?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    status?: boolean
+    generatedAt?: boolean
+    lastServedAt?: boolean
+    serveCount?: boolean
+    failureCount?: boolean
+    lastError?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["aiInsightCache"]>
+
+  export type AiInsightCacheSelectScalar = {
+    id?: boolean
+    instructorId?: boolean
+    scopeType?: boolean
+    periodStart?: boolean
+    periodEnd?: boolean
+    contextHash?: boolean
+    contextSnapshot?: boolean
+    insightPayload?: boolean
+    promptVersion?: boolean
+    modelId?: boolean
+    status?: boolean
+    generatedAt?: boolean
+    lastServedAt?: boolean
+    serveCount?: boolean
+    failureCount?: boolean
+    lastError?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type AiInsightCacheOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "scopeType" | "periodStart" | "periodEnd" | "contextHash" | "contextSnapshot" | "insightPayload" | "promptVersion" | "modelId" | "status" | "generatedAt" | "lastServedAt" | "serveCount" | "failureCount" | "lastError" | "createdAt" | "updatedAt", ExtArgs["result"]["aiInsightCache"]>
+  export type AiInsightCacheInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type AiInsightCacheIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+  export type AiInsightCacheIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    instructor?: boolean | InstructorDefaultArgs<ExtArgs>
+  }
+
+  export type $AiInsightCachePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "AiInsightCache"
+    objects: {
+      instructor: Prisma.$InstructorPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      instructorId: string
+      scopeType: $Enums.InsightScopeType
+      periodStart: Date
+      periodEnd: Date
+      /**
+       * SHA-256 hex of canonical JSON + prompt version + model id.
+       */
+      contextHash: string
+      /**
+       * The exact canonical JSON the model was shown, frozen at generation.
+       * 
+       * Stored deliberately, and separately from the live worklog rows: it is the
+       * record of what the answer was actually derived from, and the worklog can
+       * move underneath it. Never write this without writing `insightPayload`,
+       * `contextHash` and `generatedAt` in the same transaction — the four are one
+       * fact and disagree only if something is broken.
+       */
+      contextSnapshot: Prisma.JsonValue
+      /**
+       * The model's reply, stored as returned.
+       */
+      insightPayload: Prisma.JsonValue
+      promptVersion: string
+      modelId: string
+      status: $Enums.InsightCacheStatus
+      generatedAt: Date
+      lastServedAt: Date | null
+      /**
+       * Incremented on every cache hit. This is how the saving is measured.
+       */
+      serveCount: number
+      /**
+       * CONSECUTIVE failures; reset to zero by any success. At three the view
+       * stops trying on its own and offers a manual retry instead, so a broken
+       * provider cannot be re-billed once per page load.
+       */
+      failureCount: number
+      lastError: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["aiInsightCache"]>
+    composites: {}
+  }
+
+  type AiInsightCacheGetPayload<S extends boolean | null | undefined | AiInsightCacheDefaultArgs> = $Result.GetResult<Prisma.$AiInsightCachePayload, S>
+
+  type AiInsightCacheCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<AiInsightCacheFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: AiInsightCacheCountAggregateInputType | true
+    }
+
+  export interface AiInsightCacheDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['AiInsightCache'], meta: { name: 'AiInsightCache' } }
+    /**
+     * Find zero or one AiInsightCache that matches the filter.
+     * @param {AiInsightCacheFindUniqueArgs} args - Arguments to find a AiInsightCache
+     * @example
+     * // Get one AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends AiInsightCacheFindUniqueArgs>(args: SelectSubset<T, AiInsightCacheFindUniqueArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one AiInsightCache that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {AiInsightCacheFindUniqueOrThrowArgs} args - Arguments to find a AiInsightCache
+     * @example
+     * // Get one AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends AiInsightCacheFindUniqueOrThrowArgs>(args: SelectSubset<T, AiInsightCacheFindUniqueOrThrowArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first AiInsightCache that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheFindFirstArgs} args - Arguments to find a AiInsightCache
+     * @example
+     * // Get one AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends AiInsightCacheFindFirstArgs>(args?: SelectSubset<T, AiInsightCacheFindFirstArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first AiInsightCache that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheFindFirstOrThrowArgs} args - Arguments to find a AiInsightCache
+     * @example
+     * // Get one AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends AiInsightCacheFindFirstOrThrowArgs>(args?: SelectSubset<T, AiInsightCacheFindFirstOrThrowArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more AiInsightCaches that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all AiInsightCaches
+     * const aiInsightCaches = await prisma.aiInsightCache.findMany()
+     * 
+     * // Get first 10 AiInsightCaches
+     * const aiInsightCaches = await prisma.aiInsightCache.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const aiInsightCacheWithIdOnly = await prisma.aiInsightCache.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends AiInsightCacheFindManyArgs>(args?: SelectSubset<T, AiInsightCacheFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a AiInsightCache.
+     * @param {AiInsightCacheCreateArgs} args - Arguments to create a AiInsightCache.
+     * @example
+     * // Create one AiInsightCache
+     * const AiInsightCache = await prisma.aiInsightCache.create({
+     *   data: {
+     *     // ... data to create a AiInsightCache
+     *   }
+     * })
+     * 
+     */
+    create<T extends AiInsightCacheCreateArgs>(args: SelectSubset<T, AiInsightCacheCreateArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many AiInsightCaches.
+     * @param {AiInsightCacheCreateManyArgs} args - Arguments to create many AiInsightCaches.
+     * @example
+     * // Create many AiInsightCaches
+     * const aiInsightCache = await prisma.aiInsightCache.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends AiInsightCacheCreateManyArgs>(args?: SelectSubset<T, AiInsightCacheCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many AiInsightCaches and returns the data saved in the database.
+     * @param {AiInsightCacheCreateManyAndReturnArgs} args - Arguments to create many AiInsightCaches.
+     * @example
+     * // Create many AiInsightCaches
+     * const aiInsightCache = await prisma.aiInsightCache.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many AiInsightCaches and only return the `id`
+     * const aiInsightCacheWithIdOnly = await prisma.aiInsightCache.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends AiInsightCacheCreateManyAndReturnArgs>(args?: SelectSubset<T, AiInsightCacheCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a AiInsightCache.
+     * @param {AiInsightCacheDeleteArgs} args - Arguments to delete one AiInsightCache.
+     * @example
+     * // Delete one AiInsightCache
+     * const AiInsightCache = await prisma.aiInsightCache.delete({
+     *   where: {
+     *     // ... filter to delete one AiInsightCache
+     *   }
+     * })
+     * 
+     */
+    delete<T extends AiInsightCacheDeleteArgs>(args: SelectSubset<T, AiInsightCacheDeleteArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one AiInsightCache.
+     * @param {AiInsightCacheUpdateArgs} args - Arguments to update one AiInsightCache.
+     * @example
+     * // Update one AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends AiInsightCacheUpdateArgs>(args: SelectSubset<T, AiInsightCacheUpdateArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more AiInsightCaches.
+     * @param {AiInsightCacheDeleteManyArgs} args - Arguments to filter AiInsightCaches to delete.
+     * @example
+     * // Delete a few AiInsightCaches
+     * const { count } = await prisma.aiInsightCache.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends AiInsightCacheDeleteManyArgs>(args?: SelectSubset<T, AiInsightCacheDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more AiInsightCaches.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many AiInsightCaches
+     * const aiInsightCache = await prisma.aiInsightCache.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends AiInsightCacheUpdateManyArgs>(args: SelectSubset<T, AiInsightCacheUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more AiInsightCaches and returns the data updated in the database.
+     * @param {AiInsightCacheUpdateManyAndReturnArgs} args - Arguments to update many AiInsightCaches.
+     * @example
+     * // Update many AiInsightCaches
+     * const aiInsightCache = await prisma.aiInsightCache.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more AiInsightCaches and only return the `id`
+     * const aiInsightCacheWithIdOnly = await prisma.aiInsightCache.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends AiInsightCacheUpdateManyAndReturnArgs>(args: SelectSubset<T, AiInsightCacheUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one AiInsightCache.
+     * @param {AiInsightCacheUpsertArgs} args - Arguments to update or create a AiInsightCache.
+     * @example
+     * // Update or create a AiInsightCache
+     * const aiInsightCache = await prisma.aiInsightCache.upsert({
+     *   create: {
+     *     // ... data to create a AiInsightCache
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the AiInsightCache we want to update
+     *   }
+     * })
+     */
+    upsert<T extends AiInsightCacheUpsertArgs>(args: SelectSubset<T, AiInsightCacheUpsertArgs<ExtArgs>>): Prisma__AiInsightCacheClient<$Result.GetResult<Prisma.$AiInsightCachePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of AiInsightCaches.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheCountArgs} args - Arguments to filter AiInsightCaches to count.
+     * @example
+     * // Count the number of AiInsightCaches
+     * const count = await prisma.aiInsightCache.count({
+     *   where: {
+     *     // ... the filter for the AiInsightCaches we want to count
+     *   }
+     * })
+    **/
+    count<T extends AiInsightCacheCountArgs>(
+      args?: Subset<T, AiInsightCacheCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], AiInsightCacheCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a AiInsightCache.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends AiInsightCacheAggregateArgs>(args: Subset<T, AiInsightCacheAggregateArgs>): Prisma.PrismaPromise<GetAiInsightCacheAggregateType<T>>
+
+    /**
+     * Group by AiInsightCache.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AiInsightCacheGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends AiInsightCacheGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: AiInsightCacheGroupByArgs['orderBy'] }
+        : { orderBy?: AiInsightCacheGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, AiInsightCacheGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetAiInsightCacheGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the AiInsightCache model
+   */
+  readonly fields: AiInsightCacheFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for AiInsightCache.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__AiInsightCacheClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    instructor<T extends InstructorDefaultArgs<ExtArgs> = {}>(args?: Subset<T, InstructorDefaultArgs<ExtArgs>>): Prisma__InstructorClient<$Result.GetResult<Prisma.$InstructorPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the AiInsightCache model
+   */
+  interface AiInsightCacheFieldRefs {
+    readonly id: FieldRef<"AiInsightCache", 'String'>
+    readonly instructorId: FieldRef<"AiInsightCache", 'String'>
+    readonly scopeType: FieldRef<"AiInsightCache", 'InsightScopeType'>
+    readonly periodStart: FieldRef<"AiInsightCache", 'DateTime'>
+    readonly periodEnd: FieldRef<"AiInsightCache", 'DateTime'>
+    readonly contextHash: FieldRef<"AiInsightCache", 'String'>
+    readonly contextSnapshot: FieldRef<"AiInsightCache", 'Json'>
+    readonly insightPayload: FieldRef<"AiInsightCache", 'Json'>
+    readonly promptVersion: FieldRef<"AiInsightCache", 'String'>
+    readonly modelId: FieldRef<"AiInsightCache", 'String'>
+    readonly status: FieldRef<"AiInsightCache", 'InsightCacheStatus'>
+    readonly generatedAt: FieldRef<"AiInsightCache", 'DateTime'>
+    readonly lastServedAt: FieldRef<"AiInsightCache", 'DateTime'>
+    readonly serveCount: FieldRef<"AiInsightCache", 'Int'>
+    readonly failureCount: FieldRef<"AiInsightCache", 'Int'>
+    readonly lastError: FieldRef<"AiInsightCache", 'String'>
+    readonly createdAt: FieldRef<"AiInsightCache", 'DateTime'>
+    readonly updatedAt: FieldRef<"AiInsightCache", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * AiInsightCache findUnique
+   */
+  export type AiInsightCacheFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter, which AiInsightCache to fetch.
+     */
+    where: AiInsightCacheWhereUniqueInput
+  }
+
+  /**
+   * AiInsightCache findUniqueOrThrow
+   */
+  export type AiInsightCacheFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter, which AiInsightCache to fetch.
+     */
+    where: AiInsightCacheWhereUniqueInput
+  }
+
+  /**
+   * AiInsightCache findFirst
+   */
+  export type AiInsightCacheFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter, which AiInsightCache to fetch.
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AiInsightCaches to fetch.
+     */
+    orderBy?: AiInsightCacheOrderByWithRelationInput | AiInsightCacheOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for AiInsightCaches.
+     */
+    cursor?: AiInsightCacheWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AiInsightCaches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AiInsightCaches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of AiInsightCaches.
+     */
+    distinct?: AiInsightCacheScalarFieldEnum | AiInsightCacheScalarFieldEnum[]
+  }
+
+  /**
+   * AiInsightCache findFirstOrThrow
+   */
+  export type AiInsightCacheFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter, which AiInsightCache to fetch.
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AiInsightCaches to fetch.
+     */
+    orderBy?: AiInsightCacheOrderByWithRelationInput | AiInsightCacheOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for AiInsightCaches.
+     */
+    cursor?: AiInsightCacheWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AiInsightCaches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AiInsightCaches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of AiInsightCaches.
+     */
+    distinct?: AiInsightCacheScalarFieldEnum | AiInsightCacheScalarFieldEnum[]
+  }
+
+  /**
+   * AiInsightCache findMany
+   */
+  export type AiInsightCacheFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter, which AiInsightCaches to fetch.
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AiInsightCaches to fetch.
+     */
+    orderBy?: AiInsightCacheOrderByWithRelationInput | AiInsightCacheOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing AiInsightCaches.
+     */
+    cursor?: AiInsightCacheWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AiInsightCaches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AiInsightCaches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of AiInsightCaches.
+     */
+    distinct?: AiInsightCacheScalarFieldEnum | AiInsightCacheScalarFieldEnum[]
+  }
+
+  /**
+   * AiInsightCache create
+   */
+  export type AiInsightCacheCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * The data needed to create a AiInsightCache.
+     */
+    data: XOR<AiInsightCacheCreateInput, AiInsightCacheUncheckedCreateInput>
+  }
+
+  /**
+   * AiInsightCache createMany
+   */
+  export type AiInsightCacheCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many AiInsightCaches.
+     */
+    data: AiInsightCacheCreateManyInput | AiInsightCacheCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * AiInsightCache createManyAndReturn
+   */
+  export type AiInsightCacheCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * The data used to create many AiInsightCaches.
+     */
+    data: AiInsightCacheCreateManyInput | AiInsightCacheCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * AiInsightCache update
+   */
+  export type AiInsightCacheUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * The data needed to update a AiInsightCache.
+     */
+    data: XOR<AiInsightCacheUpdateInput, AiInsightCacheUncheckedUpdateInput>
+    /**
+     * Choose, which AiInsightCache to update.
+     */
+    where: AiInsightCacheWhereUniqueInput
+  }
+
+  /**
+   * AiInsightCache updateMany
+   */
+  export type AiInsightCacheUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update AiInsightCaches.
+     */
+    data: XOR<AiInsightCacheUpdateManyMutationInput, AiInsightCacheUncheckedUpdateManyInput>
+    /**
+     * Filter which AiInsightCaches to update
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * Limit how many AiInsightCaches to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * AiInsightCache updateManyAndReturn
+   */
+  export type AiInsightCacheUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * The data used to update AiInsightCaches.
+     */
+    data: XOR<AiInsightCacheUpdateManyMutationInput, AiInsightCacheUncheckedUpdateManyInput>
+    /**
+     * Filter which AiInsightCaches to update
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * Limit how many AiInsightCaches to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * AiInsightCache upsert
+   */
+  export type AiInsightCacheUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * The filter to search for the AiInsightCache to update in case it exists.
+     */
+    where: AiInsightCacheWhereUniqueInput
+    /**
+     * In case the AiInsightCache found by the `where` argument doesn't exist, create a new AiInsightCache with this data.
+     */
+    create: XOR<AiInsightCacheCreateInput, AiInsightCacheUncheckedCreateInput>
+    /**
+     * In case the AiInsightCache was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<AiInsightCacheUpdateInput, AiInsightCacheUncheckedUpdateInput>
+  }
+
+  /**
+   * AiInsightCache delete
+   */
+  export type AiInsightCacheDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+    /**
+     * Filter which AiInsightCache to delete.
+     */
+    where: AiInsightCacheWhereUniqueInput
+  }
+
+  /**
+   * AiInsightCache deleteMany
+   */
+  export type AiInsightCacheDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which AiInsightCaches to delete
+     */
+    where?: AiInsightCacheWhereInput
+    /**
+     * Limit how many AiInsightCaches to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * AiInsightCache without action
+   */
+  export type AiInsightCacheDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AiInsightCache
+     */
+    select?: AiInsightCacheSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AiInsightCache
+     */
+    omit?: AiInsightCacheOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: AiInsightCacheInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -52756,6 +54211,30 @@ export namespace Prisma {
   export type WorklogDaySummaryScalarFieldEnum = (typeof WorklogDaySummaryScalarFieldEnum)[keyof typeof WorklogDaySummaryScalarFieldEnum]
 
 
+  export const AiInsightCacheScalarFieldEnum: {
+    id: 'id',
+    instructorId: 'instructorId',
+    scopeType: 'scopeType',
+    periodStart: 'periodStart',
+    periodEnd: 'periodEnd',
+    contextHash: 'contextHash',
+    contextSnapshot: 'contextSnapshot',
+    insightPayload: 'insightPayload',
+    promptVersion: 'promptVersion',
+    modelId: 'modelId',
+    status: 'status',
+    generatedAt: 'generatedAt',
+    lastServedAt: 'lastServedAt',
+    serveCount: 'serveCount',
+    failureCount: 'failureCount',
+    lastError: 'lastError',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type AiInsightCacheScalarFieldEnum = (typeof AiInsightCacheScalarFieldEnum)[keyof typeof AiInsightCacheScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -53191,6 +54670,34 @@ export namespace Prisma {
    * Reference to a field of type 'WorklogExceptionReason[]'
    */
   export type ListEnumWorklogExceptionReasonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogExceptionReason[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'InsightScopeType'
+   */
+  export type EnumInsightScopeTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InsightScopeType'>
+    
+
+
+  /**
+   * Reference to a field of type 'InsightScopeType[]'
+   */
+  export type ListEnumInsightScopeTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InsightScopeType[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'InsightCacheStatus'
+   */
+  export type EnumInsightCacheStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InsightCacheStatus'>
+    
+
+
+  /**
+   * Reference to a field of type 'InsightCacheStatus[]'
+   */
+  export type ListEnumInsightCacheStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InsightCacheStatus[]'>
     
   /**
    * Deep Input Types
@@ -53892,6 +55399,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteListRelationFilter
     worklogSubmissions?: WorklogSubmissionListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
+    insightCaches?: AiInsightCacheListRelationFilter
   }
 
   export type InstructorOrderByWithRelationInput = {
@@ -53921,6 +55429,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteOrderByRelationAggregateInput
     worklogSubmissions?: WorklogSubmissionOrderByRelationAggregateInput
     worklogDaySummaries?: WorklogDaySummaryOrderByRelationAggregateInput
+    insightCaches?: AiInsightCacheOrderByRelationAggregateInput
   }
 
   export type InstructorWhereUniqueInput = Prisma.AtLeast<{
@@ -53955,6 +55464,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteListRelationFilter
     worklogSubmissions?: WorklogSubmissionListRelationFilter
     worklogDaySummaries?: WorklogDaySummaryListRelationFilter
+    insightCaches?: AiInsightCacheListRelationFilter
   }, "id" | "userId" | "userId_universityId" | "universityId_employeeCode">
 
   export type InstructorOrderByWithAggregationInput = {
@@ -56829,6 +58339,129 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"WorklogDaySummary"> | Date | string
   }
 
+  export type AiInsightCacheWhereInput = {
+    AND?: AiInsightCacheWhereInput | AiInsightCacheWhereInput[]
+    OR?: AiInsightCacheWhereInput[]
+    NOT?: AiInsightCacheWhereInput | AiInsightCacheWhereInput[]
+    id?: StringFilter<"AiInsightCache"> | string
+    instructorId?: StringFilter<"AiInsightCache"> | string
+    scopeType?: EnumInsightScopeTypeFilter<"AiInsightCache"> | $Enums.InsightScopeType
+    periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
+    periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
+    contextHash?: StringFilter<"AiInsightCache"> | string
+    contextSnapshot?: JsonFilter<"AiInsightCache">
+    insightPayload?: JsonFilter<"AiInsightCache">
+    promptVersion?: StringFilter<"AiInsightCache"> | string
+    modelId?: StringFilter<"AiInsightCache"> | string
+    status?: EnumInsightCacheStatusFilter<"AiInsightCache"> | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    lastServedAt?: DateTimeNullableFilter<"AiInsightCache"> | Date | string | null
+    serveCount?: IntFilter<"AiInsightCache"> | number
+    failureCount?: IntFilter<"AiInsightCache"> | number
+    lastError?: StringNullableFilter<"AiInsightCache"> | string | null
+    createdAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    updatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }
+
+  export type AiInsightCacheOrderByWithRelationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    scopeType?: SortOrder
+    periodStart?: SortOrder
+    periodEnd?: SortOrder
+    contextHash?: SortOrder
+    contextSnapshot?: SortOrder
+    insightPayload?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    status?: SortOrder
+    generatedAt?: SortOrder
+    lastServedAt?: SortOrderInput | SortOrder
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+    lastError?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    instructor?: InstructorOrderByWithRelationInput
+  }
+
+  export type AiInsightCacheWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    instructorId_scopeType_periodStart_periodEnd?: AiInsightCacheInstructorIdScopeTypePeriodStartPeriodEndCompoundUniqueInput
+    AND?: AiInsightCacheWhereInput | AiInsightCacheWhereInput[]
+    OR?: AiInsightCacheWhereInput[]
+    NOT?: AiInsightCacheWhereInput | AiInsightCacheWhereInput[]
+    instructorId?: StringFilter<"AiInsightCache"> | string
+    scopeType?: EnumInsightScopeTypeFilter<"AiInsightCache"> | $Enums.InsightScopeType
+    periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
+    periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
+    contextHash?: StringFilter<"AiInsightCache"> | string
+    contextSnapshot?: JsonFilter<"AiInsightCache">
+    insightPayload?: JsonFilter<"AiInsightCache">
+    promptVersion?: StringFilter<"AiInsightCache"> | string
+    modelId?: StringFilter<"AiInsightCache"> | string
+    status?: EnumInsightCacheStatusFilter<"AiInsightCache"> | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    lastServedAt?: DateTimeNullableFilter<"AiInsightCache"> | Date | string | null
+    serveCount?: IntFilter<"AiInsightCache"> | number
+    failureCount?: IntFilter<"AiInsightCache"> | number
+    lastError?: StringNullableFilter<"AiInsightCache"> | string | null
+    createdAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    updatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    instructor?: XOR<InstructorScalarRelationFilter, InstructorWhereInput>
+  }, "id" | "instructorId_scopeType_periodStart_periodEnd">
+
+  export type AiInsightCacheOrderByWithAggregationInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    scopeType?: SortOrder
+    periodStart?: SortOrder
+    periodEnd?: SortOrder
+    contextHash?: SortOrder
+    contextSnapshot?: SortOrder
+    insightPayload?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    status?: SortOrder
+    generatedAt?: SortOrder
+    lastServedAt?: SortOrderInput | SortOrder
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+    lastError?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: AiInsightCacheCountOrderByAggregateInput
+    _avg?: AiInsightCacheAvgOrderByAggregateInput
+    _max?: AiInsightCacheMaxOrderByAggregateInput
+    _min?: AiInsightCacheMinOrderByAggregateInput
+    _sum?: AiInsightCacheSumOrderByAggregateInput
+  }
+
+  export type AiInsightCacheScalarWhereWithAggregatesInput = {
+    AND?: AiInsightCacheScalarWhereWithAggregatesInput | AiInsightCacheScalarWhereWithAggregatesInput[]
+    OR?: AiInsightCacheScalarWhereWithAggregatesInput[]
+    NOT?: AiInsightCacheScalarWhereWithAggregatesInput | AiInsightCacheScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"AiInsightCache"> | string
+    instructorId?: StringWithAggregatesFilter<"AiInsightCache"> | string
+    scopeType?: EnumInsightScopeTypeWithAggregatesFilter<"AiInsightCache"> | $Enums.InsightScopeType
+    periodStart?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
+    periodEnd?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
+    contextHash?: StringWithAggregatesFilter<"AiInsightCache"> | string
+    contextSnapshot?: JsonWithAggregatesFilter<"AiInsightCache">
+    insightPayload?: JsonWithAggregatesFilter<"AiInsightCache">
+    promptVersion?: StringWithAggregatesFilter<"AiInsightCache"> | string
+    modelId?: StringWithAggregatesFilter<"AiInsightCache"> | string
+    status?: EnumInsightCacheStatusWithAggregatesFilter<"AiInsightCache"> | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
+    lastServedAt?: DateTimeNullableWithAggregatesFilter<"AiInsightCache"> | Date | string | null
+    serveCount?: IntWithAggregatesFilter<"AiInsightCache"> | number
+    failureCount?: IntWithAggregatesFilter<"AiInsightCache"> | number
+    lastError?: StringNullableWithAggregatesFilter<"AiInsightCache"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"AiInsightCache"> | Date | string
+  }
+
   export type UserCreateInput = {
     id?: string
     email: string
@@ -57602,6 +59235,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateInput = {
@@ -57627,6 +59261,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUpdateInput = {
@@ -57652,6 +59287,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateInput = {
@@ -57677,6 +59313,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateManyInput = {
@@ -60806,6 +62443,152 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type AiInsightCacheCreateInput = {
+    id?: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    instructor: InstructorCreateNestedOneWithoutInsightCachesInput
+  }
+
+  export type AiInsightCacheUncheckedCreateInput = {
+    id?: string
+    instructorId: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type AiInsightCacheUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    instructor?: InstructorUpdateOneRequiredWithoutInsightCachesNestedInput
+  }
+
+  export type AiInsightCacheUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AiInsightCacheCreateManyInput = {
+    id?: string
+    instructorId: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type AiInsightCacheUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AiInsightCacheUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    instructorId?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -61663,7 +63446,17 @@ export namespace Prisma {
     none?: WorklogDayNoteWhereInput
   }
 
+  export type AiInsightCacheListRelationFilter = {
+    every?: AiInsightCacheWhereInput
+    some?: AiInsightCacheWhereInput
+    none?: AiInsightCacheWhereInput
+  }
+
   export type WorklogDayNoteOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type AiInsightCacheOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -63847,6 +65640,116 @@ export namespace Prisma {
     totalMinutes?: SortOrder
   }
 
+  export type EnumInsightScopeTypeFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightScopeType | EnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightScopeTypeFilter<$PrismaModel> | $Enums.InsightScopeType
+  }
+
+  export type EnumInsightCacheStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightCacheStatus | EnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightCacheStatusFilter<$PrismaModel> | $Enums.InsightCacheStatus
+  }
+
+  export type AiInsightCacheInstructorIdScopeTypePeriodStartPeriodEndCompoundUniqueInput = {
+    instructorId: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+  }
+
+  export type AiInsightCacheCountOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    scopeType?: SortOrder
+    periodStart?: SortOrder
+    periodEnd?: SortOrder
+    contextHash?: SortOrder
+    contextSnapshot?: SortOrder
+    insightPayload?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    status?: SortOrder
+    generatedAt?: SortOrder
+    lastServedAt?: SortOrder
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+    lastError?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type AiInsightCacheAvgOrderByAggregateInput = {
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+  }
+
+  export type AiInsightCacheMaxOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    scopeType?: SortOrder
+    periodStart?: SortOrder
+    periodEnd?: SortOrder
+    contextHash?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    status?: SortOrder
+    generatedAt?: SortOrder
+    lastServedAt?: SortOrder
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+    lastError?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type AiInsightCacheMinOrderByAggregateInput = {
+    id?: SortOrder
+    instructorId?: SortOrder
+    scopeType?: SortOrder
+    periodStart?: SortOrder
+    periodEnd?: SortOrder
+    contextHash?: SortOrder
+    promptVersion?: SortOrder
+    modelId?: SortOrder
+    status?: SortOrder
+    generatedAt?: SortOrder
+    lastServedAt?: SortOrder
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+    lastError?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type AiInsightCacheSumOrderByAggregateInput = {
+    serveCount?: SortOrder
+    failureCount?: SortOrder
+  }
+
+  export type EnumInsightScopeTypeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightScopeType | EnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightScopeTypeWithAggregatesFilter<$PrismaModel> | $Enums.InsightScopeType
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInsightScopeTypeFilter<$PrismaModel>
+    _max?: NestedEnumInsightScopeTypeFilter<$PrismaModel>
+  }
+
+  export type EnumInsightCacheStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightCacheStatus | EnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightCacheStatusWithAggregatesFilter<$PrismaModel> | $Enums.InsightCacheStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
+    _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
+  }
+
   export type UniversityCreateNestedOneWithoutUsersInput = {
     create?: XOR<UniversityCreateWithoutUsersInput, UniversityUncheckedCreateWithoutUsersInput>
     connectOrCreate?: UniversityCreateOrConnectWithoutUsersInput
@@ -65915,6 +67818,13 @@ export namespace Prisma {
     connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
   }
 
+  export type AiInsightCacheCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput> | AiInsightCacheCreateWithoutInstructorInput[] | AiInsightCacheUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: AiInsightCacheCreateOrConnectWithoutInstructorInput | AiInsightCacheCreateOrConnectWithoutInstructorInput[]
+    createMany?: AiInsightCacheCreateManyInstructorInputEnvelope
+    connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+  }
+
   export type ActivityLogUncheckedCreateNestedManyWithoutInstructorInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -66011,6 +67921,13 @@ export namespace Prisma {
     connectOrCreate?: WorklogDaySummaryCreateOrConnectWithoutInstructorInput | WorklogDaySummaryCreateOrConnectWithoutInstructorInput[]
     createMany?: WorklogDaySummaryCreateManyInstructorInputEnvelope
     connect?: WorklogDaySummaryWhereUniqueInput | WorklogDaySummaryWhereUniqueInput[]
+  }
+
+  export type AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput = {
+    create?: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput> | AiInsightCacheCreateWithoutInstructorInput[] | AiInsightCacheUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: AiInsightCacheCreateOrConnectWithoutInstructorInput | AiInsightCacheCreateOrConnectWithoutInstructorInput[]
+    createMany?: AiInsightCacheCreateManyInstructorInputEnvelope
+    connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
   }
 
   export type InstructorCategoryUpdateOneWithoutInstructorsNestedInput = {
@@ -66245,6 +68162,20 @@ export namespace Prisma {
     deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
   }
 
+  export type AiInsightCacheUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput> | AiInsightCacheCreateWithoutInstructorInput[] | AiInsightCacheUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: AiInsightCacheCreateOrConnectWithoutInstructorInput | AiInsightCacheCreateOrConnectWithoutInstructorInput[]
+    upsert?: AiInsightCacheUpsertWithWhereUniqueWithoutInstructorInput | AiInsightCacheUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: AiInsightCacheCreateManyInstructorInputEnvelope
+    set?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    disconnect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    delete?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    update?: AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput | AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: AiInsightCacheUpdateManyWithWhereWithoutInstructorInput | AiInsightCacheUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
+  }
+
   export type ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput = {
     create?: XOR<ActivityLogCreateWithoutInstructorInput, ActivityLogUncheckedCreateWithoutInstructorInput> | ActivityLogCreateWithoutInstructorInput[] | ActivityLogUncheckedCreateWithoutInstructorInput[]
     connectOrCreate?: ActivityLogCreateOrConnectWithoutInstructorInput | ActivityLogCreateOrConnectWithoutInstructorInput[]
@@ -66439,6 +68370,20 @@ export namespace Prisma {
     update?: WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput | WorklogDaySummaryUpdateWithWhereUniqueWithoutInstructorInput[]
     updateMany?: WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput | WorklogDaySummaryUpdateManyWithWhereWithoutInstructorInput[]
     deleteMany?: WorklogDaySummaryScalarWhereInput | WorklogDaySummaryScalarWhereInput[]
+  }
+
+  export type AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput = {
+    create?: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput> | AiInsightCacheCreateWithoutInstructorInput[] | AiInsightCacheUncheckedCreateWithoutInstructorInput[]
+    connectOrCreate?: AiInsightCacheCreateOrConnectWithoutInstructorInput | AiInsightCacheCreateOrConnectWithoutInstructorInput[]
+    upsert?: AiInsightCacheUpsertWithWhereUniqueWithoutInstructorInput | AiInsightCacheUpsertWithWhereUniqueWithoutInstructorInput[]
+    createMany?: AiInsightCacheCreateManyInstructorInputEnvelope
+    set?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    disconnect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    delete?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    connect?: AiInsightCacheWhereUniqueInput | AiInsightCacheWhereUniqueInput[]
+    update?: AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput | AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput[]
+    updateMany?: AiInsightCacheUpdateManyWithWhereWithoutInstructorInput | AiInsightCacheUpdateManyWithWhereWithoutInstructorInput[]
+    deleteMany?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
   }
 
   export type ActivityLogCreateNestedManyWithoutActivityTypeInput = {
@@ -68203,6 +70148,28 @@ export namespace Prisma {
     update?: XOR<XOR<UniversityUpdateToOneWithWhereWithoutWorklogDaySummariesInput, UniversityUpdateWithoutWorklogDaySummariesInput>, UniversityUncheckedUpdateWithoutWorklogDaySummariesInput>
   }
 
+  export type InstructorCreateNestedOneWithoutInsightCachesInput = {
+    create?: XOR<InstructorCreateWithoutInsightCachesInput, InstructorUncheckedCreateWithoutInsightCachesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutInsightCachesInput
+    connect?: InstructorWhereUniqueInput
+  }
+
+  export type EnumInsightScopeTypeFieldUpdateOperationsInput = {
+    set?: $Enums.InsightScopeType
+  }
+
+  export type EnumInsightCacheStatusFieldUpdateOperationsInput = {
+    set?: $Enums.InsightCacheStatus
+  }
+
+  export type InstructorUpdateOneRequiredWithoutInsightCachesNestedInput = {
+    create?: XOR<InstructorCreateWithoutInsightCachesInput, InstructorUncheckedCreateWithoutInsightCachesInput>
+    connectOrCreate?: InstructorCreateOrConnectWithoutInsightCachesInput
+    upsert?: InstructorUpsertWithoutInsightCachesInput
+    connect?: InstructorWhereUniqueInput
+    update?: XOR<XOR<InstructorUpdateToOneWithWhereWithoutInsightCachesInput, InstructorUpdateWithoutInsightCachesInput>, InstructorUncheckedUpdateWithoutInsightCachesInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -68856,6 +70823,40 @@ export namespace Prisma {
     _max?: NestedEnumWorklogExceptionReasonNullableFilter<$PrismaModel>
   }
 
+  export type NestedEnumInsightScopeTypeFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightScopeType | EnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightScopeTypeFilter<$PrismaModel> | $Enums.InsightScopeType
+  }
+
+  export type NestedEnumInsightCacheStatusFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightCacheStatus | EnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightCacheStatusFilter<$PrismaModel> | $Enums.InsightCacheStatus
+  }
+
+  export type NestedEnumInsightScopeTypeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightScopeType | EnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightScopeType[] | ListEnumInsightScopeTypeFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightScopeTypeWithAggregatesFilter<$PrismaModel> | $Enums.InsightScopeType
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInsightScopeTypeFilter<$PrismaModel>
+    _max?: NestedEnumInsightScopeTypeFilter<$PrismaModel>
+  }
+
+  export type NestedEnumInsightCacheStatusWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InsightCacheStatus | EnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    in?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InsightCacheStatus[] | ListEnumInsightCacheStatusFieldRefInput<$PrismaModel>
+    not?: NestedEnumInsightCacheStatusWithAggregatesFilter<$PrismaModel> | $Enums.InsightCacheStatus
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
+    _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
+  }
+
   export type UniversityCreateWithoutUsersInput = {
     id?: string
     name: string
@@ -69007,6 +71008,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUserInput = {
@@ -69030,6 +71032,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUserInput = {
@@ -69571,6 +71574,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUserInput = {
@@ -69594,6 +71598,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionUpsertWithWhereUniqueWithoutUserInput = {
@@ -70036,6 +72041,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutUniversityInput = {
@@ -70060,6 +72066,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutUniversityInput = {
@@ -72696,6 +74703,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutManagerInput = {
@@ -72719,6 +74727,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutManagerInput = {
@@ -73066,6 +75075,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDayNotesInput = {
@@ -73090,6 +75100,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDayNotesInput = {
@@ -73130,6 +75141,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDayNotesInput = {
@@ -73154,6 +75166,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorCreateWithoutCategoryInput = {
@@ -73178,6 +75191,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCategoryInput = {
@@ -73202,6 +75216,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCategoryInput = {
@@ -74112,6 +76127,56 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type AiInsightCacheCreateWithoutInstructorInput = {
+    id?: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type AiInsightCacheUncheckedCreateWithoutInstructorInput = {
+    id?: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type AiInsightCacheCreateOrConnectWithoutInstructorInput = {
+    where: AiInsightCacheWhereUniqueInput
+    create: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type AiInsightCacheCreateManyInstructorInputEnvelope = {
+    data: AiInsightCacheCreateManyInstructorInput | AiInsightCacheCreateManyInstructorInput[]
+    skipDuplicates?: boolean
+  }
+
   export type InstructorCategoryUpsertWithoutInstructorsInput = {
     update: XOR<InstructorCategoryUpdateWithoutInstructorsInput, InstructorCategoryUncheckedUpdateWithoutInstructorsInput>
     create: XOR<InstructorCategoryCreateWithoutInstructorsInput, InstructorCategoryUncheckedCreateWithoutInstructorsInput>
@@ -74587,6 +76652,46 @@ export namespace Prisma {
     data: XOR<WorklogDaySummaryUpdateManyMutationInput, WorklogDaySummaryUncheckedUpdateManyWithoutInstructorInput>
   }
 
+  export type AiInsightCacheUpsertWithWhereUniqueWithoutInstructorInput = {
+    where: AiInsightCacheWhereUniqueInput
+    update: XOR<AiInsightCacheUpdateWithoutInstructorInput, AiInsightCacheUncheckedUpdateWithoutInstructorInput>
+    create: XOR<AiInsightCacheCreateWithoutInstructorInput, AiInsightCacheUncheckedCreateWithoutInstructorInput>
+  }
+
+  export type AiInsightCacheUpdateWithWhereUniqueWithoutInstructorInput = {
+    where: AiInsightCacheWhereUniqueInput
+    data: XOR<AiInsightCacheUpdateWithoutInstructorInput, AiInsightCacheUncheckedUpdateWithoutInstructorInput>
+  }
+
+  export type AiInsightCacheUpdateManyWithWhereWithoutInstructorInput = {
+    where: AiInsightCacheScalarWhereInput
+    data: XOR<AiInsightCacheUpdateManyMutationInput, AiInsightCacheUncheckedUpdateManyWithoutInstructorInput>
+  }
+
+  export type AiInsightCacheScalarWhereInput = {
+    AND?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
+    OR?: AiInsightCacheScalarWhereInput[]
+    NOT?: AiInsightCacheScalarWhereInput | AiInsightCacheScalarWhereInput[]
+    id?: StringFilter<"AiInsightCache"> | string
+    instructorId?: StringFilter<"AiInsightCache"> | string
+    scopeType?: EnumInsightScopeTypeFilter<"AiInsightCache"> | $Enums.InsightScopeType
+    periodStart?: DateTimeFilter<"AiInsightCache"> | Date | string
+    periodEnd?: DateTimeFilter<"AiInsightCache"> | Date | string
+    contextHash?: StringFilter<"AiInsightCache"> | string
+    contextSnapshot?: JsonFilter<"AiInsightCache">
+    insightPayload?: JsonFilter<"AiInsightCache">
+    promptVersion?: StringFilter<"AiInsightCache"> | string
+    modelId?: StringFilter<"AiInsightCache"> | string
+    status?: EnumInsightCacheStatusFilter<"AiInsightCache"> | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    lastServedAt?: DateTimeNullableFilter<"AiInsightCache"> | Date | string | null
+    serveCount?: IntFilter<"AiInsightCache"> | number
+    failureCount?: IntFilter<"AiInsightCache"> | number
+    lastError?: StringNullableFilter<"AiInsightCache"> | string | null
+    createdAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+    updatedAt?: DateTimeFilter<"AiInsightCache"> | Date | string
+  }
+
   export type ActivityLogCreateWithoutActivityTypeInput = {
     id?: string
     workDate: Date | string
@@ -74860,6 +76965,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutLeaveRequestsInput = {
@@ -74884,6 +76990,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutLeaveRequestsInput = {
@@ -75027,6 +77134,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutLeaveRequestsInput = {
@@ -75051,6 +77159,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutLeaveRequestsInput = {
@@ -75304,6 +77413,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutActivityLogsInput = {
@@ -75328,6 +77438,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutActivityLogsInput = {
@@ -75762,6 +77873,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutActivityLogsInput = {
@@ -75786,6 +77898,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutActivityLogsInput = {
@@ -76252,6 +78365,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverablesInput = {
@@ -76276,6 +78390,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverablesInput = {
@@ -76572,6 +78687,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverablesInput = {
@@ -76596,6 +78712,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutDeliverablesInput = {
@@ -76968,6 +79085,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutDeliverableLogsInput = {
@@ -76992,6 +79110,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutDeliverableLogsInput = {
@@ -77188,6 +79307,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutDeliverableLogsInput = {
@@ -77212,6 +79332,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutAiInsightsInput = {
@@ -77339,6 +79460,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutAiInsightsInput = {
@@ -77363,6 +79485,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutAiInsightsInput = {
@@ -77539,6 +79662,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutAiInsightsInput = {
@@ -77563,6 +79687,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ManagerUpsertWithoutAiInsightsInput = {
@@ -80028,6 +82153,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutCourseAssignmentsInput = {
@@ -80052,6 +82178,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutCourseAssignmentsInput = {
@@ -80269,6 +82396,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCourseAssignmentsInput = {
@@ -80293,6 +82421,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutAssignmentsInput = {
@@ -80455,6 +82584,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutSchedulesInput = {
@@ -80479,6 +82609,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutSchedulesInput = {
@@ -80699,6 +82830,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutSchedulesInput = {
@@ -80723,6 +82855,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type AcademicTermUpsertWithoutSchedulesInput = {
@@ -80930,6 +83063,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutScheduleSlotsInput = {
@@ -80954,6 +83088,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutScheduleSlotsInput = {
@@ -81276,6 +83411,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutScheduleSlotsInput = {
@@ -81300,6 +83436,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type CourseUpsertWithoutScheduleSlotsInput = {
@@ -81743,6 +83880,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorkloadTargetsInput = {
@@ -81767,6 +83905,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorkloadTargetsInput = {
@@ -81959,6 +84098,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorkloadTargetsInput = {
@@ -81983,6 +84123,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type ActivityTypeUpsertWithoutWorkloadTargetsInput = {
@@ -82371,6 +84512,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorDailyMetricsInput = {
@@ -82395,6 +84537,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorDailyMetricsInput = {
@@ -82544,6 +84687,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorDailyMetricsInput = {
@@ -82568,6 +84712,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutInstructorWeeklyMetricsInput = {
@@ -82695,6 +84840,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutInstructorWeeklyMetricsInput = {
@@ -82719,6 +84865,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutInstructorWeeklyMetricsInput = {
@@ -82868,6 +85015,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutInstructorWeeklyMetricsInput = {
@@ -82892,6 +85040,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityCreateWithoutUniversityDailyMetricsInput = {
@@ -83750,6 +85899,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogSubmissionsInput = {
@@ -83774,6 +85924,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogSubmissionsInput = {
@@ -84036,6 +86187,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogSubmissionsInput = {
@@ -84060,6 +86212,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogSubmissionsInput = {
@@ -84272,6 +86425,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorUncheckedCreateWithoutWorklogDaySummariesInput = {
@@ -84296,6 +86450,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
     worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
     worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    insightCaches?: AiInsightCacheUncheckedCreateNestedManyWithoutInstructorInput
   }
 
   export type InstructorCreateOrConnectWithoutWorklogDaySummariesInput = {
@@ -84439,6 +86594,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutWorklogDaySummariesInput = {
@@ -84463,6 +86619,7 @@ export namespace Prisma {
     instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type UniversityUpsertWithoutWorklogDaySummariesInput = {
@@ -84572,6 +86729,122 @@ export namespace Prisma {
     universityDailyMetrics?: UniversityDailyMetricUncheckedUpdateManyWithoutUniversityNestedInput
     reportJobs?: ReportJobUncheckedUpdateManyWithoutUniversityNestedInput
     deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutUniversityNestedInput
+  }
+
+  export type InstructorCreateWithoutInsightCachesInput = {
+    id?: string
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    category?: InstructorCategoryCreateNestedOneWithoutInstructorsInput
+    user: UserCreateNestedOneWithoutInstructorProfileInput
+    university: UniversityCreateNestedOneWithoutInstructorsInput
+    manager?: ManagerCreateNestedOneWithoutInstructorsInput
+    activityLogs?: ActivityLogCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorUncheckedCreateWithoutInsightCachesInput = {
+    id?: string
+    userId: string
+    universityId: string
+    categoryId?: string | null
+    managerId?: string | null
+    employeeCode?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    activityLogs?: ActivityLogUncheckedCreateNestedManyWithoutInstructorInput
+    deliverables?: DeliverableUncheckedCreateNestedManyWithoutInstructorInput
+    leaveRequests?: LeaveRequestUncheckedCreateNestedManyWithoutInstructorInput
+    aiInsights?: AiInsightUncheckedCreateNestedManyWithoutInstructorInput
+    courseAssignments?: CourseAssignmentUncheckedCreateNestedManyWithoutInstructorInput
+    schedules?: ScheduleUncheckedCreateNestedManyWithoutInstructorInput
+    scheduleSlots?: ScheduleSlotUncheckedCreateNestedManyWithoutInstructorInput
+    workloadTargets?: WorkloadTargetUncheckedCreateNestedManyWithoutInstructorInput
+    deliverableLogs?: DeliverableLogUncheckedCreateNestedManyWithoutInstructorInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDayNotes?: WorklogDayNoteUncheckedCreateNestedManyWithoutInstructorInput
+    worklogSubmissions?: WorklogSubmissionUncheckedCreateNestedManyWithoutInstructorInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedCreateNestedManyWithoutInstructorInput
+  }
+
+  export type InstructorCreateOrConnectWithoutInsightCachesInput = {
+    where: InstructorWhereUniqueInput
+    create: XOR<InstructorCreateWithoutInsightCachesInput, InstructorUncheckedCreateWithoutInsightCachesInput>
+  }
+
+  export type InstructorUpsertWithoutInsightCachesInput = {
+    update: XOR<InstructorUpdateWithoutInsightCachesInput, InstructorUncheckedUpdateWithoutInsightCachesInput>
+    create: XOR<InstructorCreateWithoutInsightCachesInput, InstructorUncheckedCreateWithoutInsightCachesInput>
+    where?: InstructorWhereInput
+  }
+
+  export type InstructorUpdateToOneWithWhereWithoutInsightCachesInput = {
+    where?: InstructorWhereInput
+    data: XOR<InstructorUpdateWithoutInsightCachesInput, InstructorUncheckedUpdateWithoutInsightCachesInput>
+  }
+
+  export type InstructorUpdateWithoutInsightCachesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    category?: InstructorCategoryUpdateOneWithoutInstructorsNestedInput
+    user?: UserUpdateOneRequiredWithoutInstructorProfileNestedInput
+    university?: UniversityUpdateOneRequiredWithoutInstructorsNestedInput
+    manager?: ManagerUpdateOneWithoutInstructorsNestedInput
+    activityLogs?: ActivityLogUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+  }
+
+  export type InstructorUncheckedUpdateWithoutInsightCachesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: StringFieldUpdateOperationsInput | string
+    universityId?: StringFieldUpdateOperationsInput | string
+    categoryId?: NullableStringFieldUpdateOperationsInput | string | null
+    managerId?: NullableStringFieldUpdateOperationsInput | string | null
+    employeeCode?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    activityLogs?: ActivityLogUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverables?: DeliverableUncheckedUpdateManyWithoutInstructorNestedInput
+    leaveRequests?: LeaveRequestUncheckedUpdateManyWithoutInstructorNestedInput
+    aiInsights?: AiInsightUncheckedUpdateManyWithoutInstructorNestedInput
+    courseAssignments?: CourseAssignmentUncheckedUpdateManyWithoutInstructorNestedInput
+    schedules?: ScheduleUncheckedUpdateManyWithoutInstructorNestedInput
+    scheduleSlots?: ScheduleSlotUncheckedUpdateManyWithoutInstructorNestedInput
+    workloadTargets?: WorkloadTargetUncheckedUpdateManyWithoutInstructorNestedInput
+    deliverableLogs?: DeliverableLogUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorDailyMetrics?: InstructorDailyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    instructorWeeklyMetrics?: InstructorWeeklyMetricUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
+    worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type SessionCreateManyUserInput = {
@@ -85627,6 +87900,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutUniversityInput = {
@@ -85651,6 +87925,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutUniversityInput = {
@@ -86837,6 +89112,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutManagerInput = {
@@ -86860,6 +89136,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutManagerInput = {
@@ -86929,6 +89206,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateWithoutCategoryInput = {
@@ -86953,6 +89231,7 @@ export namespace Prisma {
     worklogDayNotes?: WorklogDayNoteUncheckedUpdateManyWithoutInstructorNestedInput
     worklogSubmissions?: WorklogSubmissionUncheckedUpdateManyWithoutInstructorNestedInput
     worklogDaySummaries?: WorklogDaySummaryUncheckedUpdateManyWithoutInstructorNestedInput
+    insightCaches?: AiInsightCacheUncheckedUpdateManyWithoutInstructorNestedInput
   }
 
   export type InstructorUncheckedUpdateManyWithoutCategoryInput = {
@@ -87259,6 +89538,26 @@ export namespace Prisma {
     groups: JsonNullValueInput | InputJsonValue
     remarks: JsonNullValueInput | InputJsonValue
     totalMinutes: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type AiInsightCacheCreateManyInstructorInput = {
+    id?: string
+    scopeType: $Enums.InsightScopeType
+    periodStart: Date | string
+    periodEnd: Date | string
+    contextHash: string
+    contextSnapshot: JsonNullValueInput | InputJsonValue
+    insightPayload: JsonNullValueInput | InputJsonValue
+    promptVersion: string
+    modelId: string
+    status?: $Enums.InsightCacheStatus
+    generatedAt?: Date | string
+    lastServedAt?: Date | string | null
+    serveCount?: number
+    failureCount?: number
+    lastError?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -87929,6 +90228,66 @@ export namespace Prisma {
     groups?: JsonNullValueInput | InputJsonValue
     remarks?: JsonNullValueInput | InputJsonValue
     totalMinutes?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AiInsightCacheUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AiInsightCacheUncheckedUpdateWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AiInsightCacheUncheckedUpdateManyWithoutInstructorInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    scopeType?: EnumInsightScopeTypeFieldUpdateOperationsInput | $Enums.InsightScopeType
+    periodStart?: DateTimeFieldUpdateOperationsInput | Date | string
+    periodEnd?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextHash?: StringFieldUpdateOperationsInput | string
+    contextSnapshot?: JsonNullValueInput | InputJsonValue
+    insightPayload?: JsonNullValueInput | InputJsonValue
+    promptVersion?: StringFieldUpdateOperationsInput | string
+    modelId?: StringFieldUpdateOperationsInput | string
+    status?: EnumInsightCacheStatusFieldUpdateOperationsInput | $Enums.InsightCacheStatus
+    generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastServedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    serveCount?: IntFieldUpdateOperationsInput | number
+    failureCount?: IntFieldUpdateOperationsInput | number
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

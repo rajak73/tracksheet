@@ -656,6 +656,27 @@ exports.Prisma.WorklogDaySummaryScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.AiInsightCacheScalarFieldEnum = {
+  id: 'id',
+  instructorId: 'instructorId',
+  scopeType: 'scopeType',
+  periodStart: 'periodStart',
+  periodEnd: 'periodEnd',
+  contextHash: 'contextHash',
+  contextSnapshot: 'contextSnapshot',
+  insightPayload: 'insightPayload',
+  promptVersion: 'promptVersion',
+  modelId: 'modelId',
+  status: 'status',
+  generatedAt: 'generatedAt',
+  lastServedAt: 'lastServedAt',
+  serveCount: 'serveCount',
+  failureCount: 'failureCount',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -832,6 +853,18 @@ exports.WorklogExceptionReason = exports.$Enums.WorklogExceptionReason = {
   BOTH: 'BOTH'
 };
 
+exports.InsightScopeType = exports.$Enums.InsightScopeType = {
+  DAY: 'DAY',
+  WEEK: 'WEEK',
+  MONTH: 'MONTH'
+};
+
+exports.InsightCacheStatus = exports.$Enums.InsightCacheStatus = {
+  READY: 'READY',
+  GENERATING: 'GENERATING',
+  FAILED: 'FAILED'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   University: 'University',
@@ -869,7 +902,8 @@ exports.Prisma.ModelName = {
   ImportJob: 'ImportJob',
   DeliverableType: 'DeliverableType',
   WorklogSubmission: 'WorklogSubmission',
-  WorklogDaySummary: 'WorklogDaySummary'
+  WorklogDaySummary: 'WorklogDaySummary',
+  AiInsightCache: 'AiInsightCache'
 };
 
 /**
