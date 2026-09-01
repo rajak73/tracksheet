@@ -12,7 +12,6 @@ import { prisma } from "@/server/db";
 import { parseDateParam } from "@/server/http/params";
 import { logAudit } from "@/server/audit/logger";
 import { workDateFor } from "@/server/time/workday";
-import { dayInsightsInRange } from "@/server/worklog/day-insights";
 
 /**
  * The weekly workload tracker, one period at a time.
@@ -126,12 +125,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req, princip
 
        The CSV export deliberately carries none of this. An export is the
        measured record, and a generated sentence is not part of that record. */
-    const insights = await dayInsightsInRange(
-      tracker.rows.map((r) => r.instructorId),
-      from,
-      to,
-    );
-    return NextResponse.json({ tracker, insights });
+    return NextResponse.json({ tracker });
   }
 
   // Exports are recorded events, like the workload report's — who exported

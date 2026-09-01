@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
-import { dayInsightsInRange } from "@/server/worklog/day-insights";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
@@ -459,14 +458,5 @@ export const GET = withAuth(async ({ scope, req }) => {
       totalActivities: rows.reduce((n, r) => n + r.activityCount, 0),
     },
     instructors: rows,
-    /* The stored readings for the range ON SCREEN, keyed `instructorId:date`.
-       Scoped to the period rather than "the latest known", because the column
-       sits beside that period's figures and has to describe them — the sheet
-       picks the most severe day a row covers. Nothing here calls a model. */
-    insights: await dayInsightsInRange(
-      rows.map((r) => r.instructorId),
-      from,
-      to,
-    ),
   });
 }, { roles: ["MANAGER", "ADMIN"] });

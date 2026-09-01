@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { streamsFor } from "@/server/instructors/stream";
-import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 import type { Prisma } from "@/generated/prisma/client";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
@@ -97,12 +96,18 @@ export const GET = withAuth(async ({ scope, req }) => {
    * work is absent from the map and comes back as null. */
   const streams = await streamsFor(instructors.map((i) => i.id));
 
-  /* The latest stored reading per instructor, so a roster can carry the AI
-     Insight column without a request per row. Read-only — see `day-insights`. */
-  const insights = await latestDayInsightByInstructor(instructors.map((i) => i.id));
+  /* No insight travels with this response any more.
+   *
+   * It used to carry a stored reading per instructor: a severity band, a title
+   * like "Well below the day's hours", and a recommendation naming what they
+   * should have classified. That was a model's judgement about a person, stored
+   * against their record and rendered as a coloured chip — the same class of
+   * thing as the Watch badge, and removed with it.
+   *
+   * The insight a day genuinely has is served from `ai_insight_cache`, per day,
+   * to the viewer who asked for it, and it grades nobody. */
 
   return NextResponse.json({
-    insights,
     // `manager` is flattened to the three fields a roster UI needs, and stays
     // explicitly null when nobody leads this instructor yet — "unassigned" is a
     // state to render, not an absence to hide.

@@ -31,7 +31,7 @@ import {
 } from "@/domain/worklog-report";
 import { formatDuration, type Activity } from "@/app/_components/workload";
 import { rollUp } from "@/domain/rollup";
-import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
+import { DayInsightCell } from "@/app/_components/DayInsightCell";
 
 export type ManagerPeriod = {
   /** Every date this column covers. */
@@ -105,39 +105,15 @@ const STICKY_CORNER = "z-30";
 export type SheetSort = "name" | "total-desc" | "total-asc";
 
 /** The time this person spent with students across every period on screen. */
-/** Which severity outranks which, for a row covering more than one day. */
-const SEVERITY_ORDER: Record<CellInsight["severity"], number> = {
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-  CRITICAL: 3,
-};
-
-/**
- * The reading for a row: the most severe day it covers.
+/* `worstInsight` and its severity ranking are gone.
  *
- * Not the newest and not an average. A fortnight holding one critical day is a
- * fortnight worth opening, and any other rule hides exactly the row somebody
- * needed to see. Null when nothing in the range has been analysed, which the
- * cell prints as an em dash — honestly, since analysis happens after a day is
- * written and a day recorded moments ago has not been read yet.
+ * It picked the most severe day a row covered, out of readings that graded each
+ * day LOW to CRITICAL from its utilisation. There are no grades any more: the
+ * scorer that produced them, the titles it chose from and the advice it
+ * attached to a named person were deleted together. A day's insight is a
+ * sentence about the work, generated for whoever opens that day, and it ranks
+ * nobody — so there is nothing for a row to take the worst of.
  */
-function worstInsight(
-  insights: Record<string, CellInsight> | undefined,
-  instructorId: string,
-  periods: ManagerPeriod[],
-): CellInsight | null {
-  if (!insights) return null;
-  let worst: CellInsight | null = null;
-  for (const period of periods) {
-    for (const date of period.dates) {
-      const hit = insights[`${instructorId}:${date}`];
-      if (!hit) continue;
-      if (!worst || SEVERITY_ORDER[hit.severity] > SEVERITY_ORDER[worst.severity]) worst = hit;
-    }
-  }
-  return worst;
-}
 
 export function totalHours(person: ManagerPerson, periods: ManagerPeriod[]): number {
   return periods.reduce(
@@ -151,26 +127,12 @@ export function ManagerSheet({
   periods,
   sort,
   onSort,
-  insights,
 }: {
   people: ManagerPerson[];
   /** Oldest first, so the columns read left to right like a calendar. */
   periods: ManagerPeriod[];
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
-  /**
-   * The stored readings for the period on screen, keyed `instructorId:date`.
-   *
-   * Keyed by day rather than by person because the column has to describe the
-   * period beside it: a row covering a fortnight takes the most severe day in
-   * that fortnight, which is the same rule the instructor's own weekly rows
-   * use. Captioning August with September's reading is the failure this shape
-   * prevents.
-   *
-   * Optional so a caller that has not been updated still compiles and renders
-   * the column with an em dash in every row, rather than breaking the sheet.
-   */
-  insights?: Record<string, CellInsight>;
 }) {
   /* ── Where the second header row pins ──────────────────────────────────
    * Directly under the first, and the only reliable answer to "how tall is the
@@ -382,7 +344,19 @@ export function ManagerSheet({
                 ))}
 
                 <td className="border-b border-l-2 border-line px-3 py-2 align-top">
-                  <AiInsightCell insight={worstInsight(insights, person.instructorId, periods)} />
+                  {/* Read-only, and empty until somebody opens the day itself.
+                      A manager's day insight is READ_ONLY in the generation
+                      matrix — a sheet rendering a column must not be able to
+                      start paying for it, and a fortnight of rows scrolled past
+                      would otherwise buy a fortnight of insights. */}
+                  <DayInsightCell
+                    instructorId={person.instructorId}
+                    scope="WEEK"
+                    from={periods[0]?.dates[0] ?? ""}
+                    to={periods.at(-1)?.dates.at(-1) ?? ""}
+                    initial={null}
+                    canGenerate={false}
+                  />
                 </td>
               </tr>
             );

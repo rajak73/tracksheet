@@ -64,7 +64,6 @@ import {
   type ManagerPerson,
   type SheetSort,
 } from "@/app/_components/ManagerSheet";
-import type { CellInsight } from "@/app/_components/AiInsightCell";
 import { rollUp } from "@/domain/rollup";
 import { type Activity } from "@/app/_components/workload";
 
@@ -99,8 +98,6 @@ type Worklog = {
   rosterTotal: number;
   summary: { instructors: number };
   instructors: Row[];
-  /** Latest stored reading per instructor id, for the sheet's last column. */
-  insights?: Record<string, CellInsight>;
 };
 
 type ActivityTypeOption = { code: string; label: string };
@@ -520,7 +517,6 @@ export function WorklogScreen({
               periods={periods}
               sort={sort}
               onSort={setSort}
-              insights={data?.insights}
             />
           )}
         </div>

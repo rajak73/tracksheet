@@ -4,7 +4,6 @@ import { assertCanAccessUniversity, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { resolvePeriod } from "@/server/analytics/period";
 import { loadUniversityConfig } from "@/server/universities/config";
-import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 
 /**
  * One endpoint, all three roles, each seeing what their role covers.
@@ -41,13 +40,16 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     includeTrend: req.nextUrl.searchParams.get("trend") === "1",
   });
 
-  /* The stored reading for each instructor the breakdown covers, so a screen
-     can put the raw figures first and the AI summary in a column beside them
-     rather than the other way round. A read, never a generate — see
-     `day-insights`. */
-  const insights = await latestDayInsightByInstructor(
-    analytics.instructors.map((i) => i.instructorId),
-  );
+  /* No insight travels with this response any more.
+   *
+   * It used to carry a stored reading per instructor: a severity band, a title
+   * like "Well below the day's hours", and a recommendation naming what they
+   * should have classified. That was a model's judgement about a person, stored
+   * against their record and rendered as a coloured chip — the same class of
+   * thing as the Watch badge, and removed with it.
+   *
+   * The insight a day genuinely has is served from `ai_insight_cache`, per day,
+   * to the viewer who asked for it, and it grades nobody. */
 
-  return NextResponse.json({ analytics, insights });
+  return NextResponse.json({ analytics });
 });

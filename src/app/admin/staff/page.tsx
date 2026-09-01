@@ -43,8 +43,6 @@ import {
 } from "@/app/_components/ui";
 import { ConfirmDialog, Dialog, useToast } from "@/app/_components/interactive";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { AiInsightCell, type CellInsight } from "@/app/_components/AiInsightCell";
-import { InstructorCategoryPicker } from "@/app/_components/InstructorStream";
 import { CreateStaffDialog } from "@/app/_components/CreateStaffDialog";
 import { formatDate } from "@/app/_lib/format";
 
@@ -73,7 +71,6 @@ type Staff = {
 type StaffResponse = {
   staff: Staff[];
   /** Keyed by instructor id. Managers have none — see the staff route. */
-  insights?: Record<string, CellInsight>;
   page: number;
   limit: number;
   total: number;
@@ -148,17 +145,6 @@ export default function AdminStaffPage() {
 
   /* The categories somebody may assign, from the same table the write is
    * checked against — so the list offered and the list accepted are one list. */
-  const categories = useLoad(
-    useCallback(
-      () =>
-        apiGet<{ categories: Array<{ code: string; label: string }> }>(
-          "/api/instructor-categories",
-          "Could not load the broad categories.",
-        ).then((r) => r.categories),
-      [],
-    ),
-    "instructor-categories",
-  );
 
   async function setActive(
     person: Staff,
@@ -302,14 +288,10 @@ export default function AdminStaffPage() {
                       columns={[
                         { label: "Employee" },
                         { label: "Employee ID" },
-                        { label: "Broad Category" },
                         { label: "Role" },
                         { label: "University" },
                         { label: "Status" },
                         { label: "Created" },
-                        /* Last. The reader reaches it having seen the row it
-                           describes — see `AiInsightCell`. */
-                        { label: "AI Insight" },
                       ]}
                     />
                     <TBody>
@@ -329,37 +311,6 @@ export default function AdminStaffPage() {
                             <span className="mt-0.5 block text-xs text-muted">{s.email}</span>
                           </TD>
                           <TD>{s.employeeCode ?? "—"}</TD>
-                          <TD>
-                            {/* Editable here, because this is now the only
-                                people list in the sidebar and the Broad
-                                Category on the client's report is SUPPLIED —
-                                somebody has to be able to supply it. It moved
-                                from the instructor directory, which was a
-                                second list of the same people.
-
-                                A manager has none: they do not teach a stream,
-                                and that is an em dash rather than an empty
-                                picker inviting somebody to file them under
-                                Maths. */}
-                            {s.instructorId ? (
-                              <InstructorCategoryPicker
-                                value={s.category ?? null}
-                                stream={s.category ?? null}
-                                options={categories.data ?? []}
-                                onSave={async (code) => {
-                                  await apiSend(
-                                    `/api/instructors/${s.instructorId}`,
-                                    "PATCH",
-                                    { categoryCode: code },
-                                    "Could not save that broad category.",
-                                  );
-                                  reload();
-                                }}
-                              />
-                            ) : (
-                              <span className="text-subtle">—</span>
-                            )}
-                          </TD>
                           <TD>
                             <Badge tone={s.role === "MANAGER" ? "primary" : "neutral"}>
                               {s.role === "MANAGER" ? "Manager" : "Instructor"}
@@ -402,17 +353,6 @@ export default function AdminStaffPage() {
                             ) : null}
                           </TD>
                           <TD>{formatDate(s.createdAt)}</TD>
-                          <TD>
-                            {/* A manager records no days, so there is nothing
-                                to read about one. An em dash rather than a
-                                blank, so the column reads as "not applicable"
-                                rather than as a rendering fault. */}
-                            <AiInsightCell
-                              insight={
-                                s.instructorId ? (data.insights?.[s.instructorId] ?? null) : null
-                              }
-                            />
-                          </TD>
                         </TR>
                       ))}
                     </TBody>

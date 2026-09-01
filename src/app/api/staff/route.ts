@@ -6,7 +6,6 @@ import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { parseLimit, parsePage } from "@/server/http/params";
 import { narrowUniversity } from "@/server/auth/scope";
-import { latestDayInsightByInstructor } from "@/server/worklog/day-insights";
 
 /**
  * The staff directory — instructors AND managers in one list.
@@ -155,17 +154,19 @@ export const GET = withAuth(
         u.managerProfile.university?.primaryManagerId === u.managerProfile.id,
     }));
 
-    /* The latest stored reading for the instructors on this page, so the AI
-       Insight column joins in the browser rather than costing a request per
-       row. Managers have none — an insight is about a recorded DAY, and a
-       manager does not record days. */
-    const insights = await latestDayInsightByInstructor(
-      staff.flatMap((r) => (r.instructorId ? [r.instructorId] : [])),
-    );
+  /* No insight travels with this response any more.
+   *
+   * It used to carry a stored reading per instructor: a severity band, a title
+   * like "Well below the day's hours", and a recommendation naming what they
+   * should have classified. That was a model's judgement about a person, stored
+   * against their record and rendered as a coloured chip — the same class of
+   * thing as the Watch badge, and removed with it.
+   *
+   * The insight a day genuinely has is served from `ai_insight_cache`, per day,
+   * to the viewer who asked for it, and it grades nobody. */
 
     return NextResponse.json({
       staff,
-      insights,
       page,
       limit,
       total,
