@@ -92,8 +92,9 @@ type DayInsight =
 
 type Draft = {
   date: string;
+  /* The day's work, one activity per line. The quantity box that used to sit
+     beside this is gone — see the note above the textarea. */
   deliverable: string;
-  quantity: string;
   workingHours: string;
   remarks: string;
 };
@@ -104,7 +105,6 @@ type Draft = {
 const emptyDraft = (today?: string): Draft => ({
   date: today ?? todayISO(),
   deliverable: "",
-  quantity: "",
   workingHours: "",
   remarks: "",
 });
@@ -573,7 +573,6 @@ export default function WorkLogHistoryPage() {
       date,
       deliverable: day?.deliverable ?? "",
       // Verbatim. "gfddgh" and "half day" go back into the box as themselves.
-      quantity: day?.deliverableQuantity ?? "",
       // Printed the way the table prints it, so an edit does not turn
       // "8h 30m" into "8.5" in front of the person correcting it.
       workingHours: day ? formatHours(day.workingHours).replace(/^0/, "") : "",
@@ -612,7 +611,9 @@ export default function WorkLogHistoryPage() {
         {
           date: draft.date,
           deliverable: draft.deliverable,
-          quantity: draft.quantity,
+          /* Nothing is sent, so the route stores null. The COLUMN stays: rows
+             written before the merge hold real values and the table still
+             prints them, verbatim, for those historical days. */
           workingHours: draft.workingHours,
           remarks: draft.remarks,
         },
@@ -1318,28 +1319,39 @@ export default function WorkLogHistoryPage() {
               surface at the client's request — submitting and correcting both
               use the fields now, so there is nothing to choose between and no
               control asking. */}
+          {/* ── One box, one activity per line ──────────────────────────
+              There were two boxes: what you did, and how many. They were
+              joined by NOTHING but position, and half the days in the database
+              show what that produces — "1, 1, 12, 1, 4, 1, 1, 1, 6" beside a
+              list of nine descriptions. One day has five descriptions and four
+              numbers, so even counting them off fails.
+
+              Nobody means to write that. The form asked for it.
+
+              A line break is the one separator that cannot be mistaken for
+              content: commas already appear inside descriptions ("Project
+              evaluation, PR code reviews, and 1:1 doubt resolution"), so
+              splitting on them guesses. Splitting on a newline does not — and
+              the proximity check already segments on newlines, so a number
+              written on a line can only ever vouch for that line's activity.
+              That is the guarantee the two boxes could not give. */}
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
               Deliverable
             </span>
-            <textarea
-              rows={3}
-              value={draft.deliverable}
-              onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
-              placeholder="Enter deliverable"
-              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">
-              Deliverable Quantity
+            <span className="mb-1.5 block text-xs text-muted">
+              One activity per line. Include how many and how long if you know them.
             </span>
             <textarea
-              rows={2}
-              value={draft.quantity}
-              onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-              placeholder="Enter deliverable quantity"
+              rows={5}
+              value={draft.deliverable}
+              onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
+              placeholder={
+                "Java class - inheritance and interfaces - 2 classes - 4 hours\n" +
+                "Doubt solving session - 1 hour\n" +
+                "Department meeting - exam schedule\n" +
+                "Checked DSA assignments - batch A"
+              }
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>

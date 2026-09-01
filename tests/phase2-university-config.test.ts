@@ -293,51 +293,12 @@ describe("Test 5 — windows are structurally singular per working day", () => {
     expect(a.body.windows).toEqual(b.body.windows);
   });
 
-  test("only DAILY_OPENING and DAILY_CLOSING are once-per-day activity types", async () => {
-    const res = await admin.get("/api/activity-types");
-    expect(res.status).toBe(200);
+  /* "only DAILY_OPENING and DAILY_CLOSING are once-per-day activity types"
+     was deleted rather than ported. It read the sixteen types off
+     `/api/activity-types` and asserted which two of them carried a
+     once-per-day flag. Both the route and the types are gone: there is no list
+     of what work an instructor can do, so there is nothing to hold a flag. */
 
-    const codes = res.body.activityTypes.map((t: { code: string }) => t.code);
-    expect(codes).toEqual(
-      expect.arrayContaining([
-        "DAILY_OPENING",
-        "TEACHING",
-        "LEARNING",
-        "STUDENT_SUPPORT",
-        "ADMINISTRATIVE",
-        "MEETING",
-        "DELIVERABLE",
-        "RESEARCH",
-        "OTHER",
-        "DAILY_CLOSING",
-        "UNUTILIZED",
-      ]),
-    );
-
-    const oncePerDay = res.body.activityTypes
-      .filter((t: { isOncePerDay: boolean }) => t.isOncePerDay)
-      .map((t: { code: string }) => t.code)
-      .sort();
-    expect(oncePerDay).toEqual(["DAILY_CLOSING", "DAILY_OPENING"]);
-
-    // LEARNING must never be conflated with opening/closing.
-    const learning = res.body.activityTypes.find((t: { code: string }) => t.code === "LEARNING");
-    expect(learning.isOncePerDay).toBe(false);
-    expect(learning.isDerivedFromWorkingHours).toBe(false);
-
-    // MISSING_DATA is computed, never stored, so it must not exist as a type.
-    expect(codes).not.toContain("MISSING_DATA");
-
-    // UNUTILIZED is a real recordable state, and is not productive time.
-    const unutilized = res.body.activityTypes.find(
-      (t: { code: string }) => t.code === "UNUTILIZED",
-    );
-    expect(unutilized.isUnutilized).toBe(true);
-    expect(unutilized.countsAsProductive).toBe(false);
-  });
-});
-
-describe("Test 6 — authorization follows Phase 1's scope model", () => {
   test("a manager can read their own university's config", async () => {
     const res = await managerNorth.get(`/api/universities/${northId}/config`);
     expect(res.status).toBe(200);
@@ -386,7 +347,6 @@ describe("Test 6 — authorization follows Phase 1's scope model", () => {
     const anon = new ApiClient("anon");
     expect((await anon.get(`/api/universities/${northId}/config`)).status).toBe(401);
     expect((await anon.get(`/api/universities/${northId}/windows?date=${WEDNESDAY}`)).status).toBe(401);
-    expect((await anon.get("/api/activity-types")).status).toBe(401);
     expect((await anon.post(`/api/universities/${northId}/holidays`, { date: WEDNESDAY, name: "x" })).status).toBe(401);
   });
 });

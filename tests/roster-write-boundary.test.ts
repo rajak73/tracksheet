@@ -52,13 +52,11 @@ const PASSWORD = "roster-boundary-pw-1234";
 
 /* Today in the university's zone (Asia/Kolkata). A worklog may only be written
  * up for the day it belongs to, so this cannot be a fixed date. */
-const TODAY_IST = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
 
 let admin: ApiClient;
 let seedManager: ApiClient;
 let theirInstructorId: string;
 let theirDeliverableId: string;
-let theirSubmissionId: string;
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
@@ -91,7 +89,9 @@ beforeAll(async () => {
   // The premise of every test below. If this is not true they prove nothing.
   expect(theirs.body.instructor.managerId).toBe(otherManagerId);
 
-  // A deliverable and a worklog submission of their own, created by the admin,
+  /* A deliverable of their own, created by the admin, so the checks below
+     are about the BOUNDARY rather than about a missing row. The worklog
+     submission that used to sit beside it is gone with the narrative path. */
   // so the two sub-resource writes below have something real to aim at.
   const deliverable = await admin.post(`/api/instructors/${theirInstructorId}/deliverables`, {
     title: "Their own deliverable",
@@ -102,14 +102,6 @@ beforeAll(async () => {
   expect(deliverable.status, JSON.stringify(deliverable.body)).toBe(201);
   theirDeliverableId = deliverable.body.deliverable.id;
 
-  const submission = await admin.post(`/api/instructors/${theirInstructorId}/worklog`, {
-    workDate: TODAY_IST,
-    bullets: ["Taught a session from 10 to 11"],
-  });
-  // 202, not 201: the route answers as soon as the sentences are SAVED, before
-  // they have been parsed. Accepting the family keeps this fixture from caring.
-  expect([200, 201, 202], JSON.stringify(submission.body)).toContain(submission.status);
-  theirSubmissionId = submission.body.submission.id;
 });
 
 describe("a manager cannot write to another manager's instructor", () => {
@@ -175,26 +167,13 @@ describe("a manager cannot write to another manager's instructor", () => {
     expect([403, 404]).toContain(res.status);
   });
 
-  test("cannot re-parse their worklog", async () => {
-    // Re-parsing REPLACES the activities the submission produced, so it is a
-    // write however much the name suggests a refresh.
-    const res = await seedManager.post(
-      `/api/instructors/${theirInstructorId}/worklog/${theirSubmissionId}/reparse`,
-      {},
-    );
-    expect([403, 404]).toContain(res.status);
-  });
+  /* "cannot re-parse their worklog" and "cannot submit a worklog as them"
+     were deleted rather than ported. Both routes are gone with the narrative
+     path: an instructor no longer writes the day as a paragraph for a model to
+     classify, so there is nothing to submit and nothing to re-parse. Asserting
+     that a manager cannot reach a route nobody built says nothing about the
+     boundary — it is true of every path that does not exist. */
 
-  test("cannot submit a worklog as them", async () => {
-    const res = await seedManager.post(`/api/instructors/${theirInstructorId}/worklog`, {
-      workDate: "2026-09-04",
-      bullets: ["written by somebody else"],
-    });
-    expect([403, 404]).toContain(res.status);
-  });
-});
-
-describe("the instructor's own manager still can", () => {
   test("the owning manager records hours normally", async () => {
     const owner = new ApiClient("other-manager");
     await owner.login(`boundary.mgr.${RUN}@example.edu`, PASSWORD);

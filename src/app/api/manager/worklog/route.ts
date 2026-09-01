@@ -5,8 +5,6 @@ import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { assertValidDate } from "@/server/time/schedule-windows";
-import { daySubjectsFor } from "@/server/instructors/day-subject";
-import { loadUniversityConfig } from "@/server/universities/config";
 
 /**
  * A manager's worklog: who on their roster recorded what, day by day.
@@ -248,16 +246,10 @@ export const GET = withAuth(async ({ scope, req }) => {
   // per-day capacity and productive hours every view below needs.
   const analytics = await computeAnalytics({ universityId, from, to });
 
-  /* What each office day was ABOUT, with a quiet day inheriting from the last
-   * one that named a subject. Computed on the server because the inheritance
-   * reaches back before the window the sheet asked for, and the browser only
-   * has the window. */
-  const daySubjects = await daySubjectsFor(
-    roster.map((i) => i.id),
-    from,
-    to,
-    await loadUniversityConfig(universityId),
-  );
+  /* The day-subject carry-forward is gone with the subjects it carried.
+     It answered "what was this day about" by inheriting a SUBJECT from the last
+     office day that named one — Technical, Mathematics, English. Those are
+     kinds of work, and there is no column left for them on any sheet. */
 
   // The activities themselves, for the day view's timeline. Bounded by the same
   // range and the same roster, so this cannot become a way to read the tenant.
@@ -384,19 +376,6 @@ export const GET = withAuth(async ({ scope, req }) => {
         activityCount,
         status,
         days,
-        /* The Broad Category the client's sheet prints: the one assigned to
-         * this person, preserved exactly.
-         *
-         * It used to be `subjectByDate` — what each office day was judged to be
-         * about, inherited from the last day that named a subject. The client's
-         * rule is now that this column is supplied and that nobody may "guess
-         * the employee's broad category from their activities", which is
-         * precisely what that inheritance did. */
-        category: instructor.category,
-        /* Still sent, and still per office day, because the day view shows what
-         * each day was ABOUT beneath the entries — a different question from
-         * who the person is, and one the client did not change. */
-        subjectByDate: Object.fromEntries(daySubjects.get(instructor.id) ?? []),
         notes: notesByInstructor.get(instructor.id) ?? {},
         activities: mine.map((log) => ({
           id: log.id,

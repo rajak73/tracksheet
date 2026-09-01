@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { prisma } from "@/server/db";
 
 let admin: ApiClient;
 let managerNorth: ApiClient;
@@ -27,9 +28,11 @@ beforeAll(async () => {
   westUniversityId = westLogin.user.universityId!;
   north1InstructorId = instNorth1Login.user.instructorId!;
 
-  // Fetch activity types seeded in Phase 1/2
-  const typesRes = await admin.get("/api/activity-types");
-  for (const t of typesRes.body.activityTypes) {
+  /* The activity-type id map used to come from `/api/activity-types`. That
+     route served the list of what work an instructor may do and is deleted;
+     the ids are read straight from the table instead, which is where the
+     write below will be checked against anyway. */
+  for (const t of await prisma.activityType.findMany({ select: { id: true, code: true } })) {
     activityTypes[t.code] = t.id;
   }
 });

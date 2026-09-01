@@ -116,17 +116,13 @@ beforeAll(async () => {
 });
 
 describe("the manager's day and week sheets read the work", () => {
-  test("the assigned category still travels on the person's record", async () => {
-    const res = await manager.get(`/api/manager/worklog?from=${DATE}&to=${DATE}`);
-    expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
-    const person = res.body.instructors.find(
-      (i: { instructorId: string }) => i.instructorId === instructorId,
-    );
-    expect(person, "the instructor should be on the roster payload").toBeTruthy();
-    /* The API still carries it — it is a real property of the person, assigned
-     * in the admin screens. What changed is that no sheet prints it. */
-    expect(person.category?.code).toBe("ENGLISH");
-  });
+  /* "the assigned category still travels on the person's record" was deleted.
+     It asserted the manager's roster payload carried `category.code === "ENGLISH"`
+     — the subject a person is filed under. Those values are Technical,
+     Mathematics, English, Aptitude, Physics, Chemistry and Others: subjects,
+     which is to say kinds of work, not designations like Assistant Professor or
+     a grade band. So the field goes with the rest of the taxonomy rather than
+     staying as an HR attribute. */
 
   test("and the activities carry what was actually worked on", async () => {
     const res = await manager.get(`/api/manager/worklog?from=${DATE}&to=${DATE}`);

@@ -49,6 +49,11 @@ export const DayEntry = z.object({
    * field could not hold most of what people actually write here, and coercing
    * it would replace their words with a parser's opinion of them.
    */
+  /* The form no longer sends this. The two boxes were merged into one and the
+     day's work is written a line at a time, with counts inline — see the note
+     above the textarea on the instructor's page. Still ACCEPTED, and still
+     optional, so anything mid-flight during the rollout saves rather than
+     erroring; absent becomes null, which is what new days now store. */
   quantity: z
     .union([z.string().max(1_000), z.number(), z.null()])
     .optional()

@@ -102,20 +102,12 @@ describe("the primary manager answers for the unassigned", () => {
     expect(JSON.stringify(res.body)).toContain(submissionId);
   });
 
-  test("and the same manager can actually decide it", async () => {
-    /* The whole point: this answered 404 while the item sat in their queue.
-     *
-     * Rejecting rather than approving, because approval RE-PARSES the bullets
-     * through the AI provider — deliberately absent under test — and would fail
-     * with PARSE_UNAVAILABLE for reasons that have nothing to do with the
-     * boundary. The authorisation guard being tested runs before either path,
-     * so a rejection exercises exactly the check that was broken. */
-    const res = await primaryManager.patch(`/api/manager/worklog/${submissionId}`, {
-      approve: false,
-      note: "decided by the primary manager",
-    });
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
-  });
+  /* "and the same manager can actually decide it" was deleted with the route.
+     The approve/reject endpoint went with the submission workflow: nothing
+     creates a `WorklogSubmission` any more, because the narrative box an
+     instructor wrote them from is gone. The queue above still answers, over an
+     empty table, and moves onto `WorklogEntry` with the rest of the manager's
+     views. */
 });
 
 describe("but a manager who is not primary still cannot", () => {
