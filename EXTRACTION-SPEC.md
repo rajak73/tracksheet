@@ -123,9 +123,27 @@ becomes `NATIVE` — the words are then theirs.
 | Migrated pairing: no NATIVE day altered | same |
 | A save reclaims a migrated day as NATIVE | same |
 | No category field, category name, or evaluative flag in a response | [no-category-in-responses.test.ts](tests/no-category-in-responses.test.ts) |
+| No response says `Unclassified` or `Watch` | same |
+| A day is the row: saved, quantity verbatim, hours summed once | [worklog-day-row.test.ts](tests/worklog-day-row.test.ts) |
+| `missing` and `future` never collapse into one empty row | same |
+| The provenance note is per row, and follows the words | same |
+| Delete removes the day and its `DayExtraction`, idempotently | [worklog-day-delete.test.ts](tests/worklog-day-delete.test.ts) |
+| Delete leaves `ai_insight_cache` alone | same |
+| No per-activity edit or delete route is reachable | same |
 | The insight column never generates by rendering | [insight-viewer-gate.test.ts](tests/insight-viewer-gate.test.ts) |
 
 ### Not covered yet
 
 Extraction itself, grouping, and every generation call. They land on a base where writes,
 reads and tests agree on one table.
+
+Three `test.todo`s name gaps that are real today rather than merely unbuilt:
+
+- **The manager's three views**, compared against the instructor's — suspended in
+  [worklog-cross-view.test.ts](tests/worklog-cross-view.test.ts) because the two sides
+  read different tables, so the comparison could pass by coincidence.
+- **Stored summaries go stale.** `recomputeDay` summarises `ActivityLog`, and a day
+  written through `/worklog/entry` never touches it. Named in
+  [metric-staleness.test.ts](tests/metric-staleness.test.ts).
+- **Item 22 across the rest of the surface** — the manager's and admin's sheets and the
+  CSV export still answer with the taxonomy.

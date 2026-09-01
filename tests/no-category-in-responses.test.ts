@@ -51,6 +51,18 @@ const BANNED_FIELDS = [
 /** Evaluative words. A day is described, never graded. */
 const BANNED_FLAGS = ["severity", "band", "riskLevel", "flagged", "verdict", "grade"];
 
+/**
+ * Two strings that mean classification came back.
+ *
+ * `Unclassified` was what the matcher printed when it could not place a line —
+ * a row telling somebody their own sentence did not fit any category. `Watch`
+ * was the severity badge's second rung, a judgement about a person rendered as
+ * a chip. Neither is a field name, so neither would be caught by the key scan
+ * above; both would arrive as VALUES, which is exactly how a removed feature
+ * comes back without anybody deciding to bring it back.
+ */
+const BANNED_VALUES = ["Unclassified", "Watch"];
+
 const CATEGORY_NAMES = new Set<string>([
   ...ACTIVITY_TYPE_CODES,
   ...INSTRUCTOR_CATEGORY_CODES,
@@ -129,6 +141,13 @@ describe("the scan can fail", () => {
     expect(stringsOf(planted)).toContain("TECH");
   });
 
+  test("and a planted value is found by the string scan", () => {
+    for (const banned of BANNED_VALUES) {
+      const planted = { days: [{ id: "x", insight: { title: `${banned} — 3 days` } }] };
+      expect(JSON.stringify(planted).includes(banned)).toBe(true);
+    }
+  });
+
   test("and a response with none of them is genuinely clean", () => {
     const clean = { days: [{ id: "x", deliverable: "a class" }] };
     expect(keysOf(clean).has("broadCategory")).toBe(false);
@@ -156,6 +175,22 @@ describe("no response carries an evaluative flag", () => {
       const keys = keysOf(res.body);
       for (const banned of BANNED_FLAGS) {
         expect(keys.has(banned), `${endpoint.name} grades the work: \`${banned}\``).toBe(false);
+      }
+    });
+  }
+});
+
+describe("two strings that would mean classification came back", () => {
+  for (const endpoint of SCANNED) {
+    test(endpoint.name, async () => {
+      const res = await instructor.get(endpoint.url());
+      const body = JSON.stringify(res.body);
+      for (const banned of BANNED_VALUES) {
+        /* Matched against the whole serialized response rather than against
+           known fields: the point is to catch it arriving somewhere nobody
+           thought to look. The fixture never types either word, so a hit here
+           is the server's. */
+        expect(body.includes(banned), `${endpoint.name} says "${banned}"`).toBe(false);
       }
     });
   }
