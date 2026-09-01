@@ -77,6 +77,29 @@ case-insensitively after stripping punctuation, ignoring `and the for with on of
 
 ---
 
+## Grouping — the `unit` field
+
+Grouping is not built yet. This is written down now because the wording matters and is
+easy to get wrong in exactly one way.
+
+```
+- unit is a short noun for what is being counted, taken from the words the instructor
+  used for this activity. If their wording suggests no natural noun, use "entries".
+```
+
+It must NOT read `the natural noun for this work: "classes", "sessions", "meetings",
+"reviews"`. That is a predefined vocabulary hiding inside a prompt string — it tells the
+model what kinds of work exist before it has read anything, which is the classification
+layer coming back through a door nobody was watching. The rule describes how to find the
+noun; it does not supply the nouns.
+
+The illustrative grouping example stays — `"<subject> class - loops"` and
+`"<subject> class - arrays"` belong to one group — because the rule is hard to state
+without one. The subject is a placeholder so the example demonstrates the rule rather
+than naming a kind of work.
+
+---
+
 ## Failure handling
 
 Retry once. On a second failure set `status = FAILED` and render that day's raw
