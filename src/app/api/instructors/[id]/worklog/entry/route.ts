@@ -9,64 +9,57 @@ import { assertValidDate } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
-import { classifyLines, recordQuickEntry } from "@/server/worklog/quick-entry";
-import { analyseDayInBackground } from "@/server/worklog/analysis";
-import { splitEntries } from "@/domain/worklog-entry-lines";
+import { parseWorkingHours } from "@/domain/worklog-hours";
 
 /**
- * One line of a day, from the four fields the form asks for.
+ * One day, saved.
  *
- * The screen this serves shows a Broad Category column it never asks about;
- * `recordQuickEntry` fills it by reading the deliverable text, and a day that
- * names no subject inherits from the last one that did. See that module.
+ * ── What this used to do ──────────────────────────────────────────────────
+ * It split the four boxes into a list of activities, classified each one,
+ * placed each on a clock so the day ran end to end from the university's
+ * opening, checked the result for overlaps under an advisory lock, and wrote a
+ * row per activity. A correction had to delete the whole day first, because
+ * appending would have run it past midnight.
+ *
+ * All of that machinery existed to maintain a structure nobody had asked for.
+ * The instructor writes four things; the row now holds four things. Structure is
+ * derived afterwards by `DayExtraction`, where being wrong costs an insight
+ * rather than a record.
+ *
+ * ── An upsert, so there is no such thing as a duplicate day ───────────────
+ * The old shape allowed a day to exist twice and relied on the writer to
+ * prevent it — which is how a correction silently doubled a day when the
+ * `replace` flag was not sent. `(instructorId, logDate)` is unique in the
+ * database now, and a save is an upsert, so a second save of the same day
+ * REPLACES it because there is nowhere else for it to go.
+ *
+ * `replace` is therefore gone from the payload. It is still accepted and
+ * ignored, so a client that has not been updated does not start failing.
  */
 
-/**
- * The four boxes, as typed.
- *
- * ── Strings, not numbers, and the splitting happens on the server ─────────
- * The boxes take LISTS now — "Live Class, Doubt Session" against "2h, 45m" is
- * two entries — and where that list is cut decides which quantity lands on
- * which deliverable. That is not a decision to make in a browser and trust: it
- * is `splitEntries`, one function, and the form calls the same one only to show
- * a preview. What reaches the database is what the server split.
- *
- * `quantity` is a string for the same reason it is nullable elsewhere: an empty
- * box means nobody stated a count, which prints "?" and is a different answer
- * from zero. A number field cannot say that.
- */
-export const QuickEntry = z.object({
+export const DayEntry = z.object({
   /** YYYY-MM-DD in the university's zone. */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  deliverable: z.string().min(1).max(4_000),
-  /* A string or a number, either way.
+  /** What they did, in their own words. */
+  deliverable: z.string().min(1).max(8_000),
+  /**
+   * Free text, stored verbatim.
    *
-   * These became strings so a box can hold a LIST and so an empty quantity can
-   * mean "nobody said" rather than zero. But callers that predate that send
-   * numbers, and breaking them to tidy a type would be breaking a working API
-   * for nothing — `splitEntries` reads "2" and 2 identically. */
+   * "5 class", "2 batches", "half day" — context, not a measurement. A number
+   * field could not hold most of what people actually write here, and coercing
+   * it would replace their words with a parser's opinion of them.
+   */
   quantity: z
-    .union([z.string().max(500), z.number()])
+    .union([z.string().max(1_000), z.number(), z.null()])
     .optional()
-    .transform((v) => (v === undefined ? "" : String(v))),
-  workingHours: z
-    .union([z.string().min(1).max(500), z.number()])
-    .transform((v) => String(v)),
+    .transform((v) => (v === undefined || v === null ? "" : String(v))),
+  /** The day's total. Accepts what people type: "8", "8.5", "8h 30m", "6 hours". */
+  workingHours: z.union([z.string().min(1).max(200), z.number()]).transform((v) => String(v)),
   remarks: z
-    .union([z.string().max(4_000), z.null()])
+    .union([z.string().max(8_000), z.null()])
     .optional()
     .transform((v) => v ?? ""),
-  /**
-   * Rewrite the whole day rather than add to it.
-   *
-   * "Edit Today's Log" hands back every line of the day at once, so saving it
-   * has to REPLACE what is there — appending would duplicate every line the
-   * instructor did not touch. The client cannot do this in two requests: the
-   * new entries are laid end to end after whatever the day already holds, so
-   * writing before deleting pushes a full day past midnight and is refused,
-   * and deleting before writing loses the day if the write then fails. One
-   * request, one order, on the server.
-   */
+  /** Accepted and ignored — see the note above. */
   replace: z.boolean().optional(),
 });
 
@@ -92,148 +85,112 @@ export async function requireWritableInstructor(
 }
 
 export const POST = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
-  const input = QuickEntry.parse(await req.json().catch(() => null));
+  const input = DayEntry.parse(await req.json().catch(() => null));
   // Shape is not a calendar: `2026-02-31` matches the pattern above.
   assertValidDate(input.date);
 
   const instructor = await requireWritableInstructor(scope, params.id);
-  /* An instructor records TODAY. The narrative box has always refused anything
-   * else; this path never did, so the same day was writable here and refused
-   * there. A manager or admin is unaffected — see `assertSelfMayWriteDay`. */
+  /* An instructor may write any day that has happened; the future is refused.
+   * A manager or admin is unaffected — see `assertSelfMayWriteDay`. */
   assertSelfMayWriteDay({
     scope,
     config: await loadUniversityConfig(instructor.universityId),
     workDate: input.date,
   });
 
-  const split = splitEntries({
-    deliverable: input.deliverable,
-    quantity: input.quantity,
-    workingHours: input.workingHours,
-    remarks: input.remarks,
+  const hours = parseWorkingHours(input.workingHours);
+  if (hours === null) {
+    throw new ApiError(
+      400,
+      "INVALID_WORKING_HOURS",
+      `"${input.workingHours}" is not a length of time. Try 8, 8.5, 8h 30m, or 6 hours.`,
+    );
+  }
+  if (hours > 24) {
+    throw new ApiError(400, "INVALID_WORKING_HOURS", `"${input.workingHours}" is longer than a day.`);
+  }
+
+  const deliverable = input.deliverable.trim();
+  if (deliverable === "") throw new ApiError(400, "NOTHING_RECORDED", "Say what you worked on.");
+
+  const data = {
+    deliverable,
+    // Blank normalises to null so "wrote nothing" is one value rather than two.
+    deliverableQuantity: input.quantity.trim() || null,
+    workingHours: hours,
+    remarks: input.remarks.trim() || null,
+  };
+
+  const entry = await prisma.worklogEntry.upsert({
+    where: {
+      instructorId_logDate: { instructorId: instructor.id, logDate: toDateOnly(input.date) },
+    },
+    create: {
+      instructorId: instructor.id,
+      universityId: instructor.universityId,
+      logDate: toDateOnly(input.date),
+      ...data,
+    },
+    update: data,
   });
-  if (!split.ok) throw new ApiError(400, "ENTRY_LINES_INVALID", split.reason);
-
-  /* Cleared AFTER the lines parse and BEFORE any are written.
-   *
-   * After, so a request that was never going to succeed cannot empty a day on
-   * its way to being refused. Before, so the new entries are placed against an
-   * empty day — `recordQuickEntry` lays each one after whatever is already
-   * there, and replacing eight hours with eight more would otherwise run the
-   * day past midnight and be refused for it.
-   *
-   * ── The day is kept, in case none of the new lines lands ────────────────
-   * Parsing is not the only way a rewrite can fail. A line can parse perfectly
-   * and still be refused by the WRITER — "that would run past midnight" is the
-   * easy one to hit, because an instructor correcting 3h to 20h types
-   * something the parser is happy with. By then the delete has happened, every
-   * line is refused, `NOTHING_RECORDED` is thrown, and the instructor sees an
-   * error and reasonably believes nothing changed.
-   *
-   * Their day was destroyed. Confirmed against the database: a day holding one
-   * valid entry came back holding none, with a 400 on screen.
-   *
-   * A transaction around the whole thing is the textbook fix and is not
-   * available here — `logActivity` opens its own, taking a transaction-scoped
-   * advisory lock, and nesting it inside another would have the inner write
-   * waiting on a lock the outer transaction holds. So the rows are snapshotted
-   * instead and put back if nothing survives; see the restore below. */
-  let cleared: Array<Record<string, unknown>> = [];
-  if (input.replace) {
-    const where = { instructorId: instructor.id, workDate: toDateOnly(input.date) };
-    cleared = await prisma.activityLog.findMany({ where });
-    await prisma.activityLog.deleteMany({ where });
-  }
-
-  /* Written in order, one at a time, through the same writer a single entry
-   * always used — so the interval limits, the once-per-day rule and the overlap
-   * check under its advisory lock all apply to each of them.
-   *
-   * In order and not in parallel, deliberately: `recordQuickEntry` lays each
-   * entry after whatever is already on the day, so the second has to see the
-   * first. Racing them would put two activities at the same start time, and the
-   * overlap rule would refuse one of the instructor's own lines. */
-  /* Matched against the taxonomy in memory — no provider, no network. What a
-     line MEANS is read afterwards by `analyseDayInBackground`, off this path. */
-  const classifications = await classifyLines(split.entries);
-
-  const activities = [];
-  const refused: string[] = [];
-  for (const [i, entry] of split.entries.entries()) {
-    try {
-      activities.push(
-        await recordQuickEntry({
-          instructorId: instructor.id,
-          universityId: instructor.universityId,
-          date: input.date,
-          deliverable: entry.deliverable,
-          quantity: entry.quantity,
-          workingHours: entry.workingHours,
-          remarks: entry.remarks,
-          // The two boxes as typed, stored beside the parsed values so the
-          // table can print what was written rather than what it parsed to.
-          rawQuantity: entry.rawQuantity,
-          rawWorkingHours: entry.rawWorkingHours,
-          classification: classifications[i],
-        }),
-      );
-    } catch (error) {
-      /* One line refused — the day is full, or it overlaps something already
-       * recorded — must not cost the instructor the others. What was written
-       * stays written and the response says exactly which did not, because
-       * silently recording four of five is the version they cannot see. */
-      refused.push(
-        `"${entry.deliverable}" — ${error instanceof ApiError ? error.message : "could not be recorded."}`,
-      );
-    }
-  }
-
-  if (activities.length === 0) {
-    /* Nothing was written, so whatever was cleared above is put back exactly as
-     * it was — same ids, same times, same everything. `createMany` because the
-     * rows are already complete: they are not being re-derived, they are being
-     * restored.
-     *
-     * `skipDuplicates` guards the one case where a line DID land on an id that
-     * already exists; it cannot happen on this path, since a single success
-     * would mean `activities.length` is not zero, but a restore that throws
-     * would leave the day empty AND hide the real refusal behind a second
-     * error. */
-    if (cleared.length > 0) {
-      await prisma.activityLog.createMany({
-        data: cleared as never,
-        skipDuplicates: true,
-      });
-    }
-    throw new ApiError(400, "NOTHING_RECORDED", refused.join(" "));
-  }
 
   await logAudit(principal, scope, {
     action: "ACTIVITY_LOGGED",
-    entityType: "ActivityLog",
-    entityId: activities[0]!.id,
+    entityType: "WorklogEntry",
+    entityId: entry.id,
     universityId: instructor.universityId,
-    metadata: { instructorId: instructor.id, via: "quick-entry", entries: activities.length },
+    metadata: { instructorId: instructor.id, logDate: input.date },
   });
 
-  /* ── The reading of the day, started but not waited for ─────────────────
-   * Not awaited, and that is the whole point. Classification used to happen
-   * inline and a save took thirty-four seconds; the day is now written first
-   * and interpreted afterwards, so the instructor gets their response as soon
-   * as their work is safe. The insight lands seconds later and the tables pick
-   * it up on their next read.
-   *
-   * Placed after the audit entry so that a day is recorded as logged whether
-   * or not anything ever manages to analyse it. */
-  analyseDayInBackground({
-    instructorId: instructor.id,
-    universityId: instructor.universityId,
-    workDate: input.date,
+  /* Nothing is invalidated here, deliberately. The insight cache compares a hash
+     of this day's content on the next view, so a write that changes nothing
+     costs nothing and a write that changes something is noticed without anybody
+     having to remember to say so. */
+  return NextResponse.json({ entry }, { status: 201 });
+});
+
+/**
+ * Removes a whole day.
+ *
+ * A day is the unit now, so there is no per-activity delete and no route that
+ * takes an activity id — that whole endpoint is gone. Correcting a day means
+ * saving it again; removing it means this.
+ *
+ * Idempotent: deleting a day that is not there is a success, because the caller
+ * asked for it to be absent and it is. A 404 would only tell somebody clicking
+ * Delete twice that they had done something wrong.
+ */
+export const DELETE = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
+  const date = req.nextUrl.searchParams.get("date") ?? "";
+  assertValidDate(date);
+
+  const instructor = await requireWritableInstructor(scope, params.id);
+  assertSelfMayWriteDay({
+    scope,
+    config: await loadUniversityConfig(instructor.universityId),
+    workDate: date,
   });
 
-  // `activity` stays for callers that sent one and expect one back.
-  return NextResponse.json(
-    { activity: activities[0], activities, refused },
-    { status: 201 },
-  );
+  const removed = await prisma.worklogEntry.deleteMany({
+    where: { instructorId: instructor.id, logDate: toDateOnly(date) },
+  });
+
+  if (removed.count > 0) {
+    await logAudit(principal, scope, {
+      action: "ACTIVITY_DELETED",
+      entityType: "WorklogEntry",
+      universityId: instructor.universityId,
+      metadata: { instructorId: instructor.id, logDate: date },
+    });
+  }
+
+  /* The day's extraction goes with it. An extraction of a day that no longer
+     exists is a reading of nothing, and leaving it would let a later insight be
+     assembled from work that has been removed. The insight cache needs no such
+     sweep: its hash stops matching by itself. */
+  await prisma.dayExtraction.deleteMany({
+    where: { instructorId: instructor.id, logDate: toDateOnly(date) },
+  });
+
+  return NextResponse.json({ ok: true, removed: removed.count });
 });
