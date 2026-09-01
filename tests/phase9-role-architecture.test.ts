@@ -112,8 +112,11 @@ describe("page-level route guards", () => {
       "/manager/activities",
       "/manager/deliverables",
       "/manager/reports",
+      /* `/instructor/activities` is gone. It was the old typed activity form —
+         pick an activity type from a dropdown, give it a clock range — and the
+         worklog page replaced it. A page that does not exist redirects too, so
+         listing it here would have kept passing while testing nothing. */
       "/instructor/worklog",
-      "/instructor/activities",
     ]) {
       expect((await anon.request(path, { method: "GET" })).status, path).toBe(307);
     }
@@ -138,7 +141,7 @@ describe("page-level route guards", () => {
     for (const path of ["/manager/dashboard", "/manager/instructors", "/manager/activities", "/manager/deliverables", "/manager/reports"]) {
       expect((await mgrN.request(path, { method: "GET" })).status, path).toBe(200);
     }
-    for (const path of ["/instructor/worklog", "/instructor/activities"]) {
+    for (const path of ["/instructor/worklog"]) {
       expect((await n1.request(path, { method: "GET" })).status, path).toBe(200);
     }
   });

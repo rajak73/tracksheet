@@ -104,12 +104,7 @@ const INSTRUCTOR_NAV: NavItem[] = [
    * it — two screens showing one person their own day is one screen too many,
    * and /instructor/dashboard now redirects here. */
   { href: "/instructor/worklog", label: "Work Log", icon: IconOverview, group: "main" },
-  {
-    href: "/instructor/activity-tracker",
-    label: "Activity Tracker",
-    icon: IconActivity,
-    group: "main",
-  },
+  
   { href: "/instructor/performance", label: "My Performance", icon: IconAnalytics, group: "main" },
   { href: "/instructor/settings", label: "Settings", icon: IconSettings, group: "admin" },
 ];

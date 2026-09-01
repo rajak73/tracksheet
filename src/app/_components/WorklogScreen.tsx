@@ -49,7 +49,6 @@ import {
   ErrorState,
   PageHeader,
   SearchInput,
-  Select,
   TableSkeleton,
 } from "@/app/_components/ui";
 import { IconDownload, IconFilter } from "@/app/_components/icons";
@@ -100,7 +99,6 @@ type Worklog = {
   instructors: Row[];
 };
 
-type ActivityTypeOption = { code: string; label: string };
 
 type View = "day" | "week" | "month";
 
@@ -147,7 +145,6 @@ export function WorklogScreen({
   const at = anchor ?? today;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
   /* Name first, because a roster is usually read looking for somebody. Total
    * hours is the other question — who is light, who is buried — and the header
    * cycles through descending, ascending and back to name. */
@@ -177,16 +174,6 @@ export function WorklogScreen({
   );
   const { data, error, loading, reload } = useLoad(load, `worklog:${query}`);
 
-  const typesLoad = useCallback(
-    () =>
-      apiGet<{ activityTypes: ActivityTypeOption[] }>(
-        "/api/activity-types",
-        "Could not load activity types.",
-      ),
-    [],
-  );
-  const types = useLoad(typesLoad, "worklog-types");
-
   const [universityId, setUniversityId] = useState<string | null>(null);
   const meLoad = useCallback(async () => {
     const me = await fetchMe();
@@ -195,7 +182,7 @@ export function WorklogScreen({
   }, []);
   useLoad(meLoad, "worklog-university");
 
-  const filtersOn = Boolean(search.trim() || category);
+  const filtersOn = Boolean(search.trim());
 
   /* ── The rows under each name ────────────────────────────────────────────
    * Day gives one row per person, Week seven, Month the weeks the month
@@ -257,10 +244,8 @@ export function WorklogScreen({
         notes: r.notes ?? {},
         subjectByDate: r.subjectByDate ?? {},
         activitiesByDate: r.activities
-          // The category filter narrows ENTRIES rather than people, so it is
           // applied here: an instructor with nothing matching still appears,
           // with an empty row, rather than vanishing from the roster.
-          .filter((a) => !category || a.activityType.code === category)
           .reduce<Record<string, Activity[]>>((acc, a) => {
             (acc[a.date] ??= []).push(a);
             return acc;
@@ -276,7 +261,7 @@ export function WorklogScreen({
         ? totalHours(b, periods) - totalHours(a, periods)
         : totalHours(a, periods) - totalHours(b, periods),
     );
-  }, [data, category, sort, periods]);
+  }, [data, sort, periods]);
 
   const step = (direction: -1 | 1) => {
     if (view === "day") return setAnchor(addDays(at, direction));
@@ -406,28 +391,18 @@ export function WorklogScreen({
               onChange={setSearch}
               placeholder="Search instructor or ID"
             />
-            <Select
-              aria-label="Category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">All categories</option>
-              {(types.data?.activityTypes ?? []).map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.label}
-                </option>
-              ))}
-            </Select>
+            {/* The category dropdown is gone. It offered the sixteen activity
+                types and narrowed the sheet to one of them — a filter is a
+                vocabulary the same way a form control is, and this one was
+                populated from the list that no longer exists. Searching the
+                text people wrote is what the box beside it does. */}
             {filtersOn ? (
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  setSearch("");
-                  setCategory("");
-                }}
+                onClick={() => setSearch("")}
               >
-                Clear filters
+                Clear filter
               </Button>
             ) : null}
           </div>
