@@ -38,7 +38,7 @@ import {
   complianceLabel,
   complianceTone,
 } from "@/app/_components/ui";
-import { AllocationBar, BarCompare, ChartCard } from "@/app/_components/charts";
+import { BarCompare, ChartCard } from "@/app/_components/charts";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
 import { apiGet, fetchMe, useLoad } from "@/app/_lib/api";
 import { formatDate, formatHours, formatWeekday } from "@/app/_lib/format";
@@ -51,7 +51,6 @@ type Totals = {
   missingDataHours: number;
   openingCompliancePct: number | null;
   closingCompliancePct: number | null;
-  hoursByActivityType: Record<string, number>;
 };
 
 type Day = { date: string; isWorkingDay: boolean; hasData: boolean; capacityHours: number; productiveHours: number };
@@ -77,6 +76,12 @@ export default function ManagerAnalyticsPage() {
         totals: Totals;
         instructors: Array<{ days: Day[] }>;
       };
+      figures: {
+        totalHours: number;
+        daysLogged: number;
+        instructorsLogging: number;
+        instructorDays: number;
+      };
     }>(`/api/universities/${universityId}/analytics${query}`, "Could not load analytics.");
 
     // Aggregate per-weekday capacity/recorded across all instructors, purely
@@ -99,6 +104,7 @@ export default function ManagerAnalyticsPage() {
       from: current.analytics.from,
       to: current.analytics.to,
       totals: current.analytics.totals,
+      figures: current.figures,
       days,
     };
   }, [period]);
@@ -185,25 +191,39 @@ export default function ManagerAnalyticsPage() {
         />
       </ChartCard>
 
-      <Section title="Allocation">
+      {/* ── What replaced the allocation bar ──────────────────────────
+          The panel and its position are kept; what it shows is different.
+
+          It used to split capacity into slices by activity type, across every
+          instructor. Those slices needed a shared vocabulary to add up — one
+          person writes "Java class", the next "lecture" — and a bar summing
+          them asserted an agreement that never existed.
+
+          Hours, days and coverage need none: they count days and add up hours,
+          which mean the same thing in everybody's own words. Coverage is the
+          one that was missing. "412 hours" says nothing about whether anybody
+          failed to file; "38 of 45 instructor-days" says exactly that, which is
+          the question a manager opens this page with. */}
+      <Section title="What was recorded">
         <Card>
           <CardHeader
-            title="How capacity was allocated"
+            title="Hours, days and coverage"
             description="Across every instructor in this period."
           />
-          <div className="p-5">
-            {Object.keys(t.hoursByActivityType).length === 0 ? (
-              <p className="text-sm text-muted">No activity recorded in this period.</p>
-            ) : (
-              <AllocationBar
-                slices={Object.entries(t.hoursByActivityType).map(([code, hours]) => ({
-                  code,
-                  hours,
-                }))}
-                unutilizedHours={t.unutilizedHours}
-                missingDataHours={t.missingDataHours}
-              />
-            )}
+          <div className="grid gap-4 p-5 sm:grid-cols-3">
+            <StatTile label="Total hours" value={formatHours(data.figures.totalHours)} />
+            <StatTile label="Days logged" value={data.figures.daysLogged} />
+            {/* An em dash where there are no instructor-days to cover, not
+                "0 of 0": a period with nobody in it has no coverage to report,
+                which is a different fact from nobody filing. */}
+            <StatTile
+              label="Coverage"
+              value={
+                data.figures.instructorDays === 0
+                  ? "—"
+                  : `${data.figures.daysLogged} of ${data.figures.instructorDays}`
+              }
+            />
           </div>
         </Card>
       </Section>

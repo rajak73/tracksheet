@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/server/http/route";
+import { worklogFigures } from "@/server/analytics/worklog-figures";
 import { assertCanAccessUniversity, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { resolvePeriod } from "@/server/analytics/period";
@@ -51,5 +52,30 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
    * The insight a day genuinely has is served from `ai_insight_cache`, per day,
    * to the viewer who asked for it, and it grades nobody. */
 
-  return NextResponse.json({ analytics });
+  /* ── What replaced the allocation bar ──────────────────────────────────
+   * The page showed "how capacity was allocated" as a bar split by activity
+   * type, across every instructor in the period. Those slices needed a shared
+   * vocabulary to add up: one person writes "Java class", the next "lecture",
+   * and a bar that sums them states an agreement that does not exist.
+   *
+   * These three need none. Read from `WorklogEntry`, no model call, always
+   * available — see `worklogFigures`. Coverage is the one that was missing:
+   * "412 hours" says nothing about whether anybody failed to file, and
+   * "38 of 45 instructor-days logged" says exactly that. */
+  const figures = await worklogFigures(
+    analytics.instructors.map((i) => i.instructorId),
+    period.from,
+    period.to,
+  );
+
+  return NextResponse.json({
+    analytics,
+    figures: {
+      ...figures,
+      /* The denominator coverage is measured against: instructor-days the
+         period could hold. Sent rather than derived in the browser, so the
+         screen and any export divide by the same number. */
+      instructorDays: analytics.instructors.reduce((n, i) => n + i.expectedWorkingDays, 0),
+    },
+  });
 });

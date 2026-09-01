@@ -143,17 +143,15 @@ export const GET = withAuth(async ({ scope, req }) => {
   const monthFrom = mondayOf(`${month}-01`);
   const monthTo = addDays(mondayOf(lastDayOfMonth(month)), 6);
 
-  const [day, grid, types] = await Promise.all([
+  const [day, grid] = await Promise.all([
     /* Today AND yesterday in one pass, rather than the engine's own trend.
      * The trend gives a university-wide previous figure, and this dashboard is
      * about the people THIS manager answers for — so both days come back as
      * per-day rows and are summed over the same narrowed set. */
     computeAnalytics({ universityId, from: addDays(date, -1), to: date, managerId }),
     computeAnalytics({ universityId, from: monthFrom, to: monthTo, managerId }),
-    prisma.activityType.findMany({ select: { code: true, label: true } }),
   ]);
 
-  const labelOf = new Map(types.map((t) => [t.code, t.label]));
 
   /* ── Today ─────────────────────────────────────────────────────────────
    * "Logged" and "missing" use the product's own capacity rule, the same one
@@ -221,37 +219,22 @@ export const GET = withAuth(async ({ scope, req }) => {
     });
   }
 
-  /* ── Where the hours went ───────────────────────────────────────────────
-   * Summed over the SAME range as the bars, AND over the same people.
+  /* The roster distribution is gone.
    *
-   * This read `grid.totals.hoursByActivityType`, which is the engine's total
-   * for whatever it was asked about. When the caller is the university's
-   * primary manager the engine is deliberately run WITHOUT a manager filter —
-   * that is how unassigned instructors get answered for — so the totals cover
-   * every roster in the tenant. The week bars below were narrowed with
-   * `keep()` and this was not, which meant a primary manager's doughnut showed
-   * peer managers' hours and disagreed with the bars beside it on the same
-   * screen. Two figures from one page cannot be allowed to describe two
-   * different sets of people.
-   */
-  const byType: Record<string, number> = {};
-  for (const row of keep(grid.instructors)) {
-    for (const [code, hours] of Object.entries(row.hoursByActivityType)) {
-      byType[code] = (byType[code] ?? 0) + hours;
-    }
-  }
-  const mixTotal = Object.values(byType).reduce((n, h) => n + h, 0);
-  const distribution = Object.entries(byType)
-    .filter(([, hours]) => hours > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([code, hours]) => ({
-      code,
-      label: labelOf.get(code) ?? code,
-      hours: round(hours),
-      // Null rather than 0 when there is nothing to be a share of: "no hours
-      // yet" and "0% of the hours" are different statements.
-      pct: mixTotal > 0 ? round((hours / mixTotal) * 100) : null,
-    }));
+   * It summed `hoursByActivityType` across the manager's people into slices
+   * with a percentage each. Nothing rendered it — computed on every request and
+   * served to no reader — but that is not why it goes: adding one instructor's
+   * "Java class" hours to another's "lecture" hours asserts an agreement
+   * between them that a free-text field cannot create.
+   *
+   * No replacement here. The figures that survive without a shared vocabulary
+   * are on the analytics page, in the panel this one's sibling used to fill. */
+
+  /* The month's total hours, which the distribution used to produce as a
+     by-product. Summed straight from the narrowed roster instead of by adding
+     up per-type slices — the figure was never about the types, it just happened
+     to be computed from them. */
+  const monthHours = keep(grid.instructors).reduce((n, row) => n + row.productiveHours, 0);
 
   return NextResponse.json({
     timezone: roster[0]!.university.timezone,
@@ -272,7 +255,6 @@ export const GET = withAuth(async ({ scope, req }) => {
           previous === 0 ? "UNKNOWN" : current > previous ? "UP" : current < previous ? "DOWN" : "FLAT",
       },
     },
-    month: { month, from: monthFrom, to: monthTo, totalHours: round(mixTotal), weeks },
-    distribution,
+    month: { month, from: monthFrom, to: monthTo, totalHours: round(monthHours), weeks },
   });
 }, { roles: ["MANAGER", "ADMIN"] });
