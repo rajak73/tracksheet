@@ -48,9 +48,7 @@
  */
 
 import Link from "next/link";
-import { broadCategoryCell, NOTHING, UNSTATED } from "@/domain/worklog-report";
 import {
-  Badge,
   Card,
   CardHeader,
   CardList,
@@ -67,26 +65,15 @@ import {
 import type { Tracker, TrackerRow } from "@/app/_components/TrackerGrid";
 import { formatHours } from "@/app/_lib/format";
 
-/**
- * Broad Category for a whole row: every subject its weeks touched, deduped and
- * joined by the shared formatter. An em dash when the period named none — a day
- * of meetings and admin genuinely has no subject.
- */
-function subjectsOf(row: TrackerRow): string {
-  return broadCategoryCell(Object.values(row.cells).flatMap((cell) => cell.subjects));
-}
-
-/**
- * Deliverable progress for the period, as the quantity that was booked.
+/* `subjectsOf` and `progressLabel` are gone.
  *
- * `?` where the count is unknown — `> 0` is false for null, so this used to
- * print an em dash, which reads as "none booked" for somebody who booked an
- * unstated number of them.
- */
-function progressLabel(row: TrackerRow): string {
-  if (row.totals.quantity === null) return UNSTATED;
-  return row.totals.quantity > 0 ? String(row.totals.quantity) : "—";
-}
+ * The first joined every SUBJECT a row's weeks touched; the second printed the
+ * deliverable quantity booked for the period, with `?` where a count was
+ * unknown. Both read fields the tracker no longer has — subjects were a fixed
+ * list, and a quantity needed a countable named deliverable to be a quantity
+ * OF. What a row says now is how many days somebody filed and how long they
+ * worked. */
+
 
 export function InstructorDirectory({
   tracker,
@@ -123,9 +110,8 @@ export function InstructorDirectory({
                 { label: "Instructor" },
                 { label: "Employee ID" },
                 { label: "Status" },
-                { label: "Broad category" },
                 { label: "Recorded hours", align: "right" },
-                { label: "Deliverables", align: "right" },
+                { label: "Days logged", align: "right" },
               ]}
             />
             <TBody>
@@ -140,15 +126,8 @@ export function InstructorDirectory({
                   <TD>
                     <StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />
                   </TD>
-                  <TD>
-                    {subjectsOf(row) === NOTHING ? (
-                      <span className="text-subtle">{NOTHING}</span>
-                    ) : (
-                      <Badge tone="neutral">{subjectsOf(row)}</Badge>
-                    )}
-                  </TD>
                   <TD align="right">{formatHours(row.totals.totalWorkingHours)}</TD>
-                  <TD align="right">{progressLabel(row)}</TD>
+                  <TD align="right">{row.totals.daysLogged}</TD>
                 </TR>
               ))}
             </TBody>
@@ -169,17 +148,12 @@ export function InstructorDirectory({
               subtitle={
                 <span className="tabular">
                   {row.employeeCode ?? "—"}
-                  {subjectsOf(row) === NOTHING ? "" : ` · ${subjectsOf(row)}`}
                 </span>
               }
               meta={
                 <span className="tabular text-sm text-muted">
-                  {formatHours(row.totals.totalWorkingHours)} recorded
-                  {row.totals.quantity === null
-                    ? ` · ${UNSTATED} deliverables`
-                    : row.totals.quantity > 0
-                      ? ` · ${row.totals.quantity} deliverable${row.totals.quantity === 1 ? "" : "s"}`
-                      : ""}
+                  {formatHours(row.totals.totalWorkingHours)} recorded ·{" "}
+                  {row.totals.daysLogged} day{row.totals.daysLogged === 1 ? "" : "s"}
                 </span>
               }
               trailing={<StatusPill status={row.isActive ? "ACTIVE" : "FORMER"} />}

@@ -13,9 +13,8 @@
  * used to see someone the caller is not allowed to see.
  */
 
-import { Badge, Card, CardBody, StatusPill } from "@/app/_components/ui";
+import { Card, CardBody, StatusPill } from "@/app/_components/ui";
 import { TrackerReport } from "@/app/_components/TrackerReport";
-import { humanizeCode } from "@/app/_lib/format";
 
 export function InstructorReport({
   universityId,
@@ -23,14 +22,12 @@ export function InstructorReport({
   instructorName,
   employeeCode,
   isActive,
-  category,
 }: {
   universityId: string;
   instructorId: string;
   instructorName: string;
   employeeCode: string | null;
   isActive: boolean;
-  category: string | null;
 }) {
   return (
     <div className="space-y-5">
@@ -43,7 +40,6 @@ export function InstructorReport({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill status={isActive ? "ACTIVE" : "FORMER"} />
-              {category ? <Badge tone="neutral">{humanizeCode(category)}</Badge> : null}
             </div>
           </div>
           {!isActive ? (

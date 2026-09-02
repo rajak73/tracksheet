@@ -34,7 +34,6 @@ export default function AdminInstructorReportPage({
       `/api/instructors/${id}`,
       "Could not load this instructor.",
     );
-    // The category is derived from recorded work, so it comes from the tracker
     // rather than a stored field — one fetch, current week.
     const { tracker } = await apiGet<{ tracker: Tracker }>(
       `/api/universities/${instructor.universityId}/tracker?instructorId=${id}`,
@@ -66,7 +65,7 @@ export default function AdminInstructorReportPage({
     );
   }
 
-  const { instructor, row } = data;
+  const { instructor } = data;
 
   return (
     <div className="space-y-6">
@@ -92,7 +91,6 @@ export default function AdminInstructorReportPage({
         instructorName={instructor.user.name}
         employeeCode={instructor.employeeCode}
         isActive={instructor.user.isActive}
-        category={row?.category ?? null}
       />
     </div>
   );

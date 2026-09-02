@@ -292,7 +292,7 @@ export function TrackerReport({
 
           {/* The per-category split is only legible on a one-person report;
               on a team grid it repeats for every row. */}
-          <TrackerGrid tracker={data} showBreakdown={Boolean(instructorId)} />
+          <TrackerGrid tracker={data} />
         </>
       )}
     </div>

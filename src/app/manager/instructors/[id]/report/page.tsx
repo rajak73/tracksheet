@@ -65,7 +65,7 @@ export default function ManagerInstructorReportPage({
     );
   }
 
-  const { instructor, row } = data;
+  const { instructor } = data;
 
   return (
     <div className="space-y-6">
@@ -87,7 +87,6 @@ export default function ManagerInstructorReportPage({
         instructorName={instructor.user.name}
         employeeCode={instructor.employeeCode}
         isActive={instructor.user.isActive}
-        category={row?.category ?? null}
       />
     </div>
   );
