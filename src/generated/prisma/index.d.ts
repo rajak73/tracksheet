@@ -52293,11 +52293,11 @@ export namespace Prisma {
   }
 
   export type DayExtractionAvgAggregateOutputType = {
-    unallocatedHours: Decimal | null
+    unallocatedMinutes: number | null
   }
 
   export type DayExtractionSumAggregateOutputType = {
-    unallocatedHours: Decimal | null
+    unallocatedMinutes: number | null
   }
 
   export type DayExtractionMinAggregateOutputType = {
@@ -52305,8 +52305,9 @@ export namespace Prisma {
     instructorId: string | null
     logDate: Date | null
     sourceHash: string | null
-    unallocatedHours: Decimal | null
+    unallocatedMinutes: number | null
     status: $Enums.DayExtractionStatus | null
+    lastError: string | null
     promptVersion: string | null
     modelId: string | null
     generatedAt: Date | null
@@ -52318,8 +52319,9 @@ export namespace Prisma {
     instructorId: string | null
     logDate: Date | null
     sourceHash: string | null
-    unallocatedHours: Decimal | null
+    unallocatedMinutes: number | null
     status: $Enums.DayExtractionStatus | null
+    lastError: string | null
     promptVersion: string | null
     modelId: string | null
     generatedAt: Date | null
@@ -52333,8 +52335,9 @@ export namespace Prisma {
     sourceHash: number
     rawContext: number
     items: number
-    unallocatedHours: number
+    unallocatedMinutes: number
     status: number
+    lastError: number
     promptVersion: number
     modelId: number
     generatedAt: number
@@ -52344,11 +52347,11 @@ export namespace Prisma {
 
 
   export type DayExtractionAvgAggregateInputType = {
-    unallocatedHours?: true
+    unallocatedMinutes?: true
   }
 
   export type DayExtractionSumAggregateInputType = {
-    unallocatedHours?: true
+    unallocatedMinutes?: true
   }
 
   export type DayExtractionMinAggregateInputType = {
@@ -52356,8 +52359,9 @@ export namespace Prisma {
     instructorId?: true
     logDate?: true
     sourceHash?: true
-    unallocatedHours?: true
+    unallocatedMinutes?: true
     status?: true
+    lastError?: true
     promptVersion?: true
     modelId?: true
     generatedAt?: true
@@ -52369,8 +52373,9 @@ export namespace Prisma {
     instructorId?: true
     logDate?: true
     sourceHash?: true
-    unallocatedHours?: true
+    unallocatedMinutes?: true
     status?: true
+    lastError?: true
     promptVersion?: true
     modelId?: true
     generatedAt?: true
@@ -52384,8 +52389,9 @@ export namespace Prisma {
     sourceHash?: true
     rawContext?: true
     items?: true
-    unallocatedHours?: true
+    unallocatedMinutes?: true
     status?: true
+    lastError?: true
     promptVersion?: true
     modelId?: true
     generatedAt?: true
@@ -52486,8 +52492,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonValue
     items: JsonValue
-    unallocatedHours: Decimal
+    unallocatedMinutes: number
     status: $Enums.DayExtractionStatus
+    lastError: string | null
     promptVersion: string
     modelId: string
     generatedAt: Date
@@ -52520,8 +52527,9 @@ export namespace Prisma {
     sourceHash?: boolean
     rawContext?: boolean
     items?: boolean
-    unallocatedHours?: boolean
+    unallocatedMinutes?: boolean
     status?: boolean
+    lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
     generatedAt?: boolean
@@ -52536,8 +52544,9 @@ export namespace Prisma {
     sourceHash?: boolean
     rawContext?: boolean
     items?: boolean
-    unallocatedHours?: boolean
+    unallocatedMinutes?: boolean
     status?: boolean
+    lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
     generatedAt?: boolean
@@ -52552,8 +52561,9 @@ export namespace Prisma {
     sourceHash?: boolean
     rawContext?: boolean
     items?: boolean
-    unallocatedHours?: boolean
+    unallocatedMinutes?: boolean
     status?: boolean
+    lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
     generatedAt?: boolean
@@ -52568,15 +52578,16 @@ export namespace Prisma {
     sourceHash?: boolean
     rawContext?: boolean
     items?: boolean
-    unallocatedHours?: boolean
+    unallocatedMinutes?: boolean
     status?: boolean
+    lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
     generatedAt?: boolean
     updatedAt?: boolean
   }
 
-  export type DayExtractionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "logDate" | "sourceHash" | "rawContext" | "items" | "unallocatedHours" | "status" | "promptVersion" | "modelId" | "generatedAt" | "updatedAt", ExtArgs["result"]["dayExtraction"]>
+  export type DayExtractionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "logDate" | "sourceHash" | "rawContext" | "items" | "unallocatedMinutes" | "status" | "lastError" | "promptVersion" | "modelId" | "generatedAt" | "updatedAt", ExtArgs["result"]["dayExtraction"]>
   export type DayExtractionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
   }
@@ -52617,9 +52628,25 @@ export namespace Prisma {
        * somebody wrote what they did without saying how long each part took. Shown
        * rather than hidden: without it the group hours look as though they should
        * add up to the total, and somebody eventually tries to reconcile them.
+       * T − S in WHOLE MINUTES: the day's recorded total less everything the
+       * extraction could attribute. Zero is common and valid — an instructor who
+       * named what they did without saying how long each took leaves the whole day
+       * unallocated.
+       * 
+       * Minutes, not hours, because reconciliation subtracts stated durations from
+       * the recorded total and a lossy total leaves a spurious remainder in every
+       * stored insight, forever.
        */
-      unallocatedHours: Prisma.Decimal
+      unallocatedMinutes: number
       status: $Enums.DayExtractionStatus
+      /**
+       * Which check refused the extraction, in the words the check used.
+       * 
+       * Null on a READY row. A FAILED day renders its raw text with a retry
+       * control, and somebody debugging it needs to know WHICH of the six said no
+       * — "extraction failed" is not something anybody can act on.
+       */
+      lastError: string | null
       promptVersion: string
       modelId: string
       generatedAt: Date
@@ -53054,8 +53081,9 @@ export namespace Prisma {
     readonly sourceHash: FieldRef<"DayExtraction", 'String'>
     readonly rawContext: FieldRef<"DayExtraction", 'Json'>
     readonly items: FieldRef<"DayExtraction", 'Json'>
-    readonly unallocatedHours: FieldRef<"DayExtraction", 'Decimal'>
+    readonly unallocatedMinutes: FieldRef<"DayExtraction", 'Int'>
     readonly status: FieldRef<"DayExtraction", 'DayExtractionStatus'>
+    readonly lastError: FieldRef<"DayExtraction", 'String'>
     readonly promptVersion: FieldRef<"DayExtraction", 'String'>
     readonly modelId: FieldRef<"DayExtraction", 'String'>
     readonly generatedAt: FieldRef<"DayExtraction", 'DateTime'>
@@ -55276,8 +55304,9 @@ export namespace Prisma {
     sourceHash: 'sourceHash',
     rawContext: 'rawContext',
     items: 'items',
-    unallocatedHours: 'unallocatedHours',
+    unallocatedMinutes: 'unallocatedMinutes',
     status: 'status',
+    lastError: 'lastError',
     promptVersion: 'promptVersion',
     modelId: 'modelId',
     generatedAt: 'generatedAt',
@@ -55796,20 +55825,6 @@ export namespace Prisma {
    * Reference to a field of type 'WorklogEntrySource[]'
    */
   export type ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntrySource[]'>
-    
-
-
-  /**
-   * Reference to a field of type 'Decimal'
-   */
-  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
-    
-
-
-  /**
-   * Reference to a field of type 'Decimal[]'
-   */
-  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
 
 
@@ -59465,8 +59480,9 @@ export namespace Prisma {
     sourceHash?: StringFilter<"DayExtraction"> | string
     rawContext?: JsonFilter<"DayExtraction">
     items?: JsonFilter<"DayExtraction">
-    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
     generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
@@ -59481,8 +59497,9 @@ export namespace Prisma {
     sourceHash?: SortOrder
     rawContext?: SortOrder
     items?: SortOrder
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
     status?: SortOrder
+    lastError?: SortOrderInput | SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
     generatedAt?: SortOrder
@@ -59501,8 +59518,9 @@ export namespace Prisma {
     sourceHash?: StringFilter<"DayExtraction"> | string
     rawContext?: JsonFilter<"DayExtraction">
     items?: JsonFilter<"DayExtraction">
-    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
     generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
@@ -59517,8 +59535,9 @@ export namespace Prisma {
     sourceHash?: SortOrder
     rawContext?: SortOrder
     items?: SortOrder
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
     status?: SortOrder
+    lastError?: SortOrderInput | SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
     generatedAt?: SortOrder
@@ -59540,8 +59559,9 @@ export namespace Prisma {
     sourceHash?: StringWithAggregatesFilter<"DayExtraction"> | string
     rawContext?: JsonWithAggregatesFilter<"DayExtraction">
     items?: JsonWithAggregatesFilter<"DayExtraction">
-    unallocatedHours?: DecimalWithAggregatesFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntWithAggregatesFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusWithAggregatesFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    lastError?: StringNullableWithAggregatesFilter<"DayExtraction"> | string | null
     promptVersion?: StringWithAggregatesFilter<"DayExtraction"> | string
     modelId?: StringWithAggregatesFilter<"DayExtraction"> | string
     generatedAt?: DateTimeWithAggregatesFilter<"DayExtraction"> | Date | string
@@ -63618,8 +63638,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -63634,8 +63655,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -63648,8 +63670,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63664,8 +63687,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63679,8 +63703,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -63693,8 +63718,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63708,8 +63734,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -66944,17 +66971,6 @@ export namespace Prisma {
     _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
   }
 
-  export type DecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
   export type EnumDayExtractionStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
     in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
@@ -66974,8 +66990,9 @@ export namespace Prisma {
     sourceHash?: SortOrder
     rawContext?: SortOrder
     items?: SortOrder
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
     status?: SortOrder
+    lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
     generatedAt?: SortOrder
@@ -66983,7 +67000,7 @@ export namespace Prisma {
   }
 
   export type DayExtractionAvgOrderByAggregateInput = {
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
   }
 
   export type DayExtractionMaxOrderByAggregateInput = {
@@ -66991,8 +67008,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     logDate?: SortOrder
     sourceHash?: SortOrder
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
     status?: SortOrder
+    lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
     generatedAt?: SortOrder
@@ -67004,8 +67022,9 @@ export namespace Prisma {
     instructorId?: SortOrder
     logDate?: SortOrder
     sourceHash?: SortOrder
-    unallocatedHours?: SortOrder
+    unallocatedMinutes?: SortOrder
     status?: SortOrder
+    lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
     generatedAt?: SortOrder
@@ -67013,23 +67032,7 @@ export namespace Prisma {
   }
 
   export type DayExtractionSumOrderByAggregateInput = {
-    unallocatedHours?: SortOrder
-  }
-
-  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
+    unallocatedMinutes?: SortOrder
   }
 
   export type EnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -71395,14 +71398,6 @@ export namespace Prisma {
     connect?: InstructorWhereUniqueInput
   }
 
-  export type DecimalFieldUpdateOperationsInput = {
-    set?: Decimal | DecimalJsLike | number | string
-    increment?: Decimal | DecimalJsLike | number | string
-    decrement?: Decimal | DecimalJsLike | number | string
-    multiply?: Decimal | DecimalJsLike | number | string
-    divide?: Decimal | DecimalJsLike | number | string
-  }
-
   export type EnumDayExtractionStatusFieldUpdateOperationsInput = {
     set?: $Enums.DayExtractionStatus
   }
@@ -72136,38 +72131,11 @@ export namespace Prisma {
     _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
   }
 
-  export type NestedDecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
   export type NestedEnumDayExtractionStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
     in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
     notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
     not?: NestedEnumDayExtractionStatusFilter<$PrismaModel> | $Enums.DayExtractionStatus
-  }
-
-  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type NestedEnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -77282,8 +77250,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -77296,8 +77265,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -77822,8 +77792,9 @@ export namespace Prisma {
     sourceHash?: StringFilter<"DayExtraction"> | string
     rawContext?: JsonFilter<"DayExtraction">
     items?: JsonFilter<"DayExtraction">
-    unallocatedHours?: DecimalFilter<"DayExtraction"> | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
     generatedAt?: DateTimeFilter<"DayExtraction"> | Date | string
@@ -90371,8 +90342,9 @@ export namespace Prisma {
     sourceHash: string
     rawContext: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    lastError?: string | null
     promptVersion: string
     modelId: string
     generatedAt?: Date | string
@@ -91100,8 +91072,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -91114,8 +91087,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -91128,8 +91102,9 @@ export namespace Prisma {
     sourceHash?: StringFieldUpdateOperationsInput | string
     rawContext?: JsonNullValueInput | InputJsonValue
     items?: JsonNullValueInput | InputJsonValue
-    unallocatedHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
     generatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

@@ -24,11 +24,21 @@ import {
 const day = (deliverable: string, quantity: string | null = null, hours = 8): DayText => ({
   deliverable,
   deliverableQuantity: quantity,
-  workingHours: hours,
+  // Written in hours because these fixtures read better that way; stored, and
+  // checked, in the minutes the record actually holds.
+  workingMinutes: Math.round(hours * 60),
 });
 
-const act = (label: string, sessions: number | null = null, hours: number | null = null):
-  ExtractedActivity => ({ label, sessions, hours });
+/**
+ * `duration` is the number AS THE TEXT STATES IT, with its unit — never a
+ * conversion. That separation is the point of the two fields.
+ */
+const act = (
+  label: string,
+  sessions: number | null = null,
+  duration: number | null = null,
+  unit: "hours" | "minutes" | null = duration === null ? null : "hours",
+): ExtractedActivity => ({ label, sessions, duration_value: duration, duration_unit: unit });
 
 /** True when the result failed, and failed on check 1 specifically. */
 const failedProvenance = (r: ReturnType<typeof checkExtraction>) =>
@@ -144,27 +154,27 @@ describe("segmenting the day's text", () => {
   });
 });
 
-describe("the other four checks still hold", () => {
-  test("2. hours attributed beyond the day's total are refused", () => {
+describe("the other checks still hold", () => {
+  test("2. time attributed beyond the day's total is refused", () => {
     const r = checkExtraction([act("teaching", null, 9)], day("teaching 9 hours", null, 8));
     expect(!r.ok && r.failures.some((f) => f.check === 2)).toBe(true);
   });
 
-  test("3. an extraction that states no hours leaves the whole day unallocated", () => {
+  test("3. an extraction that states no duration leaves the whole day unallocated", () => {
     /* Common, and not a failure: the instructor named what they did without
        saying how long each took. On migrated days it is the norm. */
     const r = checkExtraction([act("Lecture"), act("Doubt session")], day("Lecture; Doubt session", null, 6));
     expect(r.ok).toBe(true);
-    expect(r.ok && r.unallocatedHours).toBe(6);
+    expect(r.ok && r.unallocatedMinutes).toBe(360);
   });
 
-  test("3. and hours that were stated come off the total", () => {
+  test("3. and durations that were stated come off the total", () => {
     const r = checkExtraction(
       [act("Lecture", null, 2), act("Doubt session", null, 1.5)],
       day("Lecture — 2 hours; Doubt session — 1.5 hours", null, 6),
     );
     expect(r.ok, JSON.stringify(r)).toBe(true);
-    expect(r.ok && r.unallocatedHours).toBe(2.5);
+    expect(r.ok && r.unallocatedMinutes).toBe(150);
   });
 
   test("4. an empty extraction is a failure", () => {

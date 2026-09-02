@@ -1854,9 +1854,24 @@ model DayExtraction {
   /// somebody wrote what they did without saying how long each part took. Shown
   /// rather than hidden: without it the group hours look as though they should
   /// add up to the total, and somebody eventually tries to reconcile them.
-  unallocatedHours Decimal @default(0) @db.Decimal(6, 2)
+  /// T − S in WHOLE MINUTES: the day's recorded total less everything the
+  /// extraction could attribute. Zero is common and valid — an instructor who
+  /// named what they did without saying how long each took leaves the whole day
+  /// unallocated.
+  ///
+  /// Minutes, not hours, because reconciliation subtracts stated durations from
+  /// the recorded total and a lossy total leaves a spurious remainder in every
+  /// stored insight, forever.
+  unallocatedMinutes Int @default(0)
 
   status DayExtractionStatus @default(READY)
+
+  /// Which check refused the extraction, in the words the check used.
+  ///
+  /// Null on a READY row. A FAILED day renders its raw text with a retry
+  /// control, and somebody debugging it needs to know WHICH of the six said no
+  /// — "extraction failed" is not something anybody can act on.
+  lastError String?
 
   promptVersion String
   modelId       String

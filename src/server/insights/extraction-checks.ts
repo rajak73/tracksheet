@@ -1,5 +1,5 @@
 /**
- * The five checks an extraction must pass before it is stored.
+ * The six checks an extraction must pass before it is stored.
  *
  * ── Why an extraction is checked at all ───────────────────────────────────
  * The model is asked what a day's text says. It is not asked to count, and the
@@ -14,31 +14,60 @@
  * its raw text unchanged. A failed check never produces a partial extraction.
  */
 
+/** The units a duration can be stated in. Anything else is not a duration. */
+export type DurationUnit = "hours" | "minutes";
+
 /** One activity as the model returned it. */
 export type ExtractedActivity = {
   label: string;
   /** How many of the thing. Null when the text does not say. */
   sessions: number | null;
-  /** Hours attributed to this activity. Null when the text does not say. */
-  hours: number | null;
+  /**
+   * How long, IN THE UNIT THE TEXT USES. Null when the text states no duration.
+   *
+   * ── Why not `hours` ───────────────────────────────────────────────────────
+   * It was `hours`, and that field could not be filled honestly. An instructor
+   * writing "checked 25 quiz papers — 45 minutes" states 45; a model asked for
+   * hours has to answer 0.75, and 0.75 is nowhere in the text, so digit
+   * provenance rejects it — correctly. Every line stating minutes failed, which
+   * in real data is most of them.
+   *
+   * Reporting the number as written keeps provenance meaningful and keeps the
+   * model out of arithmetic. Code converts; the model never does.
+   */
+  duration_value: number | null;
+  duration_unit: DurationUnit | null;
 };
+
+/**
+ * The duration in whole minutes, or null when none was stated.
+ *
+ * The only place a unit conversion happens, and it happens in code, after the
+ * stated number has already been checked against the text.
+ */
+export function durationMinutes(activity: ExtractedActivity): number | null {
+  if (activity.duration_value === null || activity.duration_unit === null) return null;
+  return activity.duration_unit === "hours"
+    ? Math.round(activity.duration_value * 60)
+    : Math.round(activity.duration_value);
+}
 
 /** The day the extraction describes. */
 export type DayText = {
   deliverable: string;
   deliverableQuantity: string | null;
-  /** T — the hours the instructor recorded for the day, independently. */
-  workingHours: number;
+  /** T — the MINUTES the instructor recorded for the day, independently. */
+  workingMinutes: number;
 };
 
 export type CheckFailure = {
-  /** Which of the five. Numbered as the spec numbers them. */
-  check: 1 | 2 | 3 | 4 | 5;
+  /** Which of the six. Numbered as the spec numbers them. */
+  check: 1 | 2 | 3 | 4 | 5 | 6;
   reason: string;
 };
 
 export type CheckResult =
-  | { ok: true; unallocatedHours: number }
+  | { ok: true; unallocatedMinutes: number }
   | { ok: false; failures: CheckFailure[] };
 
 /* Ignored when deciding whether two pieces of text are about the same thing.
@@ -148,7 +177,13 @@ function checkProvenance(activities: ExtractedActivity[], day: DayText): CheckFa
   for (const activity of activities) {
     const numbers: Array<[string, number]> = [];
     if (activity.sessions !== null) numbers.push(["sessions", activity.sessions]);
-    if (activity.hours !== null) numbers.push(["hours", activity.hours]);
+    /* The duration AS STATED, never the converted minutes. "45 minutes"
+       converts to 45 either way, but "2 hours" converts to 120 and 120 is not in
+       the text — checking the converted figure would fail every duration written
+       in hours. The number the model reported is the number the text must hold. */
+    if (activity.duration_value !== null) {
+      numbers.push(["duration_value", activity.duration_value]);
+    }
     // A null states nothing and so has nothing to prove.
     if (numbers.length === 0) continue;
 
@@ -183,7 +218,63 @@ function checkProvenance(activities: ExtractedActivity[], day: DayText): CheckFa
 }
 
 /**
- * Runs all five checks and, when they pass, returns the day's unallocated hours.
+ * Check 6 — distinct occurrence.
+ *
+ * ── The hole check 1 leaves open ──────────────────────────────────────────
+ * Check 1 asks whether each number APPEARS near its activity. Ask that of a
+ * line reading "Doubt solving session - 1 hour" and an extraction claiming
+ * `sessions: 1` and `duration_value: 1` passes twice over — the same single `1`
+ * vouches for both fields. The text says one hour. It does not say one session,
+ * and nothing in check 1 can tell the difference.
+ *
+ * So every stated number must map to its OWN occurrence. Two fields wanting the
+ * same value need the text to state that value twice.
+ *
+ * Implemented by consuming occurrences: the numbers in the matched segments are
+ * collected WITH their multiplicity, and each field removes one. A field left
+ * with nothing to take is a field the text does not separately support.
+ */
+function checkDistinctOccurrence(activities: ExtractedActivity[], day: DayText): CheckFailure[] {
+  const source = [day.deliverable, day.deliverableQuantity ?? ""].filter(Boolean).join("\n");
+  const parts = segments(source).map((text) => ({ text, words: meaningfulWords(text) }));
+  const failures: CheckFailure[] = [];
+
+  for (const activity of activities) {
+    const wanted: Array<[string, number]> = [];
+    if (activity.sessions !== null) wanted.push(["sessions", activity.sessions]);
+    if (activity.duration_value !== null) {
+      wanted.push(["duration_value", activity.duration_value]);
+    }
+    /* One number can never collide with itself, and none at all states nothing.
+       Check 1 already covers whether a lone number is present. */
+    if (wanted.length < 2) continue;
+
+    const labelWords = meaningfulWords(activity.label);
+    const near = parts.filter((p) => [...p.words].some((w) => labelWords.has(w)));
+    // No segment at all is check 1's failure to report, not this one's.
+    if (near.length === 0) continue;
+
+    const available = near.flatMap((p) => numbersIn(p.text));
+    for (const [field, value] of wanted) {
+      const at = available.findIndex((n) => Math.abs(n - value) < 1e-9);
+      if (at === -1) {
+        failures.push({
+          check: 6,
+          reason:
+            `${field} ${value} has no occurrence of its own near "${activity.label}" — ` +
+            `the text states that number fewer times than the extraction uses it`,
+        });
+        continue;
+      }
+      // Consumed, so the next field cannot claim the same occurrence.
+      available.splice(at, 1);
+    }
+  }
+  return failures;
+}
+
+/**
+ * Runs all six checks and, when they pass, returns the day's unallocated minutes.
  *
  * Every check runs even after one has failed: a caller retrying once is better
  * served by the whole list than by the first thing that went wrong.
@@ -195,11 +286,13 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
   failures.push(...checkProvenance(activities, day));
 
   // ── 2. No over-allocation ────────────────────────────────────────────────
-  const allocated = activities.reduce((sum, a) => sum + (a.hours ?? 0), 0);
-  if (allocated > day.workingHours + 0.01) {
+  /* One minute of slack, not a hundredth of an hour: the unit is minutes now,
+     so the tolerance is the smallest thing the record can express. */
+  const allocated = activities.reduce((sum, a) => sum + (durationMinutes(a) ?? 0), 0);
+  if (allocated > day.workingMinutes + 1) {
     failures.push({
       check: 2,
-      reason: `activities allocate ${allocated.toFixed(2)}h against a recorded ${day.workingHours.toFixed(2)}h`,
+      reason: `activities allocate ${allocated} minutes against a recorded ${day.workingMinutes}`,
     });
   }
 
@@ -212,6 +305,9 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
       failures.push({ check: 4, reason: `activity ${i} has an empty label` });
     }
   }
+
+  // ── 6. Distinct occurrence ───────────────────────────────────────────────
+  failures.push(...checkDistinctOccurrence(activities, day));
 
   // ── 5. No fabricated activities ──────────────────────────────────────────
   const dayWords = meaningfulWords(day.deliverable);
@@ -229,7 +325,10 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
 
   /* ── 3. Reconciliation ──────────────────────────────────────────────────
    * Not a check that can fail. `S = 0` means the instructor named activities
-   * without stating hours for them, so the whole day is unallocated — valid,
-   * and on migrated days it is the norm rather than the exception. */
-  return { ok: true, unallocatedHours: Math.round((day.workingHours - allocated) * 100) / 100 };
+   * without stating a duration for any of them, so the whole day is
+   * unallocated — valid, and on migrated days it is the norm.
+   *
+   * Whole minutes in, whole minutes out. Nothing rounds here, so nothing can
+   * leave a spurious hundredth behind — which is why the column changed. */
+  return { ok: true, unallocatedMinutes: day.workingMinutes - allocated };
 }

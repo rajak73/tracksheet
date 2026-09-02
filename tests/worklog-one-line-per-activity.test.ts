@@ -133,21 +133,21 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
     "Checked DSA assignments - batch A",
   ].join("\n");
 
-  const day = { deliverable: FOUR_LINES, deliverableQuantity: null, workingHours: 8 };
+  const day = { deliverable: FOUR_LINES, deliverableQuantity: null, workingMinutes: 480 };
 
   test("3. each line's own numbers pass against its own activity", () => {
     const result = checkExtraction(
       [
-        { label: "Java class inheritance", sessions: 2, hours: 4 },
-        { label: "Doubt solving session", sessions: null, hours: 1 },
-        { label: "Department meeting", sessions: null, hours: null },
-        { label: "Checked DSA assignments", sessions: null, hours: null },
+        { label: "Java class inheritance", sessions: 2, duration_value: 4, duration_unit: "hours" },
+        { label: "Doubt solving session", sessions: null, duration_value: 1, duration_unit: "hours" },
+        { label: "Department meeting", sessions: null, duration_value: null, duration_unit: null },
+        { label: "Checked DSA assignments", sessions: null, duration_value: null, duration_unit: null },
       ],
       day,
     );
     expect(result.ok, JSON.stringify(result)).toBe(true);
-    // 4 + 1 stated against 8 recorded.
-    expect(result.ok && result.unallocatedHours).toBe(3);
+    // 240 + 60 stated against 480 recorded.
+    expect(result.ok && result.unallocatedMinutes).toBe(180);
   });
 
   test("4. a number from one line fails against an activity from another", () => {
@@ -155,13 +155,13 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
        text, so presence passed it to whichever activity asked — which is how
        "40" attached itself to the wrong thing. */
     const wrong = checkExtraction(
-      [{ label: "Department meeting", sessions: 2, hours: null }],
+      [{ label: "Department meeting", sessions: 2, duration_value: null, duration_unit: null }],
       day,
     );
     expect(!wrong.ok && wrong.failures.some((f) => f.check === 1)).toBe(true);
 
     const alsoWrong = checkExtraction(
-      [{ label: "Doubt solving session", sessions: null, hours: 4 }],
+      [{ label: "Doubt solving session", sessions: null, duration_value: 4, duration_unit: "hours" }],
       day,
     );
     expect(!alsoWrong.ok && alsoWrong.failures.some((f) => f.check === 1)).toBe(true);
@@ -174,14 +174,14 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
     const paragraph = {
       deliverable: "Spent the morning on the OOPs lecture and the afternoon marking",
       deliverableQuantity: null,
-      workingHours: 6,
+      workingMinutes: 360,
     };
     const result = checkExtraction(
-      [{ label: "OOPs lecture", sessions: null, hours: null }],
+      [{ label: "OOPs lecture", sessions: null, duration_value: null, duration_unit: null }],
       paragraph,
     );
     expect(result.ok, JSON.stringify(result)).toBe(true);
-    expect(result.ok && result.unallocatedHours).toBe(6);
+    expect(result.ok && result.unallocatedMinutes).toBe(360);
   });
 });
 
