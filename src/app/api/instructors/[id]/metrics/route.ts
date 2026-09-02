@@ -72,7 +72,7 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       productiveHours,
       unutilizedHours: toHours(sum((r) => r.unutilizedMinutes)),
       missingDataHours: toHours(sum((r) => r.missingDataMinutes)),
-      utilizationPct:
+      recordedHoursPct:
         capacityHours > 0 ? Number(((productiveHours / capacityHours) * 100).toFixed(2)) : null,
     },
     weeks: weeks.map((w) => ({
@@ -82,7 +82,7 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       productiveHours: toHours(w.productiveMinutes),
       unutilizedHours: toHours(w.unutilizedMinutes),
       missingDataHours: toHours(w.missingDataMinutes),
-      utilizationPct: w.utilizationPercent,
+      recordedHoursPct: w.recordedHoursPercent,
       expectedWorkingDays: w.expectedWorkingDays,
     })),
     days: rows.map((r) => ({

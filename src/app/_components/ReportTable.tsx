@@ -5,7 +5,7 @@ import { formatHours } from "@/app/_lib/format";
 
 /**
  * The row as this table reads it. The reports endpoint sends more than this —
- * `utilizationPct` among it — and is welcome to keep doing so; what a screen
+ * `recordedHoursPct` among it — and is welcome to keep doing so; what a screen
  * declares here is what a screen is allowed to show.
  */
 export type ReportRow = {

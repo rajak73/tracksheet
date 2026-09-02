@@ -112,7 +112,7 @@ type Row = {
     daysLogged: number;
     totalWorkingHours: number;
     capacityHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
   };
 };
 

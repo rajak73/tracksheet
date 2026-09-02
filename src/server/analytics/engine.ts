@@ -91,7 +91,7 @@ export type InstructorBreakdown = {
   unutilizedHours: number;
   /** Capacity on working days that carry no activity records at all. */
   missingDataHours: number;
-  utilizationPct: number | null;
+  recordedHoursPct: number | null;
   /** Overlap detected between logged activities — a data-quality signal. */
   overlapHours: number;
   expectedWorkingDays: number;
@@ -109,7 +109,7 @@ export type AnalyticsResult = {
     productiveHours: number;
     unutilizedHours: number;
     missingDataHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
       deliverables: DeliverableProgress;
   };
   instructors: InstructorBreakdown[];
@@ -125,7 +125,7 @@ export type TrendComparison = {
   previousFrom: string;
   previousTo: string;
   productiveHours: TrendPoint;
-  utilizationPct: TrendPoint;
+  recordedHoursPct: TrendPoint;
 };
 
 export type TrendPoint = {
@@ -597,7 +597,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       productiveHours: round(productive),
       unutilizedHours: round(unutilized),
       missingDataHours: round(missing),
-      utilizationPct: capacity > 0 ? round((productive / capacity) * 100) : null,
+      recordedHoursPct: capacity > 0 ? round((productive / capacity) * 100) : null,
       overlapHours: round(overlap),
       expectedWorkingDays: expectedDays,
       deliverables: deliverableProgress,
@@ -652,9 +652,9 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       previousFrom: prev.from,
       previousTo: prev.to,
       productiveHours: trendPoint(totalProductive, previousResult.totals.productiveHours),
-      utilizationPct: trendPoint(
+      recordedHoursPct: trendPoint(
         totalCapacity > 0 ? round((totalProductive / totalCapacity) * 100) : null,
-        previousResult.totals.utilizationPct,
+        previousResult.totals.recordedHoursPct,
       ),
     };
   }
@@ -670,7 +670,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       productiveHours: totalProductive,
       unutilizedHours: sum((b) => b.unutilizedHours),
       missingDataHours: sum((b) => b.missingDataHours),
-      utilizationPct: totalCapacity > 0 ? round((totalProductive / totalCapacity) * 100) : null,
+      recordedHoursPct: totalCapacity > 0 ? round((totalProductive / totalCapacity) * 100) : null,
       deliverables: summariseDeliverables(deliverables, from, to),
     },
     instructors: breakdowns,

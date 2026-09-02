@@ -34,7 +34,7 @@ import { UTILIZATION_BANDS } from "@/server/analytics/bands";
  */
 
 const SORTS = {
-  utilization: (a: Row, b: Row) => (b.utilizationPct ?? -1) - (a.utilizationPct ?? -1),
+  utilization: (a: Row, b: Row) => (b.recordedHoursPct ?? -1) - (a.recordedHoursPct ?? -1),
   workingHours: (a: Row, b: Row) => b.workingHours - a.workingHours,
   instructors: (a: Row, b: Row) => b.instructorCount - a.instructorCount,
   name: (a: Row, b: Row) => a.name.localeCompare(b.name),
@@ -56,7 +56,7 @@ type Row = {
   workingHours: number;
   recordedHours: number;
   capacityHours: number;
-  utilizationPct: number | null;
+  recordedHoursPct: number | null;
   band: ReturnType<typeof bandFor>;
   /** Percentage-point change against the previous period. Null when unknowable. */
   trendPct: number | null;
@@ -173,13 +173,13 @@ export const GET = withAuth(async ({ scope, req }) => {
       universityName: m.university.name,
       universityCode: m.university.code,
       ...totals,
-      band: bandFor(totals.utilizationPct),
+      band: bandFor(totals.recordedHoursPct),
       // Null rather than zero when there is nothing to compare against, so the
       // UI can say "no previous-period data" instead of implying "flat".
       trendPct:
-        totals.utilizationPct === null || before.utilizationPct === null
+        totals.recordedHoursPct === null || before.recordedHoursPct === null
           ? null
-          : totals.utilizationPct - before.utilizationPct,
+          : totals.recordedHoursPct - before.recordedHoursPct,
     };
   });
 
@@ -223,14 +223,14 @@ export const GET = withAuth(async ({ scope, req }) => {
           return {
             ...i,
             trendPct:
-              i.utilizationPct === null || before?.utilizationPct == null
+              i.recordedHoursPct === null || before?.recordedHoursPct == null
                 ? null
-                : i.utilizationPct - before.utilizationPct,
+                : i.recordedHoursPct - before.recordedHoursPct,
           };
         })
         // Worst first: this list exists to be acted on, and an unmeasurable
         // roster is not a failing one, so it sorts last rather than first.
-        .sort((a, b) => (a.utilizationPct ?? 999) - (b.utilizationPct ?? 999))
+        .sort((a, b) => (a.recordedHoursPct ?? 999) - (b.recordedHoursPct ?? 999))
     : undefined;
 
   return NextResponse.json({

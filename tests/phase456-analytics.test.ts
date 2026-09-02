@@ -153,7 +153,7 @@ describe("capacity, utilisation and the missing-data distinction", () => {
     expect(me.productiveHours + me.unutilizedHours + me.missingDataHours).toBe(me.capacityHours);
 
     // 8.5 / 40 = 21.25%
-    expect(me.utilizationPct).toBe(21.25);
+    expect(me.recordedHoursPct).toBe(21.25);
   });
 
   test("an hour that was recorded is an hour that was worked", async () => {
@@ -202,7 +202,7 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
     );
     expect(meBefore.capacityHours).toBe(40);
     // 8.5h of 40h. It was 18.75% when the unutilised hour did not count.
-    expect(meBefore.utilizationPct).toBe(21.25);
+    expect(meBefore.recordedHoursPct).toBe(21.25);
 
     const leave = await managerNorth.post(`/api/instructors/${north1Id}/leave`, {
       startDate: FRI,
@@ -223,8 +223,8 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
     // Productive time is unchanged by the leave…
     expect(meAfter.productiveHours).toBe(8.5);
     // …so the percentage RISES: 8.5 / 32 = 26.56%. Leave must not be a penalty.
-    expect(meAfter.utilizationPct).toBe(26.56);
-    expect(meAfter.utilizationPct).toBeGreaterThan(meBefore.utilizationPct);
+    expect(meAfter.recordedHoursPct).toBe(26.56);
+    expect(meAfter.recordedHoursPct).toBeGreaterThan(meBefore.recordedHoursPct);
 
     const friday = meAfter.days.find((d: { date: string }) => d.date === FRI);
     expect(friday.nonWorkingReason).toBe("LEAVE");
@@ -264,7 +264,7 @@ describe("dashboard and report agree (single engine)", () => {
     expect(fromReport.productiveHours).toBe(fromAnalytics.productiveHours);
     expect(fromReport.capacityHours).toBe(fromAnalytics.capacityHours);
     expect(fromReport.unutilizedHours).toBe(fromAnalytics.unutilizedHours);
-    expect(fromReport.utilizationPct).toBe(fromAnalytics.utilizationPct);
+    expect(fromReport.recordedHoursPct).toBe(fromAnalytics.recordedHoursPct);
   });
 
   test("the CSV export carries the same figures", async () => {

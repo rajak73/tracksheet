@@ -231,7 +231,7 @@ describe("admin figures never silently disagree with the analytics engine", () =
     expect(row.productiveHours).toBe(engine.productiveHours);
     expect(row.unutilizedHours).toBe(engine.unutilizedHours);
     expect(row.missingDataHours).toBe(engine.missingDataHours);
-    expect(row.utilizationPct).toBe(engine.utilizationPct);
+    expect(row.recordedHoursPct).toBe(engine.recordedHoursPct);
   });
 });
 

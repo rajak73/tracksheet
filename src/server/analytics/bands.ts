@@ -34,10 +34,10 @@ export type PerformanceBand = "healthy" | "borderline" | "attention" | "unmeasur
  * capacity in the period has an unknown utilisation, and reporting unknown as
  * failing would send managers chasing people who did nothing wrong.
  */
-export function bandFor(utilizationPct: number | null): PerformanceBand {
-  if (utilizationPct === null) return "unmeasured";
-  if (utilizationPct >= UTILIZATION_BANDS.healthy) return "healthy";
-  if (utilizationPct >= UTILIZATION_BANDS.borderline) return "borderline";
+export function bandFor(recordedHoursPct: number | null): PerformanceBand {
+  if (recordedHoursPct === null) return "unmeasured";
+  if (recordedHoursPct >= UTILIZATION_BANDS.healthy) return "healthy";
+  if (recordedHoursPct >= UTILIZATION_BANDS.borderline) return "borderline";
   return "attention";
 }
 

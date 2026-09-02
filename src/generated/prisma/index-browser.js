@@ -476,7 +476,7 @@ exports.Prisma.InstructorDailyMetricScalarFieldEnum = {
   overlapMinutes: 'overlapMinutes',
   isWorkingDay: 'isWorkingDay',
   nonWorkingReason: 'nonWorkingReason',
-  utilizationPercent: 'utilizationPercent',
+  recordedHoursPercent: 'recordedHoursPercent',
   computedAt: 'computedAt',
   updatedAt: 'updatedAt'
 };
@@ -491,7 +491,7 @@ exports.Prisma.InstructorWeeklyMetricScalarFieldEnum = {
   productiveMinutes: 'productiveMinutes',
   unutilizedMinutes: 'unutilizedMinutes',
   missingDataMinutes: 'missingDataMinutes',
-  utilizationPercent: 'utilizationPercent',
+  recordedHoursPercent: 'recordedHoursPercent',
   expectedWorkingDays: 'expectedWorkingDays',
   computedAt: 'computedAt',
   updatedAt: 'updatedAt'
@@ -506,7 +506,7 @@ exports.Prisma.UniversityDailyMetricScalarFieldEnum = {
   productiveMinutes: 'productiveMinutes',
   unutilizedMinutes: 'unutilizedMinutes',
   missingDataMinutes: 'missingDataMinutes',
-  utilizationPercent: 'utilizationPercent',
+  recordedHoursPercent: 'recordedHoursPercent',
   expectedInstructorDays: 'expectedInstructorDays',
   activeInstructorMinutes: 'activeInstructorMinutes',
   activeInstructorCount: 'activeInstructorCount',

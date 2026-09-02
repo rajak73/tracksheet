@@ -1128,7 +1128,7 @@ model InstructorDailyMetric {
   isWorkingDay     Boolean @default(true)
   nonWorkingReason String?
 
-  utilizationPercent Float?
+  recordedHoursPercent Float?
 
   computedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1154,7 +1154,7 @@ model InstructorWeeklyMetric {
   unutilizedMinutes  Int @default(0)
   missingDataMinutes Int @default(0)
 
-  utilizationPercent    Float?
+  recordedHoursPercent    Float?
   expectedWorkingDays   Int    @default(0)
 
   computedAt DateTime @default(now())
@@ -1178,7 +1178,7 @@ model UniversityDailyMetric {
   unutilizedMinutes  Int @default(0)
   missingDataMinutes Int @default(0)
 
-  utilizationPercent    Float?
+  recordedHoursPercent    Float?
 
   /// The counts those percentages are made of.
   ///

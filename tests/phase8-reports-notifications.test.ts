@@ -67,7 +67,10 @@ describe("Gate — an exported report matches the dashboard exactly", () => {
     expect(Number(cell("Productive Hours"))).toBe(mine.productiveHours);
     expect(Number(cell("Unutilized Hours"))).toBe(mine.unutilizedHours);
     expect(Number(cell("Missing Data Hours"))).toBe(mine.missingDataHours);
-    expect(Number(cell("Utilization %"))).toBe(mine.utilizationPct);
+    /* "Recorded Hours %", not "Utilization %". The column answers a different
+       question since every recorded hour started counting, and the header moved
+       with the field so a spreadsheet and the screen name the same thing. */
+    expect(Number(cell("Recorded Hours %"))).toBe(mine.recordedHoursPct);
   });
 
   test("the JSON report and the CSV describe the same rows", async () => {

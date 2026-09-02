@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
 import { JUDGEMENT_TERMS, UNSUPPORTED_ASSERTIONS } from "@/server/ai/judgement-guards";
 
@@ -212,5 +213,44 @@ describe("C — the judgement guards, from ai-narration-validation", () => {
     const measurement = "compliance: 87%".toLowerCase();
     for (const term of JUDGEMENT_TERMS) expect(measurement.includes(term)).toBe(false);
     for (const phrase of UNSUPPORTED_ASSERTIONS) expect(measurement.includes(phrase)).toBe(false);
+  });
+});
+
+describe("5. the renamed figure leaves nothing reading the old name", () => {
+  /* `utilizationPercent` answered "how much of the time they logged was
+     productive?" — productive meaning "not filed under a type flagged
+     countsAsProductive: false". With no types every recorded hour counts, so it
+     now answers "how many hours did they log against their capacity?".
+
+     Different question, and on the dev set the same person moves 18.75% → 21.25%
+     without having worked a minute differently. A number whose meaning changes
+     while its name does not is how a metric lies quietly, so the name moved with
+     it — schema column, API property and CSV header together. */
+
+  const roots = ["src", "prisma/schema.prisma", "tests"];
+
+  test("the old name appears nowhere", () => {
+    let hits = "";
+    try {
+      hits = execFileSync(
+        "grep",
+        ["-rn", "-e", "utilizationPct", "-e", "utilizationPercent", ...roots],
+        { encoding: "utf8" },
+      );
+    } catch {
+      // grep exits non-zero when it finds nothing, which is the passing case.
+    }
+    const real = hits
+      .split("\n")
+      .filter((l) => l && !l.includes("src/generated/"))
+      .filter((l) => !l.includes("removal-coverage-gaps"));
+    expect(real, `still reading the old name:\n${real.join("\n")}`).toHaveLength(0);
+  });
+
+  test("and the scan can fail", () => {
+    /* Every assertion above is an absence. Planted here so a broken grep
+       invocation cannot report a clean tree forever. */
+    const planted = "  utilizationPct: number | null;";
+    expect(planted.includes("utilizationPct")).toBe(true);
   });
 });

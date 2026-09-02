@@ -65,7 +65,7 @@ describe("GET /api/managers", () => {
         "instructorCount",
         "workingHours",
         "recordedHours",
-        "utilizationPct",
+        "recordedHoursPct",
         "band",
         "trendPct",
         "isActive",
@@ -104,9 +104,9 @@ describe("GET /api/managers", () => {
   test("bands use the documented thresholds", async () => {
     const res = await admin.get("/api/managers");
     for (const m of res.body.managers) {
-      if (m.utilizationPct === null) expect(m.band).toBe("unmeasured");
-      else if (m.utilizationPct >= 75) expect(m.band).toBe("healthy");
-      else if (m.utilizationPct >= 60) expect(m.band).toBe("borderline");
+      if (m.recordedHoursPct === null) expect(m.band).toBe("unmeasured");
+      else if (m.recordedHoursPct >= 75) expect(m.band).toBe("healthy");
+      else if (m.recordedHoursPct >= 60) expect(m.band).toBe("borderline");
       else expect(m.band).toBe("attention");
     }
   });
@@ -147,7 +147,7 @@ describe("GET /api/managers", () => {
     expect(Array.isArray(res.body.instructors)).toBe(true);
     for (const i of res.body.instructors) {
       expect(i).toHaveProperty("instructorId");
-      expect(i).toHaveProperty("utilizationPct");
+      expect(i).toHaveProperty("recordedHoursPct");
       expect(i).toHaveProperty("band");
     }
   });

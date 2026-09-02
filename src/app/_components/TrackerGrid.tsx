@@ -83,7 +83,7 @@ export type TrackerRow = {
   employeeCode: string | null;
   isActive: boolean;
   cells: Record<number, TrackerCell>;
-  /* `deliverableHours`, `capacityHours` and `utilizationPct` are carried by
+  /* `deliverableHours`, `capacityHours` and `recordedHoursPct` are carried by
      the API and never rendered. Deliverable hours answers a different question
      from Working Hours, and utilisation divides recorded minutes by a
      configured working day — a week of back-to-back internal meetings scores
@@ -93,7 +93,7 @@ export type TrackerRow = {
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
   };
 };
 
@@ -125,7 +125,7 @@ export type Tracker = {
     deliverableHours: number;
     totalWorkingHours: number;
     capacityHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
   };
 };
 

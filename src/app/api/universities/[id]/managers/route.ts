@@ -87,7 +87,7 @@ export const GET = withAuth<{ id: string }>(
           instructorCount: sizeOf.get(m.id) ?? 0,
           currentWeekWorkingHours: a.totals.productiveHours,
           currentWeekDeliverables: a.totals.deliverables.completedQuantity,
-          currentWeekUtilization: a.totals.utilizationPct,
+          currentWeekUtilization: a.totals.recordedHoursPct,
         };
       }),
     });

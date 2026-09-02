@@ -57,7 +57,7 @@ export type InstructorPerformance = {
   /** Every recorded minute. A different question, under its own name. */
   recordedHours: number;
   capacityHours: number;
-  utilizationPct: number | null;
+  recordedHoursPct: number | null;
   band: PerformanceBand;
   /**
    * Deliverable progress for the same period, straight from the engine.
@@ -81,7 +81,7 @@ export type RosterTotals = {
   workingHours: number;
   recordedHours: number;
   capacityHours: number;
-  utilizationPct: number | null;
+  recordedHoursPct: number | null;
 };
 
 const EMPTY: RosterTotals = {
@@ -89,7 +89,7 @@ const EMPTY: RosterTotals = {
   workingHours: 0,
   recordedHours: 0,
   capacityHours: 0,
-  utilizationPct: null,
+  recordedHoursPct: null,
 };
 
 
@@ -189,8 +189,8 @@ export async function instructorPerformance(args: {
            *  are derived against it, and it is honest under its own name. */
           recordedHours: i.productiveHours,
           capacityHours: i.capacityHours,
-          utilizationPct: i.utilizationPct,
-          band: bandFor(i.utilizationPct),
+          recordedHoursPct: i.recordedHoursPct,
+          band: bandFor(i.recordedHoursPct),
           deliverables: {
             total: i.deliverables.total,
             completed: i.deliverables.completed,
@@ -234,6 +234,6 @@ export function rosterTotals(rows: InstructorPerformance[]): RosterTotals {
     // configured day was accounted for, and preparation and meetings account
     // for it just as much as a lecture does. Dividing student-facing hours by
     // capacity would answer neither question and read like both.
-    utilizationPct: capacityHours > 0 ? Math.round((recordedHours / capacityHours) * 100) : null,
+    recordedHoursPct: capacityHours > 0 ? Math.round((recordedHours / capacityHours) * 100) : null,
   };
 }

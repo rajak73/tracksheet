@@ -172,7 +172,7 @@ export async function rollupUniversityDaily(
         /* `minutesByActivityType` is gone with the types it keyed on. */
         isWorkingDay: day.isWorkingDay,
         nonWorkingReason: day.nonWorkingReason,
-        utilizationPercent:
+        recordedHoursPercent:
           day.capacityHours > 0 ? round2((day.productiveHours / day.capacityHours) * 100) : null,
       });
 
@@ -227,7 +227,7 @@ export async function rollupUniversityDaily(
     missingDataMinutes: b.missing,
     activeInstructorMinutes: b.activeInstructorMinutes,
     activeInstructorCount: b.activeInstructorCount,
-    utilizationPercent: b.capacity > 0 ? round2((b.productive / b.capacity) * 100) : null,
+    recordedHoursPercent: b.capacity > 0 ? round2((b.productive / b.capacity) * 100) : null,
     /* The counts, kept as well as the ratio.
      *
      * A day's percentage is the right figure for a day. A PERIOD's is not the
@@ -329,7 +329,7 @@ async function rollupInstructorWeekly(
         productiveMinutes: productive,
         unutilizedMinutes: ds.reduce((a, d) => a + d.unutilizedMinutes, 0),
         missingDataMinutes: ds.reduce((a, d) => a + d.missingDataMinutes, 0),
-        utilizationPercent: capacity > 0 ? round2((productive / capacity) * 100) : null,
+        recordedHoursPercent: capacity > 0 ? round2((productive / capacity) * 100) : null,
         expectedWorkingDays: workingDays,
       };
     });

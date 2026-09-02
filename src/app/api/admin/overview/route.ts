@@ -150,7 +150,7 @@ export const GET = withAuth(
         productiveHours,
         unutilizedHours: toHours(agg?._sum.unutilizedMinutes),
         missingDataHours: toHours(agg?._sum.missingDataMinutes),
-        utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
+        recordedHoursPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
         coverage,
       };
     }
@@ -307,7 +307,7 @@ export const GET = withAuth(
         productiveHours,
         unutilizedHours: sum((u) => u.unutilizedHours),
         missingDataHours: sum((u) => u.missingDataHours),
-        utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
+        recordedHoursPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
         /* Hours, days and how many people filed. No category anywhere: see the
            note above `figures`, and `worklogFigures` for why these three are
            the only cross-instructor figures that survive. */

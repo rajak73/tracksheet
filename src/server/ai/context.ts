@@ -244,9 +244,9 @@ async function adminContext(): Promise<InsightContext> {
       instructorCount: totals.instructorCount,
       workingHours: totals.workingHours,
       recordedHours: totals.recordedHours,
-      utilization: totals.utilizationPct,
-      trend: trendOf(totals.utilizationPct, prior.utilizationPct),
-      band: bandFor(totals.utilizationPct),
+      utilization: totals.recordedHoursPct,
+      trend: trendOf(totals.recordedHoursPct, prior.recordedHoursPct),
+      band: bandFor(totals.recordedHoursPct),
       deliverables: foldDeliverables(rows),
     };
   });
@@ -254,15 +254,15 @@ async function adminContext(): Promise<InsightContext> {
   const beforeById = new Map(before.map((r) => [r.instructorId, r]));
   const worst = [...now]
     .filter((i) => i.band === "attention")
-    .sort((a, b) => (a.utilizationPct ?? 999) - (b.utilizationPct ?? 999))
+    .sort((a, b) => (a.recordedHoursPct ?? 999) - (b.recordedHoursPct ?? 999))
     .slice(0, WORST_LIMIT)
     .map((i): PersonFacts => ({
       id: i.instructorId,
       name: i.instructorName,
       workingHours: i.workingHours,
       recordedHours: i.recordedHours,
-      utilization: i.utilizationPct,
-      trend: trendOf(i.utilizationPct, beforeById.get(i.instructorId)?.utilizationPct ?? null),
+      utilization: i.recordedHoursPct,
+      trend: trendOf(i.recordedHoursPct, beforeById.get(i.instructorId)?.recordedHoursPct ?? null),
       band: i.band,
       deliverables: foldDeliverables([i]),
     }));
@@ -344,14 +344,14 @@ async function managerContext(
     thresholds: THRESHOLD_FACTS,
     managerName: manager.user.name,
     roster: mine
-      .sort((a, b) => (a.utilizationPct ?? 999) - (b.utilizationPct ?? 999))
+      .sort((a, b) => (a.recordedHoursPct ?? 999) - (b.recordedHoursPct ?? 999))
       .map((i): PersonFacts => ({
         id: i.instructorId,
         name: i.instructorName,
         workingHours: i.workingHours,
         recordedHours: i.recordedHours,
-        utilization: i.utilizationPct,
-        trend: trendOf(i.utilizationPct, beforeById.get(i.instructorId)?.utilizationPct ?? null),
+        utilization: i.recordedHoursPct,
+        trend: trendOf(i.recordedHoursPct, beforeById.get(i.instructorId)?.recordedHoursPct ?? null),
         band: i.band,
         deliverables: foldDeliverables([i]),
       })),
@@ -359,7 +359,7 @@ async function managerContext(
       instructorCount: totals.instructorCount,
       workingHours: totals.workingHours,
       recordedHours: totals.recordedHours,
-      utilization: totals.utilizationPct,
+      utilization: totals.recordedHoursPct,
       deliverables: foldDeliverables(mine),
     },
   };
@@ -414,8 +414,8 @@ async function instructorContext(
     metrics: {
       workingHours: mine.workingHours,
       recordedHours: mine.recordedHours,
-      utilization: mine.utilizationPct,
-      trend: trendOf(mine.utilizationPct, prior?.utilizationPct ?? null),
+      utilization: mine.recordedHoursPct,
+      trend: trendOf(mine.recordedHoursPct, prior?.recordedHoursPct ?? null),
       band: mine.band,
       deliverables: foldDeliverables([mine]),
     },

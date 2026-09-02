@@ -107,7 +107,7 @@ export type TrackerRow = {
     daysLogged: number;
     totalWorkingHours: number;
     capacityHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
   };
 };
 
@@ -131,7 +131,7 @@ export type TrackerResult = {
     daysLogged: number;
     totalWorkingHours: number;
     capacityHours: number;
-    utilizationPct: number | null;
+    recordedHoursPct: number | null;
   };
 };
 
@@ -322,7 +322,7 @@ export async function buildTracker(args: {
           daysLogged: 0,
           totalWorkingHours: 0,
           capacityHours: 0,
-          utilizationPct: null,
+          recordedHoursPct: null,
         },
       };
       rows.set(b.instructorId, row);
@@ -397,7 +397,7 @@ export async function buildTracker(args: {
   const visible = [...rows.values()].filter((row) => row.isActive || hasData(row));
 
   for (const row of visible) {
-    row.totals.utilizationPct =
+    row.totals.recordedHoursPct =
       row.totals.capacityHours > 0
         ? round((row.totals.totalWorkingHours / row.totals.capacityHours) * 100)
         : null;
@@ -428,7 +428,7 @@ export async function buildTracker(args: {
       daysLogged: visible.reduce((n, r) => n + r.totals.daysLogged, 0),
       totalWorkingHours,
       capacityHours,
-      utilizationPct: capacityHours > 0 ? round((totalWorkingHours / capacityHours) * 100) : null,
+      recordedHoursPct: capacityHours > 0 ? round((totalWorkingHours / capacityHours) * 100) : null,
     },
   };
 }

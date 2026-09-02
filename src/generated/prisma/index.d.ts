@@ -38517,7 +38517,7 @@ export namespace Prisma {
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
     overlapMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
   }
 
   export type InstructorDailyMetricSumAggregateOutputType = {
@@ -38526,7 +38526,7 @@ export namespace Prisma {
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
     overlapMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
   }
 
   export type InstructorDailyMetricMinAggregateOutputType = {
@@ -38541,7 +38541,7 @@ export namespace Prisma {
     overlapMinutes: number | null
     isWorkingDay: boolean | null
     nonWorkingReason: string | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -38558,7 +38558,7 @@ export namespace Prisma {
     overlapMinutes: number | null
     isWorkingDay: boolean | null
     nonWorkingReason: string | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     computedAt: Date | null
     updatedAt: Date | null
   }
@@ -38575,7 +38575,7 @@ export namespace Prisma {
     overlapMinutes: number
     isWorkingDay: number
     nonWorkingReason: number
-    utilizationPercent: number
+    recordedHoursPercent: number
     computedAt: number
     updatedAt: number
     _all: number
@@ -38588,7 +38588,7 @@ export namespace Prisma {
     unutilizedMinutes?: true
     missingDataMinutes?: true
     overlapMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
   }
 
   export type InstructorDailyMetricSumAggregateInputType = {
@@ -38597,7 +38597,7 @@ export namespace Prisma {
     unutilizedMinutes?: true
     missingDataMinutes?: true
     overlapMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
   }
 
   export type InstructorDailyMetricMinAggregateInputType = {
@@ -38612,7 +38612,7 @@ export namespace Prisma {
     overlapMinutes?: true
     isWorkingDay?: true
     nonWorkingReason?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -38629,7 +38629,7 @@ export namespace Prisma {
     overlapMinutes?: true
     isWorkingDay?: true
     nonWorkingReason?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     computedAt?: true
     updatedAt?: true
   }
@@ -38646,7 +38646,7 @@ export namespace Prisma {
     overlapMinutes?: true
     isWorkingDay?: true
     nonWorkingReason?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     computedAt?: true
     updatedAt?: true
     _all?: true
@@ -38750,7 +38750,7 @@ export namespace Prisma {
     overlapMinutes: number
     isWorkingDay: boolean
     nonWorkingReason: string | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     computedAt: Date
     updatedAt: Date
     _count: InstructorDailyMetricCountAggregateOutputType | null
@@ -38786,7 +38786,7 @@ export namespace Prisma {
     overlapMinutes?: boolean
     isWorkingDay?: boolean
     nonWorkingReason?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -38805,7 +38805,7 @@ export namespace Prisma {
     overlapMinutes?: boolean
     isWorkingDay?: boolean
     nonWorkingReason?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -38824,7 +38824,7 @@ export namespace Prisma {
     overlapMinutes?: boolean
     isWorkingDay?: boolean
     nonWorkingReason?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     computedAt?: boolean
     updatedAt?: boolean
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -38843,12 +38843,12 @@ export namespace Prisma {
     overlapMinutes?: boolean
     isWorkingDay?: boolean
     nonWorkingReason?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     computedAt?: boolean
     updatedAt?: boolean
   }
 
-  export type InstructorDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "instructorId" | "metricDate" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "overlapMinutes" | "isWorkingDay" | "nonWorkingReason" | "utilizationPercent" | "computedAt" | "updatedAt", ExtArgs["result"]["instructorDailyMetric"]>
+  export type InstructorDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "instructorId" | "metricDate" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "overlapMinutes" | "isWorkingDay" | "nonWorkingReason" | "recordedHoursPercent" | "computedAt" | "updatedAt", ExtArgs["result"]["instructorDailyMetric"]>
   export type InstructorDailyMetricInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -38887,7 +38887,7 @@ export namespace Prisma {
        */
       isWorkingDay: boolean
       nonWorkingReason: string | null
-      utilizationPercent: number | null
+      recordedHoursPercent: number | null
       computedAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["instructorDailyMetric"]>
@@ -39326,7 +39326,7 @@ export namespace Prisma {
     readonly overlapMinutes: FieldRef<"InstructorDailyMetric", 'Int'>
     readonly isWorkingDay: FieldRef<"InstructorDailyMetric", 'Boolean'>
     readonly nonWorkingReason: FieldRef<"InstructorDailyMetric", 'String'>
-    readonly utilizationPercent: FieldRef<"InstructorDailyMetric", 'Float'>
+    readonly recordedHoursPercent: FieldRef<"InstructorDailyMetric", 'Float'>
     readonly computedAt: FieldRef<"InstructorDailyMetric", 'DateTime'>
     readonly updatedAt: FieldRef<"InstructorDailyMetric", 'DateTime'>
   }
@@ -39765,7 +39765,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedWorkingDays: number | null
   }
 
@@ -39774,7 +39774,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedWorkingDays: number | null
   }
 
@@ -39788,7 +39788,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedWorkingDays: number | null
     computedAt: Date | null
     updatedAt: Date | null
@@ -39804,7 +39804,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedWorkingDays: number | null
     computedAt: Date | null
     updatedAt: Date | null
@@ -39820,7 +39820,7 @@ export namespace Prisma {
     productiveMinutes: number
     unutilizedMinutes: number
     missingDataMinutes: number
-    utilizationPercent: number
+    recordedHoursPercent: number
     expectedWorkingDays: number
     computedAt: number
     updatedAt: number
@@ -39833,7 +39833,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedWorkingDays?: true
   }
 
@@ -39842,7 +39842,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedWorkingDays?: true
   }
 
@@ -39856,7 +39856,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedWorkingDays?: true
     computedAt?: true
     updatedAt?: true
@@ -39872,7 +39872,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedWorkingDays?: true
     computedAt?: true
     updatedAt?: true
@@ -39888,7 +39888,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedWorkingDays?: true
     computedAt?: true
     updatedAt?: true
@@ -39991,7 +39991,7 @@ export namespace Prisma {
     productiveMinutes: number
     unutilizedMinutes: number
     missingDataMinutes: number
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedWorkingDays: number
     computedAt: Date
     updatedAt: Date
@@ -40026,7 +40026,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedWorkingDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
@@ -40044,7 +40044,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedWorkingDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
@@ -40062,7 +40062,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedWorkingDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
@@ -40080,13 +40080,13 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedWorkingDays?: boolean
     computedAt?: boolean
     updatedAt?: boolean
   }
 
-  export type InstructorWeeklyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "instructorId" | "periodStart" | "periodEnd" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "utilizationPercent" | "expectedWorkingDays" | "computedAt" | "updatedAt", ExtArgs["result"]["instructorWeeklyMetric"]>
+  export type InstructorWeeklyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "instructorId" | "periodStart" | "periodEnd" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "recordedHoursPercent" | "expectedWorkingDays" | "computedAt" | "updatedAt", ExtArgs["result"]["instructorWeeklyMetric"]>
   export type InstructorWeeklyMetricInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
@@ -40116,7 +40116,7 @@ export namespace Prisma {
       productiveMinutes: number
       unutilizedMinutes: number
       missingDataMinutes: number
-      utilizationPercent: number | null
+      recordedHoursPercent: number | null
       expectedWorkingDays: number
       computedAt: Date
       updatedAt: Date
@@ -40554,7 +40554,7 @@ export namespace Prisma {
     readonly productiveMinutes: FieldRef<"InstructorWeeklyMetric", 'Int'>
     readonly unutilizedMinutes: FieldRef<"InstructorWeeklyMetric", 'Int'>
     readonly missingDataMinutes: FieldRef<"InstructorWeeklyMetric", 'Int'>
-    readonly utilizationPercent: FieldRef<"InstructorWeeklyMetric", 'Float'>
+    readonly recordedHoursPercent: FieldRef<"InstructorWeeklyMetric", 'Float'>
     readonly expectedWorkingDays: FieldRef<"InstructorWeeklyMetric", 'Int'>
     readonly computedAt: FieldRef<"InstructorWeeklyMetric", 'DateTime'>
     readonly updatedAt: FieldRef<"InstructorWeeklyMetric", 'DateTime'>
@@ -40995,7 +40995,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedInstructorDays: number | null
     activeInstructorMinutes: number | null
     activeInstructorCount: number | null
@@ -41007,7 +41007,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedInstructorDays: number | null
     activeInstructorMinutes: number | null
     activeInstructorCount: number | null
@@ -41022,7 +41022,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedInstructorDays: number | null
     activeInstructorMinutes: number | null
     activeInstructorCount: number | null
@@ -41039,7 +41039,7 @@ export namespace Prisma {
     productiveMinutes: number | null
     unutilizedMinutes: number | null
     missingDataMinutes: number | null
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedInstructorDays: number | null
     activeInstructorMinutes: number | null
     activeInstructorCount: number | null
@@ -41056,7 +41056,7 @@ export namespace Prisma {
     productiveMinutes: number
     unutilizedMinutes: number
     missingDataMinutes: number
-    utilizationPercent: number
+    recordedHoursPercent: number
     expectedInstructorDays: number
     activeInstructorMinutes: number
     activeInstructorCount: number
@@ -41072,7 +41072,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedInstructorDays?: true
     activeInstructorMinutes?: true
     activeInstructorCount?: true
@@ -41084,7 +41084,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedInstructorDays?: true
     activeInstructorMinutes?: true
     activeInstructorCount?: true
@@ -41099,7 +41099,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedInstructorDays?: true
     activeInstructorMinutes?: true
     activeInstructorCount?: true
@@ -41116,7 +41116,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedInstructorDays?: true
     activeInstructorMinutes?: true
     activeInstructorCount?: true
@@ -41133,7 +41133,7 @@ export namespace Prisma {
     productiveMinutes?: true
     unutilizedMinutes?: true
     missingDataMinutes?: true
-    utilizationPercent?: true
+    recordedHoursPercent?: true
     expectedInstructorDays?: true
     activeInstructorMinutes?: true
     activeInstructorCount?: true
@@ -41237,7 +41237,7 @@ export namespace Prisma {
     productiveMinutes: number
     unutilizedMinutes: number
     missingDataMinutes: number
-    utilizationPercent: number | null
+    recordedHoursPercent: number | null
     expectedInstructorDays: number
     activeInstructorMinutes: number
     activeInstructorCount: number
@@ -41273,7 +41273,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedInstructorDays?: boolean
     activeInstructorMinutes?: boolean
     activeInstructorCount?: boolean
@@ -41291,7 +41291,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedInstructorDays?: boolean
     activeInstructorMinutes?: boolean
     activeInstructorCount?: boolean
@@ -41309,7 +41309,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedInstructorDays?: boolean
     activeInstructorMinutes?: boolean
     activeInstructorCount?: boolean
@@ -41327,7 +41327,7 @@ export namespace Prisma {
     productiveMinutes?: boolean
     unutilizedMinutes?: boolean
     missingDataMinutes?: boolean
-    utilizationPercent?: boolean
+    recordedHoursPercent?: boolean
     expectedInstructorDays?: boolean
     activeInstructorMinutes?: boolean
     activeInstructorCount?: boolean
@@ -41335,7 +41335,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "utilizationPercent" | "expectedInstructorDays" | "activeInstructorMinutes" | "activeInstructorCount" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
+  export type UniversityDailyMetricOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "universityId" | "metricDate" | "activeInstructors" | "capacityMinutes" | "productiveMinutes" | "unutilizedMinutes" | "missingDataMinutes" | "recordedHoursPercent" | "expectedInstructorDays" | "activeInstructorMinutes" | "activeInstructorCount" | "computedAt" | "updatedAt", ExtArgs["result"]["universityDailyMetric"]>
   export type UniversityDailyMetricInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     university?: boolean | UniversityDefaultArgs<ExtArgs>
   }
@@ -41360,7 +41360,7 @@ export namespace Prisma {
       productiveMinutes: number
       unutilizedMinutes: number
       missingDataMinutes: number
-      utilizationPercent: number | null
+      recordedHoursPercent: number | null
       /**
        * The counts those percentages are made of.
        * 
@@ -41821,7 +41821,7 @@ export namespace Prisma {
     readonly productiveMinutes: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly unutilizedMinutes: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly missingDataMinutes: FieldRef<"UniversityDailyMetric", 'Int'>
-    readonly utilizationPercent: FieldRef<"UniversityDailyMetric", 'Float'>
+    readonly recordedHoursPercent: FieldRef<"UniversityDailyMetric", 'Float'>
     readonly expectedInstructorDays: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly activeInstructorMinutes: FieldRef<"UniversityDailyMetric", 'Int'>
     readonly activeInstructorCount: FieldRef<"UniversityDailyMetric", 'Int'>
@@ -55043,7 +55043,7 @@ export namespace Prisma {
     overlapMinutes: 'overlapMinutes',
     isWorkingDay: 'isWorkingDay',
     nonWorkingReason: 'nonWorkingReason',
-    utilizationPercent: 'utilizationPercent',
+    recordedHoursPercent: 'recordedHoursPercent',
     computedAt: 'computedAt',
     updatedAt: 'updatedAt'
   };
@@ -55061,7 +55061,7 @@ export namespace Prisma {
     productiveMinutes: 'productiveMinutes',
     unutilizedMinutes: 'unutilizedMinutes',
     missingDataMinutes: 'missingDataMinutes',
-    utilizationPercent: 'utilizationPercent',
+    recordedHoursPercent: 'recordedHoursPercent',
     expectedWorkingDays: 'expectedWorkingDays',
     computedAt: 'computedAt',
     updatedAt: 'updatedAt'
@@ -55079,7 +55079,7 @@ export namespace Prisma {
     productiveMinutes: 'productiveMinutes',
     unutilizedMinutes: 'unutilizedMinutes',
     missingDataMinutes: 'missingDataMinutes',
-    utilizationPercent: 'utilizationPercent',
+    recordedHoursPercent: 'recordedHoursPercent',
     expectedInstructorDays: 'expectedInstructorDays',
     activeInstructorMinutes: 'activeInstructorMinutes',
     activeInstructorCount: 'activeInstructorCount',
@@ -58282,7 +58282,7 @@ export namespace Prisma {
     overlapMinutes?: IntFilter<"InstructorDailyMetric"> | number
     isWorkingDay?: BoolFilter<"InstructorDailyMetric"> | boolean
     nonWorkingReason?: StringNullableFilter<"InstructorDailyMetric"> | string | null
-    utilizationPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
     computedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -58301,7 +58301,7 @@ export namespace Prisma {
     overlapMinutes?: SortOrder
     isWorkingDay?: SortOrder
     nonWorkingReason?: SortOrderInput | SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     university?: UniversityOrderByWithRelationInput
@@ -58324,7 +58324,7 @@ export namespace Prisma {
     overlapMinutes?: IntFilter<"InstructorDailyMetric"> | number
     isWorkingDay?: BoolFilter<"InstructorDailyMetric"> | boolean
     nonWorkingReason?: StringNullableFilter<"InstructorDailyMetric"> | string | null
-    utilizationPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
     computedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
     university?: XOR<UniversityScalarRelationFilter, UniversityWhereInput>
@@ -58343,7 +58343,7 @@ export namespace Prisma {
     overlapMinutes?: SortOrder
     isWorkingDay?: SortOrder
     nonWorkingReason?: SortOrderInput | SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
     _count?: InstructorDailyMetricCountOrderByAggregateInput
@@ -58368,7 +58368,7 @@ export namespace Prisma {
     overlapMinutes?: IntWithAggregatesFilter<"InstructorDailyMetric"> | number
     isWorkingDay?: BoolWithAggregatesFilter<"InstructorDailyMetric"> | boolean
     nonWorkingReason?: StringNullableWithAggregatesFilter<"InstructorDailyMetric"> | string | null
-    utilizationPercent?: FloatNullableWithAggregatesFilter<"InstructorDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableWithAggregatesFilter<"InstructorDailyMetric"> | number | null
     computedAt?: DateTimeWithAggregatesFilter<"InstructorDailyMetric"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"InstructorDailyMetric"> | Date | string
   }
@@ -58386,7 +58386,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     unutilizedMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     missingDataMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
     expectedWorkingDays?: IntFilter<"InstructorWeeklyMetric"> | number
     computedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
@@ -58404,7 +58404,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     expectedWorkingDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
@@ -58426,7 +58426,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     unutilizedMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     missingDataMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
     expectedWorkingDays?: IntFilter<"InstructorWeeklyMetric"> | number
     computedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
@@ -58444,7 +58444,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     expectedWorkingDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
@@ -58468,7 +58468,7 @@ export namespace Prisma {
     productiveMinutes?: IntWithAggregatesFilter<"InstructorWeeklyMetric"> | number
     unutilizedMinutes?: IntWithAggregatesFilter<"InstructorWeeklyMetric"> | number
     missingDataMinutes?: IntWithAggregatesFilter<"InstructorWeeklyMetric"> | number
-    utilizationPercent?: FloatNullableWithAggregatesFilter<"InstructorWeeklyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableWithAggregatesFilter<"InstructorWeeklyMetric"> | number | null
     expectedWorkingDays?: IntWithAggregatesFilter<"InstructorWeeklyMetric"> | number
     computedAt?: DateTimeWithAggregatesFilter<"InstructorWeeklyMetric"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"InstructorWeeklyMetric"> | Date | string
@@ -58486,7 +58486,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"UniversityDailyMetric"> | number
     unutilizedMinutes?: IntFilter<"UniversityDailyMetric"> | number
     missingDataMinutes?: IntFilter<"UniversityDailyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
@@ -58504,7 +58504,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -58526,7 +58526,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"UniversityDailyMetric"> | number
     unutilizedMinutes?: IntFilter<"UniversityDailyMetric"> | number
     missingDataMinutes?: IntFilter<"UniversityDailyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
@@ -58544,7 +58544,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrderInput | SortOrder
+    recordedHoursPercent?: SortOrderInput | SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -58569,7 +58569,7 @@ export namespace Prisma {
     productiveMinutes?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     unutilizedMinutes?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     missingDataMinutes?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
-    utilizationPercent?: FloatNullableWithAggregatesFilter<"UniversityDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableWithAggregatesFilter<"UniversityDailyMetric"> | number | null
     expectedInstructorDays?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     activeInstructorMinutes?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
     activeInstructorCount?: IntWithAggregatesFilter<"UniversityDailyMetric"> | number
@@ -62274,7 +62274,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutInstructorDailyMetricsInput
@@ -62293,7 +62293,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -62308,7 +62308,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutInstructorDailyMetricsNestedInput
@@ -62327,7 +62327,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -62344,7 +62344,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -62359,7 +62359,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -62376,7 +62376,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -62389,7 +62389,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -62407,7 +62407,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -62421,7 +62421,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62439,7 +62439,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62455,7 +62455,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -62469,7 +62469,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62485,7 +62485,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62499,7 +62499,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -62517,7 +62517,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -62533,7 +62533,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -62551,7 +62551,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -62568,7 +62568,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -62584,7 +62584,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -62601,7 +62601,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -66001,7 +66001,7 @@ export namespace Prisma {
     overlapMinutes?: SortOrder
     isWorkingDay?: SortOrder
     nonWorkingReason?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -66012,7 +66012,7 @@ export namespace Prisma {
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
     overlapMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
   }
 
   export type InstructorDailyMetricMaxOrderByAggregateInput = {
@@ -66027,7 +66027,7 @@ export namespace Prisma {
     overlapMinutes?: SortOrder
     isWorkingDay?: SortOrder
     nonWorkingReason?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -66044,7 +66044,7 @@ export namespace Prisma {
     overlapMinutes?: SortOrder
     isWorkingDay?: SortOrder
     nonWorkingReason?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -66055,7 +66055,7 @@ export namespace Prisma {
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
     overlapMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
   }
 
   export type FloatNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -66089,7 +66089,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedWorkingDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
@@ -66100,7 +66100,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedWorkingDays?: SortOrder
   }
 
@@ -66114,7 +66114,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedWorkingDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
@@ -66130,7 +66130,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedWorkingDays?: SortOrder
     computedAt?: SortOrder
     updatedAt?: SortOrder
@@ -66141,7 +66141,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedWorkingDays?: SortOrder
   }
 
@@ -66159,7 +66159,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -66173,7 +66173,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -66188,7 +66188,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -66205,7 +66205,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -66219,7 +66219,7 @@ export namespace Prisma {
     productiveMinutes?: SortOrder
     unutilizedMinutes?: SortOrder
     missingDataMinutes?: SortOrder
-    utilizationPercent?: SortOrder
+    recordedHoursPercent?: SortOrder
     expectedInstructorDays?: SortOrder
     activeInstructorMinutes?: SortOrder
     activeInstructorCount?: SortOrder
@@ -74093,7 +74093,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
     instructor: InstructorCreateNestedOneWithoutInstructorDailyMetricsInput
@@ -74110,7 +74110,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -74133,7 +74133,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -74149,7 +74149,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -74173,7 +74173,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -74189,7 +74189,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -75029,7 +75029,7 @@ export namespace Prisma {
     overlapMinutes?: IntFilter<"InstructorDailyMetric"> | number
     isWorkingDay?: BoolFilter<"InstructorDailyMetric"> | boolean
     nonWorkingReason?: StringNullableFilter<"InstructorDailyMetric"> | string | null
-    utilizationPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorDailyMetric"> | number | null
     computedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorDailyMetric"> | Date | string
   }
@@ -75063,7 +75063,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     unutilizedMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
     missingDataMinutes?: IntFilter<"InstructorWeeklyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"InstructorWeeklyMetric"> | number | null
     expectedWorkingDays?: IntFilter<"InstructorWeeklyMetric"> | number
     computedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
     updatedAt?: DateTimeFilter<"InstructorWeeklyMetric"> | Date | string
@@ -75097,7 +75097,7 @@ export namespace Prisma {
     productiveMinutes?: IntFilter<"UniversityDailyMetric"> | number
     unutilizedMinutes?: IntFilter<"UniversityDailyMetric"> | number
     missingDataMinutes?: IntFilter<"UniversityDailyMetric"> | number
-    utilizationPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
+    recordedHoursPercent?: FloatNullableFilter<"UniversityDailyMetric"> | number | null
     expectedInstructorDays?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorMinutes?: IntFilter<"UniversityDailyMetric"> | number
     activeInstructorCount?: IntFilter<"UniversityDailyMetric"> | number
@@ -76979,7 +76979,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
     university: UniversityCreateNestedOneWithoutInstructorDailyMetricsInput
@@ -76996,7 +76996,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -77019,7 +77019,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -77035,7 +77035,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -88692,7 +88692,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -88706,7 +88706,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -88720,7 +88720,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedInstructorDays?: number
     activeInstructorMinutes?: number
     activeInstructorCount?: number
@@ -89675,7 +89675,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     instructor?: InstructorUpdateOneRequiredWithoutInstructorDailyMetricsNestedInput
@@ -89692,7 +89692,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -89708,7 +89708,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -89721,7 +89721,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89737,7 +89737,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89752,7 +89752,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -89766,7 +89766,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -89782,7 +89782,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -89798,7 +89798,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedInstructorDays?: IntFieldUpdateOperationsInput | number
     activeInstructorMinutes?: IntFieldUpdateOperationsInput | number
     activeInstructorCount?: IntFieldUpdateOperationsInput | number
@@ -90252,7 +90252,7 @@ export namespace Prisma {
     overlapMinutes?: number
     isWorkingDay?: boolean
     nonWorkingReason?: string | null
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     computedAt?: Date | string
     updatedAt?: Date | string
   }
@@ -90266,7 +90266,7 @@ export namespace Prisma {
     productiveMinutes?: number
     unutilizedMinutes?: number
     missingDataMinutes?: number
-    utilizationPercent?: number | null
+    recordedHoursPercent?: number | null
     expectedWorkingDays?: number
     computedAt?: Date | string
     updatedAt?: Date | string
@@ -90756,7 +90756,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     university?: UniversityUpdateOneRequiredWithoutInstructorDailyMetricsNestedInput
@@ -90773,7 +90773,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -90789,7 +90789,7 @@ export namespace Prisma {
     overlapMinutes?: IntFieldUpdateOperationsInput | number
     isWorkingDay?: BoolFieldUpdateOperationsInput | boolean
     nonWorkingReason?: NullableStringFieldUpdateOperationsInput | string | null
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -90802,7 +90802,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90818,7 +90818,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -90833,7 +90833,7 @@ export namespace Prisma {
     productiveMinutes?: IntFieldUpdateOperationsInput | number
     unutilizedMinutes?: IntFieldUpdateOperationsInput | number
     missingDataMinutes?: IntFieldUpdateOperationsInput | number
-    utilizationPercent?: NullableFloatFieldUpdateOperationsInput | number | null
+    recordedHoursPercent?: NullableFloatFieldUpdateOperationsInput | number | null
     expectedWorkingDays?: IntFieldUpdateOperationsInput | number
     computedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

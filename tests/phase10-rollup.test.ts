@@ -103,7 +103,7 @@ describe("the rollup agrees with the live engine", () => {
     expect(north.productiveHours).toBe(totals.productiveHours);
     expect(north.unutilizedHours).toBe(totals.unutilizedHours);
     expect(north.missingDataHours).toBe(totals.missingDataHours);
-    expect(north.utilizationPct).toBe(totals.utilizationPct);
+    expect(north.recordedHoursPct).toBe(totals.recordedHoursPct);
   });
 
   test("multiple blocks on one day are summarised correctly", async () => {
@@ -205,7 +205,7 @@ describe("the instructor summary matches the engine too", () => {
     expect(metrics.body.totals.productiveHours).toBe(mine.productiveHours);
     expect(metrics.body.totals.unutilizedHours).toBe(mine.unutilizedHours);
     expect(metrics.body.totals.missingDataHours).toBe(mine.missingDataHours);
-    expect(metrics.body.totals.utilizationPct).toBe(mine.utilizationPct);
+    expect(metrics.body.totals.recordedHoursPct).toBe(mine.recordedHoursPct);
   });
 
   test("each summarised day matches its engine equivalent", async () => {

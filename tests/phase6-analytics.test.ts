@@ -164,7 +164,7 @@ describe("Gate — one dataset produces one set of numbers", () => {
     const mineViaSelf = selfView.body.analytics.instructors[0];
 
     expect(mineViaSelf.productiveHours).toBe(mineViaManager.productiveHours);
-    expect(mineViaSelf.utilizationPct).toBe(mineViaManager.utilizationPct);
+    expect(mineViaSelf.recordedHoursPct).toBe(mineViaManager.recordedHoursPct);
     expect(mineViaSelf.deliverables).toEqual(mineViaManager.deliverables);
   });
 });
