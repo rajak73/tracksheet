@@ -67,7 +67,14 @@ export type CheckFailure = {
 };
 
 export type CheckResult =
-  | { ok: true; unallocatedMinutes: number }
+  | {
+      ok: true;
+      unallocatedMinutes: number;
+      /** The activities AS KEPT — unattributable numbers replaced with null. */
+      activities: ExtractedActivity[];
+      /** What was dropped, so the rate is visible rather than silent. */
+      nulled: NulledNumber[];
+    }
   | { ok: false; failures: CheckFailure[] };
 
 /* Ignored when deciding whether two pieces of text are about the same thing.
@@ -146,135 +153,126 @@ function states(segment: string, target: number): boolean {
 }
 
 /**
- * Check 1 — digit provenance, by PROXIMITY.
+ * Attribution — which of an activity's numbers the text actually supports.
  *
- * ── What this used to be, and why presence was not enough ─────────────────
- * It used to ask whether a number appeared ANYWHERE in the day's text. That
- * passes for any number against any activity as soon as a day holds more than
- * one of them. The migrated rows made it obvious — a day whose quantity read
- * "3, 25, 1, 1, 6" would vouch for all five numbers against all six activities
- * — but the pairing fix does not close the hole, it only narrows it. An
- * instructor writing "3 classes, doubt session, 2 reviews" presents exactly the
- * same shape: several numbers in one string, and presence alone cannot say
- * which belongs to what.
+ * ── Checks 1 and 6, resolved together ─────────────────────────────────────
+ * They are one question asked twice. Check 1 asks whether a number appears near
+ * its activity; check 6 asks whether it has an occurrence of its OWN. Consuming
+ * occurrences answers both: a number that finds nothing left to take is either
+ * absent (1) or already spoken for (6).
  *
- * So a number must now appear NEAR its own activity: in a segment of the text
- * that the activity's label actually overlaps.
+ * ── Why this nulls rather than refuses ────────────────────────────────────
+ * It used to fail the whole day. On real legacy data that threw away days that
+ * were perfectly readable: `live class on binary tree, doubt class, office
+ * meeting` beside a quantity box reading `1, 1, 1, 1, 1` has five good labels
+ * and five numbers nobody can attach to them — the only evidence linking a `1`
+ * to an activity is its POSITION, which is what this check exists to distrust.
  *
- * ── The consequence, stated rather than softened ──────────────────────────
- * Where the pairing is positional across the two boxes — "Live Class, Doubt
- * clearing" beside "2 classes taken, 1 doubt session" — the words may not
- * overlap, and provenance fails. That is the check working: the only evidence
- * that the 2 belongs to Live Class is its POSITION, and position is precisely
- * what this check exists to stop trusting. The day falls back to its raw text,
- * which is the conservative direction to fail in.
+ * The activities are still true. Only the numbers are unknown, and `null`
+ * already means exactly that: the text does not state it. So the number is
+ * dropped and the day survives.
+ *
+ * This does not reopen the hole. An invented number is still removed — it is
+ * removed by nulling instead of by discarding everything around it.
  */
-function checkProvenance(activities: ExtractedActivity[], day: DayText): CheckFailure[] {
+export type NulledNumber = {
+  label: string;
+  field: "sessions" | "duration_value";
+  /** What the model claimed, so a log line says what was thrown away. */
+  value: number;
+  /** The segments the label matched — where the number should have been. */
+  segments: string[];
+  /**
+   * Why it could not be attributed, which is the difference between a format
+   * that cannot carry the link and a model inventing figures.
+   *
+   * - `elsewhere` — the value IS in the day's text, just not beside this label.
+   *   The legacy two-box shape: `live class, doubt class` in one box and
+   *   `1, 1, 1, 1, 1` in another. Nobody can say which `1` is which, and that
+   *   is a property of what was written.
+   * - `already-used` — in the matched segment, but every occurrence of it has
+   *   been claimed by an earlier field.
+   * - `absent` — nowhere in the day's text at all. The model made it up.
+   */
+  reason: "elsewhere" | "already-used" | "absent";
+};
+
+type Attribution = {
+  activities: ExtractedActivity[];
+  nulled: NulledNumber[];
+  /** Every number the model stated, attributable or not. */
+  stated: number;
+  /** Of those, how many appear NOWHERE in the day's text. */
+  invented: number;
+};
+
+function attribute(activities: ExtractedActivity[], day: DayText): Attribution {
   const source = [day.deliverable, day.deliverableQuantity ?? ""].filter(Boolean).join("\n");
   const parts = segments(source).map((text) => ({ text, words: meaningfulWords(text) }));
-  const failures: CheckFailure[] = [];
+
+  /* Every number the whole day states, so "not near this label" can be told
+     from "not written anywhere", which is the distinction the guard turns on. */
+  const anywhere = parts.flatMap((p) => numbersIn(p.text));
+  const inDay = (value: number) => anywhere.some((n) => Math.abs(n - value) < 1e-9);
+
+  const out: ExtractedActivity[] = [];
+  const nulled: NulledNumber[] = [];
+  let stated = 0;
+  let invented = 0;
 
   for (const activity of activities) {
-    const numbers: Array<[string, number]> = [];
-    if (activity.sessions !== null) numbers.push(["sessions", activity.sessions]);
-    /* The duration AS STATED, never the converted minutes. "45 minutes"
-       converts to 45 either way, but "2 hours" converts to 120 and 120 is not in
-       the text — checking the converted figure would fail every duration written
-       in hours. The number the model reported is the number the text must hold. */
-    if (activity.duration_value !== null) {
-      numbers.push(["duration_value", activity.duration_value]);
-    }
-    // A null states nothing and so has nothing to prove.
-    if (numbers.length === 0) continue;
-
     const labelWords = meaningfulWords(activity.label);
     const near = parts.filter((p) => [...p.words].some((w) => labelWords.has(w)));
+    const nearText = near.map((p) => p.text);
 
-    if (near.length === 0) {
-      /* The label matches no segment at all, so there is no text this number
-         could have come from. Note that a null would still have been fine —
-         only a stated number needs somewhere to have come from. */
-      for (const [field, value] of numbers) {
-        failures.push({
-          check: 1,
-          reason: `"${activity.label}" matches no segment of the day's text, so ${field} ${value} has no source`,
-        });
-      }
-      continue;
-    }
-
-    for (const [field, value] of numbers) {
-      if (!near.some((p) => states(p.text, value))) {
-        failures.push({
-          check: 1,
-          reason: `${field} ${value} does not appear near "${activity.label}" (looked in: ${near
-            .map((p) => `"${p.text}"`)
-            .join(", ")})`,
-        });
-      }
-    }
-  }
-  return failures;
-}
-
-/**
- * Check 6 — distinct occurrence.
- *
- * ── The hole check 1 leaves open ──────────────────────────────────────────
- * Check 1 asks whether each number APPEARS near its activity. Ask that of a
- * line reading "Doubt solving session - 1 hour" and an extraction claiming
- * `sessions: 1` and `duration_value: 1` passes twice over — the same single `1`
- * vouches for both fields. The text says one hour. It does not say one session,
- * and nothing in check 1 can tell the difference.
- *
- * So every stated number must map to its OWN occurrence. Two fields wanting the
- * same value need the text to state that value twice.
- *
- * Implemented by consuming occurrences: the numbers in the matched segments are
- * collected WITH their multiplicity, and each field removes one. A field left
- * with nothing to take is a field the text does not separately support.
- */
-function checkDistinctOccurrence(activities: ExtractedActivity[], day: DayText): CheckFailure[] {
-  const source = [day.deliverable, day.deliverableQuantity ?? ""].filter(Boolean).join("\n");
-  const parts = segments(source).map((text) => ({ text, words: meaningfulWords(text) }));
-  const failures: CheckFailure[] = [];
-
-  for (const activity of activities) {
-    const wanted: Array<[string, number]> = [];
-    if (activity.sessions !== null) wanted.push(["sessions", activity.sessions]);
-    if (activity.duration_value !== null) {
-      wanted.push(["duration_value", activity.duration_value]);
-    }
-    /* One number can never collide with itself, and none at all states nothing.
-       Check 1 already covers whether a lone number is present. */
-    if (wanted.length < 2) continue;
-
-    const labelWords = meaningfulWords(activity.label);
-    const near = parts.filter((p) => [...p.words].some((w) => labelWords.has(w)));
-    // No segment at all is check 1's failure to report, not this one's.
-    if (near.length === 0) continue;
-
+    /* Occurrences the matched segments actually contain, WITH multiplicity.
+       Each field takes one; a field left with nothing to take is unsupported. */
     const available = near.flatMap((p) => numbersIn(p.text));
-    for (const [field, value] of wanted) {
+
+    const kept: { sessions: number | null; value: number | null; unit: DurationUnit | null } = {
+      sessions: activity.sessions,
+      value: activity.duration_value,
+      unit: activity.duration_unit,
+    };
+
+    const claim = (field: "sessions" | "duration_value", value: number): boolean => {
+      stated += 1;
       const at = available.findIndex((n) => Math.abs(n - value) < 1e-9);
       if (at === -1) {
-        failures.push({
-          check: 6,
-          reason:
-            `${field} ${value} has no occurrence of its own near "${activity.label}" — ` +
-            `the text states that number fewer times than the extraction uses it`,
-        });
-        continue;
+        const reason = near.some((p) => states(p.text, value))
+          ? ("already-used" as const)
+          : inDay(value)
+            ? ("elsewhere" as const)
+            : ("absent" as const);
+        if (reason === "absent") invented += 1;
+        nulled.push({ label: activity.label, field, value, segments: nearText, reason });
+        return false;
       }
-      // Consumed, so the next field cannot claim the same occurrence.
       available.splice(at, 1);
+      return true;
+    };
+
+    if (kept.sessions !== null && !claim("sessions", kept.sessions)) kept.sessions = null;
+    if (kept.value !== null && !claim("duration_value", kept.value)) {
+      kept.value = null;
+      // A unit measuring nothing is not a unit.
+      kept.unit = null;
     }
+
+    out.push({
+      label: activity.label,
+      sessions: kept.sessions,
+      duration_value: kept.value,
+      duration_unit: kept.unit,
+    });
   }
-  return failures;
+
+  return { activities: out, nulled, stated, invented };
 }
 
 /**
- * Runs all six checks and, when they pass, returns the day's unallocated minutes.
+ * Runs the checks and, when they pass, returns the day's unallocated minutes
+ * alongside the activities AS KEPT — which is not always what was passed in.
  *
  * Every check runs even after one has failed: a caller retrying once is better
  * served by the whole list than by the first thing that went wrong.
@@ -282,13 +280,33 @@ function checkDistinctOccurrence(activities: ExtractedActivity[], day: DayText):
 export function checkExtraction(activities: ExtractedActivity[], day: DayText): CheckResult {
   const failures: CheckFailure[] = [];
 
-  // ── 1. Digit provenance, by proximity ────────────────────────────────────
-  failures.push(...checkProvenance(activities, day));
+  // ── 1 & 6. Attribution: unsupported numbers are dropped, not fatal ───────
+  const { activities: kept, nulled, stated, invented } = attribute(activities, day);
+
+  /* ── The guard that stops nulling being a soft landing ──────────────────
+   * A model getting most of its numbers wrong is guessing, and that is a
+   * different situation from a day whose format cannot support attribution.
+   *
+   * Counted on INVENTED numbers only — values that appear nowhere in the day's
+   * text. Counting every unattributable number instead would fire hardest on
+   * exactly the days this change exists to rescue: a legacy two-box day has all
+   * of its numbers written down and none of them attachable, so it would score
+   * 100% and fail, which is where this guard was first pointed and it was
+   * wrong. Half of the invented ones is the line. */
+  if (stated > 0 && invented * 2 > stated) {
+    failures.push({
+      check: 1,
+      reason:
+        `${invented} of ${stated} stated numbers appear nowhere in the day's text, ` +
+        `which is more than half — the extraction is guessing rather than reading`,
+    });
+  }
 
   // ── 2. No over-allocation ────────────────────────────────────────────────
-  /* One minute of slack, not a hundredth of an hour: the unit is minutes now,
-     so the tolerance is the smallest thing the record can express. */
-  const allocated = activities.reduce((sum, a) => sum + (durationMinutes(a) ?? 0), 0);
+  /* On what SURVIVED attribution. A duration that was dropped allocates
+     nothing, so checking the model's original claim would refuse days over time
+     that is no longer being claimed. */
+  const allocated = kept.reduce((sum, a) => sum + (durationMinutes(a) ?? 0), 0);
   if (allocated > day.workingMinutes + 1) {
     failures.push({
       check: 2,
@@ -306,10 +324,10 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
     }
   }
 
-  // ── 6. Distinct occurrence ───────────────────────────────────────────────
-  failures.push(...checkDistinctOccurrence(activities, day));
-
   // ── 5. No fabricated activities ──────────────────────────────────────────
+  /* Still fatal, and deliberately so. A number nobody wrote can be dropped
+     because `null` is a truthful thing to store in its place. There is no
+     truthful thing to store in place of an activity that never happened. */
   const dayWords = meaningfulWords(day.deliverable);
   for (const activity of activities) {
     const words = meaningfulWords(activity.label);
@@ -324,11 +342,15 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
   if (failures.length > 0) return { ok: false, failures };
 
   /* ── 3. Reconciliation ──────────────────────────────────────────────────
-   * Not a check that can fail. `S = 0` means the instructor named activities
-   * without stating a duration for any of them, so the whole day is
-   * unallocated — valid, and on migrated days it is the norm.
+   * Not a check that can fail. `S = 0` means no activity carried a duration the
+   * text supports, so the whole day is unallocated — valid, and on legacy days
+   * it is the norm.
    *
-   * Whole minutes in, whole minutes out. Nothing rounds here, so nothing can
-   * leave a spurious hundredth behind — which is why the column changed. */
-  return { ok: true, unallocatedMinutes: day.workingMinutes - allocated };
+   * Whole minutes in, whole minutes out. Nothing rounds here. */
+  return {
+    ok: true,
+    activities: kept,
+    nulled,
+    unallocatedMinutes: day.workingMinutes - allocated,
+  };
 }

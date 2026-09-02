@@ -42,7 +42,25 @@ import {
 /** Consecutive failures after which the view stops trying and offers a retry. */
 export const MAX_CONSECUTIVE_FAILURES = 3;
 
-export type InsightPayload = { summary: string };
+/**
+ * What a cached insight holds.
+ *
+ * A DAY is not here: a day's answer is an extraction of its own text, stored in
+ * `DayExtraction` with its own hash and its own record of which check refused
+ * it — see `serve-day.ts`. This is the week and month payload, plus the older
+ * prose summary that some views still show.
+ *
+ * Both fields are optional because the two are alternatives, not a pair: a week
+ * rollup states no prose, and a prose summary states no figures.
+ */
+export type InsightPayload = {
+  summary?: string;
+  /** Activity groups, every figure summed in code. See `period-rollup.ts`. */
+  groups?: unknown[];
+  total_minutes?: number;
+  unallocated_minutes?: number;
+  days_logged?: number;
+};
 
 export type ServedInsight = {
   scope: { type: InsightScope["scopeType"]; period_start: string; period_end: string };

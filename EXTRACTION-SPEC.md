@@ -8,14 +8,14 @@ These checks decide whether a model's output is kept. They are pure functions ov
 extraction and the day's own text — [`src/server/insights/extraction-checks.ts`](src/server/insights/extraction-checks.ts).
 Nothing in that module calls a model.
 
-`T` is the day's recorded `working_hours`. `S` is the sum of `hours` across extracted
+`T` is the day's recorded `working_minutes`. `S` is the sum of converted durations across extracted
 activities.
 
 ---
 
 ## 1. Digit provenance — by proximity
 
-Every non-null `sessions` and `hours` must appear **near its own activity**, not merely
+Every non-null `sessions` and `duration_value` must appear **near its own activity**, not merely
 somewhere in the day.
 
 1. Segment the source text — `deliverable` and `deliverable_quantity` — on `;`, `,`,
@@ -56,15 +56,48 @@ back to its raw text, which is the conservative direction to fail in.
 
 ## 2. No over-allocation
 
-`S <= T + 0.01`. Text attributing more hours than the day recorded is wrong — either it
-double-counted an activity or it invented hours.
+`S <= T + 1` minute. Text attributing more time than the day recorded is wrong — either it
+double-counted an activity or it invented time.
 
 ## 3. Reconciliation
 
-`unallocated_hours = T - S`, to two decimals. Cannot fail.
+`unallocated_minutes = T - S`, in whole minutes. Cannot fail.
 
 `S = 0` is valid and common: the instructor named activities without stating per-activity
 hours, so the whole day is unallocated. **Not a failure. Never retried.**
+
+## A duration is stated, never computed
+
+The model reports **`duration_value` and `duration_unit`**, in the unit the text uses.
+`"45 minutes"` is `45` and `"minutes"`; `"2 hours"` is `2` and `"hours"`. Both fields are
+null when the text states no duration. Code converts to minutes; the model never does.
+
+### Why this replaced `hours`
+
+The prompt used to ask for `hours`. For `checked 25 quiz papers — 45 minutes` the only
+honest answer is `0.75`, which appears nowhere in the text, so digit provenance rejected
+it — correctly, and fatally: every line stating minutes failed, and in real data most of
+them do.
+
+Provenance checks `duration_value` **as stated**, never the converted figure. `2 hours`
+converts to 120 and 120 is not in the text.
+
+### A clock range is not a duration
+
+`9:00 AM to 11:00 AM` states WHEN, not how long. The model must never subtract. Measured
+on live data: extracting `doubt clearing session 11:15 AM to 12:00 PM` returns a null
+duration, and a `45` derived from it is refused because that segment states `11`, `15`,
+`12` and `0`.
+
+## 6. Distinct occurrence
+
+Each extracted number maps to its **own occurrence**. One number cannot fill both
+`sessions` and `duration_value`.
+
+`Doubt solving session - 1 hour` with `sessions: 1` and `duration_value: 1` passes check 1
+twice over on the strength of a single `1` — check 1 asks only whether the number is
+present. Occurrences are consumed: two fields wanting the same value need the text to
+state it twice, which `Live class - 1 class - 1 hour` does.
 
 ## 4. Coverage
 

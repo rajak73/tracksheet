@@ -128,13 +128,26 @@ export function formatMinuteOfDay(minutes: number): string {
  *
  * Minutes are rounded once, from the total, so a column of these adds up.
  */
-export function formatHours(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "—";
-  const total = Math.round(value * 60);
+export function formatMinutes(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return "—";
+  const total = Math.round(minutes);
   const sign = total < 0 ? "-" : "";
   const abs = Math.abs(total);
   return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}h ${String(abs % 60).padStart(2, "0")}m`;
 }
+
+/**
+ * The same formatter, for callers still holding hours.
+ *
+ * Delegates rather than repeating the arithmetic: the storage unit is minutes
+ * now, and two implementations of "how do I write a duration" is how `1.5h` and
+ * `01h 30m` came to sit on adjacent screens in the first place.
+ */
+export function formatHours(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return formatMinutes(value * 60);
+}
+
 
 /**
  * A duration as a report writes it beside an activity: `2h`, `1h 30m`, `45m`.

@@ -52307,6 +52307,7 @@ export namespace Prisma {
     sourceHash: string | null
     unallocatedMinutes: number | null
     status: $Enums.DayExtractionStatus | null
+    failureKind: string | null
     lastError: string | null
     promptVersion: string | null
     modelId: string | null
@@ -52321,6 +52322,7 @@ export namespace Prisma {
     sourceHash: string | null
     unallocatedMinutes: number | null
     status: $Enums.DayExtractionStatus | null
+    failureKind: string | null
     lastError: string | null
     promptVersion: string | null
     modelId: string | null
@@ -52337,6 +52339,7 @@ export namespace Prisma {
     items: number
     unallocatedMinutes: number
     status: number
+    failureKind: number
     lastError: number
     promptVersion: number
     modelId: number
@@ -52361,6 +52364,7 @@ export namespace Prisma {
     sourceHash?: true
     unallocatedMinutes?: true
     status?: true
+    failureKind?: true
     lastError?: true
     promptVersion?: true
     modelId?: true
@@ -52375,6 +52379,7 @@ export namespace Prisma {
     sourceHash?: true
     unallocatedMinutes?: true
     status?: true
+    failureKind?: true
     lastError?: true
     promptVersion?: true
     modelId?: true
@@ -52391,6 +52396,7 @@ export namespace Prisma {
     items?: true
     unallocatedMinutes?: true
     status?: true
+    failureKind?: true
     lastError?: true
     promptVersion?: true
     modelId?: true
@@ -52494,6 +52500,7 @@ export namespace Prisma {
     items: JsonValue
     unallocatedMinutes: number
     status: $Enums.DayExtractionStatus
+    failureKind: string | null
     lastError: string | null
     promptVersion: string
     modelId: string
@@ -52529,6 +52536,7 @@ export namespace Prisma {
     items?: boolean
     unallocatedMinutes?: boolean
     status?: boolean
+    failureKind?: boolean
     lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52546,6 +52554,7 @@ export namespace Prisma {
     items?: boolean
     unallocatedMinutes?: boolean
     status?: boolean
+    failureKind?: boolean
     lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52563,6 +52572,7 @@ export namespace Prisma {
     items?: boolean
     unallocatedMinutes?: boolean
     status?: boolean
+    failureKind?: boolean
     lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52580,6 +52590,7 @@ export namespace Prisma {
     items?: boolean
     unallocatedMinutes?: boolean
     status?: boolean
+    failureKind?: boolean
     lastError?: boolean
     promptVersion?: boolean
     modelId?: boolean
@@ -52587,7 +52598,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type DayExtractionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "logDate" | "sourceHash" | "rawContext" | "items" | "unallocatedMinutes" | "status" | "lastError" | "promptVersion" | "modelId" | "generatedAt" | "updatedAt", ExtArgs["result"]["dayExtraction"]>
+  export type DayExtractionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "logDate" | "sourceHash" | "rawContext" | "items" | "unallocatedMinutes" | "status" | "failureKind" | "lastError" | "promptVersion" | "modelId" | "generatedAt" | "updatedAt", ExtArgs["result"]["dayExtraction"]>
   export type DayExtractionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
   }
@@ -52639,6 +52650,16 @@ export namespace Prisma {
        */
       unallocatedMinutes: number
       status: $Enums.DayExtractionStatus
+      /**
+       * Which SIDE failed, when one did.
+       * 
+       * `structure` means the checks refused what the model said about the text;
+       * `provider` means no answer ever arrived. They read alike in a log and mean
+       * opposite things on a screen — one is a property of what was written, the
+       * other is an outage — so the distinction is stored rather than recovered by
+       * matching on the error string.
+       */
+      failureKind: string | null
       /**
        * Which check refused the extraction, in the words the check used.
        * 
@@ -53083,6 +53104,7 @@ export namespace Prisma {
     readonly items: FieldRef<"DayExtraction", 'Json'>
     readonly unallocatedMinutes: FieldRef<"DayExtraction", 'Int'>
     readonly status: FieldRef<"DayExtraction", 'DayExtractionStatus'>
+    readonly failureKind: FieldRef<"DayExtraction", 'String'>
     readonly lastError: FieldRef<"DayExtraction", 'String'>
     readonly promptVersion: FieldRef<"DayExtraction", 'String'>
     readonly modelId: FieldRef<"DayExtraction", 'String'>
@@ -55306,6 +55328,7 @@ export namespace Prisma {
     items: 'items',
     unallocatedMinutes: 'unallocatedMinutes',
     status: 'status',
+    failureKind: 'failureKind',
     lastError: 'lastError',
     promptVersion: 'promptVersion',
     modelId: 'modelId',
@@ -59482,6 +59505,7 @@ export namespace Prisma {
     items?: JsonFilter<"DayExtraction">
     unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    failureKind?: StringNullableFilter<"DayExtraction"> | string | null
     lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
@@ -59499,6 +59523,7 @@ export namespace Prisma {
     items?: SortOrder
     unallocatedMinutes?: SortOrder
     status?: SortOrder
+    failureKind?: SortOrderInput | SortOrder
     lastError?: SortOrderInput | SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -59520,6 +59545,7 @@ export namespace Prisma {
     items?: JsonFilter<"DayExtraction">
     unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    failureKind?: StringNullableFilter<"DayExtraction"> | string | null
     lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
@@ -59537,6 +59563,7 @@ export namespace Prisma {
     items?: SortOrder
     unallocatedMinutes?: SortOrder
     status?: SortOrder
+    failureKind?: SortOrderInput | SortOrder
     lastError?: SortOrderInput | SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -59561,6 +59588,7 @@ export namespace Prisma {
     items?: JsonWithAggregatesFilter<"DayExtraction">
     unallocatedMinutes?: IntWithAggregatesFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusWithAggregatesFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    failureKind?: StringNullableWithAggregatesFilter<"DayExtraction"> | string | null
     lastError?: StringNullableWithAggregatesFilter<"DayExtraction"> | string | null
     promptVersion?: StringWithAggregatesFilter<"DayExtraction"> | string
     modelId?: StringWithAggregatesFilter<"DayExtraction"> | string
@@ -63640,6 +63668,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -63657,6 +63686,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -63672,6 +63702,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -63689,6 +63720,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -63705,6 +63737,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -63720,6 +63753,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -63736,6 +63770,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -66992,6 +67027,7 @@ export namespace Prisma {
     items?: SortOrder
     unallocatedMinutes?: SortOrder
     status?: SortOrder
+    failureKind?: SortOrder
     lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -67010,6 +67046,7 @@ export namespace Prisma {
     sourceHash?: SortOrder
     unallocatedMinutes?: SortOrder
     status?: SortOrder
+    failureKind?: SortOrder
     lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -67024,6 +67061,7 @@ export namespace Prisma {
     sourceHash?: SortOrder
     unallocatedMinutes?: SortOrder
     status?: SortOrder
+    failureKind?: SortOrder
     lastError?: SortOrder
     promptVersion?: SortOrder
     modelId?: SortOrder
@@ -77252,6 +77290,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -77267,6 +77306,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -77794,6 +77834,7 @@ export namespace Prisma {
     items?: JsonFilter<"DayExtraction">
     unallocatedMinutes?: IntFilter<"DayExtraction"> | number
     status?: EnumDayExtractionStatusFilter<"DayExtraction"> | $Enums.DayExtractionStatus
+    failureKind?: StringNullableFilter<"DayExtraction"> | string | null
     lastError?: StringNullableFilter<"DayExtraction"> | string | null
     promptVersion?: StringFilter<"DayExtraction"> | string
     modelId?: StringFilter<"DayExtraction"> | string
@@ -90344,6 +90385,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: number
     status?: $Enums.DayExtractionStatus
+    failureKind?: string | null
     lastError?: string | null
     promptVersion: string
     modelId: string
@@ -91074,6 +91116,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -91089,6 +91132,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string
@@ -91104,6 +91148,7 @@ export namespace Prisma {
     items?: JsonNullValueInput | InputJsonValue
     unallocatedMinutes?: IntFieldUpdateOperationsInput | number
     status?: EnumDayExtractionStatusFieldUpdateOperationsInput | $Enums.DayExtractionStatus
+    failureKind?: NullableStringFieldUpdateOperationsInput | string | null
     lastError?: NullableStringFieldUpdateOperationsInput | string | null
     promptVersion?: StringFieldUpdateOperationsInput | string
     modelId?: StringFieldUpdateOperationsInput | string

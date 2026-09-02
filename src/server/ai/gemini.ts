@@ -87,8 +87,22 @@ export const MODEL_CHAIN: ChainEntry[] = process.env.GEMINI_MODEL
       },
     ]
   : [
-      { model: "gemini-flash-latest", thinkingLevel: "low" },
+      /* ── Order measured against the live API, not assumed ─────────────────
+       * `gemini-flash-latest` led this chain and returns 404 for this project's
+       * key: "This model models/gemini-2.5-flash is no longer available to new
+       * users." The alias resolves to a retired model, so every call spent
+       * ~2.6s discovering that before the working model was tried — and the
+       * 8s chain budget is a budget for the whole chain, so a day extraction
+       * that retries once could exhaust it and report a timeout for a provider
+       * that was never actually unavailable. That is what it did: the first
+       * live extraction came back `provider: timed out after 8000ms`.
+       *
+       * The known-good model leads. The alias stays behind it rather than being
+       * deleted, because it is an alias — it may well resolve to something
+       * current for a key provisioned differently, and a chain exists precisely
+       * so one entry being wrong is survivable. */
       { model: "gemini-3.6-flash", thinkingLevel: "low" },
+      { model: "gemini-flash-latest", thinkingLevel: "low" },
       { model: "gemini-3.1-flash-lite" },
     ];
 
@@ -173,27 +187,24 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
   const baseUrl = process.env.GEMINI_BASE_URL ?? DEFAULT_BASE_URL;
   let last: Transport = { ok: false, reason: "no model was attempted" };
 
-  /* ── `timeoutMs` is a budget for the CHAIN, not for each attempt ────────
-   * It used to be per attempt, and every transport failure — including a
-   * timeout — was marked retryable, so an unresponsive provider cost
-   * `timeoutMs × MODEL_CHAIN.length` before the caller saw its fallback.
-   * Narration waited 24 seconds for a deterministic sentence it already had;
-   * the assistant, once its ceiling was raised to 45 seconds for a longer
-   * reply, would have waited 135.
+  /* ── `timeoutMs` is a budget for EACH attempt ───────────────────────────
+   * It was a budget for the whole chain, which was itself a fix for a real
+   * problem: every transport failure was retryable, so a hung provider cost
+   * `timeoutMs × MODEL_CHAIN.length` before the caller saw a fallback.
    *
-   * A deadline fixes both without changing what retrying is for. A capacity
-   * refusal (429, 503) comes back in milliseconds and leaves almost the whole
-   * budget, so the next model is still tried — which is the case the chain
-   * exists for. A timeout consumes the budget by definition, so there is
-   * nothing left to spend and the loop stops. Slowness stops being a reason to
-   * be slower.
-   */
-  const deadline = Date.now() + timeoutMs;
-
+   * A shared deadline solved that by making the second model inherit whatever
+   * the first left behind — and that turned a dead model at the front into a
+   * tax on every call after it. Measured, not theorised: `gemini-flash-latest`
+   * 404s for this project's key and takes ~2.6s to say so, leaving 5.4s of an
+   * 8s allowance for a model that needs more, and the first live extraction
+   * came back "timed out after 8000ms" from a provider that was never down.
+   *
+   * Each attempt gets its own budget now, and the hang case is handled where it
+   * belongs: a TIMEOUT is not retryable. It consumed a full allowance, and the
+   * next model has no reason to be faster. A fast failure — 429, 503, a network
+   * blip — leaves the clock alone and genuinely deserves the next model. The
+   * worst case is one timeout plus some fast failures, not three timeouts. */
   for (const entry of MODEL_CHAIN) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) return last;
-
     /* Counted here rather than in `attempt`, and before the request rather than
      * after: what the rule forbids is REACHING for the provider, and a call
      * that times out reached for it just as surely as one that answered. */
@@ -202,7 +213,7 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
       `${baseUrl}/models/${entry.model}:generateContent`,
       apiKey,
       requestFor(entry, body),
-      remaining,
+      timeoutMs,
     );
     if (last.ok) return last;
     // Anything that is not a capacity problem will fail the same way on the
@@ -247,16 +258,17 @@ async function attempt(
 
     return { ok: true, body: await res.json().catch(() => null) };
   } catch (error) {
-    const reason =
-      error instanceof Error && error.name === "AbortError"
-        ? `timed out after ${timeoutMs}ms`
-        : error instanceof Error
-          ? error.message
-          : "unknown transport error";
-    /* Still retryable — the deadline above is what stops a timeout from being
-     * spent three times over. A network blip that fails fast leaves budget and
-     * genuinely deserves the next model; a hang leaves none and gets none. */
-    return { ok: false, retryable: true, reason };
+    const timedOut = error instanceof Error && error.name === "AbortError";
+    const reason = timedOut
+      ? `timed out after ${timeoutMs}ms`
+      : error instanceof Error
+        ? error.message
+        : "unknown transport error";
+    /* A timeout is NOT retryable, now that each attempt has its own budget.
+     * It spent a full allowance and the next model has no reason to be quicker,
+     * so retrying is how one slow provider becomes three. A blip that failed
+     * fast cost almost nothing and genuinely deserves the next model. */
+    return timedOut ? { ok: false, reason } : { ok: false, retryable: true, reason };
   } finally {
     clearTimeout(timer);
   }

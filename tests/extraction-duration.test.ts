@@ -63,7 +63,19 @@ describe("a duration is stated, never computed", () => {
        states: 11, 15, 12 and 0 are. */
     const derived = act("doubt clearing session", null, 45, "minutes");
     const r = checkExtraction([derived], day(REAL_DAY));
-    expect(!r.ok && r.failures.some((f) => f.check === 1)).toBe(true);
+    /* The 45 is dropped, not stored. The day survives — its activities are
+       readable, and only the invented duration is not. */
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+    expect(r.activities[0]!.duration_value, "a subtracted duration never lands").toBeNull();
+    expect(r.activities[0]!.duration_unit).toBeNull();
+    expect(r.nulled.map((n) => n.value)).toContain(45);
+    /* "elsewhere", not "absent" — and that is the sharper version of this test.
+       45 IS written on this day, on the quiz-papers line. What the model did was
+       take a number from one line and a duration from another, which is exactly
+       the cross-line attribution proximity exists to stop. The number is real;
+       the pairing is invented. */
+    expect(r.nulled[0]!.reason).toBe("elsewhere");
 
     // The honest extraction of the same line states no duration at all.
     const honest = act("doubt clearing session", null, null, null);
@@ -76,7 +88,12 @@ describe("a duration is stated, never computed", () => {
        5, 6 and 1 — and the 1 is already spoken for by `sessions`, so the
        duration has no occurrence of its own. */
     const r = checkExtraction([derived], day(REAL_DAY));
-    expect(!r.ok && r.failures.some((f) => f.check === 6)).toBe(true);
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+    // `sessions` took the only 1; the duration had no occurrence of its own.
+    expect(r.activities[0]!.sessions).toBe(1);
+    expect(r.activities[0]!.duration_value).toBeNull();
+    expect(r.nulled[0]!.reason).toBe("already-used");
   });
 
   test("4. a session count with no stated duration passes", () => {
@@ -94,7 +111,10 @@ describe("a duration is stated, never computed", () => {
     /* Both: the single `1` would have to vouch twice. Check 1 cannot see this —
        the number IS present — which is exactly why check 6 exists. */
     const both = checkExtraction([act("Doubt solving session", 1, 1, "hours")], line);
-    expect(!both.ok && both.failures.some((f) => f.check === 6)).toBe(true);
+    expect(both.ok, JSON.stringify(both)).toBe(true);
+    if (!both.ok) return;
+    expect(both.activities[0]!.duration_value, "the second claim on one 1 is dropped").toBeNull();
+    expect(both.nulled[0]!.reason).toBe("already-used");
   });
 
   test("5b. and two occurrences of the same number support two fields", () => {

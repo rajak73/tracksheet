@@ -127,7 +127,26 @@ export function parseGrouping(text: string, memberCount: number): GroupingResult
 }
 
 /**
- * Group, retrying once. The sums are the caller's, from stored extractions.
+ * How many times grouping is attempted before it gives up.
+ *
+ * ── Why this is three and extraction is two ───────────────────────────────
+ * Not a preference. Extraction handles ONE day and a handful of lines, so a
+ * second failure is usually a real problem with the text and a third attempt
+ * buys a third identical refusal.
+ *
+ * Grouping at month scale handles a hundred labels and must place every one in
+ * exactly one group — a task whose failure rate rises with size. Observed: a
+ * month's grouping failed validation twice and returned FAILED, and the same
+ * call succeeded on a later attempt. A third attempt is cheap against a month
+ * of already-paid extractions, and it is the smallest change that fits what was
+ * actually seen. Chunking the month or merging week-by-week would be a design
+ * built on one observation.
+ */
+export const GROUPING_ATTEMPTS = 3;
+
+/**
+ * Group, retrying up to {@link GROUPING_ATTEMPTS} times. The sums are the
+ * caller's, from stored extractions.
  */
 export async function runGrouping(
   members: GroupMember[],
@@ -138,15 +157,26 @@ export async function runGrouping(
   const instruction = groupingInstruction(members);
   let reason = "the model was never called";
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 1; attempt <= GROUPING_ATTEMPTS; attempt++) {
     const reply = await call(instruction);
     if (!reply.ok) {
       reason = `provider: ${reply.reason}`;
+      console.info(`[group] attempt ${attempt}/${GROUPING_ATTEMPTS} — ${reason}`);
       continue;
     }
     const parsed = parseGrouping(reply.text, members.length);
-    if (parsed.ok) return parsed;
+    if (parsed.ok) {
+      if (attempt > 1) console.info(`[group] succeeded on attempt ${attempt} of ${GROUPING_ATTEMPTS}`);
+      return parsed;
+    }
     reason = parsed.reason;
+    /* Which check refused it, on every attempt, with the size of the problem.
+       The suspicion is that "every label in exactly one group" fails as the
+       list grows — and three or four real failures with their sizes is what a
+       fix should be designed from, rather than the one that has been seen. */
+    console.info(
+      `[group] attempt ${attempt}/${GROUPING_ATTEMPTS} refused over ${members.length} labels — ${reason}`,
+    );
   }
   return { ok: false, reason };
 }

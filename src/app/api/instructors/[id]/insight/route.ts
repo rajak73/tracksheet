@@ -6,7 +6,8 @@ import { ApiError } from "@/server/http/errors";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { serveInsight } from "@/server/insights/cache";
 import { resolveViewerRole } from "@/server/insights/access";
-import { generateInsight } from "@/server/insights/generate";
+import { serveDayInsight } from "@/server/insights/serve-day";
+import { buildPeriodRollup } from "@/server/insights/period-rollup";
 import type { ScopeType } from "@/server/insights/context";
 
 /**
@@ -60,10 +61,38 @@ export const GET = withAuth<{ id: string }>(async ({ scope: tenant, params, req 
      anything the caller sent. A role the caller can state is not a role. */
   const viewerRole = resolveViewerRole(tenant, instructor.id);
 
+  /* ── A day is extracted; a period is grouped ────────────────────────────
+   * Two different questions with two different stores. A day's answer is a
+   * reading of that day's own text and lives in `DayExtraction`; a period's is
+   * a grouping of what those days held and lives in the insight cache. Routing
+   * both through one store would key one answer by two hashes. */
+  if (scopeType === "DAY") {
+    if (periodStart !== periodEnd) {
+      throw new ApiError(400, "INVALID_PERIOD", "A DAY scope covers one date.");
+    }
+    return NextResponse.json(
+      await serveDayInsight({ instructorId: instructor.id, date: periodStart, viewerRole }),
+    );
+  }
+
   const result = await serveInsight(
     { instructorId: instructor.id, scopeType, periodStart, periodEnd },
     viewerRole,
-    generateInsight,
+    /* The generator runs only when nothing valid is stored, and only for a
+       viewer permitted to generate — `serveInsight` decides both before this is
+       reached. Every figure in the payload is summed in code. */
+    async () => {
+      const built = await buildPeriodRollup({
+        instructorId: instructor.id,
+        periodStart,
+        periodEnd,
+      });
+      /* Throwing rather than returning a partial payload: `serveInsight` treats
+         a throw as "keep whatever was stored and mark it stale", and a rollup
+         whose parts do not add to its whole must never be stored. */
+      if (!built.ok) throw new Error(built.reason);
+      return built.rollup;
+    },
   );
 
   /* The contract the client reads. Hashes, prompt versions and model ids are

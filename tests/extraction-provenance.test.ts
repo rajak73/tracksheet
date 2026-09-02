@@ -40,9 +40,21 @@ const act = (
   unit: "hours" | "minutes" | null = duration === null ? null : "hours",
 ): ExtractedActivity => ({ label, sessions, duration_value: duration, duration_unit: unit });
 
-/** True when the result failed, and failed on check 1 specifically. */
-const failedProvenance = (r: ReturnType<typeof checkExtraction>) =>
-  !r.ok && r.failures.some((f) => f.check === 1);
+/**
+ * True when a number did not survive attribution.
+ *
+ * ── What this used to mean ────────────────────────────────────────────────
+ * It used to be "the extraction was refused", because an unattributable number
+ * failed the whole day. It no longer does: the number is nulled and the
+ * activities are kept, because on legacy two-box data the labels are perfectly
+ * readable and only the pairing is unknowable.
+ *
+ * The property these tests protect is unchanged and is the one that matters —
+ * a number the text does not support NEVER REACHES STORAGE. Only the mechanism
+ * moved, from discarding the day to dropping the number.
+ */
+const numberRejected = (r: ReturnType<typeof checkExtraction>, value: number) =>
+  !r.ok || r.nulled.some((n) => n.value === value);
 
 describe("a number must appear near its own activity", () => {
   test("4. sessions attached to the wrong activity in a multi-activity string fails", () => {
@@ -51,7 +63,9 @@ describe("a number must appear near its own activity", () => {
     const text = day("Java class 5 classes; doubt solving");
 
     const wrong = checkExtraction([act("doubt solving", 5)], text);
-    expect(failedProvenance(wrong), "5 must not attach to doubt solving").toBe(true);
+    expect(numberRejected(wrong, 5), "5 must not attach to doubt solving").toBe(true);
+    // And what IS kept says nothing rather than saying something untrue.
+    expect(wrong.ok && wrong.activities[0]!.sessions).toBeNull();
 
     const right = checkExtraction([act("Java class", 5)], text);
     expect(right.ok, JSON.stringify(right)).toBe(true);
@@ -65,7 +79,8 @@ describe("a number must appear near its own activity", () => {
     expect(right.ok, JSON.stringify(right)).toBe(true);
 
     const wrong = checkExtraction([act("Lecture", 12)], text);
-    expect(failedProvenance(wrong), "12 must not attach to Lecture").toBe(true);
+    expect(numberRejected(wrong, 12), "12 must not attach to Lecture").toBe(true);
+    expect(wrong.ok && wrong.activities[0]!.sessions).toBeNull();
   });
 
   test("6. a single-activity day with one number still passes", () => {
@@ -85,8 +100,12 @@ describe("a number must appear near its own activity", () => {
   test("7. an activity whose label matches no segment fails on any stated number", () => {
     const text = day("Lecture — 1; Doubt session — 12");
 
+    /* Still a whole-extraction failure, but on check 5 rather than check 1: the
+       LABEL is fabricated, and there is no null to store in place of an
+       activity that never happened. */
     const stated = checkExtraction([act("Capstone review", 3)], text);
-    expect(failedProvenance(stated)).toBe(true);
+    expect(stated.ok).toBe(false);
+    expect(!stated.ok && stated.failures.some((f) => f.check === 5)).toBe(true);
 
     /* A null still states nothing, so it has nothing to prove — check 5 will
        object to the fabricated label, but check 1 must not. */
@@ -109,22 +128,22 @@ describe("what counts as the same number", () => {
     /* "1 and 5" is not "1.5". The check that permits the model to state numbers
        at all is the check that must not be satisfied by coincidence. */
     const r = checkExtraction([act("lab", null, 1.5)], day("lab 1 session 5 students", null, 8));
-    expect(failedProvenance(r)).toBe(true);
+    expect(numberRejected(r, 1.5)).toBe(true);
   });
 
   test("and an integer is not read out of the middle of a decimal", () => {
     // The same disease pointing the other way: "1.5 hours" states 1.5, not 1.
     const r = checkExtraction([act("lab", null, 1)], day("lab ran 1.5 hours", null, 8));
-    expect(failedProvenance(r)).toBe(true);
+    expect(numberRejected(r, 1)).toBe(true);
   });
 
   test("written forms one through twelve count", () => {
     expect(checkExtraction([act("classes", 3)], day("took three classes")).ok).toBe(true);
     expect(checkExtraction([act("classes", 12)], day("took twelve classes")).ok).toBe(true);
     // Thirteen is not on the list, and is not silently accepted.
-    expect(failedProvenance(checkExtraction([act("classes", 13)], day("took thirteen classes")))).toBe(
-      true,
-    );
+    expect(
+      numberRejected(checkExtraction([act("classes", 13)], day("took thirteen classes")), 13),
+    ).toBe(true);
   });
 
   test("a number cannot vouch for itself through the label", () => {
@@ -132,7 +151,7 @@ describe("what counts as the same number", () => {
        would match the segment holding the 5 BECAUSE of the 5 — the number would
        be its own evidence. The label has to overlap on a real word. */
     const r = checkExtraction([act("5", 5)], day("Java class; doubt solving 5 students"));
-    expect(failedProvenance(r)).toBe(true);
+    expect(numberRejected(r, 5)).toBe(true);
   });
 });
 

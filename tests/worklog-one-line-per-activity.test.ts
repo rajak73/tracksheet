@@ -158,13 +158,20 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
       [{ label: "Department meeting", sessions: 2, duration_value: null, duration_unit: null }],
       day,
     );
-    expect(!wrong.ok && wrong.failures.some((f) => f.check === 1)).toBe(true);
+    /* The number is dropped rather than the day refused — the activity is real
+       and only its count came from the wrong line. What must never happen is
+       the 2 being STORED against Department meeting, and it is not. */
+    expect(wrong.ok, JSON.stringify(wrong)).toBe(true);
+    expect(wrong.ok && wrong.activities[0]!.sessions).toBeNull();
+    expect(wrong.ok && wrong.nulled.map((n) => n.value)).toContain(2);
 
     const alsoWrong = checkExtraction(
       [{ label: "Doubt solving session", sessions: null, duration_value: 4, duration_unit: "hours" }],
       day,
     );
-    expect(!alsoWrong.ok && alsoWrong.failures.some((f) => f.check === 1)).toBe(true);
+    expect(alsoWrong.ok, JSON.stringify(alsoWrong)).toBe(true);
+    expect(alsoWrong.ok && alsoWrong.activities[0]!.duration_value).toBeNull();
+    expect(alsoWrong.ok && alsoWrong.nulled.map((n) => n.value)).toContain(4);
   });
 
   test("a paragraph day extracts with null counts rather than failing", () => {

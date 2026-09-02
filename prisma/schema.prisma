@@ -1866,6 +1866,15 @@ model DayExtraction {
 
   status DayExtractionStatus @default(READY)
 
+  /// Which SIDE failed, when one did.
+  ///
+  /// `structure` means the checks refused what the model said about the text;
+  /// `provider` means no answer ever arrived. They read alike in a log and mean
+  /// opposite things on a screen — one is a property of what was written, the
+  /// other is an outage — so the distinction is stored rather than recovered by
+  /// matching on the error string.
+  failureKind String?
+
   /// Which check refused the extraction, in the words the check used.
   ///
   /// Null on a READY row. A FAILED day renders its raw text with a retry

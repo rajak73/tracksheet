@@ -36,8 +36,26 @@ export type ExtractedItem = {
 };
 
 export type ExtractionResult =
-  | { status: "READY"; items: ExtractedItem[]; unallocatedMinutes: number }
-  | { status: "FAILED"; lastError: string };
+  | {
+      status: "READY";
+      items: ExtractedItem[];
+      unallocatedMinutes: number;
+      /** How many stated numbers the text could not support. */
+      nulled: number;
+    }
+  | {
+      status: "FAILED";
+      lastError: string;
+      /**
+       * Which side failed.
+       *
+       * `structure` is the checks refusing what the model said about the text;
+       * `provider` is never having got an answer. They read the same in a log
+       * and mean opposite things on screen — one is a property of what was
+       * written, the other is an outage.
+       */
+      failureKind: "structure" | "provider";
+    };
 
 /**
  * The day as the model sees it. Nothing derived, nothing tidied — the two free
@@ -153,35 +171,55 @@ export async function runExtraction(
 ): Promise<ExtractionResult> {
   const instruction = extractionInstruction(day);
   let lastError = "the model was never called";
+  let failureKind: "structure" | "provider" = "provider";
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const reply = await call(instruction);
     if (!reply.ok) {
       lastError = `provider: ${reply.reason}`;
+      failureKind = "provider";
       continue;
     }
     const activities = parseExtraction(reply.text);
     if (!activities) {
       lastError = "the reply was not the shape the prompt asked for";
+      failureKind = "structure";
       continue;
     }
     const checked = checkExtraction(activities, day);
     if (!checked.ok) {
       lastError = describe(checked.failures);
+      failureKind = "structure";
+      console.info(`[extract] attempt ${attempt + 1} refused — ${lastError}`);
       continue;
     }
+    /* Logged, not swallowed. Nulling an unattributable number is the right
+       outcome for a day whose format cannot support attribution, and it is the
+       WRONG outcome to accept quietly at scale — a rising rate here means the
+       model is guessing, and nobody can see that from a screen full of dashes. */
+    for (const n of checked.nulled) {
+      console.info(
+        `[extract] nulled ${n.field}=${n.value} (${n.reason}) for ${JSON.stringify(n.label)} ` +
+          `— looked in ${JSON.stringify(n.segments)}`,
+      );
+    }
+
     return {
       status: "READY",
-      items: activities.map((a) => ({
+      /* `checked.activities`, not the model's. This is the whole point of the
+         change: what is stored is what the text supports, which is the model's
+         answer with the unsupported numbers removed. */
+      items: checked.activities.map((a) => ({
         label: a.label.trim(),
         sessions: a.sessions,
         // The one conversion, in code, after the stated number has been checked.
         minutes: durationMinutes(a),
       })),
       unallocatedMinutes: checked.unallocatedMinutes,
+      nulled: checked.nulled.length,
     };
   }
-  return { status: "FAILED", lastError };
+  return { status: "FAILED", lastError, failureKind };
 }
 
 /**
@@ -235,6 +273,7 @@ export async function serveDayExtraction(input: {
               items: result.items,
               unallocatedMinutes: result.unallocatedMinutes,
               lastError: null,
+              failureKind: null,
             }
           : {
               ...common,
@@ -245,6 +284,7 @@ export async function serveDayExtraction(input: {
               items: [],
               unallocatedMinutes: input.day.workingMinutes,
               lastError: result.lastError,
+              failureKind: result.failureKind,
             };
 
       return tx.dayExtraction.upsert({
