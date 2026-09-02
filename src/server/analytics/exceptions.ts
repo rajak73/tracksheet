@@ -121,9 +121,6 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         startTime: true,
         endTime: true,
         status: true,
-        activityType: {
-          select: { code: true, countsAsProductive: true, isOncePerDay: true },
-        },
       },
       orderBy: { startTime: "asc" },
     }),
@@ -205,37 +202,16 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
 
       // ── UNEXPECTED_ABSENCE — positive evidence, not merely missing data.
       for (const log of dayLogs.filter((l) => l.status === "MISSED")) {
-        add("UNEXPECTED_ABSENCE", "HIGH", `Activity ${log.activityType.code} marked MISSED without approved leave.`, {
+        add("UNEXPECTED_ABSENCE", "HIGH", `An activity marked MISSED without approved leave.`, {
           activityLogId: log.id,
-          activityType: log.activityType.code,
           status: log.status,
         });
       }
 
-      // ── LATE_OPENING — opening logged after its configured window closed.
-      const opening = dayLogs.find((l) => l.activityType.code === "DAILY_OPENING");
-      if (opening && windows.opening) {
-        const expectedEnd = new Date(windows.opening.endUtc).getTime();
-        if (opening.startTime.getTime() > expectedEnd) {
-          const lateBy = Math.round((opening.startTime.getTime() - expectedEnd) / MS_PER_MIN);
-          add("LATE_OPENING", "LOW", `Daily opening started ${lateBy} min after its configured window.`, {
-            expectedWindow: `${windows.opening.startLocal}–${windows.opening.endLocal}`,
-            lateByMinutes: lateBy,
-            activityLogId: opening.id,
-          });
-        }
-      }
-
-      // ── MISSED_CLOSING — the day has activity but no closing record.
-      const hasClosing = dayLogs.some((l) => l.activityType.code === "DAILY_CLOSING");
-      if (!hasClosing) {
-        add("MISSED_CLOSING", "MEDIUM", "Activity was recorded for this working day but no daily closing.", {
-          activityCount: dayLogs.length,
-          expectedWindow: windows.closing
-            ? `${windows.closing.startLocal}–${windows.closing.endLocal}`
-            : null,
-        });
-      }
+      /* LATE_OPENING and MISSED_CLOSING are gone with the two activity types
+         they were about. Both asked whether a day carried a DAILY_OPENING or
+         DAILY_CLOSING entry, which cannot be asked without a list of entry
+         kinds to ask it about. */
 
       // ── OUTSIDE_WORKING_HOURS — logged time beyond the configured window.
       if (windows.workingHours) {
@@ -243,7 +219,7 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
         const dayEnd = new Date(windows.workingHours.endUtc).getTime();
         for (const log of dayLogs) {
           if (log.startTime.getTime() < dayStart || log.endTime.getTime() > dayEnd) {
-            add("OUTSIDE_WORKING_HOURS", "LOW", `Activity ${log.activityType.code} falls partly outside configured working hours.`, {
+            add("OUTSIDE_WORKING_HOURS", "LOW", `An activity falls partly outside configured working hours.`, {
               activityLogId: log.id,
               workingHours: `${windows.workingHours.startLocal}–${windows.workingHours.endLocal}`,
               activityStartUtc: log.startTime.toISOString(),
@@ -273,10 +249,10 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
       // ── DUPLICATE_LOG — same type and identical interval, logged twice.
       const seen = new Map<string, string>();
       for (const log of dayLogs) {
-        const key = `${log.activityType.code}|${log.startTime.getTime()}|${log.endTime.getTime()}`;
+        const key = `${log.startTime.getTime()}|${log.endTime.getTime()}`;
         const first = seen.get(key);
         if (first) {
-          add("DUPLICATE_LOG", "MEDIUM", `Identical ${log.activityType.code} interval recorded more than once.`, {
+          add("DUPLICATE_LOG", "MEDIUM", `An identical interval recorded more than once.`, {
             activityLogId: log.id,
             duplicateOfId: first,
           });
@@ -289,7 +265,6 @@ export async function detectExceptions(query: ExceptionQuery): Promise<Exception
       // and merged in the maths rather than rejected, so they surface here as
       // a data-quality signal instead of a write error.
       const productive = dayLogs
-        .filter((l) => l.activityType.countsAsProductive)
         .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
       for (let i = 1; i < productive.length; i++) {
         const prev = productive[i - 1];

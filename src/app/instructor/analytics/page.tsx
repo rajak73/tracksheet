@@ -48,7 +48,6 @@ import {
   TR,
 } from "@/app/_components/ui";
 import {
-  AllocationBar,
   BarCompare,
   ChartCard,
   TrendLine,
@@ -74,9 +73,6 @@ type Mine = {
   productiveHours: number;
   unutilizedHours: number;
   missingDataHours: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
-  hoursByActivityType: Record<string, number>;
   days: Day[];
 };
 
@@ -200,17 +196,11 @@ export default function InstructorAnalyticsPage() {
         />
       </ChartCard>
 
-      <ChartCard
-        question="How was your capacity allocated?"
-        isEmpty={Object.keys(m.hoursByActivityType).length === 0}
-        emptyTitle="No activity recorded in this period"
-      >
-        <AllocationBar
-          slices={Object.entries(m.hoursByActivityType).map(([code, hours]) => ({ code, hours }))}
-          unutilizedHours={m.unutilizedHours}
-          missingDataHours={m.missingDataHours}
-        />
-      </ChartCard>
+        {/* "How was your capacity allocated?" is gone. It split this person's
+            hours by activity type — a fixed list of sixteen. One instructor's
+            own wording is consistent enough to group by, but that grouping needs
+            extraction, which is not built; until it is there is nothing honest to
+            put here, and an empty chart would imply there was. */}
 
       <ChartCard
         question="How much of each day did you use?"

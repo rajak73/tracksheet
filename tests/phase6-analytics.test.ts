@@ -124,11 +124,6 @@ describe("trends over reporting periods", () => {
     expect(a.trend.previousFrom).toBe(WK1_FROM);
     expect(a.trend.previousTo).toBe(WK1_TO);
 
-    const teaching = a.trend.hoursByActivityType.TEACHING;
-    expect(teaching.current).toBe(2);
-    expect(teaching.previous).toBe(6);
-    expect(teaching.delta).toBe(-4);
-    expect(teaching.direction).toBe("DOWN");
   });
 
   test("trend is opt-in and absent by default", async () => {
@@ -142,7 +137,6 @@ describe("trends over reporting periods", () => {
     );
     expect(res.status).toBe(200);
     expect(res.body.analytics.instructors).toHaveLength(1);
-    expect(res.body.analytics.trend.hoursByActivityType.TEACHING.previous).toBe(6);
   });
 });
 

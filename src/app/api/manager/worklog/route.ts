@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { withAuth } from "@/server/http/route";
+import { toDateOnly } from "@/server/time/workday";
 import { ApiError } from "@/server/http/errors";
 import { instructorWhere, narrowManager } from "@/server/auth/scope";
 import { computeAnalytics } from "@/server/analytics/engine";
@@ -87,14 +88,6 @@ const round = (n: number) => Math.round(n * 100) / 100;
  * happens to be in the table would be the one dishonest thing this column
  * could do.
  */
-function entryStatus(log: {
-  submissionId: string | null;
-  submission: { reviewedAt: Date | null; approval: string } | null;
-}): "confirmed" | "needs_review" | "awaiting_approval" {
-  if (!log.submissionId || !log.submission) return "confirmed";
-  if (log.submission.approval === "PENDING") return "awaiting_approval";
-  return log.submission.reviewedAt ? "confirmed" : "needs_review";
-}
 
 /**
  * The worklogs waiting on this manager, oldest first.
@@ -252,41 +245,31 @@ export const GET = withAuth(async ({ scope, req }) => {
 
   // The activities themselves, for the day view's timeline. Bounded by the same
   // range and the same roster, so this cannot become a way to read the tenant.
-  const logs = await prisma.activityLog.findMany({
+  /* ── The roster's days, from WorklogEntry ────────────────────────────────
+   * This read `ActivityLog` and returned a list of ACTIVITIES per instructor —
+   * each with a clock range, a named deliverable, a category and a parsed
+   * quantity. There is one row per instructor per day now, and the four fields
+   * it holds are the four the form collects.
+   *
+   * `submission` went with it: the narrative submission workflow is gone, so
+   * there is nothing to read a review state from. */
+  const logs = await prisma.worklogEntry.findMany({
     where: {
       instructorId: { in: [...rosterIds] },
-      workDate: { gte: new Date(`${from}T00:00:00.000Z`), lte: new Date(`${to}T00:00:00.000Z`) },
+      logDate: { gte: toDateOnly(from), lte: toDateOnly(to) },
     },
     select: {
       id: true,
       instructorId: true,
-      workDate: true,
-      startTime: true,
-      endTime: true,
-      /* Whether that range is the instructor's or ours. The timeline prints a
-       * clock when it is theirs and a length when it is not — see
-       * `ActivityLog.timesStated`. */
-      timesStated: true,
-      status: true,
+      logDate: true,
+      deliverable: true,
+      deliverableQuantity: true,
+      workingHours: true,
       remarks: true,
-      activityType: { select: { code: true, label: true } },
-      // A timeline block has room for one line, and "Teaching" on its own does
-      // not tell a manager anything they did not already know from the colour.
-      // The deliverable and the instructor's own remark are what make the block
-      // worth reading: "Lecture — deadlock handling, section A".
-      deliverableType: { select: { code: true, label: true, isCountable: true } },
-      quantity: true,
-      rawText: true,
-      rawQuantity: true,
-      rawWorkingHours: true,
-      // Where the row came from, and whether anybody has looked at it since.
-      // This is what the entry table's Status column is derived from — see
-      // `entryStatus`. Nothing is stored per activity; the answer belongs to
-      // the submission that produced it, so it is read from there.
-      submissionId: true,
-      submission: { select: { reviewedAt: true, escalatedAt: true, approval: true } },
+      status: true,
+      source: true,
     },
-    orderBy: [{ workDate: "asc" }, { startTime: "asc" }],
+    orderBy: [{ logDate: "asc" }],
   });
 
   /* Their own remarks about each day. Read alongside the activities because a
@@ -316,7 +299,6 @@ export const GET = withAuth(async ({ scope, req }) => {
 
   const search = (sp.get("search") ?? "").trim().toLowerCase();
   const wantedInstructor = sp.get("instructorId");
-  const wantedType = sp.get("activityType");
   const wantedStatus = sp.get("status");
 
   const rows = roster
@@ -330,14 +312,13 @@ export const GET = withAuth(async ({ scope, req }) => {
     )
     .map((instructor) => {
       const engineRow = analytics.instructors.find((r) => r.instructorId === instructor.id);
-      const mine = (byInstructor.get(instructor.id) ?? []).filter(
-        (log) => !wantedType || log.activityType.code === wantedType,
-      );
+      /* No type filter: there are no types. The `type` query parameter is
+         still accepted and ignored, for any bookmark mid-rollout. */
+      const mine = byInstructor.get(instructor.id) ?? [];
 
       const countByDate = new Map<string, number>();
-      for (const log of mine) {
-        const date = log.workDate.toISOString().slice(0, 10);
-        countByDate.set(date, (countByDate.get(date) ?? 0) + 1);
+      for (const day of mine) {
+        countByDate.set(day.logDate.toISOString().slice(0, 10), 1);
       }
 
       const days: DayCell[] = (engineRow?.days ?? []).map((day) => ({
@@ -375,30 +356,22 @@ export const GET = withAuth(async ({ scope, req }) => {
         status,
         days,
         notes: notesByInstructor.get(instructor.id) ?? {},
-        activities: mine.map((log) => ({
-          id: log.id,
-          date: log.workDate.toISOString().slice(0, 10),
-          startTime: log.startTime.toISOString(),
-          endTime: log.endTime.toISOString(),
-          durationHours: round((log.endTime.getTime() - log.startTime.getTime()) / 3_600_000),
-          timesStated: log.timesStated,
-          remarks: log.remarks,
-          // The sheets exclude an absence from Working Hours, which they can
-          // only do if the payload says so.
-          status: log.status,
-          activityType: log.activityType,
-          deliverableType: log.deliverableType,
-          quantity: log.quantity,
-          rawText: log.rawText,
-          /* As typed. The sheet prints these; the parsed quantity and the
-             clock range above stay the authority for every total. */
-          rawQuantity: log.rawQuantity,
-          rawWorkingHours: log.rawWorkingHours,
-          entryStatus: entryStatus(log),
-          // Overdue rather than merely unreviewed. Kept separate from the
-          // status so a manager can tell "nobody has checked this yet" from
-          // "nobody checked it and the deadline has passed".
-          escalated: Boolean(log.submission?.escalatedAt) && !log.submission?.reviewedAt,
+        /* One row per day, in the four fields the form collects.
+           
+           This was a list of ACTIVITIES: each with a clock range, a named
+           deliverable, a category, a parsed quantity, and a review state read
+           off the submission that produced it. None of those exist. The key
+           stays `activities` so the sheet's own shape does not have to change
+           in the same edit — it is renamed when the sheet moves. */
+        activities: mine.map((day) => ({
+          id: day.id,
+          date: day.logDate.toISOString().slice(0, 10),
+          deliverable: day.deliverable,
+          deliverableQuantity: day.deliverableQuantity,
+          workingHours: Number(day.workingHours),
+          remarks: day.remarks,
+          status: day.status,
+          source: day.source,
         })),
       };
     })

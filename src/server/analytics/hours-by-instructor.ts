@@ -1,6 +1,6 @@
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
-import { countsAsWorkingHours, DID_NOT_HAPPEN } from "@/domain/working-hours";
+import { DID_NOT_HAPPEN } from "@/domain/working-hours";
 
 /**
  * Working Hours — time spent WITH STUDENTS — per instructor, over one period.
@@ -53,21 +53,14 @@ export async function workingHoursByInstructor(args: {
       instructorId: true,
       startTime: true,
       endTime: true,
-      activityType: { select: { code: true } },
-      deliverableType: { select: { isCountable: true } },
     },
   });
 
   const hours = new Map<string, number>();
   for (const log of logs) {
-    if (
-      !countsAsWorkingHours(
-        log.activityType.code,
-        log.deliverableType ? log.deliverableType.isCountable : null,
-      )
-    ) {
-      continue;
-    }
+    /* Every recorded hour counts. `countsAsWorkingHours` asked the taxonomy
+       whether time filed under a type, against a countable deliverable, was
+       "time with students" — a definition that needed both lists to exist. */
     // From the instants, never a clock subtraction — an entry crossing midnight
     // comes out negative that way.
     const h = (log.endTime.getTime() - log.startTime.getTime()) / 3_600_000;

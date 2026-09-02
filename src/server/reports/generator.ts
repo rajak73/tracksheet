@@ -14,8 +14,6 @@ export type ReportRow = {
   unutilizedHours: number;
   missingDataHours: number;
   utilizationPct: number | null;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
 };
 
 export type WorkloadReport = {
@@ -61,8 +59,6 @@ export async function generateWorkloadReport(
       unutilizedHours: i.unutilizedHours,
       missingDataHours: i.missingDataHours,
       utilizationPct: i.utilizationPct,
-      openingCompliancePct: i.openingCompliancePct,
-      closingCompliancePct: i.closingCompliancePct,
     })),
     totals: analytics.totals,
   };
@@ -76,8 +72,6 @@ const HEADERS = [
   "Unutilized Hours",
   "Missing Data Hours",
   "Utilization %",
-  "Opening Compliance %",
-  "Closing Compliance %",
 ] as const;
 
 /**
@@ -120,8 +114,6 @@ export function formatReportAsCsv(report: WorkloadReport): string {
         r.unutilizedHours,
         r.missingDataHours,
         r.utilizationPct,
-        r.openingCompliancePct,
-        r.closingCompliancePct,
       ]
         .map(csvCell)
         .join(","),

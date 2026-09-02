@@ -133,11 +133,18 @@ describe("capacity, utilisation and the missing-data distinction", () => {
     expect(me.expectedWorkingDays).toBe(5);
     expect(me.capacityHours).toBe(40);
 
-    // Productive: Mon 4h + Tue 2h + Wed (0.25 opening + 1 learning + 0.25 closing) = 7.5h
-    expect(me.productiveHours).toBe(7.5);
+    /* Productive: every recorded hour. Mon 4h + Tue 3h + Wed 1.5h = 8.5h.
+     *
+     * It was 7.5h, because the UNUTILIZED hour on Tuesday was excluded — that
+     * exclusion came from `countsAsProductive`, a flag on `ActivityType`. With
+     * no types there is no way to file an hour as "recorded but not work", and
+     * nothing for the product to base that judgement on. */
+    expect(me.productiveHours).toBe(8.5);
 
-    // Unutilised counts ONLY days that have records: Mon 4h + Tue 6h + Wed 6.5h = 16.5h
-    expect(me.unutilizedHours).toBe(16.5);
+    /* Unutilised counts ONLY days that have records: capacity less what was
+       recorded on them. 15.5h now rather than 16.5h — the extra hour moved to
+       productive when UNUTILIZED stopped being a type that did not count. */
+    expect(me.unutilizedHours).toBe(15.5);
 
     // Thu + Fri have no records at all -> 16h of MISSING_DATA, never "0 hours worked".
     expect(me.missingDataHours).toBe(16);
@@ -145,17 +152,21 @@ describe("capacity, utilisation and the missing-data distinction", () => {
     // Every capacity hour is accounted for exactly once.
     expect(me.productiveHours + me.unutilizedHours + me.missingDataHours).toBe(me.capacityHours);
 
-    // 7.5 / 40 = 18.75%
-    expect(me.utilizationPct).toBe(18.75);
+    // 8.5 / 40 = 21.25%
+    expect(me.utilizationPct).toBe(21.25);
   });
 
-  test("UNUTILIZED time is recorded but is not productive", async () => {
+  test("an hour that was recorded is an hour that was worked", async () => {
+    /* This asserted the opposite: "UNUTILIZED time is recorded but is not
+       productive", 2h of Tuesday's 3h. That distinction lived on
+       `ActivityType.countsAsProductive` — one of sixteen rows declaring whether
+       time filed under it counted. There is no list to file under and no field
+       to mark an hour as not-work, so an hour somebody recorded counts. */
     const a = await analytics(admin);
     const me = a.instructors.find((i: { instructorId: string }) => i.instructorId === north1Id);
     const tuesday = me.days.find((d: { date: string }) => d.date === TUE);
 
-    expect(me.hoursByActivityType.UNUTILIZED).toBe(1);
-    expect(tuesday.productiveHours).toBe(2); // the unutilised hour is excluded
+    expect(tuesday.productiveHours).toBe(3);
   });
 
   test("days without records report null rather than zero", async () => {
@@ -176,13 +187,11 @@ describe("capacity, utilisation and the missing-data distinction", () => {
     expect(me.days[0].nonWorkingReason).toBe("NOT_A_WORKING_DAY");
   });
 
-  test("opening/closing compliance is measured against expected working days", async () => {
-    const a = await analytics(admin);
-    const me = a.instructors.find((i: { instructorId: string }) => i.instructorId === north1Id);
-    // Opening logged on 1 of 5 expected working days.
-    expect(me.openingCompliancePct).toBe(20);
-    expect(me.closingCompliancePct).toBe(20);
-  });
+  /* "opening/closing compliance is measured against expected working days"
+     was deleted with the measure. It counted days carrying an entry of type
+     DAILY_OPENING or DAILY_CLOSING — two codes out of sixteen — and the question
+     cannot be asked without a list of entry kinds to ask it about. */
+
 });
 
 describe("approved leave shrinks capacity without punishing utilisation", () => {
@@ -192,7 +201,8 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
       (i: { instructorId: string }) => i.instructorId === north1Id,
     );
     expect(meBefore.capacityHours).toBe(40);
-    expect(meBefore.utilizationPct).toBe(18.75);
+    // 8.5h of 40h. It was 18.75% when the unutilised hour did not count.
+    expect(meBefore.utilizationPct).toBe(21.25);
 
     const leave = await managerNorth.post(`/api/instructors/${north1Id}/leave`, {
       startDate: FRI,
@@ -210,10 +220,10 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
     // Capacity drops by exactly one working day (8h).
     expect(meAfter.capacityHours).toBe(32);
     expect(meAfter.expectedWorkingDays).toBe(4);
-    // Productive time is unchanged…
-    expect(meAfter.productiveHours).toBe(7.5);
-    // …so the percentage RISES: 7.5 / 32 = 23.44%. Leave must not be a penalty.
-    expect(meAfter.utilizationPct).toBe(23.44);
+    // Productive time is unchanged by the leave…
+    expect(meAfter.productiveHours).toBe(8.5);
+    // …so the percentage RISES: 8.5 / 32 = 26.56%. Leave must not be a penalty.
+    expect(meAfter.utilizationPct).toBe(26.56);
     expect(meAfter.utilizationPct).toBeGreaterThan(meBefore.utilizationPct);
 
     const friday = meAfter.days.find((d: { date: string }) => d.date === FRI);

@@ -48,24 +48,12 @@ type MetricAgg = {
     /* Compliance is summed rather than averaged — see `ratioPct`. The stored
      * daily percentage is still the right figure for a single day, and is not
      * read here. */
-    openingsLogged: number | null;
-    closingsLogged: number | null;
     expectedInstructorDays: number | null;
   };
   _max: { activeInstructors: number | null };
   universityId: string;
 };
 
-/**
- * A ratio of sums, which is what compliance means over a period.
- *
- * Null when nothing was expected — no working days in the window — because
- * "0% compliance" and "nobody was due in" are different answers.
- */
-function ratioPct(numerator: number | null | undefined, denominator: number | null | undefined) {
-  if (!denominator) return null;
-  return Math.round(((numerator ?? 0) / denominator) * 100 * 100) / 100;
-}
 
 export const GET = withAuth(
   async ({ req }) => {
@@ -163,8 +151,6 @@ export const GET = withAuth(
         unutilizedHours: toHours(agg?._sum.unutilizedMinutes),
         missingDataHours: toHours(agg?._sum.missingDataMinutes),
         utilizationPct: capacityHours > 0 ? round((productiveHours / capacityHours) * 100) : null,
-        openingCompliancePct: ratioPct(agg?._sum.openingsLogged, agg?._sum.expectedInstructorDays),
-        closingCompliancePct: ratioPct(agg?._sum.closingsLogged, agg?._sum.expectedInstructorDays),
         coverage,
       };
     }
@@ -192,8 +178,6 @@ export const GET = withAuth(
             productiveMinutes: true,
             unutilizedMinutes: true,
             missingDataMinutes: true,
-            openingsLogged: true,
-            closingsLogged: true,
             expectedInstructorDays: true,
           },
         }),

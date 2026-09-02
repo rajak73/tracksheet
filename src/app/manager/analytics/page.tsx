@@ -35,8 +35,6 @@ import {
   Section,
   StatGridSkeleton,
   StatTile,
-  complianceLabel,
-  complianceTone,
 } from "@/app/_components/ui";
 import { BarCompare, ChartCard } from "@/app/_components/charts";
 import { PeriodSelector, periodQuery, type Period } from "@/app/_components/interactive";
@@ -49,8 +47,6 @@ type Totals = {
   productiveHours: number;
   unutilizedHours: number;
   missingDataHours: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
 };
 
 type Day = { date: string; isWorkingDay: boolean; hasData: boolean; capacityHours: number; productiveHours: number };
@@ -154,20 +150,9 @@ export default function ManagerAnalyticsPage() {
       */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile label="Recorded hours" value={formatHours(t.productiveHours)} />
-        <StatTile
-          label="Opening compliance"
-          value={t.openingCompliancePct}
-          suffix="%"
-          tone={complianceTone(t.openingCompliancePct)}
-          status={complianceLabel(t.openingCompliancePct)}
-        />
-        <StatTile
-          label="Closing compliance"
-          value={t.closingCompliancePct}
-          suffix="%"
-          tone={complianceTone(t.closingCompliancePct)}
-          status={complianceLabel(t.closingCompliancePct)}
-        />
+        {/* Opening and closing compliance are gone: both counted days
+            carrying a DAILY_OPENING or DAILY_CLOSING entry, two codes out of
+            sixteen. */}
       </div>
 
       {t.missingDataHours > 0 ? (

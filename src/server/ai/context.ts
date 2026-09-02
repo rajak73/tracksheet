@@ -23,7 +23,6 @@
  */
 
 import { prisma } from "@/server/db";
-import { computeAnalytics } from "@/server/analytics/engine";
 import { ApiError } from "@/server/http/errors";
 import type { TenantScope } from "@/server/auth/scope";
 import {
@@ -128,7 +127,6 @@ export type InsightContext =
         band: PerformanceBand;
         deliverables: DeliverableFacts;
       };
-      activityBreakdown: Array<{ activityType: string; hours: number }>;
     };
 
 /** How many low performers an insight is given. Bounded to keep prompts small. */
@@ -402,14 +400,10 @@ async function instructorContext(
 
   // Hours per activity type come from the engine, narrowed to this one person.
   // One call, and the same numbers their own performance page renders — an
-  // insight that disagreed with the page beside it would be worse than none.
-  const detail = await computeAnalytics({
-    universityId: me.university.id,
-    from: period.from,
-    to: period.to,
-    instructorId: scope.instructorId,
-  });
-  const hoursByType = detail.instructors[0]?.hoursByActivityType ?? {};
+  /* The second analytics pass is gone with the breakdown it fed. It computed
+     this instructor's hours split by activity type, purely so the assistant
+     could name where their time went — a query paid for on every brief, for a
+     field that no longer exists. */
 
   return {
     audience: "INSTRUCTOR",
@@ -425,8 +419,9 @@ async function instructorContext(
       band: mine.band,
       deliverables: foldDeliverables([mine]),
     },
-    activityBreakdown: Object.entries(hoursByType)
-      .map(([activityType, hours]) => ({ activityType, hours }))
-      .sort((a, b) => b.hours - a.hours),
+    /* `activityBreakdown` is gone. It handed the assistant this person's hours
+       split by activity type — a fixed list of sixteen — so its prose could name
+       where the time went. There is no list to split by, and the assistant
+       describes what the figures say instead. */
   };
 }

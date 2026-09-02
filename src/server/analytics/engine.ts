@@ -27,12 +27,6 @@ import {
 import { workDateFor } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 
-/** Rounds every value of an hours map once, at the point it is read. */
-function roundMap(map: Record<string, number>): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(map)) out[k] = round(v);
-  return out;
-}
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -62,10 +56,7 @@ export type DayBreakdown = {
   /** null when the day is MISSING_DATA — we do not know, so we do not guess. */
   unutilizedHours: number | null;
   hasData: boolean;
-  openingLogged: boolean;
-  closingLogged: boolean;
   /** Hours per activity type for THIS day, so a daily rollup can store it. */
-  hoursByActivityType: Record<string, number>;
 };
 
 /* `WorkloadVariance` is gone.
@@ -101,12 +92,9 @@ export type InstructorBreakdown = {
   /** Capacity on working days that carry no activity records at all. */
   missingDataHours: number;
   utilizationPct: number | null;
-  hoursByActivityType: Record<string, number>;
   /** Overlap detected between logged activities — a data-quality signal. */
   overlapHours: number;
   expectedWorkingDays: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
   deliverables: DeliverableProgress;
   days: DayBreakdown[];
 };
@@ -122,9 +110,6 @@ export type AnalyticsResult = {
     unutilizedHours: number;
     missingDataHours: number;
     utilizationPct: number | null;
-    openingCompliancePct: number | null;
-    closingCompliancePct: number | null;
-    hoursByActivityType: Record<string, number>;
       deliverables: DeliverableProgress;
   };
   instructors: InstructorBreakdown[];
@@ -141,7 +126,6 @@ export type TrendComparison = {
   previousTo: string;
   productiveHours: TrendPoint;
   utilizationPct: TrendPoint;
-  hoursByActivityType: Record<string, TrendPoint>;
 };
 
 export type TrendPoint = {
@@ -396,9 +380,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         startTime: true,
         endTime: true,
         status: true,
-        activityType: {
-          select: { code: true, countsAsProductive: true, isOncePerDay: true },
-        },
       },
     }),
     prisma.leaveRequest.findMany({
@@ -486,9 +467,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
     let missing = 0;
     let overlap = 0;
     let expectedDays = 0;
-    let openingCount = 0;
-    let closingCount = 0;
-    const hoursByType: Record<string, number> = {};
     const days: DayBreakdown[] = [];
 
     /* The day they left, in the university's zone. Their last working day still
@@ -511,9 +489,13 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       // logged on it — and the rollup (rollup.ts) sums every day's
       // `productiveHours` unconditionally, so the engine's own total has to
       // include the same days or the two disagree on the same period.
-      const productiveLogs = dayLogs.filter(
-        (l) => l.activityType.countsAsProductive && countsTowardProductive(l.status),
-      );
+      /* Every recorded hour is productive now.
+       *
+       * `countsAsProductive` was a flag on `ActivityType` — sixteen rows, each
+       * declaring whether time filed under it counted. With no types there is
+       * nothing to declare it on, and no basis for the product to decide that
+       * some of somebody's recorded work does not count as work. */
+      const productiveLogs = dayLogs.filter((l) => countsTowardProductive(l.status));
       const productiveIntervals = productiveLogs.map((l) => ({
         start: l.startTime,
         end: l.endTime,
@@ -536,15 +518,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
        * parts stopped adding up to the whole. Accumulated raw now, and rounded
        * once where it is read — matching `productive`, which was always
        * accumulated unrounded. */
-      const dayByType: Record<string, number> = {};
-      for (const l of dayLogs) {
-        if (!countsTowardProductive(l.status)) continue;
-        const hrs = (l.endTime.getTime() - l.startTime.getTime()) / MS_PER_HOUR;
-        hoursByType[l.activityType.code] = (hoursByType[l.activityType.code] ?? 0) + hrs;
-        dayByType[l.activityType.code] = (dayByType[l.activityType.code] ?? 0) + hrs;
-      }
-      // Rounded here, once, on the way out — the accumulators above stay exact.
-      const dayByTypeOut = roundMap(dayByType);
 
       productive += dayProductive;
       overlap += dayOverlap;
@@ -560,9 +533,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           productiveHours: round(dayProductive),
           unutilizedHours: 0,
           hasData: dayLogs.length > 0,
-          openingLogged: false,
-          closingLogged: false,
-          hoursByActivityType: dayByTypeOut,
         });
         continue;
       }
@@ -579,9 +549,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
           productiveHours: round(dayProductive),
           unutilizedHours: 0,
           hasData: dayLogs.length > 0,
-          openingLogged: false,
-          closingLogged: false,
-          hoursByActivityType: dayByTypeOut,
         });
         continue;
       }
@@ -590,14 +557,12 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       const dayCapacity = dayCapacityHours(config, breakMin, date);
       capacity += dayCapacity;
 
-      const hasOpening = dayLogs.some(
-        (l) => l.activityType.isOncePerDay && l.activityType.code === "DAILY_OPENING",
-      );
-      const hasClosing = dayLogs.some(
-        (l) => l.activityType.isOncePerDay && l.activityType.code === "DAILY_CLOSING",
-      );
-      if (hasOpening) openingCount += 1;
-      if (hasClosing) closingCount += 1;
+      /* Opening and closing compliance is gone.
+       *
+       * It counted days carrying an activity of type DAILY_OPENING or
+       * DAILY_CLOSING — two codes out of the sixteen. The measure was "did they
+       * file the two routine entries", which cannot be asked without a list of
+       * entry kinds to ask it about. */
 
       const hasData = dayLogs.length > 0;
       // The distinction that keeps analytics honest: a day with no records is
@@ -616,9 +581,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
         productiveHours: round(dayProductive),
         unutilizedHours: dayUnutilized === null ? null : round(dayUnutilized),
         hasData,
-        openingLogged: hasOpening,
-        closingLogged: hasClosing,
-        hoursByActivityType: dayByTypeOut,
       });
     }
 
@@ -636,11 +598,8 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       unutilizedHours: round(unutilized),
       missingDataHours: round(missing),
       utilizationPct: capacity > 0 ? round((productive / capacity) * 100) : null,
-      hoursByActivityType: roundMap(hoursByType),
       overlapHours: round(overlap),
       expectedWorkingDays: expectedDays,
-      openingCompliancePct: expectedDays > 0 ? round((openingCount / expectedDays) * 100) : null,
-      closingCompliancePct: expectedDays > 0 ? round((closingCount / expectedDays) * 100) : null,
       deliverables: deliverableProgress,
       days,
     };
@@ -651,22 +610,9 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
 
   const totalCapacity = sum((b) => b.capacityHours);
   const totalProductive = sum((b) => b.productiveHours);
-  const totalExpectedDays = breakdowns.reduce((a, b) => a + b.expectedWorkingDays, 0);
-  const totalOpenings = breakdowns.reduce(
-    (a, b) => a + b.days.filter((d) => d.openingLogged).length,
-    0,
-  );
-  const totalClosings = breakdowns.reduce(
-    (a, b) => a + b.days.filter((d) => d.closingLogged).length,
-    0,
-  );
-
-  const totalsByType: Record<string, number> = {};
-  for (const b of breakdowns) {
-    for (const [code, hrs] of Object.entries(b.hoursByActivityType)) {
-      totalsByType[code] = round((totalsByType[code] ?? 0) + hrs);
-    }
-  }
+  /* `totalOpenings`, `totalClosings` and `totalsByType` are gone with the
+     taxonomy. The first two counted days carrying a DAILY_OPENING or
+     DAILY_CLOSING entry; the third summed hours per activity type. */
 
   let trend: TrendComparison | undefined;
   if (query.includeTrend) {
@@ -702,11 +648,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       ...("includeInactive" in query ? { includeInactive: query.includeInactive } : {}),
     });
 
-    const codes = new Set([
-      ...Object.keys(totalsByType),
-      ...Object.keys(previousResult.totals.hoursByActivityType),
-    ]);
-
     trend = {
       previousFrom: prev.from,
       previousTo: prev.to,
@@ -714,12 +655,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       utilizationPct: trendPoint(
         totalCapacity > 0 ? round((totalProductive / totalCapacity) * 100) : null,
         previousResult.totals.utilizationPct,
-      ),
-      hoursByActivityType: Object.fromEntries(
-        [...codes].map((code) => [
-          code,
-          trendPoint(totalsByType[code] ?? 0, previousResult.totals.hoursByActivityType[code] ?? 0),
-        ]),
       ),
     };
   }
@@ -736,11 +671,6 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       unutilizedHours: sum((b) => b.unutilizedHours),
       missingDataHours: sum((b) => b.missingDataHours),
       utilizationPct: totalCapacity > 0 ? round((totalProductive / totalCapacity) * 100) : null,
-      openingCompliancePct:
-        totalExpectedDays > 0 ? round((totalOpenings / totalExpectedDays) * 100) : null,
-      closingCompliancePct:
-        totalExpectedDays > 0 ? round((totalClosings / totalExpectedDays) * 100) : null,
-      hoursByActivityType: totalsByType,
       deliverables: summariseDeliverables(deliverables, from, to),
     },
     instructors: breakdowns,

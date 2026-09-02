@@ -126,9 +126,6 @@ export async function rollupUniversityDaily(
       productive: number;
       unutilized: number;
       missing: number;
-      byType: Record<string, number>;
-      openings: number;
-      closings: number;
       workingDays: number;
       /* The Active-Instructor Average Hours feature's own two numbers —
        * see the schema doc on `UniversityDailyMetric` for the "active"
@@ -152,9 +149,6 @@ export async function rollupUniversityDaily(
         productive: 0,
         unutilized: 0,
         missing: 0,
-        byType: {},
-        openings: 0,
-        closings: 0,
         workingDays: 0,
         activeInstructorMinutes: 0,
         activeInstructorCount: 0,
@@ -175,22 +169,15 @@ export async function rollupUniversityDaily(
         unutilizedMinutes,
         missingDataMinutes: missingMinutes,
         overlapMinutes: 0,
-        minutesByActivityType: Object.fromEntries(
-          Object.entries(day.hoursByActivityType).map(([code, hrs]) => [code, toMinutes(hrs)]),
-        ),
+        /* `minutesByActivityType` is gone with the types it keyed on. */
         isWorkingDay: day.isWorkingDay,
         nonWorkingReason: day.nonWorkingReason,
-        openingLogged: day.openingLogged,
-        closingLogged: day.closingLogged,
         utilizationPercent:
           day.capacityHours > 0 ? round2((day.productiveHours / day.capacityHours) * 100) : null,
       });
 
-      // Summed into the university row so the admin dashboard's teaching and
-      // learning figures come from the same numbers as the instructor view.
-      for (const [code, hrs] of Object.entries(day.hoursByActivityType)) {
-        bucket.byType[code] = (bucket.byType[code] ?? 0) + toMinutes(hrs);
-      }
+      /* The per-type bucket is gone: it fed the admin dashboard's teaching
+         and learning figures, which are replaced by hours, days and coverage. */
 
       bucket.activeInstructors += 1;
       bucket.capacity += toMinutes(day.capacityHours);
@@ -198,8 +185,6 @@ export async function rollupUniversityDaily(
       bucket.unutilized += unutilizedMinutes;
       bucket.missing += missingMinutes;
       if (day.isWorkingDay) bucket.workingDays += 1;
-      if (day.openingLogged) bucket.openings += 1;
-      if (day.closingLogged) bucket.closings += 1;
       // Strictly greater than zero — a submission that summed to exactly 0m
       // is the same case as no submission at all, and both are excluded here
       // rather than folded in as a zero. See the schema doc on the column.
@@ -242,12 +227,7 @@ export async function rollupUniversityDaily(
     missingDataMinutes: b.missing,
     activeInstructorMinutes: b.activeInstructorMinutes,
     activeInstructorCount: b.activeInstructorCount,
-    minutesByActivityType: b.byType,
     utilizationPercent: b.capacity > 0 ? round2((b.productive / b.capacity) * 100) : null,
-    openingCompliancePct:
-      b.workingDays > 0 ? round2((b.openings / b.workingDays) * 100) : null,
-    closingCompliancePct:
-      b.workingDays > 0 ? round2((b.closings / b.workingDays) * 100) : null,
     /* The counts, kept as well as the ratio.
      *
      * A day's percentage is the right figure for a day. A PERIOD's is not the
@@ -257,8 +237,6 @@ export async function rollupUniversityDaily(
      * approved leave and part-week holidays guarantee. These were already
      * computed here and discarded, so the dashboard had no way to add them up
      * the way the engine does. */
-    openingsLogged: b.openings,
-    closingsLogged: b.closings,
     expectedInstructorDays: b.workingDays,
   }));
 
@@ -327,8 +305,6 @@ async function rollupInstructorWeekly(
         unutilizedMinutes: true,
         missingDataMinutes: true,
         isWorkingDay: true,
-        openingLogged: true,
-        closingLogged: true,
       },
     });
 
@@ -343,8 +319,6 @@ async function rollupInstructorWeekly(
       const capacity = ds.reduce((a, d) => a + d.capacityMinutes, 0);
       const productive = ds.reduce((a, d) => a + d.productiveMinutes, 0);
       const workingDays = ds.filter((d) => d.isWorkingDay).length;
-      const openings = ds.filter((d) => d.openingLogged).length;
-      const closings = ds.filter((d) => d.closingLogged).length;
 
       return {
         universityId,
@@ -355,10 +329,7 @@ async function rollupInstructorWeekly(
         productiveMinutes: productive,
         unutilizedMinutes: ds.reduce((a, d) => a + d.unutilizedMinutes, 0),
         missingDataMinutes: ds.reduce((a, d) => a + d.missingDataMinutes, 0),
-        minutesByActivityType: {},
         utilizationPercent: capacity > 0 ? round2((productive / capacity) * 100) : null,
-        openingCompliancePct: workingDays > 0 ? round2((openings / workingDays) * 100) : null,
-        closingCompliancePct: workingDays > 0 ? round2((closings / workingDays) * 100) : null,
         expectedWorkingDays: workingDays,
       };
     });

@@ -23,8 +23,6 @@ import {
   TD,
   THead,
   TR,
-  complianceLabel,
-  complianceTone,
 } from "@/app/_components/ui";
 import { StaffForm } from "@/app/_components/StaffForm";
 import { ManagerTable } from "@/app/_components/ManagerTable";
@@ -53,8 +51,6 @@ type InstructorRow = {
 type Totals = {
   capacityHours: number;
   productiveHours: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
 };
 
 export default function AdminUniversityDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -139,20 +135,10 @@ export default function AdminUniversityDetailPage({ params }: { params: Promise<
       {analytics ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatTile label="Instructors" value={analytics.instructors.length} />
-          <StatTile
-            label="Opening compliance"
-            value={analytics.totals.openingCompliancePct}
-            suffix="%"
-            tone={complianceTone(analytics.totals.openingCompliancePct)}
-            status={complianceLabel(analytics.totals.openingCompliancePct)}
-          />
-          <StatTile
-            label="Closing compliance"
-            value={analytics.totals.closingCompliancePct}
-            suffix="%"
-            tone={complianceTone(analytics.totals.closingCompliancePct)}
-            status={complianceLabel(analytics.totals.closingCompliancePct)}
-          />
+            {/* Opening and closing compliance are gone. Both counted days
+                carrying an entry of type DAILY_OPENING or DAILY_CLOSING — two
+                codes out of sixteen — and the measure cannot be asked without a
+                list of entry kinds to ask it about. */}
         </div>
       ) : null}
 

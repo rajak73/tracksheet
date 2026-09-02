@@ -80,7 +80,6 @@ describe("MISSED and EXCUSED activity is not counted as productive time", () => 
       (i: { instructorId: string }) => i.instructorId === north2Id,
     );
     expect(mine.productiveHours).toBe(2);
-    expect(mine.hoursByActivityType.TEACHING).toBe(2);
     // Capacity is untouched by status — only the numerator moves.
     expect(mine.capacityHours).toBe(8);
     expect(mine.unutilizedHours).toBe(6);
@@ -126,7 +125,6 @@ describe("work logged on a non-working day still counts toward the period total"
     const saturday = mine.days.find((d: { date: string }) => d.date === SAT);
     expect(saturday.isWorkingDay).toBe(false);
     expect(saturday.productiveHours).toBe(2);
-    expect(saturday.hoursByActivityType.TEACHING).toBe(2);
   });
 
   test("the week total includes Saturday's 2h, not just the working days'", async () => {
@@ -140,7 +138,6 @@ describe("work logged on a non-working day still counts toward the period total"
     // above); Saturday contributes another 2h that a working-day-only total
     // would have dropped.
     expect(mine.productiveHours).toBe(4);
-    expect(mine.hoursByActivityType.TEACHING).toBe(4);
   });
 
   test("the rollup agrees with the live engine on the same period", async () => {

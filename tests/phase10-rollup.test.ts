@@ -224,7 +224,6 @@ describe("the instructor summary matches the engine too", () => {
       expect(day.productiveHours, day.date).toBe(engineDay.productiveHours);
       expect(day.capacityHours, day.date).toBe(engineDay.capacityHours);
       expect(day.isWorkingDay, day.date).toBe(engineDay.isWorkingDay);
-      expect(day.openingLogged, day.date).toBe(engineDay.openingLogged);
     }
   });
 

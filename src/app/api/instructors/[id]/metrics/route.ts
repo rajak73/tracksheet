@@ -83,8 +83,6 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       unutilizedHours: toHours(w.unutilizedMinutes),
       missingDataHours: toHours(w.missingDataMinutes),
       utilizationPct: w.utilizationPercent,
-      openingCompliancePct: w.openingCompliancePct,
-      closingCompliancePct: w.closingCompliancePct,
       expectedWorkingDays: w.expectedWorkingDays,
     })),
     days: rows.map((r) => ({
@@ -95,8 +93,6 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       missingDataHours: toHours(r.missingDataMinutes),
       isWorkingDay: r.isWorkingDay,
       nonWorkingReason: r.nonWorkingReason,
-      openingLogged: r.openingLogged,
-      closingLogged: r.closingLogged,
     })),
   });
 });

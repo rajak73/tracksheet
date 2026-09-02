@@ -83,8 +83,6 @@ type OverviewRow = {
   universityId: string;
   productiveHours: number;
   deliverables: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
 };
 
 type Row = University & {
@@ -100,8 +98,6 @@ type Row = University & {
    */
   recordedHours: number | null;
   deliverables: number;
-  openingCompliancePct: number | null;
-  closingCompliancePct: number | null;
 };
 
 type UniversitiesResponse = {
@@ -173,8 +169,6 @@ export default function AdminUniversitiesPage() {
            a reader acts on. See `STORED_METRICS`. */
         recordedHours: metricsUsable ? (p?.productiveHours ?? null) : null,
         deliverables: p?.deliverables ?? 0,
-        openingCompliancePct: p?.openingCompliancePct ?? null,
-        closingCompliancePct: p?.closingCompliancePct ?? null,
       };
     });
 

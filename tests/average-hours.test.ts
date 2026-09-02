@@ -197,15 +197,13 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
       expect(res.status, JSON.stringify(res.body)).toBe(201);
       return res.body.instructor.id;
     }
-    const [e1, e2, e3, e4] = await Promise.all(
-      ["e1", "e2", "e3", "e4"].map((tag) => newInstructor(tag)),
+    /* Three, not four. The fourth existed only to file a submission that
+       totalled zero — see the note below on why that is now unreachable. */
+    const [e1, e2, e3] = await Promise.all(
+      ["e1", "e2", "e3"].map((tag) => newInstructor(tag)),
     );
 
     const teaching = await prisma.activityType.findFirstOrThrow({ where: { code: "TEACHING" } });
-    // UNUTILIZED is the one activity type in the taxonomy explicitly marked
-    // `countsAsProductive: false` — a real, storable row that does not count
-    // as Working Hours, which is exactly what "submitted, but 0h" means.
-    const unutilized = await prisma.activityType.findFirstOrThrow({ where: { code: "UNUTILIZED" } });
     const workDate = new Date(`${DAY}T00:00:00.000Z`);
     const at = (hhmm: string) => {
       const [h, m] = hhmm.split(":").map(Number);
@@ -228,21 +226,19 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
       });
     }
 
-    // The fourth instructor "submits a worklog" — a real ActivityLog row
-    // exists for them that day — but it is UNUTILIZED time, which does not
-    // count toward productive minutes. This is the real-data equivalent of "a
-    // submission totalling exactly 0h 0m", and they must be excluded exactly
-    // like an instructor who submitted nothing at all.
-    await prisma.activityLog.create({
-      data: {
-        instructorId: e4,
-        universityId: north,
-        activityTypeId: unutilized.id,
-        workDate,
-        startTime: at("09:00"),
-        endTime: at("09:15"),
-      },
-    });
+    /* There is no fourth instructor any more.
+     *
+     * They used to file fifteen minutes of UNUTILIZED — the one activity type
+     * marked `countsAsProductive: false` — so a real row existed that summed to
+     * zero productive minutes. That flag lived on `ActivityType` and is gone:
+     * every recorded hour counts, so time filed under any name is time worked.
+     *
+     * The obvious replacement, a zero-length entry, is refused by the
+     * `activity_log_positive_interval` CHECK. So through THIS pipeline no
+     * submission can total exactly 0h, and the case is unreachable rather than
+     * merely untested. The `activeInstructorMinutes > 0` guard in the rollup
+     * still stands; what can now produce that state is a `WorklogEntry` with
+     * zero hours, which the tracker reads and `tracker-empty-states` holds. */
 
     const rolled = await admin.post(`/api/admin/rollup?from=${DAY}&to=${DAY}`, {});
     expect(rolled.status, JSON.stringify(rolled.body).slice(0, 200)).toBe(200);
@@ -255,11 +251,13 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
     expect(row.activeInstructorMinutes).toBe(60);
   });
 
-  test("a 0h submission is excluded exactly like no submission at all", async () => {
+  test("only instructors who recorded time are counted active", async () => {
     const row = await prisma.universityDailyMetric.findFirstOrThrow({
       where: { universityId: north, metricDate: new Date(`${DAY}T00:00:00.000Z`) },
     });
-    // Three, never four — E4's DAILY_OPENING-only day does not count them in.
+    /* Three, and three is now everybody who filed — see the note above about
+       the fourth. What this still holds is that the count comes from recorded
+       minutes rather than from the roster. */
     expect(row.activeInstructorCount).toBe(3);
   });
 
