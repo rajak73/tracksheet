@@ -28,7 +28,6 @@
  */
 
 import { computeAnalytics } from "@/server/analytics/engine";
-import { workingHoursByInstructor } from "@/server/analytics/hours-by-instructor";
 import { addDays, mondayOf } from "@/server/analytics/tracker";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { workDateFor } from "@/server/time/workday";
@@ -52,7 +51,9 @@ export type InstructorPerformance = {
   universityName: string;
   managerId: string | null;
   managerName: string | null;
-  /** Time with students. See `hours-by-instructor.ts`. */
+  /** What the instructor recorded. The same figure as `recordedHours` since
+   *  "time with students" stopped being identifiable — see the note at its
+   *  assignment. */
   workingHours: number;
   /** Every recorded minute. A different question, under its own name. */
   recordedHours: number;
@@ -162,10 +163,24 @@ export async function instructorPerformance(args: {
     universities.map(async (u) => {
       const period = periodFor.get(u.id);
       if (!period) return [];
-      const [analytics, studentFacing] = await Promise.all([
-        computeAnalytics({ universityId: u.id, from: period.from, to: period.to }),
-        workingHoursByInstructor({ universityId: u.id, from: period.from, to: period.to }),
-      ]);
+      /* One query, one hours figure.
+       *
+       * `workingHoursByInstructor` used to run alongside this. It answered "time
+       * spent WITH STUDENTS", which needed each entry's deliverable to say
+       * whether it was a countable one — taxonomy. With that gone the two
+       * figures are the same number, and until this change they were read from
+       * two different TABLES: the engine had moved to `WorklogEntry` and that
+       * query still read `ActivityLog`. So `workingHours <= recordedHours` could
+       * break, and did — an instructor with a legacy activity row and no worklog
+       * day reported 1 against 0.
+       *
+       * Two names for one number is exactly what the `recordedHoursPercent`
+       * rename removed elsewhere, so this does not keep both. */
+      const analytics = await computeAnalytics({
+        universityId: u.id,
+        from: period.from,
+        to: period.to,
+      });
       return analytics.instructors.map((i): InstructorPerformance => {
         const manager = managerOf.get(i.instructorId) ?? null;
         return {
@@ -184,7 +199,12 @@ export async function instructorPerformance(args: {
            * CATEGORY happened to be "Deliverable Work" and the second was
            * everything else, so a lecture counted as "non-deliverable" — a name
            * that said the opposite of what it measured. */
-          workingHours: studentFacing.get(i.instructorId) ?? 0,
+          /* The same number as `recordedHours` now, and deliberately so: the
+             distinction between them was "time with students", which needed a
+             countable deliverable to identify. The field stays because the
+             client's sheet says Working Hours, and what it shows is what the
+             instructor typed into the box of that name. */
+          workingHours: i.productiveHours,
           /** Every recorded minute. Kept because `missing` and `unutilized`
            *  are derived against it, and it is honest under its own name. */
           recordedHours: i.productiveHours,

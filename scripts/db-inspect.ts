@@ -156,13 +156,19 @@ async function report(db: PrismaClient, url: string) {
       })),
     );
 
-    /* Working Hours, by the product's own rule, so this agrees with every
-     * screen rather than being a fourth answer. */
-    const { workingHoursByInstructor } = await import("../src/server/analytics/hours-by-instructor.js");
+    /* Working Hours across the network, straight from the rows.
+     *
+     * This called `workingHoursByInstructor`, which computed "time with
+     * students" from each entry's deliverable. That module is gone with the
+     * taxonomy, and the figure it produced is now simply what instructors
+     * recorded — so this sums the column they typed it into. */
     const today = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-    const hours = await workingHoursByInstructor({ from, to: today });
-    const total = [...hours.values()].reduce((n, h) => n + h, 0);
+    const days = await db.worklogEntry.findMany({
+      where: { logDate: { gte: new Date(from), lte: new Date(today) } },
+      select: { workingHours: true },
+    });
+    const total = days.reduce((n: number, d: { workingHours: unknown }) => n + Number(d.workingHours), 0);
     console.log(`\nWorking Hours across the network, ${from} → ${today}: ${fmtHours(total)}`);
   }
 

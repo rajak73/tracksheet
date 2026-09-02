@@ -38,7 +38,7 @@ import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/
    is no reading on this screen any more; the three text columns print what is
    in the three boxes. Both still serve the manager's sheet. */
 import { workingHours as workingHoursCell } from "@/domain/worklog-report";
-import { addDays, weekOf } from "@/domain/worklog-rows";
+import { addDays, weekOf } from "@/domain/periods";
 import { buildDayRow, type DayRow } from "@/domain/worklog-day-rows";
 import { Dialog, useToast } from "@/app/_components/interactive";
 import { EmptyState, ErrorState, TableSkeleton } from "@/app/_components/ui";

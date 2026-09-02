@@ -1,13 +1,6 @@
 import { describe, expect, test } from "vitest";
-import {
-  addDays,
-  buildPeriodRow,
-  mondayOf,
-  remarksFor,
-  weekOf,
-  weeksOfMonth,
-  type RowActivity,
-} from "@/domain/worklog-rows";
+import { buildPeriodRow, remarksFor, type RowActivity } from "@/domain/worklog-rows";
+import { addDays, mondayOf, weekOf, weeksOfMonth } from "@/domain/periods";
 import { deliverableCell, quantityCell, workingHours } from "@/domain/worklog-report";
 
 /**

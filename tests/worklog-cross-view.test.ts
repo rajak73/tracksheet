@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-import { buildPeriodRow, weekOf, type RowActivity } from "@/domain/worklog-rows";
+import { buildPeriodRow, type RowActivity } from "@/domain/worklog-rows";
+import { weekOf } from "@/domain/periods";
 import { workingHours } from "@/domain/worklog-report";
 import { seedDays } from "./helpers/worklog";
 

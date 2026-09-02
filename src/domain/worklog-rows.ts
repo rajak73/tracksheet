@@ -234,47 +234,8 @@ export function buildPeriodRow(input: {
   };
 }
 
-/* ── The periods themselves ────────────────────────────────────────────────
- * Pure date arithmetic on YYYY-MM-DD strings, deliberately: a Date object
- * carries a timezone and every one of these is a calendar question, not an
- * instant. */
-
-export const addDays = (date: string, days: number): string => {
-  const at = new Date(`${date}T00:00:00.000Z`);
-  at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
-};
-
-/** The Monday of that date's week. */
-export function mondayOf(date: string): string {
-  const at = new Date(`${date}T00:00:00.000Z`);
-  // getUTCDay is 0 for Sunday, which belongs to the week that started six days
-  // earlier rather than to the one about to start.
-  const offset = (at.getUTCDay() + 6) % 7;
-  return addDays(date, -offset);
-}
-
-/** Every date of the week containing `date`, Monday first. */
-export function weekOf(date: string, days = 7): string[] {
-  const monday = mondayOf(date);
-  return Array.from({ length: days }, (_, i) => addDays(monday, i));
-}
-
-/** The weeks a month spans, each as its days clipped to that month. */
-export function weeksOfMonth(month: string): Array<{ index: number; dates: string[] }> {
-  const first = `${month}-01`;
-  const at = new Date(`${first}T00:00:00.000Z`);
-  at.setUTCMonth(at.getUTCMonth() + 1);
-  const nextMonth = at.toISOString().slice(0, 10);
-
-  const weeks: Array<{ index: number; dates: string[] }> = [];
-  let cursor = mondayOf(first);
-  while (cursor < nextMonth) {
-    // Clipped, so week one is not four days of the previous month and week
-    // five is not three days of the next.
-    const dates = weekOf(cursor).filter((d) => d >= first && d < nextMonth);
-    if (dates.length > 0) weeks.push({ index: weeks.length + 1, dates });
-    cursor = addDays(cursor, 7);
-  }
-  return weeks;
-}
+/* The date helpers moved to `periods.ts`.
+ *
+ * They are pure calendar arithmetic and were the only reason anything imported
+ * this file without wanting the taxonomy merge below. Separating them is what
+ * lets this file be deleted when its last consumer moves. */

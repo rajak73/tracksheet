@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { trailingWindow } from "@/server/jobs/metrics-scheduler";
 import { workDateFor, zonedToUtc } from "@/server/time/workday";
 import { todayFor } from "@/server/worklog/window";
-import { mondayOf, weekOf, weeksOfMonth } from "@/domain/worklog-rows";
+import { mondayOf, weekOf, weeksOfMonth } from "@/domain/periods";
 import { todayIn } from "@/app/_lib/format";
 
 /**
