@@ -1772,7 +1772,20 @@ model WorklogEntry {
   /// the text says, so extracted hours can be reconciled against it. Hours the
   /// text attributes to nothing are the difference, and that difference is a
   /// fact worth showing rather than an error to hide.
-  workingHours Decimal @default(0) @db.Decimal(6, 2)
+  /// The day's total, in WHOLE MINUTES.
+  ///
+  /// Was `Decimal(6,2)` hours, which cannot hold a third of an hour: twenty
+  /// minutes stored as 0.33, which is 19.8 minutes, and the error compounded
+  /// with every entry. Three twenty-minute days summed to 0.99h through the
+  /// record and to 60 minutes through anything counting in minutes, so two
+  /// surfaces reading one day disagreed by a hundredth of an hour — see the
+  /// regression test named for it.
+  ///
+  /// Minutes are exact, and they are the unit everything else already wanted:
+  /// the parser accepts "8h 30m", extraction reports "45 minutes",
+  /// reconciliation subtracts durations. Hours exist only where a screen
+  /// renders one.
+  workingMinutes Int @default(0)
 
   remarks String?
 

@@ -97,7 +97,7 @@ export const GET = withAuth(async ({ scope, req }) => {
         logDate: true,
         deliverable: true,
         deliverableQuantity: true,
-        workingHours: true,
+        workingMinutes: true,
         remarks: true,
         status: true,
         source: true,
@@ -140,8 +140,9 @@ export const GET = withAuth(async ({ scope, req }) => {
          layer that improves it is hiding the record. */
       deliverable: d.deliverable,
       deliverableQuantity: d.deliverableQuantity,
-      // A number, so the client formats it once rather than parsing a string.
-      workingHours: Number(d.workingHours),
+      // Whole minutes, so the client formats once rather than parsing a string
+      // — and so nothing on the way out re-rounds what the column already holds.
+      workingMinutes: d.workingMinutes,
       remarks: d.remarks,
       status: d.status,
       /* Provenance, not content. `MIGRATED` means the text was reconstructed by

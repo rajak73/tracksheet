@@ -17,7 +17,7 @@ const day = (logDate: string, over: Partial<DayEntry> = {}): DayEntry => ({
   logDate,
   deliverable: "Live Class on binary search",
   deliverableQuantity: "2 classes",
-  workingHours: 6.5,
+  workingMinutes: 390,
   remarks: null,
   source: "NATIVE",
   ...over,
@@ -54,9 +54,9 @@ describe("a day is the row", () => {
   test("10. hours are summed as numbers, once, in minutes", () => {
     /* 6.5 is 390 minutes, which the column formats as "6h 30m". Summing the
        formatted strings back would reintroduce the rounding this avoids. */
-    expect(row([MON], [day(MON, { workingHours: 6.5 })]).totalMinutes).toBe(390);
+    expect(row([MON], [day(MON, { workingMinutes: 390 })]).totalMinutes).toBe(390);
     expect(
-      row(WEEK, [day(MON, { workingHours: 6.5 }), day(TUE, { workingHours: 1.25 })]).totalMinutes,
+      row(WEEK, [day(MON, { workingMinutes: 390 }), day(TUE, { workingMinutes: 75 })]).totalMinutes,
     ).toBe(465);
   });
 
@@ -64,9 +64,9 @@ describe("a day is the row", () => {
     /* The column renders 0 as a dash rather than "0h 00m": the stored column is
        not nullable, so zero is the only way "nobody said" can arrive, and
        printing it as a duration states a measurement nobody took. */
-    const r = row([MON], [day(MON, { workingHours: 0 })]);
+    const r = row([MON], [day(MON, { workingMinutes: 0 })]);
     expect(r.totalMinutes).toBe(0);
-    expect(r.days[0]!.workingHours).toBe(0);
+    expect(r.days[0]!.workingMinutes).toBe(0);
   });
 });
 

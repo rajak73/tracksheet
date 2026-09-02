@@ -61,10 +61,10 @@ export async function worklogFigures(
       instructorId: { in: instructorIds },
       logDate: { gte: toDateOnly(from), lte: toDateOnly(to) },
     },
-    select: { instructorId: true, workingHours: true },
+    select: { instructorId: true, workingMinutes: true },
   });
 
-  const minutes = rows.reduce((n, r) => n + Math.round(Number(r.workingHours) * 60), 0);
+  const minutes = rows.reduce((n, r) => n + r.workingMinutes, 0);
   return {
     /* Summed in minutes and divided once. Adding decimal hours row by row
        accumulates the rounding, and this figure is reconciled by hand against a

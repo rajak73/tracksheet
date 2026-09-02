@@ -229,9 +229,12 @@ const DAY = "2026-04-13";
         universityId: north,
         date: DAY,
         deliverable: "Twenty minutes",
-        workingHours: 20 / 60,
+        /* Twenty minutes, stored as twenty. Under the old Decimal(6,2) hours
+         column this was 0.33 — 19.8 minutes — and three such days summed to a
+         hundredth of an hour less than the truth. */
+      workingMinutes: 20,
       });
-      expect(Number(row.workingHours), "the fixture must actually have written").toBeGreaterThan(0);
+      expect(row.workingMinutes, "the fixture must actually have written").toBeGreaterThan(0);
     }
 
     /* There is no fourth instructor any more.

@@ -166,9 +166,9 @@ async function report(db: PrismaClient, url: string) {
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const days = await db.worklogEntry.findMany({
       where: { logDate: { gte: new Date(from), lte: new Date(today) } },
-      select: { workingHours: true },
+      select: { workingMinutes: true },
     });
-    const total = days.reduce((n: number, d: { workingHours: unknown }) => n + Number(d.workingHours), 0);
+    const total = days.reduce((n: number, d: { workingMinutes: number }) => n + d.workingMinutes, 0) / 60;
     console.log(`\nWorking Hours across the network, ${from} → ${today}: ${fmtHours(total)}`);
   }
 

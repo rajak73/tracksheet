@@ -64,14 +64,14 @@ describe("one row per instructor per day", () => {
 
     const day = { instructorId: myId, universityId, logDate: toDateOnly(TODAY) };
     await prisma.worklogEntry.create({
-      data: { ...day, deliverable: "The first row", workingHours: 4 },
+      data: { ...day, deliverable: "The first row", workingMinutes: 240 },
     });
 
     /* Not "the writer refuses" — the DATABASE refuses. A guarantee enforced by
        application code is a guarantee only while every path remembers it. */
     await expect(
       prisma.worklogEntry.create({
-        data: { ...day, deliverable: "A second row for the same day", workingHours: 4 },
+        data: { ...day, deliverable: "A second row for the same day", workingMinutes: 240 },
       }),
     ).rejects.toThrow();
 
@@ -105,7 +105,7 @@ describe("one row per instructor per day", () => {
     const rows = await prisma.worklogEntry.findMany({ where: { instructorId: myId } });
     expect(rows.length, "a correction must replace the day, not add to it").toBe(1);
     expect(rows[0]!.deliverable).toBe("Java class - collections");
-    expect(Number(rows[0]!.workingHours)).toBe(8);
+    expect(rows[0]!.workingMinutes).toBe(480);
     expect(rows[0]!.remarks).toBe("the correction");
   });
 
@@ -124,6 +124,6 @@ describe("one row per instructor per day", () => {
 
     const row = await prisma.worklogEntry.findFirstOrThrow({ where: { instructorId: myId } });
     expect(row.deliverableQuantity, "quantity is stored verbatim, never parsed").toBe("gfddgh");
-    expect(Number(row.workingHours), "a sentence is still a length of time").toBe(6.5);
+    expect(row.workingMinutes, "a sentence is still a length of time").toBe(390);
   });
 });

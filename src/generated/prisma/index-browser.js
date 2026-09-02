@@ -648,7 +648,7 @@ exports.Prisma.WorklogEntryScalarFieldEnum = {
   logDate: 'logDate',
   deliverable: 'deliverable',
   deliverableQuantity: 'deliverableQuantity',
-  workingHours: 'workingHours',
+  workingMinutes: 'workingMinutes',
   remarks: 'remarks',
   status: 'status',
   source: 'source',

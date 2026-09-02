@@ -200,7 +200,7 @@ describe("GET /api/activities", () => {
         "logDate",
         "deliverable",
         "deliverableQuantity",
-        "workingHours",
+        "workingMinutes",
         "remarks",
         "status",
         "source",
@@ -211,8 +211,8 @@ describe("GET /api/activities", () => {
         expect(d).toHaveProperty(field);
       }
       // A number, so every screen formats one value rather than parsing a string.
-      expect(typeof d.workingHours).toBe("number");
-      expect(d.workingHours).toBeGreaterThanOrEqual(0);
+      expect(typeof d.workingMinutes).toBe("number");
+      expect(d.workingMinutes).toBeGreaterThanOrEqual(0);
       // Unassigned is a state to render, not an omission.
       expect(d).toHaveProperty("manager");
       // One row per instructor per day: a date, with no clock on it.

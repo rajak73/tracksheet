@@ -701,7 +701,7 @@ describe("the provider is called once, and only when the figures change", () => 
       universityId,
       date,
       deliverable: "Cache invalidation probe",
-      workingHours: Number(before?.workingHours ?? 0) + 3,
+      workingMinutes: (before?.workingMinutes ?? 0) + 180,
     });
 
     try {
@@ -716,7 +716,7 @@ describe("the provider is called once, and only when the figures change", () => 
       if (before) {
         await prisma.worklogEntry.update({
           where: { id: before.id },
-          data: { workingHours: before.workingHours, deliverable: before.deliverable },
+          data: { workingMinutes: before.workingMinutes, deliverable: before.deliverable },
         });
       } else {
         await prisma.worklogEntry.delete({

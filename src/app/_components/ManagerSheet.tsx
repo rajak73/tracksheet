@@ -124,7 +124,7 @@ export function totalHours(person: ManagerPerson, periods: ManagerPeriod[]): num
       n +
       p.dates.reduce((m, d) => {
         const day = person.daysByDate[d];
-        return m + (day ? Math.round(day.workingHours * 60) : 0);
+        return m + (day ? day.workingMinutes : 0);
       }, 0),
     0,
   );
@@ -470,7 +470,7 @@ function PeriodCells({
             altogether" without that being all it can say. */}
         <ul className="space-y-1">
           {row.days.map((d) => (
-            <li key={d.id}>{compactDuration(Math.round(d.workingHours * 60))}</li>
+            <li key={d.id}>{compactDuration(d.workingMinutes)}</li>
           ))}
         </ul>
         {row.days.length > 1 ? (

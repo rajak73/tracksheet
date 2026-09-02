@@ -112,9 +112,9 @@ describe("someone who leaves keeps the days they worked", () => {
       universityId: northId,
       date: "2026-09-01",
       deliverable: "Two hours of teaching",
-      workingHours: 2,
+      workingMinutes: 120,
     });
-    expect(Number(worked.workingHours), "the fixture must actually have written").toBe(2);
+    expect(worked.workingMinutes, "the fixture must actually have written").toBe(120);
 
     const before = await computeAnalytics({
       universityId: northId,

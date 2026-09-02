@@ -51044,11 +51044,11 @@ export namespace Prisma {
   }
 
   export type WorklogEntryAvgAggregateOutputType = {
-    workingHours: Decimal | null
+    workingMinutes: number | null
   }
 
   export type WorklogEntrySumAggregateOutputType = {
-    workingHours: Decimal | null
+    workingMinutes: number | null
   }
 
   export type WorklogEntryMinAggregateOutputType = {
@@ -51058,7 +51058,7 @@ export namespace Prisma {
     logDate: Date | null
     deliverable: string | null
     deliverableQuantity: string | null
-    workingHours: Decimal | null
+    workingMinutes: number | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
     source: $Enums.WorklogEntrySource | null
@@ -51073,7 +51073,7 @@ export namespace Prisma {
     logDate: Date | null
     deliverable: string | null
     deliverableQuantity: string | null
-    workingHours: Decimal | null
+    workingMinutes: number | null
     remarks: string | null
     status: $Enums.WorklogEntryStatus | null
     source: $Enums.WorklogEntrySource | null
@@ -51088,7 +51088,7 @@ export namespace Prisma {
     logDate: number
     deliverable: number
     deliverableQuantity: number
-    workingHours: number
+    workingMinutes: number
     remarks: number
     status: number
     source: number
@@ -51099,11 +51099,11 @@ export namespace Prisma {
 
 
   export type WorklogEntryAvgAggregateInputType = {
-    workingHours?: true
+    workingMinutes?: true
   }
 
   export type WorklogEntrySumAggregateInputType = {
-    workingHours?: true
+    workingMinutes?: true
   }
 
   export type WorklogEntryMinAggregateInputType = {
@@ -51113,7 +51113,7 @@ export namespace Prisma {
     logDate?: true
     deliverable?: true
     deliverableQuantity?: true
-    workingHours?: true
+    workingMinutes?: true
     remarks?: true
     status?: true
     source?: true
@@ -51128,7 +51128,7 @@ export namespace Prisma {
     logDate?: true
     deliverable?: true
     deliverableQuantity?: true
-    workingHours?: true
+    workingMinutes?: true
     remarks?: true
     status?: true
     source?: true
@@ -51143,7 +51143,7 @@ export namespace Prisma {
     logDate?: true
     deliverable?: true
     deliverableQuantity?: true
-    workingHours?: true
+    workingMinutes?: true
     remarks?: true
     status?: true
     source?: true
@@ -51245,7 +51245,7 @@ export namespace Prisma {
     logDate: Date
     deliverable: string
     deliverableQuantity: string | null
-    workingHours: Decimal
+    workingMinutes: number
     remarks: string | null
     status: $Enums.WorklogEntryStatus
     source: $Enums.WorklogEntrySource
@@ -51279,7 +51279,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
-    workingHours?: boolean
+    workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
     source?: boolean
@@ -51296,7 +51296,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
-    workingHours?: boolean
+    workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
     source?: boolean
@@ -51313,7 +51313,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
-    workingHours?: boolean
+    workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
     source?: boolean
@@ -51330,7 +51330,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
-    workingHours?: boolean
+    workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
     source?: boolean
@@ -51338,7 +51338,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingHours" | "remarks" | "status" | "source" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
+  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingMinutes" | "remarks" | "status" | "source" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
   export type WorklogEntryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -51387,8 +51387,21 @@ export namespace Prisma {
        * the text says, so extracted hours can be reconciled against it. Hours the
        * text attributes to nothing are the difference, and that difference is a
        * fact worth showing rather than an error to hide.
+       * The day's total, in WHOLE MINUTES.
+       * 
+       * Was `Decimal(6,2)` hours, which cannot hold a third of an hour: twenty
+       * minutes stored as 0.33, which is 19.8 minutes, and the error compounded
+       * with every entry. Three twenty-minute days summed to 0.99h through the
+       * record and to 60 minutes through anything counting in minutes, so two
+       * surfaces reading one day disagreed by a hundredth of an hour — see the
+       * regression test named for it.
+       * 
+       * Minutes are exact, and they are the unit everything else already wanted:
+       * the parser accepts "8h 30m", extraction reports "45 minutes",
+       * reconciliation subtracts durations. Hours exist only where a screen
+       * renders one.
        */
-      workingHours: Prisma.Decimal
+      workingMinutes: number
       remarks: string | null
       status: $Enums.WorklogEntryStatus
       /**
@@ -51842,7 +51855,7 @@ export namespace Prisma {
     readonly logDate: FieldRef<"WorklogEntry", 'DateTime'>
     readonly deliverable: FieldRef<"WorklogEntry", 'String'>
     readonly deliverableQuantity: FieldRef<"WorklogEntry", 'String'>
-    readonly workingHours: FieldRef<"WorklogEntry", 'Decimal'>
+    readonly workingMinutes: FieldRef<"WorklogEntry", 'Int'>
     readonly remarks: FieldRef<"WorklogEntry", 'String'>
     readonly status: FieldRef<"WorklogEntry", 'WorklogEntryStatus'>
     readonly source: FieldRef<"WorklogEntry", 'WorklogEntrySource'>
@@ -55245,7 +55258,7 @@ export namespace Prisma {
     logDate: 'logDate',
     deliverable: 'deliverable',
     deliverableQuantity: 'deliverableQuantity',
-    workingHours: 'workingHours',
+    workingMinutes: 'workingMinutes',
     remarks: 'remarks',
     status: 'status',
     source: 'source',
@@ -55759,20 +55772,6 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'Decimal'
-   */
-  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
-    
-
-
-  /**
-   * Reference to a field of type 'Decimal[]'
-   */
-  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
-    
-
-
-  /**
    * Reference to a field of type 'WorklogEntryStatus'
    */
   export type EnumWorklogEntryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntryStatus'>
@@ -55797,6 +55796,20 @@ export namespace Prisma {
    * Reference to a field of type 'WorklogEntrySource[]'
    */
   export type ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'WorklogEntrySource[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'Decimal'
+   */
+  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+  /**
+   * Reference to a field of type 'Decimal[]'
+   */
+  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
 
 
@@ -59356,7 +59369,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
-    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
@@ -59373,7 +59386,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrderInput | SortOrder
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
     source?: SortOrder
@@ -59394,7 +59407,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
-    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
@@ -59411,7 +59424,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrderInput | SortOrder
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
     source?: SortOrder
@@ -59434,7 +59447,7 @@ export namespace Prisma {
     logDate?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
     deliverable?: StringWithAggregatesFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
-    workingHours?: DecimalWithAggregatesFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntWithAggregatesFilter<"WorklogEntry"> | number
     remarks?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
@@ -63501,7 +63514,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -63518,7 +63531,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -63531,7 +63544,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -63548,7 +63561,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -63563,7 +63576,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -63576,7 +63589,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -63591,7 +63604,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -66839,17 +66852,6 @@ export namespace Prisma {
     _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
   }
 
-  export type DecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
   export type EnumWorklogEntryStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
     in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
@@ -66876,7 +66878,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrder
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     source?: SortOrder
@@ -66885,7 +66887,7 @@ export namespace Prisma {
   }
 
   export type WorklogEntryAvgOrderByAggregateInput = {
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
   }
 
   export type WorklogEntryMaxOrderByAggregateInput = {
@@ -66895,7 +66897,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrder
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     source?: SortOrder
@@ -66910,7 +66912,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrder
-    workingHours?: SortOrder
+    workingMinutes?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
     source?: SortOrder
@@ -66919,23 +66921,7 @@ export namespace Prisma {
   }
 
   export type WorklogEntrySumOrderByAggregateInput = {
-    workingHours?: SortOrder
-  }
-
-  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
+    workingMinutes?: SortOrder
   }
 
   export type EnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -66956,6 +66942,17 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
     _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
+  }
+
+  export type DecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
   }
 
   export type EnumDayExtractionStatusFilter<$PrismaModel = never> = {
@@ -67017,6 +67014,22 @@ export namespace Prisma {
 
   export type DayExtractionSumOrderByAggregateInput = {
     unallocatedHours?: SortOrder
+  }
+
+  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type EnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -71352,14 +71365,6 @@ export namespace Prisma {
     connect?: UniversityWhereUniqueInput
   }
 
-  export type DecimalFieldUpdateOperationsInput = {
-    set?: Decimal | DecimalJsLike | number | string
-    increment?: Decimal | DecimalJsLike | number | string
-    decrement?: Decimal | DecimalJsLike | number | string
-    multiply?: Decimal | DecimalJsLike | number | string
-    divide?: Decimal | DecimalJsLike | number | string
-  }
-
   export type EnumWorklogEntryStatusFieldUpdateOperationsInput = {
     set?: $Enums.WorklogEntryStatus
   }
@@ -71388,6 +71393,14 @@ export namespace Prisma {
     create?: XOR<InstructorCreateWithoutDayExtractionsInput, InstructorUncheckedCreateWithoutDayExtractionsInput>
     connectOrCreate?: InstructorCreateOrConnectWithoutDayExtractionsInput
     connect?: InstructorWhereUniqueInput
+  }
+
+  export type DecimalFieldUpdateOperationsInput = {
+    set?: Decimal | DecimalJsLike | number | string
+    increment?: Decimal | DecimalJsLike | number | string
+    decrement?: Decimal | DecimalJsLike | number | string
+    multiply?: Decimal | DecimalJsLike | number | string
+    divide?: Decimal | DecimalJsLike | number | string
   }
 
   export type EnumDayExtractionStatusFieldUpdateOperationsInput = {
@@ -72089,17 +72102,6 @@ export namespace Prisma {
     _max?: NestedEnumInsightCacheStatusFilter<$PrismaModel>
   }
 
-  export type NestedDecimalFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-  }
-
   export type NestedEnumWorklogEntryStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.WorklogEntryStatus | EnumWorklogEntryStatusFieldRefInput<$PrismaModel>
     in?: $Enums.WorklogEntryStatus[] | ListEnumWorklogEntryStatusFieldRefInput<$PrismaModel>
@@ -72112,22 +72114,6 @@ export namespace Prisma {
     in?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
     notIn?: $Enums.WorklogEntrySource[] | ListEnumWorklogEntrySourceFieldRefInput<$PrismaModel>
     not?: NestedEnumWorklogEntrySourceFilter<$PrismaModel> | $Enums.WorklogEntrySource
-  }
-
-  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
-    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
-    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedDecimalFilter<$PrismaModel>
-    _sum?: NestedDecimalFilter<$PrismaModel>
-    _min?: NestedDecimalFilter<$PrismaModel>
-    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type NestedEnumWorklogEntryStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -72150,11 +72136,38 @@ export namespace Prisma {
     _max?: NestedEnumWorklogEntrySourceFilter<$PrismaModel>
   }
 
+  export type NestedDecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+  }
+
   export type NestedEnumDayExtractionStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.DayExtractionStatus | EnumDayExtractionStatusFieldRefInput<$PrismaModel>
     in?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
     notIn?: $Enums.DayExtractionStatus[] | ListEnumDayExtractionStatusFieldRefInput<$PrismaModel>
     not?: NestedEnumDayExtractionStatusFilter<$PrismaModel> | $Enums.DayExtractionStatus
+  }
+
+  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type NestedEnumDayExtractionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -74322,7 +74335,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -74337,7 +74350,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -75211,7 +75224,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
-    workingHours?: DecimalFilter<"WorklogEntry"> | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFilter<"WorklogEntry"> | $Enums.WorklogEntrySource
@@ -77230,7 +77243,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -77245,7 +77258,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -88774,7 +88787,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -89931,7 +89944,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -89946,7 +89959,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -89960,7 +89973,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -90344,7 +90357,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
-    workingHours?: Decimal | DecimalJsLike | number | string
+    workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
     source?: $Enums.WorklogEntrySource
@@ -91044,7 +91057,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -91059,7 +91072,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource
@@ -91073,7 +91086,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
-    workingHours?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
     source?: EnumWorklogEntrySourceFieldUpdateOperationsInput | $Enums.WorklogEntrySource

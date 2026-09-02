@@ -71,7 +71,7 @@ const scopeOf = (type: "DAY" | "WEEK" | "MONTH", start: string, end: string) => 
   periodEnd: end,
 });
 
-async function writeDay(deliverable: string, hours = 6) {
+async function writeDay(deliverable: string, minutes = 360) {
   return prisma.worklogEntry.upsert({
     where: { instructorId_logDate: { instructorId: myId, logDate: toDateOnly(DAY) } },
     create: {
@@ -79,9 +79,9 @@ async function writeDay(deliverable: string, hours = 6) {
       universityId,
       logDate: toDateOnly(DAY),
       deliverable,
-      workingHours: hours,
+      workingMinutes: minutes,
     },
-    update: { deliverable, workingHours: hours },
+    update: { deliverable, workingMinutes: minutes },
   });
 }
 
@@ -337,7 +337,7 @@ describe("raw worklog data is never gated by insight status", () => {
   /* 9 — the columns a manager reads come from a different endpoint and are
      served in full whatever the insight cell says. */
   test("a manager reads the day's fields while its insight is PENDING", async () => {
-    await writeDay("Java class - inheritance and interfaces", 6.5);
+    await writeDay("Java class - inheritance and interfaces", 390);
 
     const insight = await manager.get(
       `/api/instructors/${myId}/insight?scope=DAY&from=${DAY}&to=${DAY}`,
@@ -348,7 +348,7 @@ describe("raw worklog data is never gated by insight status", () => {
       where: { instructorId: myId, logDate: toDateOnly(DAY) },
     });
     expect(row.deliverable).toBe("Java class - inheritance and interfaces");
-    expect(Number(row.workingHours)).toBe(6.5);
+    expect(row.workingMinutes).toBe(390);
   });
 });
 

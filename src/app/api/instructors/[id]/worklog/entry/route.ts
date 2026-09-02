@@ -9,7 +9,7 @@ import { assertValidDate } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
-import { parseWorkingHours } from "@/domain/worklog-hours";
+import { parseWorkingMinutes } from "@/domain/worklog-hours";
 
 /**
  * One day, saved.
@@ -103,15 +103,15 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     workDate: input.date,
   });
 
-  const hours = parseWorkingHours(input.workingHours);
-  if (hours === null) {
+  const minutes = parseWorkingMinutes(input.workingHours);
+  if (minutes === null) {
     throw new ApiError(
       400,
       "INVALID_WORKING_HOURS",
       `"${input.workingHours}" is not a length of time. Try 8, 8.5, 8h 30m, or 6 hours.`,
     );
   }
-  if (hours > 24) {
+  if (minutes > 24 * 60) {
     throw new ApiError(400, "INVALID_WORKING_HOURS", `"${input.workingHours}" is longer than a day.`);
   }
 
@@ -122,7 +122,7 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     deliverable,
     // Blank normalises to null so "wrote nothing" is one value rather than two.
     deliverableQuantity: input.quantity.trim() || null,
-    workingHours: hours,
+    workingMinutes: minutes,
     remarks: input.remarks.trim() || null,
   };
 

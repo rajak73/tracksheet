@@ -129,7 +129,7 @@ async function instructorDays(from: string, to: string): Promise<RowActivity[]> 
     logDate: string;
     deliverable: string;
     deliverableQuantity: string | null;
-    workingHours: number;
+    workingMinutes: number;
     remarks: string | null;
     status: string;
     instructorId: string;
@@ -138,7 +138,9 @@ async function instructorDays(from: string, to: string): Promise<RowActivity[]> 
     .filter((d) => d.instructorId === instructorId)
     .map((d) => ({
       workDate: d.logDate,
-      durationHours: d.workingHours,
+      /* The old row model speaks hours, so the minutes the record holds are
+         converted HERE, at the boundary, and nowhere deeper. */
+      durationHours: d.workingMinutes / 60,
       remarks: d.remarks,
       status: d.status,
       startTime: `${d.logDate}T00:00:00.000Z`,
@@ -148,7 +150,7 @@ async function instructorDays(from: string, to: string): Promise<RowActivity[]> 
       quantity: null,
       rawText: d.deliverable,
       rawQuantity: d.deliverableQuantity,
-      rawWorkingHours: workingHours(d.workingHours * 60),
+      rawWorkingHours: workingHours(d.workingMinutes),
     })) as unknown as RowActivity[];
 }
 

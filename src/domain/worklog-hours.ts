@@ -12,12 +12,20 @@
  */
 
 /**
- * Hours as a number, or `null` when the text is not a length of time.
+ * WHOLE MINUTES, or `null` when the text is not a length of time.
  *
  * Returns null rather than throwing, so the caller decides what to say. A parser
  * that throws its own message ends up owning wording it cannot see in context.
+ *
+ * ── Why minutes rather than hours ─────────────────────────────────────────
+ * This used to return hours rounded to two decimals, "the precision the column
+ * stores, so the value round-trips". The column no longer stores hours, and
+ * that comment was the bug in miniature: two decimals of an hour cannot hold
+ * twenty minutes. It stored 0.33, which is 19.8 minutes, and three of those
+ * days differed from the truth by a full minute. Minutes are exact, and every
+ * form below already states one.
  */
-export function parseWorkingHours(raw: string): number | null {
+export function parseWorkingMinutes(raw: string): number | null {
   const text = raw.trim().toLowerCase();
   if (!text) return null;
 
@@ -34,7 +42,7 @@ export function parseWorkingHours(raw: string): number | null {
   const minutesOnly = text.match(/^(\d+)\s*(?:m|min|mins|minute|minutes)$/);
   if (minutesOnly) {
     const m = Number(minutesOnly[1]);
-    return m > 0 ? round(m / 60) : null;
+    return m > 0 ? m : null;
   }
 
   // `8:30`, `8h 30m`, `8h30`, `8 h 30`
@@ -42,12 +50,12 @@ export function parseWorkingHours(raw: string): number | null {
   if (split) {
     const m = Number(split[2]);
     if (m > 59) return null;
-    return round(Number(split[1]) + m / 60);
+    return toMinutes(Number(split[1]), m);
   }
 
   // `8`, `8.5`, `8h`, `8 hrs`
   const whole = text.match(/^(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?$/);
-  if (whole) return round(Number(whole[1]));
+  if (whole) return toMinutes(Number(whole[1]), 0);
 
   /* Time written as a sentence — "6 hours 30 minutes", "about 2 hours".
    *
@@ -61,12 +69,18 @@ export function parseWorkingHours(raw: string): number | null {
     const h = hourToken ? Number(hourToken[1]) : 0;
     const m = minuteToken ? Number(minuteToken[1]) : 0;
     if (m > 59 && hourToken) return null;
-    const total = h + m / 60;
-    return total > 0 ? round(total) : null;
+    const total = toMinutes(h, m);
+    return total > 0 ? total : null;
   }
 
   return null;
 }
 
-/** Two decimals — the precision the column stores, so the value round-trips. */
-const round = (n: number) => Math.round(n * 100) / 100;
+/**
+ * Whole minutes.
+ *
+ * `8.5` hours is 510 minutes exactly. The rounding is only ever for a fraction
+ * of an hour that is not a whole minute — "1.51 hours" — and lands on the
+ * nearest minute rather than accumulating as a decimal.
+ */
+const toMinutes = (hours: number, minutes: number) => Math.round(hours * 60) + minutes;

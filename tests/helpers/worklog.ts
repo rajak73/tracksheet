@@ -81,8 +81,8 @@ export async function seedDayRow(input: {
   /** `YYYY-MM-DD`. */
   date: string;
   deliverable?: string;
-  /** Hours as a number, the way the column stores them. */
-  workingHours: number;
+  /** WHOLE MINUTES, the way the column stores them. */
+  workingMinutes: number;
   remarks?: string | null;
 }) {
   const { prisma } = await import("@/server/db");
@@ -99,12 +99,12 @@ export async function seedDayRow(input: {
       universityId: input.universityId,
       logDate: toDateOnly(input.date),
       deliverable: input.deliverable ?? "Recorded work",
-      workingHours: input.workingHours,
+      workingMinutes: input.workingMinutes,
       remarks: input.remarks ?? null,
     },
     update: {
       deliverable: input.deliverable ?? "Recorded work",
-      workingHours: input.workingHours,
+      workingMinutes: input.workingMinutes,
       remarks: input.remarks ?? null,
     },
   });

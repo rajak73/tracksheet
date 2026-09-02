@@ -87,9 +87,9 @@ describe("editing an old day updates its summary", () => {
       universityId: northId,
       date: OLD_DAY,
       deliverable: "Three hours of teaching",
-      workingHours: 3,
+      workingMinutes: 180,
     });
-    expect(Number(logged.workingHours), "the fixture must actually have written").toBe(3);
+    expect(logged.workingMinutes, "the fixture must actually have written").toBe(180);
 
     // Summarise the day, as the scheduler would have done when it was recent.
     expect((await admin.post(`/api/admin/rollup?from=${OLD_DAY}&to=${OLD_DAY}`, {})).status).toBe(200);

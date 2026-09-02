@@ -87,7 +87,15 @@ export type TrackerCell = {
    * empty states a manager acts on differently. See `cellState`.
    */
   daysLogged: number;
-  /** Recorded hours for the week. Zero is a figure, not an absence. */
+  /**
+   * Recorded MINUTES for the week. The accumulator, and the exact figure.
+   *
+   * Hours used to be the accumulator, rounded to two places on every addition,
+   * which is how three twenty-minute days came to 0.99 rather than one hour.
+   * Minutes add exactly; hours are derived from them once, at the end.
+   */
+  totalMinutes: number;
+  /** The same figure in hours, rounded once, for the numeric columns. */
   totalWorkingHours: number;
   /** Individual remarks, newest last. Never concatenated into one blob. */
   remarks: string[];
@@ -105,6 +113,8 @@ export type TrackerRow = {
   cells: Record<number, TrackerCell>;
   totals: {
     daysLogged: number;
+    /** Exact. Hours are derived from this once — see `TrackerCell`. */
+    totalMinutes: number;
     totalWorkingHours: number;
     capacityHours: number;
     recordedHoursPct: number | null;
@@ -247,11 +257,11 @@ export function formatTrackerAsCsv(tracker: TrackerResult): string {
         weekStart: week.from,
         today: tracker.today,
         daysLogged: cell?.daysLogged ?? 0,
-        totalMinutes: Math.round((cell?.totalWorkingHours ?? 0) * 60),
+        totalMinutes: cell?.totalMinutes ?? 0,
       });
       cells.push(
         // "05h 15m" — the client specified the format to the character.
-        cellText(state, workingHoursCell(Math.round((cell?.totalWorkingHours ?? 0) * 60))),
+        cellText(state, workingHoursCell(cell?.totalMinutes ?? 0)),
         state === "future" ? "" : (cell?.daysLogged ?? 0),
         remarksCell(cell?.remarks ?? []),
       );
@@ -320,6 +330,7 @@ export async function buildTracker(args: {
         cells: {},
         totals: {
           daysLogged: 0,
+          totalMinutes: 0,
           totalWorkingHours: 0,
           capacityHours: 0,
           recordedHoursPct: null,
@@ -336,7 +347,7 @@ export async function buildTracker(args: {
       /* Seeded from the engine so an instructor with capacity and no worklog
          still gets a cell — "filed nothing" is a reportable state and needs
          somewhere to be reported. */
-      row.cells[week.index] ??= { daysLogged: 0, totalWorkingHours: 0, remarks: [] };
+      row.cells[week.index] ??= { daysLogged: 0, totalMinutes: 0, totalWorkingHours: 0, remarks: [] };
       row.totals.capacityHours = round(row.totals.capacityHours + b.capacityHours);
     }
   });
@@ -359,7 +370,7 @@ export async function buildTracker(args: {
       logDate: { gte: toDateOnly(spanFrom), lte: toDateOnly(spanTo) },
       ...(instructorId ? { instructorId } : {}),
     },
-    select: { instructorId: true, logDate: true, workingHours: true, remarks: true },
+    select: { instructorId: true, logDate: true, workingMinutes: true, remarks: true },
   });
 
   for (const entry of entries) {
@@ -373,6 +384,7 @@ export async function buildTracker(args: {
 
     const cell = (row.cells[week.index] ??= {
       daysLogged: 0,
+      totalMinutes: 0,
       totalWorkingHours: 0,
       remarks: [],
     });
@@ -381,9 +393,8 @@ export async function buildTracker(args: {
     cell.daysLogged += 1;
     row.totals.daysLogged += 1;
 
-    const hours = Number(entry.workingHours);
-    cell.totalWorkingHours = round(cell.totalWorkingHours + hours);
-    row.totals.totalWorkingHours = round(row.totals.totalWorkingHours + hours);
+    cell.totalMinutes += entry.workingMinutes;
+    row.totals.totalMinutes += entry.workingMinutes;
 
     // De-duplicated: two days on one topic would print the same remark twice.
     const remark = entry.remarks?.trim();
@@ -395,6 +406,15 @@ export async function buildTracker(args: {
   const hasData = (row: TrackerRow) => row.totals.daysLogged > 0;
 
   const visible = [...rows.values()].filter((row) => row.isActive || hasData(row));
+
+  /* Hours from minutes, once, so the division happens in exactly one place and
+     a cell can never drift from the row that contains it. */
+  for (const row of rows.values()) {
+    row.totals.totalWorkingHours = round(row.totals.totalMinutes / 60);
+    for (const cell of Object.values(row.cells)) {
+      cell.totalWorkingHours = round(cell.totalMinutes / 60);
+    }
+  }
 
   for (const row of visible) {
     row.totals.recordedHoursPct =

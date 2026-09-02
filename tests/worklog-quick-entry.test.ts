@@ -92,23 +92,26 @@ describe("writing up a day", () => {
     expect(day, "the day should come back in their own log").toBeTruthy();
     expect(day!.deliverable).toBe("Java class - inheritance and interfaces");
     expect(day!.deliverableQuantity).toBe("2 classes");
-    expect(Number(day!.workingHours)).toBe(6.5);
+    expect(day!.workingMinutes).toBe(390);
     expect(day!.remarks).toBe("covered interfaces");
   });
 
   test("the day's hours are what was typed, however it was typed", async () => {
+    /* Expectations are MINUTES now. "45m" is 45 — not 0.75, which is what an
+       hours column stored and is a fifth of a minute short of the truth. */
     for (const [typed, expected] of [
-      ["8", 8],
-      ["8.5", 8.5],
-      ["8h 30m", 8.5],
-      ["8:30", 8.5],
-      ["45m", 0.75],
-      ["6 hours 30 minutes", 6.5],
+      ["8", 480],
+      ["8.5", 510],
+      ["8h 30m", 510],
+      ["8:30", 510],
+      ["45m", 45],
+      ["20 minutes", 20],
+      ["6 hours 30 minutes", 390],
     ] as const) {
       const res = await save(instructor, myId, { deliverable: "Teaching", workingHours: typed });
       expect(res.status, `${typed}: ${JSON.stringify(res.body)}`).toBe(201);
       const day = await storedDay(myId);
-      expect(Number(day!.workingHours), `"${typed}" should be ${expected}h`).toBe(expected);
+      expect(day!.workingMinutes, `"${typed}" should be ${expected} minutes`).toBe(expected);
     }
   });
 
@@ -123,7 +126,7 @@ describe("writing up a day", () => {
        else pointing at this day refers to. */
     expect(after!.id, "correcting a day must not replace its identity").toBe(before!.id);
     expect(after!.deliverable).toBe("The correction");
-    expect(Number(after!.workingHours)).toBe(5);
+    expect(after!.workingMinutes).toBe(300);
   });
 
   test("quantity is stored exactly as typed, whatever it says", async () => {

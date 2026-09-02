@@ -264,7 +264,7 @@ export const GET = withAuth(async ({ scope, req }) => {
       logDate: true,
       deliverable: true,
       deliverableQuantity: true,
-      workingHours: true,
+      workingMinutes: true,
       remarks: true,
       status: true,
       source: true,
@@ -330,7 +330,14 @@ export const GET = withAuth(async ({ scope, req }) => {
         status: statusOf(day),
       }));
 
-      const totalHours = round(days.reduce((n, d) => n + d.hours, 0));
+      /* The engine's own total, not a re-sum of the rounded day cells.
+       *
+       * `d.hours` is each day rounded to two places, so adding them back up
+       * rounds first and sums second: three twenty-minute days came to 0.99
+       * here while every other surface said 1. The engine accumulates raw and
+       * rounds once, which is the same arithmetic the analytics screen shows —
+       * and one number should have one computation. */
+      const totalHours = engineRow?.productiveHours ?? 0;
       const activityCount = mine.length;
 
       // Across the range: missing if not one working day was recorded, complete
@@ -368,7 +375,7 @@ export const GET = withAuth(async ({ scope, req }) => {
           date: day.logDate.toISOString().slice(0, 10),
           deliverable: day.deliverable,
           deliverableQuantity: day.deliverableQuantity,
-          workingHours: Number(day.workingHours),
+          workingMinutes: day.workingMinutes,
           remarks: day.remarks,
           status: day.status,
           source: day.source,

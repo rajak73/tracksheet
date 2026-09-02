@@ -256,9 +256,9 @@ describe("1 — the same rows produce the same numbers, every time", () => {
       universityId,
       date: RANGE.to,
       deliverable: "An hour added mid-test",
-      workingHours: 1,
+      workingMinutes: 60,
     });
-    expect(Number(added.workingHours), "the fixture must actually have written").toBe(1);
+    expect(added.workingMinutes, "the fixture must actually have written").toBe(60);
 
     try {
       const after = await computeAnalytics({ universityId, from: RANGE.from, to: RANGE.to });

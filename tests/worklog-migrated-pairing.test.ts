@@ -64,7 +64,7 @@ describe("what the collapse must produce for a migrated day", () => {
         logDate: toDateOnly(DAY),
         deliverable: PAIRED,
         deliverableQuantity: null,
-        workingHours: 6,
+        workingMinutes: 360,
         source: "MIGRATED",
       },
     });
@@ -94,7 +94,7 @@ describe("what the collapse must produce for a migrated day", () => {
         universityId,
         logDate: toDateOnly(daysAgo(122)),
         deliverable: mixed,
-        workingHours: 5,
+        workingMinutes: 300,
         source: "MIGRATED",
       },
     });
@@ -141,7 +141,7 @@ describe("provenance follows the words, not the migration", () => {
         universityId,
         logDate: toDateOnly(day),
         deliverable: "Lecture — 1; Doubt session — 12",
-        workingHours: 4,
+        workingMinutes: 240,
         source: "MIGRATED",
       },
     });

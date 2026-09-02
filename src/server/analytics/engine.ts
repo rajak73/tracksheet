@@ -379,7 +379,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       select: {
         instructorId: true,
         logDate: true,
-        workingHours: true,
+        workingMinutes: true,
         status: true,
       },
     }),
@@ -499,7 +499,10 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
       /* One row per instructor per day, so this sums at most one number.
          `unionHours` and `overlapHours` are gone with the intervals they
          resolved: two entries cannot overlap when there is one entry. */
-      const dayProductive = dayLogs.reduce((n, l) => n + Number(l.workingHours), 0);
+      /* Minutes summed, then divided ONCE. Converting each row to hours and
+         adding them is what produced 0.99 from three twenty-minute days. */
+      const dayProductive =
+        dayLogs.reduce((n, l) => n + l.workingMinutes, 0) / 60;
       const dayOverlap = 0;
 
       /* Every recorded row, split by category — NOT only the productive ones.

@@ -33,7 +33,7 @@ function day(over: Partial<DayEntry> & { logDate: string }): DayEntry {
     id: `d-${over.logDate}`,
     deliverable: "Live class on recursion",
     deliverableQuantity: "1",
-    workingHours: 6.5,
+    workingMinutes: 390,
     remarks: null,
     source: "NATIVE",
     ...over,
@@ -70,7 +70,7 @@ describe("the manager sheet renders the record", () => {
               logDate: "2026-09-01",
               deliverable: "Investigate intermittent OAuth token expiry",
               deliverableQuantity: "1, 1, 12, 1, 1",
-              workingHours: 6.5,
+              workingMinutes: 390,
               remarks: "Ran over by twenty minutes",
             }),
           },
@@ -114,7 +114,7 @@ describe("the manager sheet renders the record", () => {
             "2026-08-31": day({
               logDate: "2026-08-31",
               deliverable: "Office day, no teaching",
-              workingHours: 0,
+              workingMinutes: 0,
               deliverableQuantity: null,
             }),
           },
@@ -145,8 +145,8 @@ describe("the manager sheet renders the record", () => {
   test("the total is the sum of the days, in minutes", () => {
     const p = person({
       daysByDate: {
-        "2026-09-01": day({ logDate: "2026-09-01", workingHours: 6.5 }),
-        "2026-09-02": day({ logDate: "2026-09-02", workingHours: 1.25 }),
+        "2026-09-01": day({ logDate: "2026-09-01", workingMinutes: 390 }),
+        "2026-09-02": day({ logDate: "2026-09-02", workingMinutes: 75 }),
       },
     });
     const periods: ManagerPeriod[] = [

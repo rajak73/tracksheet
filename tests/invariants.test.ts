@@ -37,14 +37,14 @@ let noDays: string;
  * absence is a real absence rather than a date that has not happened. */
 const FROM = daysAgo(10);
 const TO = daysAgo(4);
-const SEEDED: Array<{ date: string; hours: number }> = [
-  { date: daysAgo(9), hours: 3 },
-  { date: daysAgo(8), hours: 2.5 },
+const SEEDED: Array<{ date: string; minutes: number }> = [
+  { date: daysAgo(9), minutes: 180 },
+  { date: daysAgo(8), minutes: 150 },
   // Filed, and explicitly zero. Not the same as never filed, and the
   // difference is exactly what invariant 5 is about.
-  { date: daysAgo(7), hours: 0 },
+  { date: daysAgo(7), minutes: 0 },
 ];
-const RAW_TOTAL = 5.5;
+const RAW_MINUTES = 330;
 
 async function makeInstructor(tag: string): Promise<string> {
   const res = await admin.post("/api/instructors", {
@@ -58,15 +58,20 @@ async function makeInstructor(tag: string): Promise<string> {
 }
 
 /** The record, read directly. Never through anything under test. */
-async function rawHours(instructorId: string): Promise<number> {
+async function rawMinutes(instructorId: string): Promise<number> {
   const agg = await prisma.worklogEntry.aggregate({
-    _sum: { workingHours: true },
+    _sum: { workingMinutes: true },
     where: {
       instructorId,
       logDate: { gte: toDateOnly(FROM), lte: toDateOnly(TO) },
     },
   });
-  return Number(agg._sum.workingHours ?? 0);
+  return agg._sum?.workingMinutes ?? 0;
+}
+
+/** The same record in the unit the analytics surfaces speak. */
+async function rawHours(instructorId: string): Promise<number> {
+  return (await rawMinutes(instructorId)) / 60;
 }
 
 async function rawDaysLogged(instructorId: string): Promise<number> {
@@ -101,7 +106,7 @@ async function trackerRows() {
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return res.body.tracker.rows as Array<{
     instructorId: string;
-    totals: { daysLogged: number; totalWorkingHours: number };
+    totals: { daysLogged: number; totalMinutes: number; totalWorkingHours: number };
   }>;
 }
 
@@ -126,7 +131,7 @@ beforeAll(async () => {
       universityId,
       date: day.date,
       deliverable: `Invariant fixture ${day.date}`,
-      workingHours: day.hours,
+      workingMinutes: day.minutes,
     });
   }
 });
@@ -135,8 +140,8 @@ describe("invariants that hold regardless of which table a surface reads", () =>
   test("1. a period's hours equal the raw sum of working_hours over its rows", async () => {
     /* Catches a consumer still reading ActivityLog: it would return a number
      * that is defensible on its own and simply not this one. */
-    const raw = await rawHours(withDays);
-    expect(raw).toBe(RAW_TOTAL);
+    expect(await rawMinutes(withDays)).toBe(RAW_MINUTES);
+    const raw = RAW_MINUTES / 60;
 
     const mine = (await analytics()).instructors.find((i) => i.instructorId === withDays);
     expect(mine, "the seeded instructor must appear in analytics").toBeDefined();
@@ -239,31 +244,62 @@ describe("invariants that hold regardless of which table a surface reads", () =>
   });
 });
 
-/* ── Owed: the rollup and the engine round in different units ──────────────
- * Not a consumer that has yet to move — both already read `WorklogEntry`.
- * A storage-unit mismatch, and it is reproducible from the record alone:
+/* ── The defect this file was written to catch, now closed ────────────────
+ * `regression-audit-findings` failed intermittently with "expected 3 to be
+ * 2.99". The cause was the storage unit, not a consumer that had yet to move:
  *
- *   working_hours is Decimal(_,2), so twenty minutes stores as 0.33h.
+ *   working_hours was Decimal(_,2), so twenty minutes stored as 0.33.
  *   0.33h is 19.8 minutes, not 20.
  *
- *   the record        0.33 + 0.33 + 0.33 + 2      = 2.99
- *   the engine        sums the decimal             = 2.99
- *   the rollup        Math.round(0.33*60)=20 min   = 3.00
- *                     20 + 20 + 20 + 120 = 180 min
+ *   the record   0.33 + 0.33 + 0.33 + 2      = 2.99
+ *   the rollup   Math.round(0.33*60)=20 min  = 3.00
  *
- * The metric tables store Int minutes, so ANY figure served from them
- * re-inflates a value the hours column could not hold in the first place.
- * Three twenty-minute days are enough to move a university total by a full
- * hundredth, and nothing about that needs a test fixture — an instructor
- * logging twenty minutes does it.
- *
- * It was found by `regression-audit-findings` failing only when another file
- * happened to write twenty minutes into the window it asserts on. That
- * collision is fixed, so the disagreement is no longer reachable from the
- * suite — which is exactly why it is written down here rather than left to be
- * rediscovered the same way.
- *
- * Fixing it means choosing a unit: either the record moves to minutes, or the
- * metric tables move to decimal hours. Both are migrations, and which one is
- * right depends on whether the metric tables survive at all. */
-test.todo("the rollup and the live engine agree on a period containing a twenty-minute day");
+ * The column is `working_minutes Int` now, so twenty minutes is 20 and three
+ * of them are 60 — exactly, with nothing left to disagree about. This is the
+ * case written out, because a unit is the kind of decision that gets undone by
+ * somebody who does not know what it cost. */
+describe("three twenty-minute days and one two-hour day", () => {
+  let inst = "";
+
+  beforeAll(async () => {
+    inst = await makeInstructor("twentymin");
+    const days = [
+      { date: daysAgo(9), minutes: 20 },
+      { date: daysAgo(8), minutes: 20 },
+      { date: daysAgo(7), minutes: 20 },
+      { date: daysAgo(6), minutes: 120 },
+    ];
+    for (const d of days) {
+      await seedDayRow({
+        instructorId: inst,
+        universityId: northId,
+        date: d.date,
+        deliverable: `Twenty minute fixture ${d.date}`,
+        workingMinutes: d.minutes,
+      });
+    }
+  });
+
+  test("the record holds 180 minutes, not 179 and not 180.6", async () => {
+    expect(await rawMinutes(inst)).toBe(180);
+  });
+
+  test("every surface says three hours, with nothing to reconcile", async () => {
+    const fromAnalytics = (await analytics()).instructors.find((i) => i.instructorId === inst)!
+      .productiveHours;
+    const tracked = (await trackerRows()).find((r) => r.instructorId === inst)!;
+    const fromManager = (await managerRows()).find((r) => r.instructorId === inst)!.totalHours;
+
+    expect({
+      analytics: fromAnalytics,
+      trackerHours: tracked.totals.totalWorkingHours,
+      trackerMinutes: tracked.totals.totalMinutes,
+      manager: fromManager,
+    }).toEqual({
+      analytics: 3,
+      trackerHours: 3,
+      trackerMinutes: 180,
+      manager: 3,
+    });
+  });
+});

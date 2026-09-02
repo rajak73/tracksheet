@@ -31,7 +31,7 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { parseWorkingHours } from "@/domain/worklog-hours";
+import { parseWorkingMinutes } from "@/domain/worklog-hours";
 import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/format";
 /* Only the duration formatter. `deliverableLines` and `quantityLines` printed
    the taxonomy's reading of a day — merged names and summed counts — and there
@@ -77,7 +77,7 @@ type Row = {
   logDate: string;
   deliverable: string;
   deliverableQuantity: string | null;
-  workingHours: number;
+  workingMinutes: number;
   remarks: string | null;
   status?: string;
   /** `MIGRATED` means the text was rebuilt from the old taxonomy's labels. */
@@ -575,7 +575,7 @@ export default function WorkLogHistoryPage() {
       // Verbatim. "gfddgh" and "half day" go back into the box as themselves.
       // Printed the way the table prints it, so an edit does not turn
       // "8h 30m" into "8.5" in front of the person correcting it.
-      workingHours: day ? formatHours(day.workingHours).replace(/^0/, "") : "",
+      workingHours: day ? formatHours(day.workingMinutes / 60).replace(/^0/, "") : "",
       remarks: day?.remarks ?? "",
     });
     setOpen(true);
@@ -592,7 +592,7 @@ export default function WorkLogHistoryPage() {
     if (!draft.deliverable.trim()) {
       return setFormError("Say what you worked on.");
     }
-    if (parseWorkingHours(draft.workingHours) === null) {
+    if (parseWorkingMinutes(draft.workingHours) === null) {
       return setFormError(
         "Working hours must be a length of time — 8, 8.5, 8h 30m, 8:30 or 45m.",
       );
@@ -1090,8 +1090,8 @@ export default function WorkLogHistoryPage() {
                           <div className="space-y-1">
                             {group.days.map((d) => (
                               <p key={d.id}>
-                                {d.workingHours > 0 ? (
-                                  workingHoursCell(Math.round(d.workingHours * 60))
+                                {d.workingMinutes > 0 ? (
+                                  workingHoursCell(d.workingMinutes)
                                 ) : (
                                   <span className="text-subtle">—</span>
                                 )}

@@ -91,7 +91,14 @@ export type CanonicalDay = {
   log_date: string;
   deliverable: string | null;
   deliverable_quantity: string | null;
-  working_hours: number | null;
+  /**
+   * WHOLE MINUTES, matching the record.
+   *
+   * Was `working_hours`. A context stating hours asks the model to reconcile
+   * "45 minutes" in the instructor's text against "0.75" in the same document,
+   * and converting between units is the one thing extraction must never do.
+   */
+  working_minutes: number | null;
   remarks: string | null;
   status: string;
 };
@@ -172,7 +179,7 @@ export async function buildCanonicalContext(scope: {
       logDate: true,
       deliverable: true,
       deliverableQuantity: true,
-      workingHours: true,
+      workingMinutes: true,
       remarks: true,
       status: true,
     },
@@ -189,7 +196,10 @@ export async function buildCanonicalContext(scope: {
     log_date: row.logDate.toISOString().slice(0, 10),
     deliverable: normaliseText(row.deliverable),
     deliverable_quantity: normaliseText(row.deliverableQuantity),
-    working_hours: normaliseNumber(Number(row.workingHours)),
+    /* Minutes, because that is what the record holds and what extraction
+       reports. A context stating hours would ask the model to reconcile
+       "45 minutes" against "0.75", which is a conversion it must never do. */
+    working_minutes: normaliseNumber(row.workingMinutes),
     remarks: normaliseText(row.remarks),
     status: row.status,
   }));
@@ -207,10 +217,16 @@ export function daysIn(context: CanonicalContext): CanonicalDay[] {
   return context.days;
 }
 
-/** The period's hours, summed from RAW rows and never from anything derived. */
-export function totalHoursIn(context: CanonicalContext): number {
-  const total = context.days.reduce((n, day) => n + (day.working_hours ?? 0), 0);
-  return Math.round(total * 100) / 100;
+/**
+ * The period's MINUTES, summed from RAW rows and never from anything derived.
+ *
+ * The unit reconciliation works in: extraction reports "45 minutes", this
+ * subtracts, and `unallocated_minutes` is what is left. An hours figure here
+ * would put a rounding step between the record and the arithmetic that checks
+ * the model against it.
+ */
+export function totalMinutesIn(context: CanonicalContext): number {
+  return context.days.reduce((n, day) => n + (day.working_minutes ?? 0), 0);
 }
 
 /**

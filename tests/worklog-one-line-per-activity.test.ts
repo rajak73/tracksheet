@@ -198,7 +198,7 @@ describe("5. days written before the merge keep their quantity", () => {
         logDate: toDateOnly(day),
         deliverable: "Live Class on binary search, Doubt clearing session",
         deliverableQuantity: "2 classes taken, 1 doubt session",
-        workingHours: 7,
+        workingMinutes: 420,
       },
     });
 

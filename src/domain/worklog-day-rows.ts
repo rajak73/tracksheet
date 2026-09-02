@@ -43,8 +43,8 @@ export type DayEntry = {
   deliverable: string;
   /** The Quantity box, verbatim. Null means the box was left empty. */
   deliverableQuantity: string | null;
-  /** The day's hours as a number, so the client formats once. */
-  workingHours: number;
+  /** The day's total in WHOLE MINUTES — the unit the column stores. */
+  workingMinutes: number;
   remarks: string | null;
   source: DaySource;
 };
@@ -147,9 +147,9 @@ export function buildDayRow(input: {
     sublabel: input.sublabel,
     dates,
     days: mine,
-    /* Summed in minutes from the stored decimal, rounded once. Summing the
-       formatted strings back would reintroduce the rounding this avoids. */
-    totalMinutes: Math.round(mine.reduce((n, d) => n + d.workingHours, 0) * 60),
+    /* A plain sum. The record is already minutes, so there is no conversion
+       here to lose anything in — which was the whole reason for the change. */
+    totalMinutes: mine.reduce((n, d) => n + d.workingMinutes, 0),
     remarks: remarksFor(dates, mine, input.dayNotes ?? {}),
     state,
     hasMigrated: mine.some((d) => d.source === "MIGRATED"),
