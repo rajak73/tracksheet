@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { daysAgo } from "./helpers/worklog";
 
 /**
  * Phase 10 §3 gate — admin provisioning.
@@ -146,15 +147,22 @@ describe("Gate 2 — a created university is immediately operational", () => {
 
     // Fully functional end to end: the new instructor can record work against
     // the new university's configured hours.
-    const log = await inst.post(`/api/instructors/${user.instructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: "2027-06-02T09:00:00Z",
-      endTime: "2027-06-02T11:00:00Z",
+    /* A past day, not 2027. The activity route accepted a future date and the
+       worklog route refuses one, so the old fixture would have written nothing
+       and "immediately operational" would have proved nothing. */
+    const day = daysAgo(30);
+    const log = await inst.post(`/api/instructors/${user.instructorId}/worklog/entry`, {
+      date: day,
+      deliverable: "Two hours of teaching",
+      workingHours: "2h",
     });
-    expect(log.status).toBe(201);
+    expect(log.status, JSON.stringify(log.body)).toBe(201);
 
+    /* The window follows the fixture. It was pinned to 2027-06-02, which the
+       write no longer targets — a range that misses the day it is meant to
+       measure reads zero and proves nothing. */
     const analytics = await mgr.get(
-      `/api/universities/${newUniversityId}/analytics?from=2027-06-02&to=2027-06-02`,
+      `/api/universities/${newUniversityId}/analytics?from=${day}&to=${day}`,
     );
     const row = analytics.body.analytics.instructors[0];
     expect(row.productiveHours).toBe(2);

@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { seedDays } from "./helpers/worklog";
 
 /**
  * Regression gate for HIGH-severity findings from an independent Phase-DoD
@@ -16,10 +17,11 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
 // instructor is far less contended than the first — both matter because the
 // test database is seeded once for the whole run and shared across every
 // file, so isolation has to come from the data, not a fresh database.
-const MON = "2031-06-02"; // working day (Monday)
-const SAT = "2031-06-07"; // non-working day, same week
-const WEEK_FROM = "2031-06-02";
-const WEEK_TO = "2031-06-07";
+const SAT = "2026-06-06"; // non-working day, same week
+/* The week Saturday sits in. Monday is only a bound now — the day itself
+   carries nothing since the status tests went. */
+const WEEK_FROM = "2026-06-01";
+const WEEK_TO = "2026-06-06";
 
 let admin: ApiClient;
 let north2: ApiClient;
@@ -41,66 +43,18 @@ beforeAll(async () => {
   northId = me.user.universityId!;
 });
 
-describe("MISSED and EXCUSED activity is not counted as productive time", () => {
-  // Monday: one COMPLETED block (counts), one MISSED block (must not count),
-  // one LATE block (counts — it happened, just late), one EXCUSED block (must
-  // not count). All four are disjoint so there is no union/overlap to reason
-  // about — this isolates the status filter specifically.
-  beforeAll(async () => {
-    await north2.post(`/api/instructors/${north2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(MON, "09:00"),
-      endTime: istToUtc(MON, "10:00"),
-      status: "COMPLETED",
-    });
-    await north2.post(`/api/instructors/${north2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(MON, "10:00"),
-      endTime: istToUtc(MON, "11:00"),
-      status: "MISSED",
-    });
-    await north2.post(`/api/instructors/${north2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(MON, "11:00"),
-      endTime: istToUtc(MON, "12:00"),
-      status: "LATE",
-    });
-    await north2.post(`/api/instructors/${north2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(MON, "12:00"),
-      endTime: istToUtc(MON, "13:00"),
-      status: "EXCUSED",
-    });
-  });
+/* "MISSED and EXCUSED activity is not counted as productive time" was deleted
+   with the model it described.
+   
+   It filed four hour-long activities on one day with statuses COMPLETED,
+   MISSED, LATE and EXCUSED, and held that only two of them counted. That is an
+   `ActivityStatus` on `ActivityLog` — a per-entry claim that a scheduled thing
+   did not happen. A `WorklogEntry` has no equivalent: an instructor writes the
+   hours they worked, and there is no status on that row meaning "these hours
+   did not". The second half, that the exceptions detector agreed with the
+   engine about the same row, goes with it for the same reason.
 
-  test("productive hours count only COMPLETED and LATE — 2h, not 4h", async () => {
-    const res = await admin.get(`/api/universities/${northId}/analytics?from=${MON}&to=${MON}`);
-    expect(res.status).toBe(200);
-    const mine = res.body.analytics.instructors.find(
-      (i: { instructorId: string }) => i.instructorId === north2Id,
-    );
-    expect(mine.productiveHours).toBe(2);
-    // Capacity is untouched by status — only the numerator moves.
-    expect(mine.capacityHours).toBe(8);
-    expect(mine.unutilizedHours).toBe(6);
-  });
-
-  test("the exceptions detector still flags the MISSED row as UNEXPECTED_ABSENCE", async () => {
-    // This is the other half of the contradiction the audit found: the two
-    // subsystems must not just individually make sense, they must agree with
-    // each other about the same row. A flagged absence must not also be
-    // counted as work in the utilisation figure asserted above.
-    const res = await admin.get(
-      `/api/universities/${northId}/exceptions?from=${MON}&to=${MON}&types=UNEXPECTED_ABSENCE`,
-    );
-    expect(res.status).toBe(200);
-    const flags = res.body.exceptions.exceptions as Array<{
-      type: string;
-      instructorName: string;
-    }>;
-    expect(flags.some((f) => f.type === "UNEXPECTED_ABSENCE")).toBe(true);
-  });
-});
+   What the file still holds is below, and was never about status. */
 
 describe("work logged on a non-working day still counts toward the period total", () => {
   // Saturday is not a working day at Northfield, so it contributes 0 capacity —
@@ -109,12 +63,12 @@ describe("work logged on a non-working day still counts toward the period total"
   // the per-day breakdown (and the rollup, which sums that same per-day
   // figure) both still show it. Disagreeing on this was the exact bug.
   beforeAll(async () => {
-    await north2.post(`/api/instructors/${north2Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(SAT, "10:00"),
-      endTime: istToUtc(SAT, "12:00"),
-      status: "COMPLETED",
-    });
+    /* Written through the route the instructor uses, so a Saturday day exists
+       exactly as they would file it. The two-hour activity this replaced went
+       to a table the engine no longer reads. */
+    await seedDays(north2, north2Id, [
+      { date: SAT, deliverable: "Two hours on a Saturday", workingHours: "2h" },
+    ]);
   });
 
   test("the per-day breakdown shows the 2h on Saturday", async () => {
@@ -134,10 +88,11 @@ describe("work logged on a non-working day still counts toward the period total"
     const mine = res.body.analytics.instructors.find(
       (i: { instructorId: string }) => i.instructorId === north2Id,
     );
-    // Monday contributed 2h of countable productive time (see the block
-    // above); Saturday contributes another 2h that a working-day-only total
-    // would have dropped.
-    expect(mine.productiveHours).toBe(4);
+    /* Saturday's 2h, and nothing else — the Monday block that used to add
+       another 2h went with the MISSED/EXCUSED tests above. The claim is
+       unchanged and is the one the bug was about: a period total must not drop
+       a day just because the calendar says nobody was expected to work it. */
+    expect(mine.productiveHours).toBe(2);
   });
 
   test("the rollup agrees with the live engine on the same period", async () => {

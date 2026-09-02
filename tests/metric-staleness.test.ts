@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
+import { seedDayRow } from "./helpers/worklog";
 
 /**
  * The stored metrics follow the activities they summarise.
@@ -80,13 +81,19 @@ describe("editing an old day updates its summary", () => {
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const instructorId = created.body.instructor.id;
 
-    const logged = await admin.post(`/api/instructors/${instructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: `${OLD_DAY}T04:30:00Z`,
-      endTime: `${OLD_DAY}T07:30:00Z`,
+    /* Three hours on a day well outside the scheduler's window. Written
+       straight to the table because the worklog route refuses a day before this
+       instructor's record began, and OLD_DAY is deliberately that old — see
+       `seedDayRow`, which throws rather than returning so a refused write
+       cannot pass silently. */
+    const logged = await seedDayRow({
+      instructorId,
+      universityId: northId,
+      date: OLD_DAY,
+      deliverable: "Three hours of teaching",
+      workingHours: 3,
     });
-    expect(logged.status, JSON.stringify(logged.body)).toBe(201);
-    const activityId = logged.body.activity.id;
+    expect(Number(logged.workingHours), "the fixture must actually have written").toBe(3);
 
     // Summarise the day, as the scheduler would have done when it was recent.
     expect((await admin.post(`/api/admin/rollup?from=${OLD_DAY}&to=${OLD_DAY}`, {})).status).toBe(200);
@@ -95,7 +102,7 @@ describe("editing an old day updates its summary", () => {
     expect(before, "the day should be summarised before we change it").not.toBeNull();
     expect(before!).toBeGreaterThanOrEqual(180);
 
-    await prisma.activityLog.delete({ where: { id: activityId } });
+    await prisma.worklogEntry.delete({ where: { id: logged.id } });
 
     const after = await storedProductiveMinutes();
     expect(

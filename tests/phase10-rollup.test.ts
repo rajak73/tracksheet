@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { seedDays } from "./helpers/worklog";
 
 /**
  * Summary-table gate.
@@ -11,10 +12,10 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * drill-down can never contradict the summary above it.
  */
 
-const MON = "2026-10-05";
-const TUE = "2026-10-06";
-const WEEK_FROM = "2026-10-05";
-const WEEK_TO = "2026-10-09";
+const MON = "2026-06-22";
+const TUE = "2026-06-23";
+const WEEK_FROM = "2026-06-22";
+const WEEK_TO = "2026-06-26";
 
 let admin: ApiClient;
 let mgrN: ApiClient;
@@ -22,12 +23,8 @@ let n1: ApiClient;
 let northId: string;
 let n1Id: string;
 
-/** Northfield is Asia/Kolkata (UTC+5:30). */
-function istToUtc(date: string, hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const utcMinutes = h * 60 + m - (5 * 60 + 30);
-  return new Date(Date.parse(`${date}T00:00:00.000Z`) + utcMinutes * 60_000).toISOString();
-}
+/* `istToUtc` is gone with the clock ranges it built. A day is one row with
+   the hours the instructor entered — there is no start and end to convert. */
 
 beforeAll(async () => {
   admin = new ApiClient("admin");
@@ -42,27 +39,18 @@ beforeAll(async () => {
   // Monday: 4h of teaching across two ADJACENT blocks. These used to overlap;
   // overlapping activity is now rejected at the API, so the fixture is
   // adjacent instead and Monday still totals exactly 4h.
-  await n1.post(`/api/instructors/${n1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "09:00"),
-    endTime: istToUtc(MON, "12:00"),
-  });
-  await n1.post(`/api/instructors/${n1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "12:00"),
-    endTime: istToUtc(MON, "13:00"),
-  });
-  // Tuesday: opening + 2h teaching.
-  await n1.post(`/api/instructors/${n1Id}/activities`, {
-    activityTypeCode: "DAILY_OPENING",
-    startTime: istToUtc(TUE, "09:00"),
-    endTime: istToUtc(TUE, "09:15"),
-  });
-  await n1.post(`/api/instructors/${n1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(TUE, "10:00"),
-    endTime: istToUtc(TUE, "12:00"),
-  });
+  /* Two days, written through the route the instructor uses. This was four
+     activity posts with clock ranges; the engine reads `WorklogEntry` now, so a
+     day is one row carrying the hours they entered.
+
+     The dates moved out of October, which was in the FUTURE — the activity
+     route accepted that and the worklog route refuses it, so left alone this
+     fixture would have written nothing and the rollup would have summarised an
+     empty week. */
+  await seedDays(n1, n1Id, [
+    { date: MON, deliverable: "Teaching, two blocks", workingHours: "4h" },
+    { date: TUE, deliverable: "Opening, then two hours teaching", workingHours: "2h 15m" },
+  ]);
 
   // Build the summary tables from that raw activity.
   const res = await admin.post(`/api/admin/rollup?from=${WEEK_FROM}&to=${WEEK_TO}`, {});
@@ -128,12 +116,12 @@ describe("the rollup agrees with the live engine", () => {
     const before = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);
     const beforeHours = before.body.overview.productiveHours;
 
-    // Activity logged after the day was already summarised.
-    await n1.post(`/api/instructors/${n1Id}/activities`, {
-      activityTypeCode: "LEARNING",
-      startTime: istToUtc(TUE, "14:00"),
-      endTime: istToUtc(TUE, "15:00"),
-    });
+    /* A day corrected after it was already summarised. Tuesday goes from
+       2h 15m to 3h 15m — the worklog route upserts, so a second save of the
+       same day is the correction, not a second row. */
+    await seedDays(n1, n1Id, [
+      { date: TUE, deliverable: "Opening, teaching, and an hour of learning", workingHours: "3h 15m" },
+    ]);
 
     // Stale until recomputed — the summary is a cache, not a second truth.
     const stale = await admin.get(`/api/admin/overview?from=${WEEK_FROM}&to=${WEEK_TO}`);

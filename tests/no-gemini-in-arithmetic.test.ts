@@ -9,6 +9,7 @@ import { buildPeriodRow, weekOf, weeksOfMonth, type RowActivity } from "@/domain
 import { deliverableCell, quantityCell, workingHours } from "@/domain/worklog-report";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
+import { seedDayRow } from "./helpers/worklog";
 
 /**
  * The model is called when text becomes data, and never again.
@@ -246,21 +247,17 @@ describe("1 — the same rows produce the same numbers, every time", () => {
      * they are NOW — not a number cached at first read. */
     const before = await computeAnalytics({ universityId, from: RANGE.from, to: RANGE.to });
 
-    const type = await prisma.activityType.findFirstOrThrow({ where: { code: "TEACHING" } });
-    const day = new Date();
-    day.setUTCHours(3, 0, 0, 0);
-    const added = await prisma.activityLog.create({
-      data: {
-        instructorId,
-        universityId,
-        activityTypeId: type.id,
-        workDate: new Date(day.toISOString().slice(0, 10)),
-        startTime: day,
-        endTime: new Date(day.getTime() + 3_600_000),
-        quantity: 1,
-      },
-      select: { id: true },
+    /* A day added after the first read. Written to `WorklogEntry`, which is
+       what the engine now computes from — an ActivityLog row would leave the
+       figure unchanged and this test would fail for the wrong reason. */
+    const added = await seedDayRow({
+      instructorId,
+      universityId,
+      date: RANGE.to,
+      deliverable: "An hour added mid-test",
+      workingHours: 1,
     });
+    expect(Number(added.workingHours), "the fixture must actually have written").toBe(1);
 
     try {
       const after = await computeAnalytics({ universityId, from: RANGE.from, to: RANGE.to });
@@ -269,7 +266,7 @@ describe("1 — the same rows produce the same numbers, every time", () => {
         "the query must see the new row, not a number from before it",
       ).toBeGreaterThan(before.totals.productiveHours);
     } finally {
-      await prisma.activityLog.delete({ where: { id: added.id } });
+      await prisma.worklogEntry.delete({ where: { id: added.id } });
     }
   });
 });

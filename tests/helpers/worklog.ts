@@ -55,3 +55,57 @@ export function daysAgo(n: number, timeZone = "Asia/Kolkata"): string {
   d.setUTCDate(d.getUTCDate() - n);
   return d.toLocaleDateString("en-CA", { timeZone });
 }
+
+/**
+ * Writes one day directly, for fixtures the product route cannot express.
+ *
+ * ── When to use this, and when not to ─────────────────────────────────────
+ * `seedDays` goes through the POST an instructor uses, and that is the default:
+ * a fixture written any other way can assert on a shape no user could create.
+ *
+ * This exists for the cases the route refuses on purpose — a day in the far
+ * past before the fixture's instructor existed, a day belonging to somebody who
+ * has since been deactivated, a deliberately zero-hour day. Those are real
+ * states the database can hold and the route will not write.
+ *
+ * ── It throws rather than returning ───────────────────────────────────────
+ * The failure this guards against has now happened twice: a fixture writing to
+ * a date the route refuses, the write silently doing nothing, and every hours
+ * assertion downstream passing on zeroes. A green suite proving nothing is
+ * worse than a red one. So this returns the row it wrote, and a caller that
+ * ignores it still cannot get a silent no-op — `create` throws.
+ */
+export async function seedDayRow(input: {
+  instructorId: string;
+  universityId: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  deliverable?: string;
+  /** Hours as a number, the way the column stores them. */
+  workingHours: number;
+  remarks?: string | null;
+}) {
+  const { prisma } = await import("@/server/db");
+  const { toDateOnly } = await import("@/server/time/workday");
+  return prisma.worklogEntry.upsert({
+    where: {
+      instructorId_logDate: {
+        instructorId: input.instructorId,
+        logDate: toDateOnly(input.date),
+      },
+    },
+    create: {
+      instructorId: input.instructorId,
+      universityId: input.universityId,
+      logDate: toDateOnly(input.date),
+      deliverable: input.deliverable ?? "Recorded work",
+      workingHours: input.workingHours,
+      remarks: input.remarks ?? null,
+    },
+    update: {
+      deliverable: input.deliverable ?? "Recorded work",
+      workingHours: input.workingHours,
+      remarks: input.remarks ?? null,
+    },
+  });
+}

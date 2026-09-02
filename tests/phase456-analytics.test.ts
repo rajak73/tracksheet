@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { seedDays } from "./helpers/worklog";
 
 /**
  * Analytics / utilisation / reporting gate.
@@ -13,13 +14,13 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * Week under test: Mon 2026-09-07 .. Fri 2026-09-11 (5 working days, 40h).
  */
 
-const MON = "2026-09-07";
-const TUE = "2026-09-08";
-const WED = "2026-09-09";
-const FRI = "2026-09-11";
+const MON = "2026-06-15";
+const TUE = "2026-06-16";
+const WED = "2026-06-17";
+const FRI = "2026-06-19";
 const SUN = "2026-09-06";
-const WEEK_FROM = "2026-09-07";
-const WEEK_TO = "2026-09-11";
+const WEEK_FROM = "2026-06-15";
+const WEEK_TO = "2026-06-19";
 
 let admin: ApiClient;
 let managerNorth: ApiClient;
@@ -46,54 +47,27 @@ beforeAll(async () => {
   north1Id = me.user.instructorId!;
   northId = me.user.universityId!;
 
-  // MONDAY: 4h of teaching as two ADJACENT blocks, 09:00-12:00 and 12:00-13:00
-  // IST.
-  //
-  // These used to overlap (09:00-12:00 + 11:00-13:00) to prove the engine
-  // unions intervals instead of summing them. Overlapping activity is now
-  // rejected at the API — an instructor cannot be in two places at once — so
-  // the fixture can no longer be created that way. The blocks are adjacent
-  // instead, which keeps Monday at exactly 4h and leaves every capacity,
-  // utilisation and missing-data assertion below testing what it always did.
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "09:00"),
-    endTime: istToUtc(MON, "12:00"),
-  });
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(MON, "12:00"),
-    endTime: istToUtc(MON, "13:00"),
-  });
-
-  // TUESDAY: 2h teaching + 1h UNUTILIZED (not productive).
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "TEACHING",
-    startTime: istToUtc(TUE, "09:00"),
-    endTime: istToUtc(TUE, "11:00"),
-  });
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "UNUTILIZED",
-    startTime: istToUtc(TUE, "11:00"),
-    endTime: istToUtc(TUE, "12:00"),
-  });
-
-  // WEDNESDAY: opening + closing logged, plus 1h learning.
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "DAILY_OPENING",
-    startTime: istToUtc(WED, "09:00"),
-    endTime: istToUtc(WED, "09:15"),
-  });
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "LEARNING",
-    startTime: istToUtc(WED, "10:00"),
-    endTime: istToUtc(WED, "11:00"),
-  });
-  await north1.post(`/api/instructors/${north1Id}/activities`, {
-    activityTypeCode: "DAILY_CLOSING",
-    startTime: istToUtc(WED, "17:45"),
-    endTime: istToUtc(WED, "18:00"),
-  });
+  /* One row per day, written through the route an instructor uses.
+   *
+   * This was eleven activity posts with clock ranges — two adjacent blocks on
+   * Monday to prove the engine unioned intervals, an UNUTILIZED hour on Tuesday
+   * that did not count, and an opening and closing on Wednesday. The engine
+   * reads `WorklogEntry` now: one row a day carrying the hours the instructor
+   * entered, so there are no intervals to union and nothing to exclude.
+   *
+   * The week is the same shape it always was — 4h, 3h, 1.5h, then two days
+   * nobody filed — and every capacity, missing-data and percentage assertion
+   * below still measures what it did.
+   *
+   * The dates moved from September into June, and that matters more than it
+   * looks: they were a week in the FUTURE, which the activity route accepted
+   * and the worklog route refuses. Left alone, this fixture would have written
+   * nothing at all and every hours assertion would have passed on zeroes. */
+  await seedDays(north1, north1Id, [
+    { date: MON, deliverable: "Teaching, two blocks", workingHours: "4h" },
+    { date: TUE, deliverable: "Teaching, and an hour with nothing booked", workingHours: "3h" },
+    { date: WED, deliverable: "Opening, an hour of learning, closing", workingHours: "1h 30m" },
+  ]);
 
   // THURSDAY and FRIDAY: deliberately NO records -> MISSING_DATA, not zero.
 });

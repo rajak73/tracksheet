@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
+import { seedDayRow } from "./helpers/worklog";
 import { averageActiveMinutes, formatActiveAverage } from "@/domain/average-hours";
 import { geminiCallCount } from "@/server/ai/gemini";
 import { workDateFor } from "@/server/time/workday";
@@ -203,27 +204,28 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
       ["e1", "e2", "e3"].map((tag) => newInstructor(tag)),
     );
 
-    const teaching = await prisma.activityType.findFirstOrThrow({ where: { code: "TEACHING" } });
-    const workDate = new Date(`${DAY}T00:00:00.000Z`);
-    const at = (hhmm: string) => {
-      const [h, m] = hhmm.split(":").map(Number);
-      // Asia/Kolkata is UTC+5:30; Northfield's own zone.
-      return new Date(workDate.getTime() + (h * 60 + m - (5 * 60 + 30)) * 60_000);
-    };
+    /* The activity-type lookup and the IST clock helper are gone with the clock
+       ranges they built. A day is one row with the hours the instructor
+       entered; there is no start and end to convert into a zone. */
 
-    // Three instructors, twenty minutes of TEACHING each — durations chosen,
-    // per the spec, because they do not divide evenly into hours.
+    /* Three instructors, twenty minutes each — durations chosen, per the spec,
+       because they do not divide evenly into hours. That is the whole point of
+       this section: the pipeline must carry whole minutes and not round them
+       into a figure that no longer sums.
+
+       Written straight to the table, because these instructors are created
+       moments earlier and the route refuses a day before their record began.
+       `seedDayRow` throws on a failed write, and the assertion below would
+       otherwise be measuring an empty day. */
     for (const id of [e1, e2, e3]) {
-      await prisma.activityLog.create({
-        data: {
-          instructorId: id,
-          universityId: north,
-          activityTypeId: teaching.id,
-          workDate,
-          startTime: at("09:00"),
-          endTime: at("09:20"),
-        },
+      const row = await seedDayRow({
+        instructorId: id,
+        universityId: north,
+        date: DAY,
+        deliverable: "Twenty minutes",
+        workingHours: 20 / 60,
       });
+      expect(Number(row.workingHours), "the fixture must actually have written").toBeGreaterThan(0);
     }
 
     /* There is no fourth instructor any more.

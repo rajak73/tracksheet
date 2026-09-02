@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
+import { seedDayRow } from "./helpers/worklog";
 
 /**
  * Two arithmetic holes that had nothing to do with each other and one thing in
@@ -103,13 +104,21 @@ describe("someone who leaves keeps the days they worked", () => {
   test("their past hours survive their departure, and their future capacity does not", async () => {
     const id = await makeInstructor("departing");
 
-    // A Tuesday they worked: 10:00-12:00 IST.
-    const worked = await admin.post(`/api/instructors/${id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: "2026-09-01T04:30:00Z",
-      endTime: "2026-09-01T06:30:00Z",
+    /* A Tuesday they worked: two hours.
+    
+       Written straight to the table rather than through the route, because this
+       instructor is created moments earlier and the route refuses a day before
+       their record began. `seedDayRow` throws on failure, so a refused write
+       cannot pass as a silent zero — which is what the assertion below would
+       then have measured. */
+    const worked = await seedDayRow({
+      instructorId: id,
+      universityId: northId,
+      date: "2026-09-01",
+      deliverable: "Two hours of teaching",
+      workingHours: 2,
     });
-    expect(worked.status, JSON.stringify(worked.body)).toBe(201);
+    expect(Number(worked.workingHours), "the fixture must actually have written").toBe(2);
 
     const before = await computeAnalytics({
       universityId: northId,

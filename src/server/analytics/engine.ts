@@ -30,19 +30,13 @@ import { loadUniversityConfig } from "@/server/universities/config";
 
 const MS_PER_HOUR = 3_600_000;
 
-/**
- * A logged activity counts toward productive time only if it actually
- * happened. MISSED is the exceptions detector's UNEXPECTED_ABSENCE signal
- * (src/server/analytics/exceptions.ts) — counting it as productive here would
- * make the same row simultaneously a HIGH-severity absence and evidence of
- * work done, which is a direct contradiction between the two subsystems.
- * EXCUSED is the sanctioned counterpart of the same thing: an absence that
- * was approved rather than flagged, still not work performed. COMPLETED and
- * LATE both represent the activity actually happening.
- */
-function countsTowardProductive(status: string): boolean {
-  return status !== "MISSED" && status !== "EXCUSED";
-}
+/* `countsTowardProductive` is gone.
+ *
+ * It excluded MISSED and EXCUSED activity from productive hours — an
+ * `ActivityStatus` on `ActivityLog`. A `WorklogEntry` has no equivalent: an
+ * instructor writes the hours they worked, and there is no status on that row
+ * meaning "these hours did not happen". */
+
 
 export type Interval = { start: Date; end: Date };
 
@@ -368,17 +362,24 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   const toDate = new Date(`${to}T00:00:00.000Z`);
 
   const [logs, leaves, deliverables] = await Promise.all([
-    prisma.activityLog.findMany({
+    /* ── The engine reads WorklogEntry ──────────────────────────────────
+     * It read `ActivityLog`: many rows a day, each a clock interval, unioned so
+     * two overlapping entries were not counted twice.
+     *
+     * A day is one row now, carrying the hours the instructor entered. There
+     * are no intervals to union and none to overlap — which removes a class of
+     * arithmetic rather than reimplementing it, and means the figure on screen
+     * is the figure they typed. */
+    prisma.worklogEntry.findMany({
       where: {
         universityId,
-        workDate: { gte: fromDate, lte: toDate },
+        logDate: { gte: fromDate, lte: toDate },
         ...(query.instructorId ? { instructorId: query.instructorId } : {}),
       },
       select: {
         instructorId: true,
-        workDate: true,
-        startTime: true,
-        endTime: true,
+        logDate: true,
+        workingHours: true,
         status: true,
       },
     }),
@@ -441,7 +442,7 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
   // instructorId -> date -> logs
   const byInstructorDate = new Map<string, Map<string, typeof logs>>();
   for (const log of logs) {
-    const date = workDateFor(log.workDate, "UTC");
+    const date = workDateFor(log.logDate, "UTC");
     let perDate = byInstructorDate.get(log.instructorId);
     if (!perDate) byInstructorDate.set(log.instructorId, (perDate = new Map()));
     const bucket = perDate.get(date);
@@ -495,13 +496,11 @@ export async function computeAnalytics(query: AnalyticsQuery): Promise<Analytics
        * declaring whether time filed under it counted. With no types there is
        * nothing to declare it on, and no basis for the product to decide that
        * some of somebody's recorded work does not count as work. */
-      const productiveLogs = dayLogs.filter((l) => countsTowardProductive(l.status));
-      const productiveIntervals = productiveLogs.map((l) => ({
-        start: l.startTime,
-        end: l.endTime,
-      }));
-      const dayProductive = unionHours(productiveIntervals);
-      const dayOverlap = overlapHours(productiveIntervals);
+      /* One row per instructor per day, so this sums at most one number.
+         `unionHours` and `overlapHours` are gone with the intervals they
+         resolved: two entries cannot overlap when there is one entry. */
+      const dayProductive = dayLogs.reduce((n, l) => n + Number(l.workingHours), 0);
+      const dayOverlap = 0;
 
       /* Every recorded row, split by category — NOT only the productive ones.
        *
