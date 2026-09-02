@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * The weekly workload tracker.
  *
@@ -270,7 +270,7 @@ describe("former staff remain visible in history", () => {
 
   beforeAll(async () => {
     const created = await admin.post("/api/instructors", {
-      email: "tracker.former@example.edu",
+      email: `tracker.former.${RUN}@fixture.test`,
       name: "Departed Person",
       password: "Password123!",
       employeeCode: "NF-GONE-1",
@@ -290,7 +290,7 @@ describe("former staff remain visible in history", () => {
     expect(assigned.status).toBe(200);
 
     const them = new ApiClient("former");
-    await them.login("tracker.former@example.edu");
+    await them.login(`tracker.former.${RUN}@fixture.test`);
     /* Written through the worklog route, which is what the tracker reads. The
        activity post this replaced went to a table the grid no longer looks at,
        so the row came back with zero hours and the assertion below failed for a
@@ -321,7 +321,7 @@ describe("former staff remain visible in history", () => {
       adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
     });
     await prisma.user.update({
-      where: { email: "tracker.former@example.edu" },
+      where: { email: `tracker.former.${RUN}@fixture.test` },
       data: { isActive: false },
     });
     await prisma.$disconnect();

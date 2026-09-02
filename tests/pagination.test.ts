@@ -170,7 +170,7 @@ describe("GET /api/instructors pagination", () => {
 
     for (const code of CODES) {
       const res = await admin.post("/api/instructors", {
-        email: `${code.toLowerCase()}@example.edu`,
+        email: `${code.toLowerCase()}@fixture.test`,
         name: `Pagination Test ${code}`,
         password: "Password123!",
         employeeCode: code,
@@ -294,7 +294,7 @@ describe("GET /api/instructors/[id]/deliverables pagination", () => {
     const universityId = university.body.university.id;
 
     const instructor = await admin.post("/api/instructors", {
-      email: "zpage-deliverable-instructor@example.edu",
+      email: "zpage-deliverable-instructor@fixture.test",
       name: "ZPAGE Deliverable Instructor",
       password: "Password123!",
       universityId,
@@ -352,7 +352,7 @@ describe("GET /api/universities/[id]/audit pagination", () => {
     // two instructor creations, all filterable by action.
     for (const suffix of ["1", "2"]) {
       const res = await admin.post("/api/instructors", {
-        email: `zpage-audit-${suffix}@example.edu`,
+        email: `zpage-audit-${suffix}@fixture.test`,
         name: `ZPAGE Audit Instructor ${suffix}`,
         password: "Password123!",
         universityId,

@@ -103,7 +103,7 @@ describe("Gate 2 — a created university is immediately operational", () => {
 
   test("a manager can be created and becomes primary", async () => {
     const res = await admin.post(`/api/universities/${newUniversityId}/managers`, {
-      email: `mgr-${NEW_SLUG}@example.edu`,
+      email: `mgr-${NEW_SLUG}@fixture.test`,
       name: "Probe Manager",
       password: PASSWORD,
       employeeCode: "PM-01",
@@ -118,7 +118,7 @@ describe("Gate 2 — a created university is immediately operational", () => {
 
   test("that manager can log in and sees only their new university", async () => {
     const c = new ApiClient("newMgr");
-    const { user } = await c.login(`mgr-${NEW_SLUG}@example.edu`, PASSWORD);
+    const { user } = await c.login(`mgr-${NEW_SLUG}@fixture.test`, PASSWORD);
     expect(user.role).toBe("MANAGER");
     expect(user.universityId).toBe(newUniversityId);
 
@@ -129,10 +129,10 @@ describe("Gate 2 — a created university is immediately operational", () => {
 
   test("that manager can staff their own university, and the instructor can log in", async () => {
     const mgr = new ApiClient("newMgr2");
-    await mgr.login(`mgr-${NEW_SLUG}@example.edu`, PASSWORD);
+    await mgr.login(`mgr-${NEW_SLUG}@fixture.test`, PASSWORD);
 
     const created = await mgr.post("/api/instructors", {
-      email: `inst-${NEW_SLUG}@example.edu`,
+      email: `inst-${NEW_SLUG}@fixture.test`,
       name: "Probe Instructor",
       password: PASSWORD,
       employeeCode: "PI-01",
@@ -141,7 +141,7 @@ describe("Gate 2 — a created university is immediately operational", () => {
     expect(created.body.instructor.universityId).toBe(newUniversityId);
 
     const inst = new ApiClient("newInst");
-    const { user } = await inst.login(`inst-${NEW_SLUG}@example.edu`, PASSWORD);
+    const { user } = await inst.login(`inst-${NEW_SLUG}@fixture.test`, PASSWORD);
     expect(user.role).toBe("INSTRUCTOR");
     expect(user.instructorId).toBeTruthy();
 
@@ -200,7 +200,7 @@ describe("Gate 2 — a created university is immediately operational", () => {
 describe("Gate 3 — a manager can only create instructors in their own university", () => {
   test("a universityId in the body is ignored, not trusted", async () => {
     const res = await mgrN.post("/api/instructors", {
-      email: `smuggled-${Date.now()}@example.edu`,
+      email: `smuggled-${Date.now()}@fixture.test`,
       name: "Smuggled",
       password: PASSWORD,
       universityId: newUniversityId, // a university this manager cannot see
@@ -210,7 +210,7 @@ describe("Gate 3 — a manager can only create instructors in their own universi
   });
 
   test("an instructor created by a manager lands in that manager's university", async () => {
-    const email = `own-${Date.now()}@example.edu`;
+    const email = `own-${Date.now()}@fixture.test`;
     const res = await mgrN.post("/api/instructors", {
       email, name: "Own University Instructor", password: PASSWORD,
     });
@@ -224,14 +224,14 @@ describe("Gate 3 — a manager can only create instructors in their own universi
 
   test("an instructor cannot create anyone", async () => {
     const res = await n1.post("/api/instructors", {
-      email: `nope-${Date.now()}@example.edu`, name: "Nope", password: PASSWORD,
+      email: `nope-${Date.now()}@fixture.test`, name: "Nope", password: PASSWORD,
     });
     expect(res.status).toBe(403);
   });
 
   test("an admin must name the university explicitly", async () => {
     const res = await admin.post("/api/instructors", {
-      email: `noUni-${Date.now()}@example.edu`, name: "No University", password: PASSWORD,
+      email: `noUni-${Date.now()}@fixture.test`, name: "No University", password: PASSWORD,
     });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("UNIVERSITY_REQUIRED");
@@ -247,7 +247,7 @@ describe("Gate 3 — a manager can only create instructors in their own universi
 
   test("a weak initial password is refused", async () => {
     const res = await mgrN.post("/api/instructors", {
-      email: `weak-${Date.now()}@example.edu`, name: "Weak", password: "short",
+      email: `weak-${Date.now()}@fixture.test`, name: "Weak", password: "short",
     });
     expect(res.status).toBe(400);
   });

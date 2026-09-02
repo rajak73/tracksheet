@@ -60,7 +60,7 @@ beforeAll(async () => {
   // A second Northfield manager. The seed ships one; a roster boundary is
   // meaningless with a single manager, so this suite creates the counterpart.
   const created = await admin.post(`/api/universities/${northId}/managers`, {
-    email: `roster.second.${Date.now()}@example.edu`,
+    email: `roster.second.${Date.now()}@fixture.test`,
     name: "Second Northfield Manager",
     password: "RosterManagerPass1",
     employeeCode: `RM-${Date.now().toString().slice(-6)}`,

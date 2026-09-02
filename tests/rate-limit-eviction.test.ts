@@ -30,7 +30,7 @@ beforeEach(() => resetRateLimits());
 
 describe("a throttled key survives a flood", () => {
   test("the victim stays refused after the map is filled with fresh keys", () => {
-    const victim = "email:victim@example.edu";
+    const victim = "email:victim@fixture.test";
 
     // Guess until the account is throttled.
     let last = hit(victim, LIMIT, WINDOW);
@@ -38,7 +38,7 @@ describe("a throttled key survives a flood", () => {
     expect(last.allowed, "the account should be throttled before the flood").toBe(false);
 
     // Fill the map with distinct live keys, as an attacker would.
-    for (let i = 0; i < FLOOD; i++) hit(`email:flood-${i}@example.edu`, LIMIT, WINDOW);
+    for (let i = 0; i < FLOOD; i++) hit(`email:flood-${i}@fixture.test`, LIMIT, WINDOW);
 
     // The whole point: the victim must still be refused.
     const after = hit(victim, LIMIT, WINDOW);
@@ -48,13 +48,13 @@ describe("a throttled key survives a flood", () => {
 
   test("an idle key is still evictable, so the map stays bounded", () => {
     // One key well under its limit, created first and therefore oldest.
-    expect(hit("email:idle@example.edu", LIMIT, WINDOW).allowed).toBe(true);
+    expect(hit("email:idle@fixture.test", LIMIT, WINDOW).allowed).toBe(true);
 
-    for (let i = 0; i < FLOOD; i++) hit(`email:other-${i}@example.edu`, LIMIT, WINDOW);
+    for (let i = 0; i < FLOOD; i++) hit(`email:other-${i}@fixture.test`, LIMIT, WINDOW);
 
     // Evicted, so it starts a fresh window — which is correct for a key that
     // was not being throttled. Nothing is being protected here.
-    const after = hit("email:idle@example.edu", LIMIT, WINDOW);
+    const after = hit("email:idle@fixture.test", LIMIT, WINDOW);
     expect(after.allowed).toBe(true);
     expect(after.remaining).toBe(LIMIT - 1);
   });
@@ -63,15 +63,15 @@ describe("a throttled key survives a flood", () => {
 describe("the ordinary behaviour is unchanged", () => {
   test("a key is allowed up to its limit and refused after", () => {
     for (let i = 0; i < LIMIT; i++) {
-      expect(hit("email:normal@example.edu", LIMIT, WINDOW).allowed, `attempt ${i + 1}`).toBe(true);
+      expect(hit("email:normal@fixture.test", LIMIT, WINDOW).allowed, `attempt ${i + 1}`).toBe(true);
     }
-    expect(hit("email:normal@example.edu", LIMIT, WINDOW).allowed).toBe(false);
+    expect(hit("email:normal@fixture.test", LIMIT, WINDOW).allowed).toBe(false);
   });
 
   test("remaining counts down and never goes negative", () => {
     const seen: number[] = [];
     for (let i = 0; i < LIMIT + 3; i++) {
-      seen.push(hit("email:counting@example.edu", LIMIT, WINDOW).remaining);
+      seen.push(hit("email:counting@fixture.test", LIMIT, WINDOW).remaining);
     }
     expect(seen.slice(0, LIMIT)).toEqual([7, 6, 5, 4, 3, 2, 1, 0]);
     expect(seen.every((n) => n >= 0)).toBe(true);

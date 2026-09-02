@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * An instructor records a day that HAS HAPPENED — never one still to come.
  *
@@ -29,10 +29,6 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * correction path now, and it is held to the same rule below.
  */
 
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 
 let admin: ApiClient, instructor: ApiClient;
 let myId = "";
@@ -59,7 +55,7 @@ beforeAll(async () => {
   const northId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `today-only.${RUN}@example.edu`,
+    email: `today-only.${RUN}@fixture.test`,
     name: `Today Only ${RUN}`,
     password: PASSWORD,
     universityId: northId,

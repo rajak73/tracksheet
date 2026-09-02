@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
 import { prisma } from "@/server/db";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * The instructor dashboard's server side: self-service profile, password
  * change, and correcting a recorded activity.
@@ -28,7 +28,6 @@ let owner: ApiClient;
 let manager: ApiClient;
 let anon: ApiClient;
 
-let RUN: string;
 let ownerEmail: string;
 let ownerInstructorId: string;
 let ownerUserId: string;
@@ -45,8 +44,7 @@ beforeAll(async () => {
 
   anon = new ApiClient("anonymous");
 
-  RUN = `${Date.now()}`.slice(-9);
-  ownerEmail = `dash.owner.${RUN}@example.edu`;
+  ownerEmail = `dash.owner.${RUN}@fixture.test`;
 
   const created = await admin.post("/api/instructors", {
     email: ownerEmail,
@@ -112,7 +110,7 @@ describe("an instructor manages their own profile", () => {
 
   test("email, role and tenancy are unreachable from this route", async () => {
     const res = await owner.patch("/api/me/profile", {
-      email: `hijack.${RUN}@example.edu`,
+      email: `hijack.${RUN}@fixture.test`,
       role: "ADMIN",
       universityId: "some-other-university",
       isActive: false,

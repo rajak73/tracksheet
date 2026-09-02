@@ -4,7 +4,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { extractFromPdf } from "@/server/import/pdf";
 import { createImportJob, validateImportJob, detectSourceType } from "@/server/import/service";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * PDF import.
  *
@@ -70,7 +70,6 @@ beforeAll(async () => {
   const me = await admin.get("/api/auth/me");
   adminUserId = me.body.user.id;
 
-  const RUN = `${Date.now()}`.slice(-9);
   uniCode = `PDF${RUN}`;
 
   // A real existing manager, so the cross-tenant assertion collides with
@@ -231,10 +230,10 @@ describe("an extracted dataset obeys the same rules as a spreadsheet", () => {
           universityTimezone: "Asia/Kolkata",
           managerCode: "PDFMGR1",
           managerName: "Pdf Manager",
-          managerEmail: `pdfmgr.${uniCode}@example.edu`,
+          managerEmail: `pdfmgr.${uniCode}@fixture.test`,
           instructorCode: "PDFINS1",
           instructorName: "Pdf Instructor",
-          instructorEmail: `pdfins.${uniCode}@example.edu`,
+          instructorEmail: `pdfins.${uniCode}@fixture.test`,
         },
       ],
       confidence: "medium",
@@ -277,7 +276,7 @@ describe("an extracted dataset obeys the same rules as a spreadsheet", () => {
           managerCode: existingManagerCode,
           instructorCode: "PDFINS9",
           instructorName: "Pdf Nine",
-          instructorEmail: `pdfnine.${uniCode}@example.edu`,
+          instructorEmail: `pdfnine.${uniCode}@fixture.test`,
         },
       ],
       confidence: "high",
@@ -350,7 +349,7 @@ describe("the PDF endpoint over HTTP", () => {
     // And a CSV still works, which is the point of that sentence.
     const csvRes = await admin.upload(
       "/api/admin/imports",
-      "University Code,Instructor Name,Instructor Email\nSTILLOK1,Still Fine,still.fine@example.edu\n",
+      "University Code,Instructor Name,Instructor Email\nSTILLOK1,Still Fine,still.fine@fixture.test\n",
       "roster.csv",
       "text/csv",
     );

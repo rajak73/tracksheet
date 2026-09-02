@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Phase 1 verification gate.
  *
@@ -91,7 +91,7 @@ describe("Gate 1 — login returns the correct role and universityId", () => {
     expect(bad.status).toBe(401);
 
     const unknown = await c.post("/api/auth/login", {
-      email: "nobody@example.edu",
+      email: `nobody.${RUN}@fixture.test`,
       password: "Password123!",
     });
     expect(unknown.status).toBe(401);

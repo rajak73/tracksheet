@@ -3,7 +3,7 @@ import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { toDateOnly } from "@/server/time/workday";
 import { daysAgo } from "./helpers/worklog";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * A migrated day carries each activity's quantity beside its own description.
  *
@@ -25,7 +25,6 @@ import { daysAgo } from "./helpers/worklog";
  * user could create.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "m");
 
 let admin: ApiClient, instructor: ApiClient;
 let instructorId = "", universityId = "";
@@ -44,7 +43,7 @@ beforeAll(async () => {
   universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `pairing.${RUN}@example.edu`,
+    email: `pairing.${RUN}@fixture.test`,
     name: `Pairing ${RUN}`,
     password: "pairing-test-pw-1234",
     universityId,
@@ -53,7 +52,7 @@ beforeAll(async () => {
   instructorId = created.body.instructor.id;
 
   instructor = new ApiClient("pairing-instructor");
-  await instructor.login(`pairing.${RUN}@example.edu`, "pairing-test-pw-1234");
+  await instructor.login(`pairing.${RUN}@fixture.test`, "pairing-test-pw-1234");
 });
 
 describe("what the collapse must produce for a migrated day", () => {

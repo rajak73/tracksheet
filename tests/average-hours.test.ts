@@ -5,7 +5,7 @@ import { seedDayRow } from "./helpers/worklog";
 import { averageActiveMinutes, formatActiveAverage } from "@/domain/average-hours";
 import { geminiCallCount } from "@/server/ai/gemini";
 import { workDateFor } from "@/server/time/workday";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Active-Instructor Average Hours — the confirmed, final formula.
  *
@@ -27,7 +27,6 @@ import { workDateFor } from "@/server/time/workday";
 
 let admin: ApiClient;
 let universityId = "";
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "x");
 
 /* A settled month in the past, so nothing here depends on the hour it runs.
  * 2026-05-04 is a Monday. */
@@ -190,7 +189,7 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
 
     async function newInstructor(tag: string): Promise<string> {
       const res = await admin.post("/api/instructors", {
-        email: `active-avg.${tag}.${RUN}@example.edu`,
+        email: `active-avg.${tag}.${RUN}@fixture.test`,
         name: `Active Avg ${tag} ${RUN}`,
         password: "active-avg-test-pw-1234",
         universityId: north,
@@ -378,7 +377,7 @@ describe("8 — manager and instructor counts are roster context, never inputs",
   async function addManagers(uniId: string, count: number) {
     for (let i = 0; i < count; i++) {
       const res = await admin.post(`/api/universities/${uniId}/managers`, {
-        email: `roster.mgr.${uniId}.${i}.${RUN}@example.edu`,
+        email: `roster.mgr.${uniId}.${i}.${RUN}@fixture.test`,
         name: `Roster Mgr ${i} ${RUN}`,
         password: "roster-mgr-test-pw-1234",
         employeeCode: `RM${RUN}${uniId.slice(-4)}${i}`,
@@ -390,7 +389,7 @@ describe("8 — manager and instructor counts are roster context, never inputs",
   async function addInstructors(uniId: string, count: number) {
     for (let i = 0; i < count; i++) {
       const res = await admin.post("/api/instructors", {
-        email: `roster.inst.${uniId}.${i}.${RUN}@example.edu`,
+        email: `roster.inst.${uniId}.${i}.${RUN}@fixture.test`,
         name: `Roster Inst ${i} ${RUN}`,
         password: "roster-inst-test-pw-1234",
         universityId: uniId,

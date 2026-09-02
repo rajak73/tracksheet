@@ -127,7 +127,7 @@ describe("an instructor cannot reach manager or admin surfaces", () => {
 
   test("creating an instructor is refused", async () => {
     const res = await inst1.post("/api/instructors", {
-      email: `rogue.${Date.now()}@example.edu`,
+      email: `rogue.${Date.now()}@fixture.test`,
       name: "Rogue",
       password: "RoguePassword123",
       universityId: northId,

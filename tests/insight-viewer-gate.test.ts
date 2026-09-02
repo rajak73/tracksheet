@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
+import { RUN } from "./helpers/fixtures";
 import {
   serveInsight,
   resetInsightCacheCounters,
@@ -33,7 +34,6 @@ import {
  * answer.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "z");
 const PASSWORD = "viewer-gate-password-1234";
 
 let admin: ApiClient;
@@ -93,7 +93,7 @@ beforeAll(async () => {
   universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const mine = await admin.post("/api/instructors", {
-    email: `gate.mine.${RUN}@example.edu`,
+    email: `gate.mine.${RUN}@fixture.test`,
     name: `Gate Mine ${RUN}`,
     password: PASSWORD,
     universityId,
@@ -102,7 +102,7 @@ beforeAll(async () => {
   myId = mine.body.instructor.id;
 
   const theirs = await admin.post("/api/instructors", {
-    email: `gate.other.${RUN}@example.edu`,
+    email: `gate.other.${RUN}@fixture.test`,
     name: `Gate Other ${RUN}`,
     password: PASSWORD,
     universityId,
@@ -111,9 +111,9 @@ beforeAll(async () => {
   otherId = theirs.body.instructor.id;
 
   instructor = new ApiClient("instructor");
-  await instructor.login(`gate.mine.${RUN}@example.edu`, PASSWORD);
+  await instructor.login(`gate.mine.${RUN}@fixture.test`, PASSWORD);
   otherInstructor = new ApiClient("other");
-  await otherInstructor.login(`gate.other.${RUN}@example.edu`, PASSWORD);
+  await otherInstructor.login(`gate.other.${RUN}@fixture.test`, PASSWORD);
 
   manager = new ApiClient("manager");
   await manager.login(ACCOUNTS.managerNorth);

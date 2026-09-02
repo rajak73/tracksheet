@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Writing up a day.
  *
@@ -22,7 +22,6 @@ import { toDateOnly } from "@/server/time/workday";
  * asserts the replacement directly.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "z");
 const PASSWORD = "quick-entry-password-1234";
 
 let admin: ApiClient;
@@ -52,7 +51,7 @@ beforeAll(async () => {
   const universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const mine = await admin.post("/api/instructors", {
-    email: `quick.mine.${RUN}@example.edu`,
+    email: `quick.mine.${RUN}@fixture.test`,
     name: `Quick Mine ${RUN}`,
     password: PASSWORD,
     universityId,
@@ -61,7 +60,7 @@ beforeAll(async () => {
   myId = mine.body.instructor.id;
 
   const theirs = await admin.post("/api/instructors", {
-    email: `quick.other.${RUN}@example.edu`,
+    email: `quick.other.${RUN}@fixture.test`,
     name: `Quick Other ${RUN}`,
     password: PASSWORD,
     universityId,
@@ -70,9 +69,9 @@ beforeAll(async () => {
   colleagueId = theirs.body.instructor.id;
 
   instructor = new ApiClient("instructor");
-  await instructor.login(`quick.mine.${RUN}@example.edu`, PASSWORD);
+  await instructor.login(`quick.mine.${RUN}@fixture.test`, PASSWORD);
   colleague = new ApiClient("colleague");
-  await colleague.login(`quick.other.${RUN}@example.edu`, PASSWORD);
+  await colleague.login(`quick.other.${RUN}@fixture.test`, PASSWORD);
 });
 
 beforeEach(async () => {

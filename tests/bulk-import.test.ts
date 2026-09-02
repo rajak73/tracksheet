@@ -5,7 +5,7 @@ import { parseCsv, decodeCell } from "@/server/import/csv";
 import { detectMapping } from "@/server/import/mapping";
 import { csvCell } from "@/server/reports/generator";
 import { executeImport } from "@/server/import/execute";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Bulk organisation import.
  *
@@ -28,7 +28,6 @@ import { executeImport } from "@/server/import/execute";
 
 let admin: ApiClient, manager: ApiClient, instructor: ApiClient, anon: ApiClient;
 /** Unique per run so a re-run cannot collide with its own leftovers. */
-let RUN: string;
 let uniA: string, uniB: string;
 
 const createdUniversityIds: string[] = [];
@@ -93,7 +92,6 @@ beforeAll(async () => {
   await instructor.login(ACCOUNTS.instructorNorth1);
   anon = new ApiClient("anonymous");
 
-  RUN = `${Date.now()}`.slice(-9);
   uniA = `IMPA${RUN}`.slice(0, 20);
   uniB = `IMPB${RUN}`.slice(0, 20);
 });
@@ -189,7 +187,7 @@ describe("the CSV reader", () => {
 /* ── Who may import ───────────────────────────────────────────────────────── */
 
 describe("only an admin may import", () => {
-  const body = csv([HEADERS, [`X${RUN}`, "X", "UTC", "", "", "", "I1", "I", "i1@example.edu", "Active"]]);
+  const body = csv([HEADERS, [`X${RUN}`, "X", "UTC", "", "", "", "I1", "I", `i1.${RUN}@fixture.test`, "Active"]]);
 
   test("a manager is refused", async () => {
     expect((await upload(manager, body)).status).toBe(403);
@@ -257,10 +255,10 @@ describe("a combined university / manager / instructor file", () => {
   test("it uploads, and repeated parent rows do not become duplicates", async () => {
     combinedFile = csv([
       HEADERS,
-      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@example.edu`, "INSA1", "Inst A One", `insa1.${RUN}@example.edu`, "Active"],
-      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@example.edu`, "INSA2", "Inst A Two", `insa2.${RUN}@example.edu`, "Active"],
-      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA2", "Alpha Two", `mgra2.${RUN}@example.edu`, "INSA3", "Inst A Three", `insa3.${RUN}@example.edu`, "Active"],
-      [uniB, "Import Beta Institute", "America/New_York", "MGRB1", "Beta One", `mgrb1.${RUN}@example.edu`, "INSB1", "Inst B One", `insb1.${RUN}@example.edu`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@fixture.test`, "INSA1", "Inst A One", `insa1.${RUN}@fixture.test`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@fixture.test`, "INSA2", "Inst A Two", `insa2.${RUN}@fixture.test`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA2", "Alpha Two", `mgra2.${RUN}@fixture.test`, "INSA3", "Inst A Three", `insa3.${RUN}@fixture.test`, "Active"],
+      [uniB, "Import Beta Institute", "America/New_York", "MGRB1", "Beta One", `mgrb1.${RUN}@fixture.test`, "INSB1", "Inst B One", `insb1.${RUN}@fixture.test`, "Active"],
     ]);
 
     const res = await upload(admin, combinedFile);
@@ -349,7 +347,7 @@ describe("a combined university / manager / instructor file", () => {
     // usable credential would be permanently unusable, since the product has no
     // password-reset endpoint.
     const client = new ApiClient("imported-instructor");
-    const session = await client.login(`insa1.${RUN}@example.edu`, "ImportPassword123");
+    const session = await client.login(`insa1.${RUN}@fixture.test`, "ImportPassword123");
     expect(session.user.role).toBe("INSTRUCTOR");
   });
 });
@@ -390,7 +388,7 @@ describe("importing the same file twice", () => {
   test("an updated name is applied to the existing record, not a new one", async () => {
     const body = csv([
       HEADERS,
-      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@example.edu`, "INSA1", "Inst A One Renamed", `insa1.${RUN}@example.edu`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@fixture.test`, "INSA1", "Inst A One Renamed", `insa1.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     const job = await runToCompletion(res.body.job.id);
@@ -398,7 +396,7 @@ describe("importing the same file twice", () => {
     expect(job.summary.outcome.updated.instructors).toBe(1);
 
     const user = await prisma.user.findUniqueOrThrow({
-      where: { email: `insa1.${RUN}@example.edu` },
+      where: { email: `insa1.${RUN}@fixture.test` },
       select: { name: true },
     });
     expect(user.name).toBe("Inst A One Renamed");
@@ -424,7 +422,7 @@ describe("cross-tenant mappings are refused", () => {
     // MGRA1 belongs to university A. Naming it under B must fail for that row.
     const body = csv([
       HEADERS,
-      [uniB, "Import Beta Institute", "America/New_York", "MGRA1", "", "", "INSB9", "Inst B Nine", `insb9.${RUN}@example.edu`, "Active"],
+      [uniB, "Import Beta Institute", "America/New_York", "MGRA1", "", "", "INSB9", "Inst B Nine", `insb9.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     const validated = await admin.post(`/api/admin/imports/${res.body.job.id}/validate`, {});
@@ -442,7 +440,7 @@ describe("cross-tenant mappings are refused", () => {
   test("an import with blocking errors cannot be confirmed", async () => {
     const body = csv([
       HEADERS,
-      [uniB, "Import Beta Institute", "America/New_York", "MGRA1", "", "", "INSB8", "Inst B Eight", `insb8.${RUN}@example.edu`, "Active"],
+      [uniB, "Import Beta Institute", "America/New_York", "MGRA1", "", "", "INSB8", "Inst B Eight", `insb8.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     await admin.post(`/api/admin/imports/${res.body.job.id}/validate`, {});
@@ -457,7 +455,7 @@ describe("cross-tenant mappings are refused", () => {
   test("an existing address cannot be moved to another university", async () => {
     const body = csv([
       HEADERS,
-      [uniB, "Import Beta Institute", "America/New_York", "", "", "", "INSX", "Moved Person", `insa1.${RUN}@example.edu`, "Active"],
+      [uniB, "Import Beta Institute", "America/New_York", "", "", "", "INSX", "Moved Person", `insa1.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     const validated = await admin.post(`/api/admin/imports/${res.body.job.id}/validate`, {});
@@ -505,11 +503,11 @@ describe("bad rows are reported against their row number", () => {
   test("a missing university code, email, name, status and timezone are each caught", async () => {
     const body = csv([
       HEADERS,
-      ["", "No University", "UTC", "", "", "", "I1", "Someone", `x1.${RUN}@example.edu`, "Active"],
-      [`NEW${RUN}`, "Brand New", "", "", "", "", "I2", "Someone Two", `x2.${RUN}@example.edu`, "Active"],
+      ["", "No University", "UTC", "", "", "", "I1", "Someone", `x1.${RUN}@fixture.test`, "Active"],
+      [`NEW${RUN}`, "Brand New", "", "", "", "", "I2", "Someone Two", `x2.${RUN}@fixture.test`, "Active"],
       [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "I3", "Someone Three", "not-an-email", "Active"],
-      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "I4", "Someone Four", `x4.${RUN}@example.edu`, "Confused"],
-      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "I5", "", `x5.${RUN}@example.edu`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "I4", "Someone Four", `x4.${RUN}@fixture.test`, "Confused"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "I5", "", `x5.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     // No default timezone, so the new university's missing one is an error.
@@ -525,7 +523,7 @@ describe("bad rows are reported against their row number", () => {
   });
 
   test("an invalid default timezone is refused before validation runs", async () => {
-    const body = csv([HEADERS, [uniA, "Import Alpha University", "", "", "", "", "IZ", "Z", `z.${RUN}@example.edu`, "Active"]]);
+    const body = csv([HEADERS, [uniA, "Import Alpha University", "", "", "", "", "IZ", "Z", `z.${RUN}@fixture.test`, "Active"]]);
     const res = await upload(admin, body);
     const validated = await admin.post(`/api/admin/imports/${res.body.job.id}/validate`, {
       defaultTimezone: "Mars/Olympus",
@@ -537,7 +535,7 @@ describe("bad rows are reported against their row number", () => {
   test("an instructor with no manager is a warning, and stays unassigned", async () => {
     const body = csv([
       HEADERS,
-      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "INSLONE", "Lone Person", `lone.${RUN}@example.edu`, "Active"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "INSLONE", "Lone Person", `lone.${RUN}@fixture.test`, "Active"],
     ]);
     const res = await upload(admin, body);
     const validated = await admin.post(`/api/admin/imports/${res.body.job.id}/validate`, {});
@@ -561,20 +559,20 @@ describe("bad rows are reported against their row number", () => {
     // say" is not "the file said Active" — a roster listing everybody must not
     // undo a deliberate deactivation as a side effect.
     await prisma.user.update({
-      where: { email: `insa2.${RUN}@example.edu` },
+      where: { email: `insa2.${RUN}@fixture.test` },
       data: { isActive: false },
     });
 
     const noStatusHeaders = HEADERS.filter((h) => h !== "Status");
     const body = csv([
       noStatusHeaders,
-      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@example.edu`, "INSA2", "Inst A Two", `insa2.${RUN}@example.edu`],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@fixture.test`, "INSA2", "Inst A Two", `insa2.${RUN}@fixture.test`],
     ]);
     const res = await upload(admin, body);
     await runToCompletion(res.body.job.id);
 
     const user = await prisma.user.findUniqueOrThrow({
-      where: { email: `insa2.${RUN}@example.edu` },
+      where: { email: `insa2.${RUN}@fixture.test` },
       select: { isActive: true },
     });
     expect(user.isActive).toBe(false);
@@ -582,7 +580,7 @@ describe("bad rows are reported against their row number", () => {
     // Restored so the later assertions about the roster still describe a
     // fully-active world.
     await prisma.user.update({
-      where: { email: `insa2.${RUN}@example.edu` },
+      where: { email: `insa2.${RUN}@fixture.test` },
       data: { isActive: true },
     });
   });
@@ -590,12 +588,12 @@ describe("bad rows are reported against their row number", () => {
   test("an inactive status is applied without deleting anything", async () => {
     const body = csv([
       HEADERS,
-      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "INSLONE", "Lone Person", `lone.${RUN}@example.edu`, "Inactive"],
+      [uniA, "Import Alpha University", "Asia/Kolkata", "", "", "", "INSLONE", "Lone Person", `lone.${RUN}@fixture.test`, "Inactive"],
     ]);
     const res = await upload(admin, body);
     await runToCompletion(res.body.job.id);
     const user = await prisma.user.findUniqueOrThrow({
-      where: { email: `lone.${RUN}@example.edu` },
+      where: { email: `lone.${RUN}@fixture.test` },
       select: { isActive: true },
     });
     expect(user.isActive).toBe(false);
@@ -611,7 +609,7 @@ describe("column mapping", () => {
   test("unrecognised headers are reported as unmapped, not guessed", async () => {
     const body = csv([
       ["Tenant Ref", "Tenant Title", "Person Ref", "Person Label", "Contact"],
-      [`MAP${RUN}`, "Mapping University", "P1", "Person One", `p1.${RUN}@example.edu`],
+      [`MAP${RUN}`, "Mapping University", "P1", "Person One", `p1.${RUN}@fixture.test`],
     ]);
     const res = await upload(admin, body);
     expect(res.status).toBe(201);
@@ -709,10 +707,10 @@ describe("a larger file", () => {
         universityTimezone: "Asia/Kolkata",
         managerCode: "MGRA1",
         managerName: "Alpha One",
-        managerEmail: `mgra1.${RUN}@example.edu`,
+        managerEmail: `mgra1.${RUN}@fixture.test`,
         instructorCode: `BULK${i}`,
         instructorName: `${namePrefix} ${i}`,
-        instructorEmail: `bulk${i}.${RUN}@example.edu`,
+        instructorEmail: `bulk${i}.${RUN}@fixture.test`,
       },
     }));
   }
@@ -770,8 +768,8 @@ describe("a larger file", () => {
     const rows = [HEADERS];
     for (let i = 0; i < 120; i++) {
       rows.push([
-        uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@example.edu`,
-        `HTTP${i}`, `Http Person ${i}`, `http${i}.${RUN}@example.edu`, "Active",
+        uniA, "Import Alpha University", "Asia/Kolkata", "MGRA1", "Alpha One", `mgra1.${RUN}@fixture.test`,
+        `HTTP${i}`, `Http Person ${i}`, `http${i}.${RUN}@fixture.test`, "Active",
       ]);
     }
     const res = await upload(admin, csv(rows), "roster-http.csv");

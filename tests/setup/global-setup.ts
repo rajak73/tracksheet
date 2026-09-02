@@ -1,6 +1,10 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { config as loadEnv } from "dotenv";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { sweepFixtures } from "./fixture-sweep";
+import { RUN_ID_FILE, newRunId } from "../helpers/fixtures";
 
 const testEnv = loadEnv({ path: ".env.test", quiet: true }).parsed ?? {};
 const DATABASE_URL = testEnv.DATABASE_URL;
@@ -73,6 +77,28 @@ export async function setup() {
 
   console.log("[test] applying migrations to the test database…");
   execFileSync("npx", ["prisma", "migrate", "deploy"], { env: childEnv, stdio: "inherit" });
+
+  /* Sweep BEFORE the seed, not after the run. `afterAll` is skipped whenever a
+   * run is killed to free the port, which is exactly when leftovers appear, so
+   * cleanup that only runs on the tidy path is cleanup that is missing when it
+   * matters. The seed clears what the seed owns; this clears what it does not. */
+  const swept = await sweepFixtures(DATABASE_URL);
+  const sweptTotal = swept.reduce((n, r) => n + r.deleted, 0);
+  if (sweptTotal > 0) {
+    console.log(
+      `[test] pre-run sweep removed ${sweptTotal} leftover row(s): ` +
+        swept.map((r) => `${r.table}=${r.deleted}`).join(" "),
+    );
+  } else {
+    console.log("[test] pre-run sweep found nothing to remove");
+  }
+
+  /* One id per run, shared by every file through tests/helpers/fixtures.ts, so
+   * two runs can never ask the database for the same identity. */
+  const runId = newRunId();
+  mkdirSync(dirname(RUN_ID_FILE), { recursive: true });
+  writeFileSync(RUN_ID_FILE, runId, "utf8");
+  console.log(`[test] fixture run id: ${runId}`);
 
   console.log("[test] seeding the test database…");
   execFileSync("npx", ["prisma", "db", "seed"], { env: childEnv, stdio: "inherit" });

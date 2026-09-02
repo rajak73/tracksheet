@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * A manager may WRITE only to their own roster.
  *
@@ -44,10 +44,6 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * stray 7 and 3 into a person's name and could fail an unrelated AI test for a
  * reason nobody would look for here. `Math.random().toString(36)` yields digits
  * about a third of the time, so it is mapped to letters. */
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 const PASSWORD = "roster-boundary-pw-1234";
 
 /* Today in the university's zone (Asia/Kolkata). A worklog may only be written
@@ -68,7 +64,7 @@ beforeAll(async () => {
 
   // A second manager in the same university…
   const otherManager = await admin.post(`/api/universities/${northId}/managers`, {
-    email: `boundary.mgr.${RUN}@example.edu`,
+    email: `boundary.mgr.${RUN}@fixture.test`,
     name: "Boundary Second Manager",
     password: PASSWORD,
   });
@@ -77,7 +73,7 @@ beforeAll(async () => {
 
   // …and an instructor of their own, created straight onto their roster.
   const theirs = await admin.post("/api/instructors", {
-    email: `boundary.inst.${RUN}@example.edu`,
+    email: `boundary.inst.${RUN}@fixture.test`,
     name: "Boundary Instructor",
     password: PASSWORD,
     universityId: northId,
@@ -176,7 +172,7 @@ describe("a manager cannot write to another manager's instructor", () => {
 
   test("the owning manager records hours normally", async () => {
     const owner = new ApiClient("other-manager");
-    await owner.login(`boundary.mgr.${RUN}@example.edu`, PASSWORD);
+    await owner.login(`boundary.mgr.${RUN}@fixture.test`, PASSWORD);
     const res = await owner.post(`/api/instructors/${theirInstructorId}/activities`, {
       activityTypeCode: "TEACHING",
       startTime: "2026-09-05T10:00:00Z",

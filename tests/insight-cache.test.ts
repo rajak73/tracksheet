@@ -3,6 +3,7 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
 import { serveInsight, resetInsightCacheCounters } from "@/server/insights/cache";
+import { RUN } from "./helpers/fixtures";
 import {
   buildCanonicalContext,
   canonicalJson,
@@ -25,7 +26,6 @@ import {
  * still WORKS. It just costs.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "z");
 const PASSWORD = "insight-cache-password-1234";
 
 let admin: ApiClient;
@@ -99,7 +99,7 @@ beforeAll(async () => {
   const universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `insight.cache.${RUN}@example.edu`,
+    email: `insight.cache.${RUN}@fixture.test`,
     name: `Insight Cache ${RUN}`,
     password: PASSWORD,
     universityId,

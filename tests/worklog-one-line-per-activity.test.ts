@@ -4,7 +4,7 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { toDateOnly } from "@/server/time/workday";
 import { daysAgo } from "./helpers/worklog";
 import { checkExtraction } from "@/server/insights/extraction-checks";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * The day's work is written a line at a time, in one box.
  *
@@ -29,7 +29,6 @@ import { checkExtraction } from "@/server/insights/extraction-checks";
  * than an error telling them their own description is malformed.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "l");
 
 let admin: ApiClient, instructor: ApiClient;
 let instructorId = "", universityId = "";
@@ -42,7 +41,7 @@ beforeAll(async () => {
   universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `oneline.${RUN}@example.edu`,
+    email: `oneline.${RUN}@fixture.test`,
     name: `One Line ${RUN}`,
     password: "one-line-per-activity-pw",
     universityId,
@@ -51,7 +50,7 @@ beforeAll(async () => {
   instructorId = created.body.instructor.id;
 
   instructor = new ApiClient("one-line");
-  await instructor.login(`oneline.${RUN}@example.edu`, "one-line-per-activity-pw");
+  await instructor.login(`oneline.${RUN}@fixture.test`, "one-line-per-activity-pw");
 });
 
 const save = (date: string, deliverable: string, extra: Record<string, unknown> = {}) =>

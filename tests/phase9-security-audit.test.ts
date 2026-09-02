@@ -233,7 +233,7 @@ describe("input validation", () => {
 describe("authentication hardening", () => {
   test("repeated failed logins for one account are rate limited", async () => {
     const c = new ApiClient("bruteforce");
-    const target = `victim-${Date.now()}@example.edu`;
+    const target = `victim-${Date.now()}@fixture.test`;
 
     let limited = false;
     for (let i = 0; i < 60; i++) {
@@ -255,7 +255,7 @@ describe("authentication hardening", () => {
     const known = new ApiClient("known");
     const unknown = new ApiClient("unknown");
     const a = await known.post("/api/auth/login", { email: ACCOUNTS.admin, password: "wrong" });
-    const b = await unknown.post("/api/auth/login", { email: "nobody-here@example.edu", password: "wrong" });
+    const b = await unknown.post("/api/auth/login", { email: "nobody-here@fixture.test", password: "wrong" });
     expect(a.status).toBe(b.status);
     expect(JSON.stringify(a.body)).toBe(JSON.stringify(b.body));
   });

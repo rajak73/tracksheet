@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Everything the approval queue offers must be decidable.
  *
@@ -28,10 +28,6 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * afterAll rather than left for the next file to find.
  */
 
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 
 let admin: ApiClient, primaryManager: ApiClient;
 let northId = "", unassignedId = "", submissionId = "", userId = "";
@@ -55,7 +51,7 @@ beforeAll(async () => {
   // An instructor on nobody's roster — `managerId` omitted, per the route's own
   // contract ("Omit to create the instructor unassigned").
   const created = await admin.post("/api/instructors", {
-    email: `queue.inst.${RUN}@example.edu`,
+    email: `queue.inst.${RUN}@fixture.test`,
     name: `Queue Instructor ${RUN}`,
     password: "worklog-queue-pw-1234",
     universityId: northId,

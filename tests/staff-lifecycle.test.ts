@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Employee lifecycle: create → active → deactivate → former → reactivate.
  *
@@ -18,8 +18,8 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
    while this wrote to `ActivityLog`. A day that has not happened cannot be
    written to the worklog by anybody, so isolation comes from distance now. */
 const MON = "2025-04-07";
-const NEW_INSTRUCTOR = "lifecycle.instructor@example.edu";
-const NEW_MANAGER = "lifecycle.manager@example.edu";
+const NEW_INSTRUCTOR = `lifecycle.instructor.${RUN}@fixture.test`;
+const NEW_MANAGER = `lifecycle.manager.${RUN}@fixture.test`;
 const PASSWORD = "Password123!";
 
 let admin: ApiClient;
@@ -80,7 +80,7 @@ describe("admin creates staff", () => {
 
   test("an instructor cannot create staff", async () => {
     const res = await instructor.post("/api/instructors", {
-      email: "nope@example.edu",
+      email: `nope.${RUN}@fixture.test`,
       name: "Nope",
       password: PASSWORD,
       universityId,
@@ -90,7 +90,7 @@ describe("admin creates staff", () => {
 
   test("a manager cannot create staff in another university", async () => {
     const res = await manager.post("/api/instructors", {
-      email: "cross@example.edu",
+      email: `cross.${RUN}@fixture.test`,
       name: "Cross Tenant",
       password: PASSWORD,
       universityId: westUniversityId,

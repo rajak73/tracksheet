@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * A day exists once, and the database is what guarantees it.
  *
@@ -27,7 +27,6 @@ import { toDateOnly } from "@/server/time/workday";
  * only the day's own 24-hour ceiling, which the route checks.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "z");
 const PASSWORD = "day-uniqueness-password-1234";
 
 let admin: ApiClient;
@@ -44,7 +43,7 @@ beforeAll(async () => {
   const probe = new ApiClient("probe");
   universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
-  const email = `day.unique.${RUN}@example.edu`;
+  const email = `day.unique.${RUN}@fixture.test`;
   const created = await admin.post("/api/instructors", {
     email,
     name: `Day Unique ${RUN}`,

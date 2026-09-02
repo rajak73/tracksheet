@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { ACCOUNTS, ApiClient } from "./helpers/client";
+import { seedDayRow } from "./helpers/worklog";
 import { prisma } from "@/server/db";
 import type { TenantScope } from "@/server/auth/scope";
 import { buildInsightContext } from "@/server/ai/context";
@@ -247,7 +248,7 @@ describe("what leaves the process", () => {
     await assistantInsight(northManagerScope);
 
     const body = captured[0]!.body;
-    expect(body).not.toContain("@example.edu");
+    expect(body).not.toContain("@fixture.test");
     // Remarks are instructor-authored text and the obvious prompt-injection
     // vector, so none of the seeded ones may appear.
     const remarks = await prisma.activityLog.findMany({
@@ -357,7 +358,7 @@ const distinctNames = (...groups: Array<Array<{ name: string }> | string>): numb
       distinctNames(context.managers, context.worstInstructors),
     );
 
-    expect(body).not.toContain("@example.edu");
+    expect(body).not.toContain("@fixture.test");
     expect(body.toLowerCase()).not.toContain("postgresql://");
   });
 
@@ -664,44 +665,67 @@ describe("the provider is called once, and only when the figures change", () => 
     expect(west.cached).toBe(false);
   });
 
-  test("changed activity invalidates the cache", async () => {
+  test("a changed worklog day invalidates the cache", async () => {
+    /* ── What this replaced ──────────────────────────────────────────────
+     * This test used to change an ActivityLog row and expect the cache to
+     * notice. It cannot any more, and the test said so itself: "the
+     * assertion below only means anything if the figures genuinely moved".
+     * The figures come from WorklogEntry now, so an activity row moves
+     * nothing and the hash is correctly unchanged — it was asserting a stale
+     * premise, not catching a bug.
+     *
+     * The property worth keeping is not taxonomy-bound: a brief must never be
+     * served from cache once the record behind it has changed. So the change
+     * now lands on the row the figures are actually read from. */
     const context = await buildInsightContext(instructorScope);
     replyPayload = truthfulReply(context);
     await assistantInsight(instructorScope);
     expect(captured).toHaveLength(1);
 
-    const client = new ApiClient("ai-instructor");
-    const me = await client.login(ACCOUNTS.instructorNorth1);
-    const logged = await client.post(`/api/instructors/${me.user.instructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      local: { date: todayIso(), start: "07:00", end: "08:00" },
+    /* Narrowing, not defensiveness: `instructorScope` is typed as the whole
+     * union and only the "self" arm carries the two ids this test changes. */
+    if (instructorScope.kind !== "self") throw new Error("instructorScope must be a self scope");
+    const { instructorId, universityId } = instructorScope;
+    const date = todayIso();
+    const { toDateOnly } = await import("@/server/time/workday");
+    const logDate = toDateOnly(date);
+
+    // This row lands on TODAY, which other files read, and the day may already
+    // exist. Whatever was here is put back in `finally`.
+    const before = await prisma.worklogEntry.findUnique({
+      where: { instructorId_logDate: { instructorId, logDate } },
     });
-    // The seeded day may already hold this slot; either way the assertion
-    // below only means anything if the figures genuinely moved.
-    if (logged.status !== 201) return;
+
+    await seedDayRow({
+      instructorId,
+      universityId,
+      date,
+      deliverable: "Cache invalidation probe",
+      workingHours: Number(before?.workingHours ?? 0) + 3,
+    });
 
     try {
-      const selfScope: TenantScope = {
-        kind: "self",
-        universityId: me.user.universityId!,
-        instructorId: me.user.instructorId!,
-      };
-      const after = await buildInsightContext(selfScope);
+      const after = await buildInsightContext(instructorScope);
       replyPayload = truthfulReply(after);
-      const outcome = await assistantInsight(selfScope);
+      const outcome = await assistantInsight(instructorScope);
       expect(outcome.available).toBe(true);
       if (!outcome.available) return;
       expect(outcome.cached).toBe(false);
       expect(captured.length).toBeGreaterThan(1);
     } finally {
-      // The suite shares one database and this row lands on TODAY, which other
-      // suites read. Removed here rather than left for them to trip over.
-      await prisma.activityLog.delete({ where: { id: logged.body.activity.id } });
+      if (before) {
+        await prisma.worklogEntry.update({
+          where: { id: before.id },
+          data: { workingHours: before.workingHours, deliverable: before.deliverable },
+        });
+      } else {
+        await prisma.worklogEntry.delete({
+          where: { instructorId_logDate: { instructorId, logDate } },
+        });
+      }
     }
   });
-});
 
-describe("the prompt itself", () => {
   test("it states the rules that keep the model out of the numbers", async () => {
     const instruction = buildInstruction(await buildInsightContext(northManagerScope));
     expect(instruction).toContain("Use ONLY the numbers in the FACTS");

@@ -4,7 +4,7 @@ import { buildPeriodRow, type RowActivity } from "@/domain/worklog-rows";
 import { weekOf } from "@/domain/periods";
 import { workingHours } from "@/domain/worklog-report";
 import { seedDays } from "./helpers/worklog";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * One instructor's real week, pulled back through the path the page uses.
  *
@@ -21,9 +21,10 @@ import { seedDays } from "./helpers/worklog";
  * consistency test that cannot tell agreement from coincidence is worse than
  * no consistency test, because it is believed.
  *
- * So the six-view comparison is SUSPENDED, not quietly dropped: the `test.todo`
- * at the foot of this file names it, and it comes back when the manager's views
- * move onto the same table.
+ * So the six-view comparison was SUSPENDED, not quietly dropped. It has since
+ * come back: the manager's views now read the same table, and the comparison
+ * lives in `tests/invariants.test.ts` as invariant 6. The note at the foot of
+ * this file says where it went.
  *
  * ── What is still asserted, and is still worth asserting ──────────────────
  * `buildPeriodRow` is what both roles' tables are built from, and a unit test
@@ -49,7 +50,6 @@ import { seedDays } from "./helpers/worklog";
  * else.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "x");
 
 let admin: ApiClient, instructor: ApiClient;
 let northId = "", instructorId = "";
@@ -73,7 +73,7 @@ beforeAll(async () => {
   northId = (await probe.login(ACCOUNTS.managerNorth)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `crossview.${RUN}@example.edu`,
+    email: `crossview.${RUN}@fixture.test`,
     name: `Cross View ${RUN}`,
     password: "cross-view-pw-123456",
     universityId: northId,
@@ -83,7 +83,7 @@ beforeAll(async () => {
   await admin.patch(`/api/instructors/${instructorId}`, { categoryCode: "ENGLISH" });
 
   instructor = new ApiClient("crossview-instructor");
-  await instructor.login(`crossview.${RUN}@example.edu`, "cross-view-pw-123456");
+  await instructor.login(`crossview.${RUN}@fixture.test`, "cross-view-pw-123456");
 
   /* Written through the instructor's own route, so the fixture cannot be a
      shape the product could not produce. */
@@ -242,9 +242,15 @@ describe("the week's total is the sum of its days", () => {
   });
 });
 
-/* Suspended until the manager's views read `WorklogEntry` — see the note at the
-   top of this file. It is a `todo` rather than a deleted block so that the day
-   the analytics commit lands, the suite says out loud what is owed. */
-test.todo(
-  "the same week, read through the manager's three views, is identical to the instructor's",
-);
+/* RESTORED. The comparison this `todo` was holding open now lives in
+   `tests/invariants.test.ts` as invariant 6, "the same instructor-period read
+   through any two surfaces returns the same hours".
+
+   It was suspended because the manager's views read `ActivityLog` while the
+   instructor's read `WorklogEntry`, so the comparison could only fail for a
+   known reason or pass by coincidence. Those surfaces have since moved: the
+   manager worklog route reads `prisma.worklogEntry` and shares `computeAnalytics`
+   with analytics and the tracker. The restored test writes the week ONCE and
+   asks every surface the same question, so agreement cannot be manufactured by
+   seeding each side separately — which was the specific thing that made the
+   comparison untrustworthy before. */

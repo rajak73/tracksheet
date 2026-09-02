@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { seedDayRow } from "./helpers/worklog";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * The stored metrics follow the activities they summarise.
  *
@@ -34,10 +34,6 @@ import { seedDayRow } from "./helpers/worklog";
  * the `test.todo` at the foot is what says so out loud until then.
  */
 
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 
 /** Well past any rolling window. */
 const OLD_DAY = "2026-05-12";
@@ -73,7 +69,7 @@ describe("editing an old day updates its summary", () => {
        other path would have meant testing the rollup rather than the
        maintenance, and passing while the product was wrong. */
     const created = await admin.post("/api/instructors", {
-      email: `stale.${RUN}@example.edu`,
+      email: `stale.${RUN}@fixture.test`,
       name: `Stale ${RUN}`,
       password: "metric-staleness-pw-1234",
       universityId: northId,

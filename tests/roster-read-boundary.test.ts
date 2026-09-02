@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * What a manager may READ about somebody else's instructor.
  *
@@ -38,10 +38,6 @@ import { ApiClient, ACCOUNTS } from "./helpers/client";
  * stray 7 and 3 into a person's name and could fail an unrelated AI test for a
  * reason nobody would look for here. `Math.random().toString(36)` yields digits
  * about a third of the time, so it is mapped to letters. */
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 const PW = "read-boundary-pw-1234";
 /** Appears in this instructor's name, so a leak anywhere is greppable. */
 const MARK = `READBOUNDARY${RUN}`;
@@ -56,14 +52,14 @@ beforeAll(async () => {
   northId = (await seedManager.login(ACCOUNTS.managerNorth)).user.universityId!;
 
   const otherManager = await admin.post(`/api/universities/${northId}/managers`, {
-    email: `readb.mgr.${RUN}@example.edu`,
+    email: `readb.mgr.${RUN}@fixture.test`,
     name: `Read Boundary Manager ${RUN}`,
     password: PW,
   });
   expect(otherManager.status, JSON.stringify(otherManager.body)).toBe(201);
 
   const theirs = await admin.post("/api/instructors", {
-    email: `readb.inst.${RUN}@example.edu`,
+    email: `readb.inst.${RUN}@fixture.test`,
     name: `Victim ${MARK}`,
     password: PW,
     universityId: northId,
@@ -187,7 +183,7 @@ describe("but a manager still sees who works in their university", () => {
 describe("the instructor's own manager is unaffected", () => {
   test("the owning manager reads everything", async () => {
     const owner = new ApiClient("owning-manager");
-    await owner.login(`readb.mgr.${RUN}@example.edu`, PW);
+    await owner.login(`readb.mgr.${RUN}@fixture.test`, PW);
     expect((await owner.get(`/api/instructors/${theirInstructorId}`)).status).toBe(200);
     const acts = await owner.get(`/api/instructors/${theirInstructorId}/activities`);
     expect(acts.status).toBe(200);

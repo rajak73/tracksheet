@@ -3,7 +3,7 @@ import { prisma } from "@/server/db";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { toDateOnly } from "@/server/time/workday";
 import { daysAgo } from "./helpers/worklog";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Removing a day, and what goes with it.
  *
@@ -17,7 +17,6 @@ import { daysAgo } from "./helpers/worklog";
  * remembering to, in every path that ever writes a day.
  */
 
-const RUN = Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "d");
 
 let admin: ApiClient, instructor: ApiClient;
 let instructorId = "", universityId = "";
@@ -31,7 +30,7 @@ beforeAll(async () => {
   universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
 
   const created = await admin.post("/api/instructors", {
-    email: `daydelete.${RUN}@example.edu`,
+    email: `daydelete.${RUN}@fixture.test`,
     name: `Day Delete ${RUN}`,
     password: "day-delete-pw-1234",
     universityId,
@@ -40,7 +39,7 @@ beforeAll(async () => {
   instructorId = created.body.instructor.id;
 
   instructor = new ApiClient("day-delete");
-  await instructor.login(`daydelete.${RUN}@example.edu`, "day-delete-pw-1234");
+  await instructor.login(`daydelete.${RUN}@fixture.test`, "day-delete-pw-1234");
 });
 
 const writeDay = () =>

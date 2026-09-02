@@ -3,17 +3,13 @@ import { prisma } from "@/server/db";
 import { computeAnalytics } from "@/server/analytics/engine";
 import { ApiClient, ACCOUNTS } from "./helpers/client";
 import { seedDayRow } from "./helpers/worklog";
-
+import { RUN } from "./helpers/fixtures";
 /**
  * Two arithmetic holes that had nothing to do with each other and one thing in
  * common: both were invisible because the code looked at a DAY instead of a
  * moment.
  */
 
-const RUN = Math.random()
-  .toString(36)
-  .slice(2, 10)
-  .replace(/[0-9]/g, (d) => String.fromCharCode(103 + Number(d)));
 
 let admin: ApiClient;
 let northId = "";
@@ -27,7 +23,7 @@ beforeAll(async () => {
 
 async function makeInstructor(tag: string): Promise<string> {
   const res = await admin.post("/api/instructors", {
-    email: `${tag}.${RUN}@example.edu`,
+    email: `${tag}.${RUN}@fixture.test`,
     name: `Instructor ${tag} ${RUN}`,
     password: "midnight-departure-pw-1234",
     universityId: northId,
