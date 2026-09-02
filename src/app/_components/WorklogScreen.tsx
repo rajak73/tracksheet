@@ -33,12 +33,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  broadCategoryCell,
-  deliverableCell,
-  quantityCell,
-  remarksCell,
+  NOTHING,
   suppliedOr,
-  workingHours as workingHoursCell,
+  workingHours,
 } from "@/domain/worklog-report";
 import {
   Button,
@@ -63,8 +60,7 @@ import {
   type ManagerPerson,
   type SheetSort,
 } from "@/app/_components/ManagerSheet";
-import { rollUp } from "@/domain/rollup";
-import { type Activity } from "@/app/_components/workload";
+import { buildDayRow, type DayEntry } from "@/domain/worklog-day-rows";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 
@@ -72,12 +68,17 @@ type Row = {
   instructorId: string;
   name: string;
   employeeCode: string | null;
-  /** The Broad Category assigned to them. What the sheet's column prints. */
-  category: { code: string; label: string } | null;
   notes: Record<string, string>;
   /** What each office day was about, decided server-side — see `ManagerSheet`. */
   subjectByDate: Record<string, { code: string; label: string; carriedFrom: string | null } | null>;
-  activities: Array<Activity & { date: string }>;
+  /**
+   * One entry per DAY, in the four fields the form collects.
+   *
+   * The route still calls this `activities` and still sends day rows under it;
+   * the name is the last thing left of a shape that used to be a list of clock
+   * ranges each carrying a category, a parsed quantity and a review state.
+   */
+  activities: Array<DayEntry & { date: string }>;
 };
 
 type Approval = {
@@ -239,16 +240,13 @@ export function WorklogScreen({
         instructorId: r.instructorId,
         name: r.name,
         employeeCode: r.employeeCode,
-        // The assigned Broad Category. The column prints this and nothing else.
-        category: r.category ?? null,
         notes: r.notes ?? {},
         subjectByDate: r.subjectByDate ?? {},
-        activitiesByDate: r.activities
-          // applied here: an instructor with nothing matching still appears,
-          // with an empty row, rather than vanishing from the roster.
-          .reduce<Record<string, Activity[]>>((acc, a) => {
-            (acc[a.date] ??= []).push(a);
-            return acc;
+        // One row per date. An instructor with nothing filed still appears,
+        // with an empty row, rather than vanishing from the roster.
+        daysByDate: r.activities.reduce<Record<string, DayEntry>>((acc, a) => {
+          acc[a.date] = { ...a, logDate: a.date };
+          return acc;
         }, {}),
     }));
 
@@ -289,7 +287,6 @@ export function WorklogScreen({
         "Employee Name",
         "Employee ID",
         "Period",
-        "Broad Category",
         "Deliverable",
         "Deliverable Quantity",
         "Working Hours",
@@ -298,32 +295,36 @@ export function WorklogScreen({
     ];
     for (const person of people) {
       for (const period of periods) {
-        const acts = period.dates.flatMap((d) => person.activitiesByDate[d] ?? []);
-        const { lines, hours, remarks } = rollUp(acts);
-        /* Broad Category is derived here, from the entries — the same source
-         * the sheet on screen reads, so the export and the screenshot cannot
-         * disagree. The assigned-category column that used to sit beside it is
-         * gone at the client's request. */
+        /* The SAME builder the sheet on screen uses, so the export and the
+           screenshot cannot say different things.
+
+           The Broad Category column is gone from both. It was derived by
+           matching each entry's label against a closed list; there is no list,
+           and a column that can only ever be blank is worse in a spreadsheet
+           than an absent one, because it reads as "none" rather than "not
+           asked". */
+        const row = buildDayRow({
+          key: period.label,
+          label: period.label,
+          dates: period.dates,
+          days: period.dates.flatMap((d) => person.daysByDate[d] ?? []),
+          dayNotes: person.notes,
+          today,
+        });
         const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
-        /* Written by the same functions the sheet on screen uses, so the
-         * export and the screenshot cannot say different things — and by the
-         * same ones the instructor's own report and the monthly tracker use, so
-         * neither can the three reports. */
-        const cells = lines.map((l) => ({
-          name: l.label,
-          minutes: Math.round(l.hours * 60),
-          quantity: l.quantity,
-        }));
+        /* Days joined with semicolons rather than merged. A week's cell has to
+           be readable back to the day it came from, and the quantity column
+           only lines up with the deliverable column if neither is folded. */
+        const join = (parts: readonly string[]) => (parts.length ? parts.join("; ") : NOTHING);
         rows.push([
           suppliedOr(person.name),
           suppliedOr(person.employeeCode),
           `${period.label} (${period.sublabel})`,
-          // What the period actually touched, from the entries themselves.
-          broadCategoryCell(acts.map((a) => a.broadCategory?.label)),
-          deliverableCell(cells),
-          quantityCell(cells.filter((_, i) => lines[i]!.countable)),
-          workingHoursCell(Math.round(hours * 60)),
-          note || remarksCell(remarks),
+          join(row.days.map((d) => d.deliverable)),
+          // Verbatim. "1, 1, 12, 1, 1" is what was recorded.
+          join(row.days.map((d) => d.deliverableQuantity ?? "?")),
+          workingHours(row.totalMinutes),
+          note || row.remarks || NOTHING,
         ]);
       }
     }
@@ -492,7 +493,7 @@ export function WorklogScreen({
               periods={periods}
               sort={sort}
               onSort={setSort}
-            />
+            today={today} />
           )}
         </div>
       ) : null}

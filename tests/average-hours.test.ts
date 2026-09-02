@@ -180,7 +180,14 @@ describe("4 — whole minutes throughout, proved against the real rollup pipelin
    * PATH is not what this test is about, and going through the API to reach
    * it would only require standing up a login for four throwaway accounts
    * with no bearing on what is being proved. */
-  const DAY = "2026-06-01"; // a Monday, a fresh date this file does not reuse
+  /* A Monday, and — the part that matters — a date NO OTHER FILE asserts on.
+   
+   This was 2026-06-01, which sits inside the window
+   `regression-audit-findings` fixes for its rollup-versus-engine comparison.
+   The twenty minutes written here landed in that window and made the two
+   figures disagree, so a file testing average hours failed a file testing the
+   rollup. "Fresh" has to mean fresh across the suite, not within one file. */
+const DAY = "2026-04-13";
   let north = "";
 
   beforeAll(async () => {

@@ -238,3 +238,32 @@ describe("invariants that hold regardless of which table a surface reads", () =>
     });
   });
 });
+
+/* ── Owed: the rollup and the engine round in different units ──────────────
+ * Not a consumer that has yet to move — both already read `WorklogEntry`.
+ * A storage-unit mismatch, and it is reproducible from the record alone:
+ *
+ *   working_hours is Decimal(_,2), so twenty minutes stores as 0.33h.
+ *   0.33h is 19.8 minutes, not 20.
+ *
+ *   the record        0.33 + 0.33 + 0.33 + 2      = 2.99
+ *   the engine        sums the decimal             = 2.99
+ *   the rollup        Math.round(0.33*60)=20 min   = 3.00
+ *                     20 + 20 + 20 + 120 = 180 min
+ *
+ * The metric tables store Int minutes, so ANY figure served from them
+ * re-inflates a value the hours column could not hold in the first place.
+ * Three twenty-minute days are enough to move a university total by a full
+ * hundredth, and nothing about that needs a test fixture — an instructor
+ * logging twenty minutes does it.
+ *
+ * It was found by `regression-audit-findings` failing only when another file
+ * happened to write twenty minutes into the window it asserts on. That
+ * collision is fixed, so the disagreement is no longer reachable from the
+ * suite — which is exactly why it is written down here rather than left to be
+ * rediscovered the same way.
+ *
+ * Fixing it means choosing a unit: either the record moves to minutes, or the
+ * metric tables move to decimal hours. Both are migrations, and which one is
+ * right depends on whether the metric tables survive at all. */
+test.todo("the rollup and the live engine agree on a period containing a twenty-minute day");

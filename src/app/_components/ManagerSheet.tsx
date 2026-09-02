@@ -22,15 +22,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import {
-  broadCategoryCell,
-  compactDuration,
-  countableLines,
-  quantityLines,
-  suppliedOr,
-} from "@/domain/worklog-report";
-import { formatDuration, type Activity } from "@/app/_components/workload";
-import { rollUp } from "@/domain/rollup";
+import { compactDuration, suppliedOr } from "@/domain/worklog-report";
+import { formatDuration } from "@/app/_components/workload";
+import { buildDayRow, type DayEntry } from "@/domain/worklog-day-rows";
 import { DayInsightCell } from "@/app/_components/DayInsightCell";
 
 export type ManagerPeriod = {
@@ -47,7 +41,14 @@ export type ManagerPerson = {
   instructorId: string;
   name: string;
   employeeCode: string | null;
-  activitiesByDate: Record<string, Activity[]>;
+  /**
+   * One row per date — the day as it is stored, nothing interpreted.
+   *
+   * This was `activitiesByDate: Record<string, Activity[]>`, a list of clock
+   * ranges each carrying a category and a parsed quantity. None of those
+   * survive: a day is one row now, so a date maps to one entry or to nothing.
+   */
+  daysByDate: Record<string, DayEntry>;
   /**
    * What each OFFICE DAY was about, decided on the server.
    *
@@ -73,7 +74,7 @@ const FIELDS = [
 /* Fixed pixel widths, because `position: sticky` offsets have to be
  * arithmetic: the second column starts where the first ends. */
 /* ── Only the NAME is frozen ──────────────────────────────────────────────
- * Employee ID, Broad Category and Total Working Hours used to be pinned too,
+ * Employee ID and Total Working Hours used to be pinned too,
  * which spent 656px — a third of a laptop screen — on columns that repeat the
  * same few values down every row. What a reader needs while scrolling a
  * fortnight sideways is WHOSE row this is; the rest is reference they can
@@ -82,7 +83,6 @@ const FIELDS = [
 const IDENTITY = {
   name: "w-[224px] min-w-[224px]",
   code: "w-[128px] min-w-[128px]",
-  broadCategory: "w-[160px] min-w-[160px]",
   total: "w-[144px] min-w-[144px]",
 };
 
@@ -116,10 +116,19 @@ export type SheetSort = "name" | "total-desc" | "total-asc";
  */
 
 export function totalHours(person: ManagerPerson, periods: ManagerPeriod[]): number {
-  return periods.reduce(
-    (n, p) => n + rollUp(p.dates.flatMap((d) => person.activitiesByDate[d] ?? [])).hours,
+  /* Summed in minutes and converted once, for the reason `buildDayRow` gives:
+     summing hours already rounded to two places and adding them back up drifts
+     against the figure each cell prints. */
+  const minutes = periods.reduce(
+    (n, p) =>
+      n +
+      p.dates.reduce((m, d) => {
+        const day = person.daysByDate[d];
+        return m + (day ? Math.round(day.workingHours * 60) : 0);
+      }, 0),
     0,
   );
+  return minutes / 60;
 }
 
 export function ManagerSheet({
@@ -127,12 +136,22 @@ export function ManagerSheet({
   periods,
   sort,
   onSort,
+  today,
 }: {
   people: ManagerPerson[];
   /** Oldest first, so the columns read left to right like a calendar. */
   periods: ManagerPeriod[];
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
+  /**
+   * YYYY-MM-DD in the university's zone.
+   *
+   * Needed to tell a period nobody has reached yet from one nobody filed. The
+   * grid cannot derive it: the browser's own date is the READER's zone, and a
+   * manager in another country would otherwise see a column blank out a day
+   * early or late.
+   */
+  today: string;
 }) {
   /* ── Where the second header row pins ──────────────────────────────────
    * Directly under the first, and the only reliable answer to "how tall is the
@@ -181,13 +200,6 @@ export function ManagerSheet({
               className={`${HEAD} bg-primary-subtle ${IDENTITY.code} sticky top-0 ${STICKY_ROW} border-b border-r border-line px-3 py-2 text-left`}
             >
               Employee ID
-            </th>
-            <th
-              scope="col"
-              rowSpan={2}
-              className={`${HEAD} bg-primary-subtle ${IDENTITY.broadCategory} sticky top-0 ${STICKY_ROW} border-b border-r border-line px-3 py-2 text-left`}
-            >
-              Broad Category
             </th>
 
             {/* ── The total, PINNED with the identity block ─────────────────
@@ -312,21 +324,6 @@ export function ManagerSheet({
                 >
                   {suppliedOr(person.employeeCode)}
                 </td>
-                <td
-                  className={`${IDENTITY.broadCategory} border-b border-r border-line bg-surface px-3 py-2 align-top text-content transition-colors group-hover:bg-hovered`}
-                >
-                  {/* What they actually worked on across the range shown, read
-                      from the entries. The assigned-category column that used to
-                      sit beside this one is gone at the client's request, so
-                      this is the only category on the sheet and it is the
-                      inferred one. */}
-                  {broadCategoryCell(
-                    periods
-                      .flatMap((p) => p.dates)
-                      .flatMap((d) => person.activitiesByDate[d] ?? [])
-                      .map((a) => a.broadCategory?.label),
-                  )}
-                </td>
 
                 {/* Frozen with the three identity cells above it, so the
                     figure and the name it belongs to are never on different
@@ -340,7 +337,7 @@ export function ManagerSheet({
                 </td>
 
                 {periods.map((period) => (
-                  <PeriodCells key={period.label} period={period} person={person} />
+                  <PeriodCells key={period.label} period={period} person={person} today={today} />
                 ))}
 
                 <td className="border-b border-l-2 border-line px-3 py-2 align-top">
@@ -368,158 +365,128 @@ export function ManagerSheet({
 }
 
 /** One person's four cells for one period. */
-function PeriodCells({ period, person }: { period: ManagerPeriod; person: ManagerPerson }) {
-  const activities = period.dates.flatMap((d) => person.activitiesByDate[d] ?? []);
-  const { lines, hours, remarks } = rollUp(activities);
-
-  // Their own note, when the column is a single day. A week has no one such
-  // note, so it falls back to the topics the reader found in the sentences.
-  const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
+function PeriodCells({
+  period,
+  person,
+  today,
+}: {
+  period: ManagerPeriod;
+  person: ManagerPerson;
+  today: string;
+}) {
+  /* The same builder the instructor's own sheet uses. This file's header
+     promises that a manager questioning a figure and the person who recorded it
+     are looking at one number rather than two that happen to agree; that
+     promise used to be kept by `rollUp` and is kept by `buildDayRow` now. */
+  const row = buildDayRow({
+    key: period.label,
+    label: period.label,
+    dates: period.dates,
+    days: period.dates.flatMap((d) => person.daysByDate[d] ?? []),
+    dayNotes: person.notes,
+    today,
+  });
 
   const bg = period.isCurrent ? "bg-primary-subtle/25" : "";
-  /* `leading-snug`, not `leading-relaxed`. Relaxed leading is right for a
-   * paragraph and wrong for a column of short lines: with the deliverables now
-   * listed one per row it added half a line of air between each of them, and a
-   * week merging seven days turned that into a cell tall enough to leave the
-   * name beside it stranded at the top of an empty box. */
   const cell = `border-b border-line px-3 py-2 align-top leading-snug ${bg}`;
-  const empty = <span className="text-xs text-subtle">—</span>;
+  const widths = [
+    "min-w-[14rem] max-w-[18rem] border-l-2 border-line text-content",
+    "min-w-[10rem] max-w-[13rem] border-l border-line-subtle text-right text-content",
+    "tabular min-w-[8rem] border-l border-line-subtle text-right font-semibold text-content",
+    "min-w-[12rem] max-w-[16rem] border-l border-line-subtle",
+  ];
 
-  if (activities.length === 0) {
+  /* ── The three empty states, kept apart ────────────────────────────────
+   * A grid of instructors against periods is exactly where these collapse if
+   * nobody is watching, and the three mean different things:
+   *
+   *   future    the period has not been reached — blank, because there is
+   *             nothing to say yet and an em dash would claim there is
+   *   missing   reached, and nothing was filed — an em dash, a stated absence
+   *   0h        filed, and the day recorded no hours — a fact the instructor
+   *             entered, and not the same as never having filed
+   *
+   * `0h` therefore renders through the normal path below, not here: a day with
+   * zero hours still has words, a quantity and possibly a remark. */
+  if (row.state !== "recorded") {
+    const mark =
+      row.state === "future" ? null : <span className="text-xs text-subtle">&mdash;</span>;
     return (
       <>
-        <td className={`${cell} min-w-[15rem] border-l-2 border-line`}>{empty}</td>
-        <td className={`${cell} min-w-[11rem] border-l border-line-subtle text-right`}>{empty}</td>
-        <td className={`${cell} min-w-[8rem] border-l border-line-subtle text-right`}>{empty}</td>
-        <td className={`${cell} min-w-[12rem] border-l border-line-subtle`}>{empty}</td>
+        {widths.map((w, i) => (
+          <td key={i} className={`${cell} ${w}`}>
+            {mark}
+          </td>
+        ))}
       </>
     );
   }
 
-  /* The shape the shared formatter reads. Built once here so the two cells
-   * below are two views of one set of facts. */
-  const cells = lines.map((l) => ({
-    title: l.label,
-    minutes: l.minutes,
-    quantity: l.quantity,
-    countable: l.countable,
-  }));
-
-  /* ── What the instructor actually WROTE ──────────────────────────────────
-   * The manager reads the same words their instructor typed, not a
-   * re-description of them. This sheet used to print `lines` — the merged,
-   * classified reading — so an entry recorded as "Investigate intermittent
-   * OAuth token expiry" reached the manager as "Other / Unclassified Work",
-   * and the two people looking at one day saw different text.
-   *
-   * Ordered by start time and NOT de-duplicated, for the reason the
-   * instructor's own row model gives: the three columns have to line up, and
-   * folding two entries together leaves a count beside work it does not
-   * describe. An entry with no captured raw text drops out rather than
-   * rendering an empty bullet with a number next to it. */
-  const raw = [...activities]
-    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))
-    .flatMap((a) => {
-      const text = (a.rawText ?? "").trim();
-      if (!text) return [];
-      return [
-        {
-          text,
-          quantity: (a.rawQuantity ?? "").trim() || null,
-          workingHours: (a.rawWorkingHours ?? "").trim() || null,
-        },
-      ];
-    });
-  const hasRaw = raw.length > 0;
+  const note = period.dates.length === 1 ? (person.notes[period.dates[0]!] ?? "") : "";
 
   return (
     <>
-      {/* One deliverable per line, not a comma-spliced sentence.
+      {/* One day per line, in the instructor's own words.
           
-          Four deliverables ran together wrapped across three rows of the cell
-          and had to be read to be counted; as a list they are counted at a
-          glance, and they line up with the four figures in the column beside
-          them.
-          
-          The bullet is ONE colour. It used to be the day's category colour,
-          which put three or four hues in a row and read as a status the table
-          does not have — the categories are already named in the text. */}
-      <td className={`${cell} min-w-[14rem] max-w-[18rem] border-l-2 border-line text-content`}>
+          This cell used to print `rollUp`'s merged, classified reading, so an
+          entry recorded as "Investigate intermittent OAuth token expiry"
+          reached the manager as "Other / Unclassified Work" — two people
+          looking at one day and seeing different text. There is no
+          classification left to print, and the words are the record. */}
+      <td className={`${cell} ${widths[0]}`}>
         <ul className="space-y-1">
-          {hasRaw
-            ? raw.map((e, i) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  <span
-                    aria-hidden
-                    className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
-                  />
-                  <span>{e.text}</span>
-                </li>
-              ))
-            : lines.map((l) => (
-                <li
-                  key={l.key}
-                  className={`flex items-start gap-1.5 ${l.countable ? "" : "text-muted"}`}
-                  title={l.countable ? undefined : "Not counted in Working Hours"}
-                >
-                  <span
-                    aria-hidden
-                    className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
-                    style={{ opacity: l.countable ? 1 : 0.45 }}
-                  />
-                  <span>
-                    {l.label} - {compactDuration(l.minutes)}
-                  </span>
-                </li>
-              ))}
+          {row.days.map((d) => (
+            <li key={d.id} className="flex items-start gap-1.5">
+              <span
+                aria-hidden
+                className="mt-[0.45em] inline-block size-1.5 shrink-0 rounded-full bg-primary"
+              />
+              <span>{d.deliverable}</span>
+            </li>
+          ))}
+        </ul>
+        {row.hasMigrated ? (
+          <span className="mt-1 block text-xs text-subtle">Reconstructed from an earlier system</span>
+        ) : null}
+      </td>
+
+      {/* Verbatim, always. "1, 1, 12, 1, 1" stays exactly that — it is what was
+          recorded, and tidying it into something well-formed would be
+          inventing. An unstated count keeps the client's own `?` rather than
+          vanishing, so the row still lines up with the deliverable beside it. */}
+      <td className={`${cell} ${widths[1]}`}>
+        <ul className="space-y-1">
+          {row.days.map((d) => (
+            <li key={d.id}>
+              {d.deliverableQuantity ?? <span className="text-subtle">?</span>}
+            </li>
+          ))}
         </ul>
       </td>
 
-      <td className={`${cell} min-w-[10rem] max-w-[13rem] border-l border-line-subtle text-right text-content`}>
-        {/* One function writes this column everywhere, the client's `?`
-            included — an unstated count stays visible instead of vanishing.
-            Listed rather than joined so each figure sits on the row of the
-            deliverable it belongs to. */}
-        <ul className="space-y-1">
-          {hasRaw
-            ? raw.map((e, i) => (
-                <li key={i}>{e.quantity ?? <span className="text-subtle">?</span>}</li>
-              ))
-            : quantityLines(countableLines(cells)).map((q, i) => <li key={i}>{q}</li>)}
-        </ul>
-      </td>
-
-      <td
-        className={`${cell} tabular min-w-[8rem] border-l border-line-subtle text-right font-semibold text-content`}
-      >
-        {/* As typed, one line per entry, with the measured total beneath when
-            there is more than one — so the column still answers "how long
+      <td className={`${cell} ${widths[2]}`}>
+        {/* As recorded, one line per day, with the measured total beneath when
+            the column spans more than one — so it still answers "how long
             altogether" without that being all it can say. */}
-        {hasRaw && raw.some((e) => e.workingHours) ? (
-          <>
-            <ul className="space-y-1">
-              {raw.map((e, i) => (
-                <li key={i}>{e.workingHours ?? <span className="text-subtle">—</span>}</li>
-              ))}
-            </ul>
-            {raw.length > 1 ? (
-              <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
-                {formatDuration(hours)} total
-              </span>
-            ) : null}
-          </>
-        ) : (
-          formatDuration(hours)
-        )}
+        <ul className="space-y-1">
+          {row.days.map((d) => (
+            <li key={d.id}>{compactDuration(Math.round(d.workingHours * 60))}</li>
+          ))}
+        </ul>
+        {row.days.length > 1 ? (
+          <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
+            {formatDuration(row.totalMinutes / 60)} total
+          </span>
+        ) : null}
       </td>
 
-      <td className={`${cell} min-w-[12rem] max-w-[16rem] border-l border-line-subtle`}>
+      <td className={`${cell} ${widths[3]}`}>
         {note ? (
           <span className="text-content">{note}</span>
-        ) : remarks.length > 0 ? (
-          <span className="text-muted">{remarks.join(", ")}</span>
+        ) : row.remarks ? (
+          <span className="text-muted">{row.remarks}</span>
         ) : (
-          empty
+          <span className="text-xs text-subtle">&mdash;</span>
         )}
       </td>
     </>
