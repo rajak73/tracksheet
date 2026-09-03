@@ -52,3 +52,12 @@ next-env.d.ts
 secrets/
 *service-account*.json
 *credentials*.json
+
+# Pre-drop records of real staff data, kept locally and never published.
+#
+# `archive/` holds what a destructive migration was about to remove — the
+# instructor-to-category assignments taken before `InstructorCategory` was
+# dropped, for example. They are real named people with employee codes, and
+# this repository is public. The record is worth keeping and is worth keeping
+# off GitHub, which is what this line is for.
+archive/
