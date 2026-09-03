@@ -248,12 +248,45 @@ type Attribution = {
 };
 
 function attribute(activities: ExtractedActivity[], day: DayText): Attribution {
-  const source = [day.deliverable, day.deliverableQuantity ?? ""].filter(Boolean).join("\n");
-  const parts = segments(source).map((text) => ({ text, words: meaningfulWords(text) }));
+  /* ── Which text a number may have come from ───────────────────────────
+     The deliverable's segments are matched by PROXIMITY, always. The quantity
+     box's segments are admitted wholesale, and only when the day holds ONE
+     activity.
 
-  /* Every number the whole day states, so "not near this label" can be told
-     from "not written anywhere", which is the distinction the guard turns on. */
-  const anywhere = parts.flatMap((p) => numbersIn(p.text));
+     The box describes the whole day. With one activity there is nothing to
+     disambiguate and its number may fill that activity's count. With several it
+     is a list joined to the descriptions by nothing but order — "1, 1, 12, 1,
+     4, 1, 1, 1, 6" beside nine of them, and one real day with five descriptions
+     against four numbers — so admitting it would let any of its numbers vouch
+     for any activity that happened to share a word.
+
+     Kept apart because the box has no words for a label to overlap: "1" is a
+     segment of its own, so no proximity rule can ever match it. Admitting
+     everything instead would let one line's number vouch for another line's
+     activity, which is exactly the guarantee the deliverable text exists to
+     give — and five provenance tests said so the moment it was tried. */
+  const parts = segments(day.deliverable).map((text) => ({
+    text,
+    words: meaningfulWords(text),
+    unambiguous: false,
+  }));
+  if (activities.length === 1 && day.deliverableQuantity) {
+    for (const text of segments(day.deliverableQuantity)) {
+      parts.push({ text, words: meaningfulWords(text), unambiguous: true });
+    }
+  }
+
+  /* Every number the whole day states — INCLUDING the quantity box, whether or
+     not attribution was allowed to use it.
+     
+     "Is this number written on this day?" and "may it be attached to this
+     activity?" are different questions, and only the first decides whether a
+     number was invented. Computing this from the attribution source instead
+     reclassified every legacy two-box count from `elsewhere` to `absent`, which
+     tripped the guessing guard and failed exactly the days that change exists
+     to rescue. */
+  const anywhere = segments([day.deliverable, day.deliverableQuantity ?? ""].filter(Boolean).join("\n"))
+    .flatMap((text) => numbersIn(text));
   const inDay = (value: number) => anywhere.some((n) => Math.abs(n - value) < 1e-9);
 
   const out: ExtractedActivity[] = [];
@@ -263,7 +296,13 @@ function attribute(activities: ExtractedActivity[], day: DayText): Attribution {
 
   for (const activity of activities) {
     const labelWords = meaningfulWords(activity.label);
-    const near = parts.filter((p) => [...p.words].some((w) => labelWords.has(w)));
+    /* With ONE activity there is nothing to disambiguate: every number on the
+       day belongs to it, including the quantity box, which sits in a segment of
+       its own with no words for a label to overlap. Proximity is a rule for
+       telling several activities apart, and a day with one has none to tell. */
+    const near = parts.filter(
+      (p) => p.unambiguous || [...p.words].some((w) => labelWords.has(w)),
+    );
     const nearText = near.map((p) => p.text);
 
     /* Occurrences the matched segments actually contain, WITH multiplicity.

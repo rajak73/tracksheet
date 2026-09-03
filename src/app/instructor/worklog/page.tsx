@@ -92,9 +92,18 @@ type DayInsight =
 
 type Draft = {
   date: string;
-  /* The day's work, one activity per line. The quantity box that used to sit
-     beside this is gone — see the note above the textarea. */
+  /** The day's work, one activity per line. */
   deliverable: string;
+  /**
+   * The Quantity box, as the client's sheet asks for it.
+   *
+   * Collected and stored verbatim, never parsed for display. Extraction is
+   * where it is treated carefully rather than here: on a one-activity day its
+   * number may fill that activity's count, and on a day with several it is
+   * ignored entirely — see `provenanceSource`. Ignored for attribution is not
+   * the same as hidden, and it is printed in full on every screen either way.
+   */
+  quantity: string;
   workingHours: string;
   remarks: string;
 };
@@ -105,6 +114,7 @@ type Draft = {
 const emptyDraft = (today?: string): Draft => ({
   date: today ?? todayISO(),
   deliverable: "",
+  quantity: "",
   workingHours: "",
   remarks: "",
 });
@@ -572,6 +582,9 @@ export default function WorkLogHistoryPage() {
     setDraft({
       date,
       deliverable: day?.deliverable ?? "",
+      // Verbatim, both ways: what was stored goes back into the box exactly as
+      // it was stored, because an edit must not tidy somebody's own writing.
+      quantity: day?.deliverableQuantity ?? "",
       // Verbatim. "gfddgh" and "half day" go back into the box as themselves.
       // Printed the way the table prints it, so an edit does not turn
       // "8h 30m" into "8.5" in front of the person correcting it.
@@ -611,9 +624,7 @@ export default function WorkLogHistoryPage() {
         {
           date: draft.date,
           deliverable: draft.deliverable,
-          /* Nothing is sent, so the route stores null. The COLUMN stays: rows
-             written before the merge hold real values and the table still
-             prints them, verbatim, for those historical days. */
+          quantity: draft.quantity,
           workingHours: draft.workingHours,
           remarks: draft.remarks,
         },
@@ -1355,6 +1366,36 @@ export default function WorkLogHistoryPage() {
               className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
             />
           </label>
+
+          {/* ── Deliverable Quantity ─────────────────────────────────────────
+              The client's own sheet asks for this, so it is collected, and it
+              is stored and shown exactly as typed — never parsed for display,
+              never tidied, never reformatted.
+
+              Its careful handling lives in extraction, not here. On a day with
+              ONE activity the box plainly refers to that activity and its
+              number may fill the count. On a day with several it is ignored for
+              attribution: "1, 1, 12, 1, 4, 1, 1, 1, 6" beside nine descriptions
+              is joined to them by nothing but order, and one real day holds
+              five descriptions against four numbers, so even counting them off
+              fails. Ignoring it there is not hiding it — every screen still
+              prints it in full. */}
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-content">
+              Deliverable Quantity
+            </span>
+            <span className="mb-1.5 block text-xs text-muted">
+              How many of each, if you counted them. Kept exactly as you write it.
+            </span>
+            <textarea
+              rows={2}
+              value={draft.quantity}
+              onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
+              placeholder={"2 classes\n1 session"}
+              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content placeholder:text-subtle focus:border-primary focus:outline-none"
+            />
+          </label>
+
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">
