@@ -94,8 +94,13 @@ export type DayInsightState =
   | { state: "PENDING" }
   | { state: "FAILED" };
 
+/** One summary line: prose from the model, minutes added in code. */
+export type SummaryLine = { text: string; minutes: number | null };
+
 export type ServedDay = {
   points: DayPoint[];
+  /** What was done, and one line about what the day was. */
+  summary?: { lines: SummaryLine[]; insight: string } | null;
   unallocated_minutes: number;
   /** The day's recorded total, so the Total line can show it when no activity
    *  stated a duration — which is the common case on clock-range days. */
@@ -108,7 +113,13 @@ export type ServedDay = {
 };
 
 export type ServedPeriod = {
-  insight: { groups?: GroupRollup[]; unallocated_minutes?: number; days_logged?: number } | null;
+  insight: {
+    summary?: { lines: SummaryLine[]; insight: string } | null;
+    groups?: GroupRollup[];
+    unallocated_minutes?: number;
+    days_logged?: number;
+    total_minutes?: number;
+  } | null;
   generated_at: string | null;
   status: "READY" | "PENDING" | "GENERATING" | "FAILED" | "EMPTY";
 };
@@ -229,6 +240,40 @@ export function DayInsightCell({
          "Corrected" — is shown as itself. Forcing a topic onto it to avoid the
          cell echoing the Deliverable column would be worse than the echo: the
          echo is at least honest about having nothing to add. */
+      /* ── The summary, where there is one ──────────────────────────────
+       * Two different questions kept apart: the lines say what was done, and
+       * the sentence under them says what the day WAS. A summary that only
+       * restates the entries is the worklog with different punctuation.
+       *
+       * Every duration here was added in code from the activities the line
+       * names — the model wrote the words and none of the figures. */
+      if (d.summary && d.summary.lines.length > 0) {
+        const total = d.points.some((p) => p.minutes !== null)
+          ? d.points.reduce((n, p) => n + (p.minutes ?? 0), 0)
+          : (d.total_minutes ?? null);
+        return (
+          <div className="min-w-[13rem] max-w-[24rem] space-y-2">
+            <ul className="space-y-1">
+              {d.summary.lines.map((line, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="text-content">{line.text}</span>
+                  <span className="tabular shrink-0 text-xs text-muted">
+                    {formatMinutes(line.minutes)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="border-t border-line-subtle pt-1.5 text-sm text-muted">
+              {d.summary.insight}
+            </p>
+            <div className="tabular flex items-baseline justify-between border-t border-line-subtle pt-1 text-xs text-muted">
+              <span>Total</span>
+              <span>{formatMinutes(total)}</span>
+            </div>
+          </div>
+        );
+      }
+
       const points = collapse(d.points);
 
       /* A heading earns its place only when two or more activities share the
@@ -306,6 +351,33 @@ export function DayInsightCell({
 
   /* ── A week or a month ─────────────────────────────────────────────────── */
   if (loaded?.kind === "period" && loaded.data.status === "READY") {
+    /* The same two parts a day shows: what was done, then what the period was.
+       Every duration added in code from the activities each line names. */
+    const periodSummary = loaded.data.insight?.summary;
+    if (periodSummary && periodSummary.lines.length > 0) {
+      return (
+        <div className="min-w-[13rem] max-w-[24rem] space-y-2">
+          <ul className="space-y-1">
+            {periodSummary.lines.map((line, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-content">{line.text}</span>
+                <span className="tabular shrink-0 text-xs text-muted">
+                  {formatMinutes(line.minutes)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-line-subtle pt-1.5 text-sm text-muted">
+            {periodSummary.insight}
+          </p>
+          <div className="tabular flex items-baseline justify-between border-t border-line-subtle pt-1 text-xs text-muted">
+            <span>Total</span>
+            <span>{formatMinutes(loaded.data.insight?.total_minutes ?? null)}</span>
+          </div>
+        </div>
+      );
+    }
+
     const groups = loaded.data.insight?.groups ?? [];
     const unallocated = loaded.data.insight?.unallocated_minutes ?? 0;
     return (

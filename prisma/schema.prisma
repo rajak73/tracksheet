@@ -1885,6 +1885,16 @@ model DayExtraction {
 
   status DayExtractionStatus @default(READY)
 
+  /// The day in words: grouped bullets, and one sentence about the day.
+  ///
+  /// `{ bullets: [{ activities: number[], text: string }], insight: string }`
+  ///
+  /// Prose only — every figure beside a bullet is summed HERE from the
+  /// activities it names, never written by the model. The reply is refused if
+  /// it contains a digit anywhere, for the same reason grouping is: a number a
+  /// model wrote is a second version of a figure that already has one.
+  summary Json?
+
   /// Which SIDE failed, when one did.
   ///
   /// `structure` means the checks refused what the model said about the text;

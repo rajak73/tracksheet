@@ -60,7 +60,12 @@ export type GroupRollup = {
   entries: string[];
 };
 
+/** One summary line over the period, with its minutes summed in code. */
+export type SummaryLine = { text: string; minutes: number | null };
+
 export type PeriodRollup = {
+  /** What was done, and one line about what the period was. */
+  summary: { lines: SummaryLine[]; insight: string } | null;
   groups: GroupRollup[];
   total_minutes: number;
   unallocated_minutes: number;
@@ -258,9 +263,27 @@ export async function buildPeriodRollup(input: {
     );
   });
 
+  /* The lines the model wrote, with their minutes added HERE from the items
+     each one names. Same rule as everywhere: prose from the model, figures
+     from the record. */
+  const summary = grouped.summary
+    ? {
+        insight: grouped.summary.insight,
+        lines: grouped.summary.bullets.map((b) => {
+          const mine = b.activities.map((i) => items[i]).filter(Boolean) as Item[];
+          const timed = mine.filter((m) => m.minutes !== null);
+          return {
+            text: b.text,
+            minutes: timed.length ? timed.reduce((n, m) => n + (m.minutes ?? 0), 0) : null,
+          };
+        }),
+      }
+    : null;
+
   return {
     ok: true,
     rollup: {
+      summary,
       groups,
       total_minutes: totalMinutes,
       unallocated_minutes: unallocated,

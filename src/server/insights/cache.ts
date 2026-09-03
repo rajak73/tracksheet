@@ -54,7 +54,8 @@ export const MAX_CONSECUTIVE_FAILURES = 3;
  * rollup states no prose, and a prose summary states no figures.
  */
 export type InsightPayload = {
-  summary?: string;
+  /** The period in words: what was done, and one line about what it was. */
+  summary?: string | { lines: Array<{ text: string; minutes: number | null }>; insight: string } | null;
   /** Activity groups, every figure summed in code. See `period-rollup.ts`. */
   groups?: unknown[];
   total_minutes?: number;

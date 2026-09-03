@@ -17,6 +17,7 @@
  * here, in code, afterwards.
  */
 import { prisma } from "@/server/db";
+import { Prisma } from "@/generated/prisma/client";
 import { generateStructured } from "@/server/ai/gemini";
 import {
   checkExtraction,
@@ -27,6 +28,7 @@ import {
 } from "./extraction-checks";
 import { PROMPT_VERSION_EXTRACT, modelId, stableStringify } from "./context";
 import type { ActivityRow } from "@/domain/worklog-activities";
+import { parseSummary, summaryInstruction, type DaySummary } from "./day-summary";
 
 /** One point as it is stored and rendered. */
 export type ExtractedItem = {
@@ -49,6 +51,8 @@ export type ExtractionResult =
       unallocatedMinutes: number;
       /** How many stated numbers the text could not support. */
       nulled: number;
+      /** The day in words. Null when the summarising call did not land. */
+      summary: DaySummary | null;
     }
   | {
       status: "FAILED";
@@ -115,8 +119,12 @@ export function rowExtractionInstruction(rows: ActivityRow[]): string {
     '  trees" and "AVL tree"). Never merge a narrower one into a broader one.',
     "- Return exactly one entry per index, in the same order.",
     "",
+    ...summaryInstruction().split("\n"),
+    "",
     'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
-    '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null}]}',
+    '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null}],',
+    '"bullets": [{"activities": [<index>, ...], "text": "<sentence>"}],',
+    '"insight": "<one sentence>"}',
     "",
     stableStringify(rows.map((r, i) => ({ index: i, description: r.description }))),
   ].join("\n");
@@ -182,11 +190,14 @@ export function extractionInstruction(day: DayText): string {
     "  activity it belongs to. If you report exactly one activity, the quantity",
     "  box refers to that activity and its number may be used.",
     "",
+    ...summaryInstruction().split("\n"),
+    "",
     'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
     '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null,',
     '"sessions": <number|null>, "sessions_unit": "<text>"|null,',
     '"duration_value": <number|null>,',
-    '"duration_unit": "hours"|"minutes"|null}]}',
+    '"duration_unit": "hours"|"minutes"|null}], "bullets": [{"activities":',
+    '[<index>, ...], "text": "<sentence>"}], "insight": "<one sentence>"}',
     "",
     canonicalDay(day),
   ].join("\n");
@@ -324,8 +335,19 @@ export async function runExtraction(
       );
     }
 
+    /* Read from the SAME reply. A day already costs one call, and asking twice
+       would double the bill of every screen in a product whose caching, manager
+       gate and bounded page-load queue all exist to avoid exactly that.
+       
+       A summary that fails validation costs the sentence, not the extraction:
+       the points still render, because what the text SAYS was already checked
+       and is not in doubt because the prose about it was refused. */
+    const summarised = parseSummary(reply.text, checked.activities.length);
+    if (!summarised.ok) console.info(`[summary] not written — ${summarised.reason}`);
+
     return {
       status: "READY",
+      summary: summarised.ok ? summarised.summary : null,
       /* `checked.activities`, not the model's. This is the whole point of the
          change: what is stored is what the text supports, which is the model's
          answer with the unsupported numbers removed. */
@@ -395,6 +417,7 @@ export async function serveDayExtraction(input: {
               status: "READY" as const,
               items: result.items,
               unallocatedMinutes: result.unallocatedMinutes,
+              summary: (result.summary ?? Prisma.DbNull) as Prisma.InputJsonValue,
               lastError: null,
               failureKind: null,
             }
@@ -406,6 +429,7 @@ export async function serveDayExtraction(input: {
                  extraction under a status that says there is none. */
               items: [],
               unallocatedMinutes: input.day.workingMinutes,
+              summary: Prisma.DbNull,
               lastError: result.lastError,
               failureKind: result.failureKind,
             };

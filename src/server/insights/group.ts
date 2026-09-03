@@ -20,6 +20,7 @@
  */
 import { generateStructured } from "@/server/ai/gemini";
 import { stableStringify } from "./context";
+import { parseSummary, summaryInstruction, type DaySummary } from "./day-summary";
 
 export type GroupMember = {
   label: string;
@@ -38,7 +39,7 @@ export type ActivityGroup = {
 };
 
 export type GroupingResult =
-  | { ok: true; groups: ActivityGroup[] }
+  | { ok: true; groups: ActivityGroup[]; summary: DaySummary | null }
   | { ok: false; reason: string };
 
 /** Bump `PROMPT_VERSION_WEEK`/`MONTH` in `context.ts` when this text changes. */
@@ -70,8 +71,11 @@ export function groupingInstruction(members: GroupMember[]): string {
     "- Use the writer's own vocabulary. Do not classify their work into a",
     "  category of your own.",
     "",
+    ...summaryInstruction().split("\n"),
+    "",
     'Reply with exactly this JSON and nothing else: {"groups": [{"name":',
-    '"<topic>", "members": [<index>, ...]}]}',
+    '"<topic>", "members": [<index>, ...]}], "bullets": [{"activities":',
+    '[<index>, ...], "text": "<sentence>"}], "insight": "<one sentence>"}',
     "",
     stableStringify(
       members.map((m, i) => ({
@@ -147,7 +151,13 @@ export function parseGrouping(text: string, memberCount: number): GroupingResult
   if (seen.size !== memberCount) {
     return { ok: false, reason: `${memberCount - seen.size} activities were left out` };
   }
-  return { ok: true, groups: out };
+  /* Read from the same reply, for the same reason the day's is: a period
+     already costs one call. A summary that fails validation costs the sentence
+     and not the grouping — the totals still render. */
+  const summarised = parseSummary(text, memberCount);
+  if (!summarised.ok) console.info(`[summary] period not written — ${summarised.reason}`);
+
+  return { ok: true, groups: out, summary: summarised.ok ? summarised.summary : null };
 }
 
 /**
@@ -177,7 +187,7 @@ export async function runGrouping(
   call: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>
     = (i) => generateStructured(i, { maxOutputTokens: 2048 }),
 ): Promise<GroupingResult> {
-  if (members.length === 0) return { ok: true, groups: [] };
+  if (members.length === 0) return { ok: true, groups: [], summary: null };
   const instruction = groupingInstruction(members);
   let reason = "the model was never called";
 

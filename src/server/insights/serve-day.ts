@@ -25,6 +25,7 @@ import { generationModeFor, type ViewerRole } from "./access";
 import { serveDayExtraction } from "./extract";
 import type { DayText } from "./extraction-checks";
 import { parseActivities } from "@/domain/worklog-activities";
+import { parseStoredSummary } from "./day-summary";
 import { toDateOnly } from "@/server/time/workday";
 
 /** One extracted point, as a day cell renders it. */
@@ -35,9 +36,19 @@ export type DayPoint = {
   minutes: number | null;
 };
 
+/** One line of the day's summary, with its minutes summed in code. */
+export type SummaryLine = { text: string; minutes: number | null };
+
 export type ServedDayInsight = {
   scope: { type: "DAY"; period_start: string; period_end: string };
   points: DayPoint[];
+  /**
+   * The day in words: what was done, and one line about what the day was.
+   *
+   * Every duration here is added up HERE, from the activities each bullet
+   * names. The model wrote the words and not one figure in them.
+   */
+  summary: { lines: SummaryLine[]; insight: string } | null;
   /** Minutes the day recorded that no point could account for. */
   unallocated_minutes: number;
   total_minutes: number;
@@ -64,12 +75,40 @@ const empty = (date: string): ServedDayInsight => ({
   unallocated_minutes: 0,
   total_minutes: 0,
   raw_text: null,
+  summary: null,
   cached: false,
   generated_at: null,
   status: "EMPTY",
   last_error: null,
   failure_kind: null,
 });
+
+/**
+ * A stored summary, with each bullet's minutes added from the points it names.
+ *
+ * This is where the arithmetic lives. The model returned prose and a list of
+ * indexes; every figure the reader sees is computed from the record, which is
+ * why a bullet can never claim a duration the activities do not support.
+ */
+function summaryWithMinutes(
+  stored: unknown,
+  points: DayPoint[],
+): { lines: SummaryLine[]; insight: string } | null {
+  const summary = parseStoredSummary(stored);
+  if (!summary) return null;
+  return {
+    insight: summary.insight,
+    lines: summary.bullets.map((b) => {
+      const mine = b.activities.map((i) => points[i]).filter((p): p is DayPoint => Boolean(p));
+      const timed = mine.filter((p) => p.minutes !== null);
+      return {
+        text: b.text,
+        // Null, not zero, when nothing under this bullet stated a duration.
+        minutes: timed.length ? timed.reduce((n, p) => n + (p.minutes ?? 0), 0) : null,
+      };
+    }),
+  };
+}
 
 export async function serveDayInsight(input: {
   instructorId: string;
@@ -116,6 +155,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: stored.items as DayPoint[],
+      summary: summaryWithMinutes(stored.summary, stored.items as DayPoint[]),
       unallocated_minutes: stored.unallocatedMinutes,
       cached: true,
       generated_at: stored.generatedAt.toISOString(),
@@ -133,6 +173,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: [],
+      summary: null,
       unallocated_minutes: stored.unallocatedMinutes,
       cached: true,
       generated_at: stored.generatedAt.toISOString(),
@@ -150,6 +191,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: [],
+      summary: null,
       unallocated_minutes: day.workingMinutes,
       cached: false,
       generated_at: null,
@@ -170,6 +212,10 @@ export async function serveDayInsight(input: {
   return {
     ...base,
     points: fresh.status === "READY" ? (fresh.items as DayPoint[]) : [],
+    summary:
+      fresh.status === "READY"
+        ? summaryWithMinutes(fresh.summary, fresh.items as DayPoint[])
+        : null,
     unallocated_minutes: fresh.unallocatedMinutes,
     cached: false,
     generated_at: fresh.generatedAt.toISOString(),

@@ -666,6 +666,7 @@ exports.Prisma.DayExtractionScalarFieldEnum = {
   items: 'items',
   unallocatedMinutes: 'unallocatedMinutes',
   status: 'status',
+  summary: 'summary',
   failureKind: 'failureKind',
   lastError: 'lastError',
   promptVersion: 'promptVersion',
