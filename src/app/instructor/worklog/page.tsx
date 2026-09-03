@@ -171,6 +171,38 @@ function toActivities(draft: Draft) {
   });
 }
 
+/**
+ * A stored deliverable as its activities, one per line.
+ *
+ * Split on NEWLINES only. Commas are content — "Project evaluation, PR code
+ * reviews, and 1:1 doubt resolution" is one activity — so splitting on them
+ * would invent entries nobody wrote, which is the guessing this whole surface
+ * exists to remove.
+ */
+function activityLines(text: string): string[] {
+  const lines = text
+    .split("\n")
+    .map((l) => l.replace(/^\s*[•\-*]\s*/, "").trim())
+    .filter((l) => l !== "");
+  return lines.length > 0 ? lines : [text];
+}
+
+/**
+ * A stored quantity as its entries, one per line.
+ *
+ * Here commas ARE the separator, because this column is written by the form as
+ * `join(", ")` over one number per activity. A legacy box holding prose — "2
+ * classes taken, 1 doubt session" — splits into two readable pieces, which is
+ * the closest honest reading of a string that was always a list.
+ */
+function quantityParts(value: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(/[,\n]/)
+    .map((p) => p.trim())
+    .filter((p) => p !== "");
+}
+
 const emptyDraft = (today?: string): Draft => ({
   date: today ?? todayISO(),
   deliverable: "",
@@ -1093,15 +1125,25 @@ export default function WorkLogHistoryPage() {
                               Insight column at the end of the row, which is
                               where a reading belongs — this column is the data.
 
-                              No bullet marker. A bullet in front of each day
-                              implied the line was one item of a categorised
-                              list, which is exactly the thing that was removed;
-                              a day is one piece of text and prints as one. */}
+                              Numbered, one activity per line. The number is not
+                              a category — it is a POSITION, and it is there so
+                              the Quantity column beside this one can be read
+                              across: line two here is line two there. A day
+                              written as one paragraph still prints as one line
+                              and gets no number, because there is nothing to
+                              line it up with. */}
                           <div className="space-y-1">
                             {group.days.map((d) => (
-                              <p key={d.id} className="whitespace-pre-wrap">
-                                {d.deliverable}
-                              </p>
+                              <div key={d.id} className="space-y-0.5">
+                                {activityLines(d.deliverable).map((line, i, all) => (
+                                  <p key={i} className="flex gap-2 whitespace-pre-wrap">
+                                    {all.length > 1 ? (
+                                      <span className="tabular shrink-0 text-subtle">{i + 1}.</span>
+                                    ) : null}
+                                    <span>{line}</span>
+                                  </p>
+                                ))}
+                              </div>
                             ))}
                           </div>
                           {/* ── Where the words came from ──────────────────
@@ -1133,13 +1175,26 @@ export default function WorkLogHistoryPage() {
                               It printed the taxonomy's reading before — "1
                               Class" where somebody wrote "2 classes taken" — a
                               row that restates your work in its own vocabulary
-                              and so cannot be checked against it. */}
+                              and so cannot be checked against it.
+
+                              Down the page rather than across it, one entry per
+                              line, so it reads beside the activity it belongs
+                              to. "1, 2, 1" on a single line is the two-box
+                              pairing printed back: the reader has to count along
+                              both columns to see which number is whose. */}
                           <div className="space-y-1">
-                            {group.days.map((d) => (
-                              <p key={d.id}>
-                                {d.deliverableQuantity ?? <span className="text-subtle">—</span>}
-                              </p>
-                            ))}
+                            {group.days.map((d) => {
+                              const parts = quantityParts(d.deliverableQuantity);
+                              return (
+                                <div key={d.id} className="space-y-0.5">
+                                  {parts.length === 0 ? (
+                                    <p className="text-subtle">—</p>
+                                  ) : (
+                                    parts.map((q, i) => <p key={i}>{q}</p>)
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </td>
                         <td className="border-r border-line last:border-r-0 tabular border-b border-line-subtle px-3 py-2 align-top leading-snug font-medium text-content">

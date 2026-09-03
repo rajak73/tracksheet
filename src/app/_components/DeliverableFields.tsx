@@ -99,14 +99,12 @@ export function DeliverableFields({
     if (deliverable === "") onDeliverableChange(BULLET);
   };
 
-  /* No `w-full` here. It was in this string and it beat the per-input widths,
-     so three inputs expanded and squeezed the activity name down to one
-     letter — a layout bug that reads as data loss. */
-  const boxed =
-    "rounded-control border border-line bg-surface px-2 py-1.5 text-right text-sm text-content focus:border-primary focus:outline-none";
-  /* Hr and Min are underlines, not boxes. They are two small figures beside a
-     sentence, and three bordered boxes in a row read as three equally weighted
-     fields when only the first is a count of anything. */
+  /* Underlines, not boxes. Two small figures beside a sentence; a bordered box
+     for each would give them the weight of the sentence itself.
+     
+     No `w-full` in this string, deliberately: it used to be here and it beat
+     the per-input widths, so the inputs expanded and squeezed the activity name
+     down to a single letter — a layout bug that read as data loss. */
   const underlined =
     "border-0 border-b border-line bg-transparent px-1 py-1 text-right text-sm text-content rounded-none focus:border-primary focus:outline-none";
 
@@ -132,7 +130,7 @@ export function DeliverableFields({
       <div className="block">
         <span className="mb-1.5 block text-sm font-semibold text-content">Deliverable Quantity</span>
         <span className="mb-1.5 block text-xs text-muted">
-          How many of each, and how long. Leave a number blank if you did not count it.
+          How long each one took. Leave it blank if you did not time it.
         </span>
 
         {lines.length === 0 ? (
@@ -145,7 +143,6 @@ export function DeliverableFields({
           <div className="space-y-1">
             <div className="flex items-center gap-3 text-xs font-medium text-muted">
               <span className="min-w-0 flex-1">Activity</span>
-              <span className="w-20 shrink-0 text-right">Quantity</span>
               <span className="w-12 shrink-0 text-right">Hr</span>
               <span className="w-12 shrink-0 text-right">Min</span>
             </div>
@@ -161,13 +158,6 @@ export function DeliverableFields({
                   <span className="min-w-0 flex-1 truncate text-sm text-content" title={line}>
                     {line}
                   </span>
-                  <input
-                    inputMode="numeric"
-                    aria-label={`Quantity for ${line}`}
-                    value={n.quantity}
-                    onChange={(e) => set(index, { quantity: digits(e.target.value) })}
-                    className={`w-20 shrink-0 ${boxed}`}
-                  />
                   {(["hr", "min"] as const).map((field) => (
                     <input
                       key={field}
