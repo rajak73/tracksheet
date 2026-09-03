@@ -101,6 +101,12 @@ export type CanonicalDay = {
   deliverable: string | null;
   deliverable_quantity: string | null;
   /**
+   * The rows the instructor authored, when the day has them.
+   *
+   * Carried for the extractor and stripped before hashing — see `canonicalJson`.
+   */
+  activities?: unknown;
+  /**
    * WHOLE MINUTES, matching the record.
    *
    * Was `working_hours`. A context stating hours asks the model to reconcile
@@ -188,6 +194,7 @@ export async function buildCanonicalContext(scope: {
       logDate: true,
       deliverable: true,
       deliverableQuantity: true,
+      activities: true,
       workingMinutes: true,
       remarks: true,
       status: true,
@@ -205,6 +212,11 @@ export async function buildCanonicalContext(scope: {
     log_date: row.logDate.toISOString().slice(0, 10),
     deliverable: normaliseText(row.deliverable),
     deliverable_quantity: normaliseText(row.deliverableQuantity),
+    /* Carried for the extractor and NOT hashed — stripped in `canonicalJson`.
+       Every fact it holds is already in the three fields around it, which are
+       derived from it, so a row change invalidates through them; hashing the
+       array as well would count one edit twice. */
+    activities: row.activities ?? null,
     /* Minutes, because that is what the record holds and what extraction
        reports. A context stating hours would ask the model to reconcile
        "45 minutes" against "0.75", which is a conversion it must never do. */
@@ -218,8 +230,22 @@ export async function buildCanonicalContext(scope: {
   return { period_start: scope.periodStart, period_end: scope.periodEnd, days };
 }
 
-/** The canonical JSON. This is what is hashed and what the model is shown. */
-export const canonicalJson = (context: CanonicalContext): string => stableStringify(context);
+/**
+ * The canonical JSON. This is what is hashed and what the model is shown.
+ *
+ * `activities` is stripped for the reason given where it is set: it is carried
+ * so the extractor can read the rows, and everything in it already reaches the
+ * hash through `deliverable`, `deliverable_quantity` and `working_minutes`.
+ */
+export const canonicalJson = (context: CanonicalContext): string =>
+  stableStringify({
+    ...context,
+    days: context.days.map((day) => {
+      const hashed = { ...day };
+      delete hashed.activities;
+      return hashed;
+    }),
+  });
 
 /** The day rows a period actually holds. Zero means there is nothing to say. */
 export function daysIn(context: CanonicalContext): CanonicalDay[] {

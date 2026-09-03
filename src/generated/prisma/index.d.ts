@@ -51088,6 +51088,7 @@ export namespace Prisma {
     logDate: number
     deliverable: number
     deliverableQuantity: number
+    activities: number
     workingMinutes: number
     remarks: number
     status: number
@@ -51143,6 +51144,7 @@ export namespace Prisma {
     logDate?: true
     deliverable?: true
     deliverableQuantity?: true
+    activities?: true
     workingMinutes?: true
     remarks?: true
     status?: true
@@ -51245,6 +51247,7 @@ export namespace Prisma {
     logDate: Date
     deliverable: string
     deliverableQuantity: string | null
+    activities: JsonValue | null
     workingMinutes: number
     remarks: string | null
     status: $Enums.WorklogEntryStatus
@@ -51279,6 +51282,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
+    activities?: boolean
     workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
@@ -51296,6 +51300,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
+    activities?: boolean
     workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
@@ -51313,6 +51318,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
+    activities?: boolean
     workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
@@ -51330,6 +51336,7 @@ export namespace Prisma {
     logDate?: boolean
     deliverable?: boolean
     deliverableQuantity?: boolean
+    activities?: boolean
     workingMinutes?: boolean
     remarks?: boolean
     status?: boolean
@@ -51338,7 +51345,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "workingMinutes" | "remarks" | "status" | "source" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
+  export type WorklogEntryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "instructorId" | "universityId" | "logDate" | "deliverable" | "deliverableQuantity" | "activities" | "workingMinutes" | "remarks" | "status" | "source" | "createdAt" | "updatedAt", ExtArgs["result"]["worklogEntry"]>
   export type WorklogEntryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     instructor?: boolean | InstructorDefaultArgs<ExtArgs>
     university?: boolean | UniversityDefaultArgs<ExtArgs>
@@ -51400,7 +51407,25 @@ export namespace Prisma {
        * the parser accepts "8h 30m", extraction reports "45 minutes",
        * reconciliation subtracts durations. Hours exist only where a screen
        * renders one.
+       * The activities as the instructor authored them, one object per row:
+       * `[{ description, quantity, minutes }]`, in entry order.
+       * 
+       * ── Why structure is stored here and was refused before ─────────────────
+       * A JSON activities array was rejected once, for a good reason: it was to be
+       * derived by splitting somebody's prose, which puts a parser between them and
+       * their own words and turns the stored row into a claim about what they
+       * meant.
+       * 
+       * That does not apply now. Each activity is typed into its own field, so the
+       * structure is AUTHORED rather than inferred — their words in the shape they
+       * put them in. The pairing between an activity and its numbers is a fact the
+       * instructor stated, not one anybody guessed.
+       * 
+       * Null on every legacy row, and legacy rows are left alone. `deliverable` and
+       * `deliverableQuantity` are read from their own columns there, and derived at
+       * read time where this is present — never stored twice.
        */
+      activities: Prisma.JsonValue | null
       workingMinutes: number
       remarks: string | null
       status: $Enums.WorklogEntryStatus
@@ -51855,6 +51880,7 @@ export namespace Prisma {
     readonly logDate: FieldRef<"WorklogEntry", 'DateTime'>
     readonly deliverable: FieldRef<"WorklogEntry", 'String'>
     readonly deliverableQuantity: FieldRef<"WorklogEntry", 'String'>
+    readonly activities: FieldRef<"WorklogEntry", 'Json'>
     readonly workingMinutes: FieldRef<"WorklogEntry", 'Int'>
     readonly remarks: FieldRef<"WorklogEntry", 'String'>
     readonly status: FieldRef<"WorklogEntry", 'WorklogEntryStatus'>
@@ -55308,6 +55334,7 @@ export namespace Prisma {
     logDate: 'logDate',
     deliverable: 'deliverable',
     deliverableQuantity: 'deliverableQuantity',
+    activities: 'activities',
     workingMinutes: 'workingMinutes',
     remarks: 'remarks',
     status: 'status',
@@ -59407,6 +59434,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    activities?: JsonNullableFilter<"WorklogEntry">
     workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
@@ -59424,6 +59452,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrderInput | SortOrder
+    activities?: SortOrderInput | SortOrder
     workingMinutes?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
@@ -59445,6 +59474,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    activities?: JsonNullableFilter<"WorklogEntry">
     workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
@@ -59462,6 +59492,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrderInput | SortOrder
+    activities?: SortOrderInput | SortOrder
     workingMinutes?: SortOrder
     remarks?: SortOrderInput | SortOrder
     status?: SortOrder
@@ -59485,6 +59516,7 @@ export namespace Prisma {
     logDate?: DateTimeWithAggregatesFilter<"WorklogEntry"> | Date | string
     deliverable?: StringWithAggregatesFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
+    activities?: JsonNullableWithAggregatesFilter<"WorklogEntry">
     workingMinutes?: IntWithAggregatesFilter<"WorklogEntry"> | number
     remarks?: StringNullableWithAggregatesFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusWithAggregatesFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
@@ -63562,6 +63594,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -63579,6 +63612,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -63592,6 +63626,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -63609,6 +63644,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -63624,6 +63660,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -63637,6 +63674,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -63652,6 +63690,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -66940,6 +66979,7 @@ export namespace Prisma {
     logDate?: SortOrder
     deliverable?: SortOrder
     deliverableQuantity?: SortOrder
+    activities?: SortOrder
     workingMinutes?: SortOrder
     remarks?: SortOrder
     status?: SortOrder
@@ -74341,6 +74381,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -74356,6 +74397,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -75230,6 +75272,7 @@ export namespace Prisma {
     logDate?: DateTimeFilter<"WorklogEntry"> | Date | string
     deliverable?: StringFilter<"WorklogEntry"> | string
     deliverableQuantity?: StringNullableFilter<"WorklogEntry"> | string | null
+    activities?: JsonNullableFilter<"WorklogEntry">
     workingMinutes?: IntFilter<"WorklogEntry"> | number
     remarks?: StringNullableFilter<"WorklogEntry"> | string | null
     status?: EnumWorklogEntryStatusFilter<"WorklogEntry"> | $Enums.WorklogEntryStatus
@@ -77249,6 +77292,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -77264,6 +77308,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -88799,6 +88844,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -89956,6 +90002,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -89971,6 +90018,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -89985,6 +90033,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -90369,6 +90418,7 @@ export namespace Prisma {
     logDate: Date | string
     deliverable: string
     deliverableQuantity?: string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: number
     remarks?: string | null
     status?: $Enums.WorklogEntryStatus
@@ -91071,6 +91121,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -91086,6 +91137,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus
@@ -91100,6 +91152,7 @@ export namespace Prisma {
     logDate?: DateTimeFieldUpdateOperationsInput | Date | string
     deliverable?: StringFieldUpdateOperationsInput | string
     deliverableQuantity?: NullableStringFieldUpdateOperationsInput | string | null
+    activities?: NullableJsonNullValueInput | InputJsonValue
     workingMinutes?: IntFieldUpdateOperationsInput | number
     remarks?: NullableStringFieldUpdateOperationsInput | string | null
     status?: EnumWorklogEntryStatusFieldUpdateOperationsInput | $Enums.WorklogEntryStatus

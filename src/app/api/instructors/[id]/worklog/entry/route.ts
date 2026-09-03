@@ -9,7 +9,17 @@ import { assertValidDate } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
 import { assertSelfMayWriteDay } from "@/server/worklog/window";
+import { Prisma } from "@/generated/prisma/client";
 import { parseWorkingMinutes } from "@/domain/worklog-hours";
+import {
+  deliverableFrom,
+  hasOrphanNumbers,
+  isFilled,
+  normaliseRow,
+  quantityFrom,
+  totalMinutes,
+  type SubmittedRow,
+} from "@/domain/worklog-activities";
 
 /**
  * One day, saved.
@@ -41,7 +51,12 @@ export const DayEntry = z.object({
   /** YYYY-MM-DD in the university's zone. */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   /** What they did, in their own words. */
-  deliverable: z.string().min(1).max(8_000),
+  /**
+   * The older shape's free text. Optional, because a submission carrying
+   * `activities` derives this from the rows and never sends it — and requiring
+   * it would make the new form send a second copy of a fact the rows hold.
+   */
+  deliverable: z.string().max(8_000).optional().transform((v) => v ?? ""),
   /**
    * Free text, stored verbatim.
    *
@@ -58,8 +73,32 @@ export const DayEntry = z.object({
     .union([z.string().max(1_000), z.number(), z.null()])
     .optional()
     .transform((v) => (v === undefined || v === null ? "" : String(v))),
-  /** The day's total. Accepts what people type: "8", "8.5", "8h 30m", "6 hours". */
-  workingHours: z.union([z.string().min(1).max(200), z.number()]).transform((v) => String(v)),
+  /**
+   * The day's total, for a legacy submission that has no activity rows.
+   *
+   * IGNORED when `activities` is present. The total is then the sum of the rows
+   * and is computed here — a calculated field the client can override is not
+   * calculated, and a total the rows do not support is exactly the kind of
+   * number that gets believed.
+   */
+  workingHours: z
+    .union([z.string().max(200), z.number()])
+    .optional()
+    .transform((v) => (v === undefined ? "" : String(v))),
+  /**
+   * The activity rows, in entry order. Present from the new form, absent from
+   * anything older.
+   */
+  activities: z
+    .array(
+      z.object({
+        description: z.string().max(2_000),
+        quantity: z.union([z.number().int().nonnegative(), z.null()]).optional().transform((v) => v ?? null),
+        hr: z.number().int().nonnegative().max(24).optional().transform((v) => v ?? 0),
+        min: z.number().int().nonnegative().max(600).optional().transform((v) => v ?? 0),
+      }),
+    )
+    .optional(),
   remarks: z
     .union([z.string().max(8_000), z.null()])
     .optional()
@@ -67,6 +106,71 @@ export const DayEntry = z.object({
   /** Accepted and ignored — see the note above. */
   replace: z.boolean().optional(),
 });
+
+/** The older shape: free text, a quantity box, and a total the writer typed. */
+function fromText(input: { deliverable: string; quantity: string; workingHours: string; remarks: string }) {
+  const minutes = parseWorkingMinutes(input.workingHours);
+  if (minutes === null) {
+    throw new ApiError(
+      400,
+      "INVALID_WORKING_HOURS",
+      `"${input.workingHours}" is not a length of time. Try 8, 8.5, 8h 30m, or 6 hours.`,
+    );
+  }
+  if (minutes > 24 * 60) {
+    throw new ApiError(400, "INVALID_WORKING_HOURS", `"${input.workingHours}" is longer than a day.`);
+  }
+
+  const deliverable = input.deliverable.trim();
+  if (deliverable === "") throw new ApiError(400, "NOTHING_RECORDED", "Say what you worked on.");
+
+  return {
+    deliverable,
+    // Blank normalises to null so "wrote nothing" is one value rather than two.
+    deliverableQuantity: input.quantity.trim() || null,
+    workingMinutes: minutes,
+    remarks: input.remarks.trim() || null,
+    /* SQL NULL, not JSON null. An older client saving over a day that HAS rows
+       must clear them rather than leave a structure the text no longer matches. */
+    activities: Prisma.DbNull,
+  };
+}
+
+/**
+ * The new shape: rows the instructor paired themselves.
+ *
+ * `deliverable` and `deliverableQuantity` are DERIVED here for the client's
+ * sheet, which still has those columns, rather than stored as a second copy of
+ * facts the rows already hold — two copies of one fact eventually disagree.
+ */
+function fromRows(submitted: SubmittedRow[], remarks: string) {
+  const orphan = submitted.findIndex(hasOrphanNumbers);
+  if (orphan !== -1) {
+    throw new ApiError(
+      400,
+      "NOTHING_RECORDED",
+      `Row ${orphan + 1} has numbers but no description. Say what the work was.`,
+    );
+  }
+
+  const rows = submitted.filter(isFilled).map(normaliseRow);
+  if (rows.length === 0) throw new ApiError(400, "NOTHING_RECORDED", "Say what you worked on.");
+
+  const minutes = totalMinutes(rows);
+  if (minutes > 24 * 60) {
+    throw new ApiError(400, "INVALID_WORKING_HOURS", "Those activities add up to longer than a day.");
+  }
+
+  return {
+    deliverable: deliverableFrom(rows),
+    deliverableQuantity: quantityFrom(rows),
+    /* From the rows, never from the client. A submitted total is not read at
+       all — see the note on `workingHours` in the schema. */
+    workingMinutes: minutes,
+    remarks: remarks.trim() || null,
+    activities: rows as unknown as Prisma.InputJsonValue,
+  };
+}
 
 /** Resolves the instructor and authorises writing to them. */
 export async function requireWritableInstructor(
@@ -103,28 +207,12 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     workDate: input.date,
   });
 
-  const minutes = parseWorkingMinutes(input.workingHours);
-  if (minutes === null) {
-    throw new ApiError(
-      400,
-      "INVALID_WORKING_HOURS",
-      `"${input.workingHours}" is not a length of time. Try 8, 8.5, 8h 30m, or 6 hours.`,
-    );
-  }
-  if (minutes > 24 * 60) {
-    throw new ApiError(400, "INVALID_WORKING_HOURS", `"${input.workingHours}" is longer than a day.`);
-  }
-
-  const deliverable = input.deliverable.trim();
-  if (deliverable === "") throw new ApiError(400, "NOTHING_RECORDED", "Say what you worked on.");
-
-  const data = {
-    deliverable,
-    // Blank normalises to null so "wrote nothing" is one value rather than two.
-    deliverableQuantity: input.quantity.trim() || null,
-    workingMinutes: minutes,
-    remarks: input.remarks.trim() || null,
-  };
+  /* ── Two shapes, one row ────────────────────────────────────────────────
+   * A submission with `activities` authored its own pairing, so the numbers are
+   * taken from the rows and the day's total is computed here. Anything else is
+   * the older shape and keeps its own text and its own parsed total. */
+  const rows = input.activities;
+  const data = rows ? fromRows(rows, input.remarks) : fromText(input);
 
   const entry = await prisma.worklogEntry.upsert({
     where: {

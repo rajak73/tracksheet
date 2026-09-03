@@ -19,6 +19,7 @@ import { serveDayExtraction } from "./extract";
 import { runGrouping, type GroupMember } from "./group";
 import { subtopicKey } from "@/domain/subtopic";
 import type { DayText } from "./extraction-checks";
+import { parseActivities } from "@/domain/worklog-activities";
 import { toDateOnly } from "@/server/time/workday";
 
 /** One subtopic inside a topic. Sessions only — see the note on `GroupRollup`. */
@@ -98,6 +99,9 @@ export async function ensureDayExtractions(input: {
       deliverable: row.deliverable ?? "",
       deliverableQuantity: row.deliverable_quantity,
       workingMinutes: row.working_minutes ?? 0,
+      // Present only on a day entered as rows. Its presence is what turns off
+      // the checks that exist to attribute numbers to text.
+      activities: parseActivities(row.activities),
     };
     /* Hashed over the DAY alone, exactly as the day path hashes it, so a day
        already extracted for its own view is a day this does not pay for. A hash

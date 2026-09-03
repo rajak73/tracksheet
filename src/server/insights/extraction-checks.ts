@@ -15,6 +15,8 @@
  */
 
 /** The units a duration can be stated in. Anything else is not a duration. */
+import type { ActivityRow } from "@/domain/worklog-activities";
+
 export type DurationUnit = "hours" | "minutes";
 
 /** One activity as the model returned it. */
@@ -99,6 +101,23 @@ export type DayText = {
   deliverableQuantity: string | null;
   /** T — the MINUTES the instructor recorded for the day, independently. */
   workingMinutes: number;
+  /**
+   * The rows the instructor authored, when the day has them.
+   *
+   * ── What their presence turns off, and why that is not a relaxation ──────
+   * Checks 1, 2, 3 and 6 exist because a number had to be traced back to text
+   * that might not support it. On an authored day there is nothing to trace: the
+   * quantity was typed into the row it belongs to and the duration into the same
+   * row. The numbers are GIVEN, not extracted, so provenance, distinct
+   * occurrence, over-allocation and reconciliation have no question to answer.
+   *
+   * Checks 4 and 5 still run. The model is still writing a label for each row,
+   * and a label that describes work nobody did is exactly as wrong here as
+   * anywhere else.
+   *
+   * Null on every legacy day, where all six checks run unchanged.
+   */
+  activities?: ActivityRow[] | null;
 };
 
 export type CheckFailure = {
@@ -363,6 +382,18 @@ function attribute(activities: ExtractedActivity[], day: DayText): Attribution {
 export function checkExtraction(activities: ExtractedActivity[], day: DayText): CheckResult {
   const failures: CheckFailure[] = [];
 
+  /* ── An authored day has nothing to attribute ───────────────────────────
+   * The instructor paired each number with its own activity in the form, so
+   * checks 1, 2, 3 and 6 have no question to answer. Coverage and fabrication
+   * still do: the model is writing a label for each row, and an invented
+   * activity is invented here too. */
+  if (day.activities) {
+    failures.push(...checkCoverage(activities));
+    failures.push(...checkFabrication(activities, day));
+    if (failures.length > 0) return { ok: false, failures };
+    return { ok: true, activities, nulled: [], unallocatedMinutes: 0 };
+  }
+
   // ── 1 & 6. Attribution: unsupported numbers are dropped, not fatal ───────
   const { activities: kept, nulled, stated, invented } = attribute(activities, day);
 
@@ -398,16 +429,45 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
   }
 
   // ── 4. Coverage ──────────────────────────────────────────────────────────
-  if (activities.length === 0) {
-    failures.push({ check: 4, reason: "no activities" });
-  }
+  failures.push(...checkCoverage(activities));
+
+  // ── 5. No fabricated activities, and no fabricated subtopics ─────────────
+  failures.push(...checkFabrication(activities, day));
+
+  if (failures.length > 0) return { ok: false, failures };
+
+  /* ── 3. Reconciliation ──────────────────────────────────────────────────
+   * Not a check that can fail. `S = 0` means no activity carried a duration the
+   * text supports, so the whole day is unallocated — valid, and on legacy days
+   * it is the norm. Whole minutes in, whole minutes out; nothing rounds here. */
+  return {
+    ok: true,
+    activities: kept,
+    nulled,
+    unallocatedMinutes: day.workingMinutes - allocated,
+  };
+}
+
+function checkCoverage(activities: ExtractedActivity[]): CheckFailure[] {
+  const failures: CheckFailure[] = [];
+  if (activities.length === 0) failures.push({ check: 4, reason: "no activities" });
   for (const [i, activity] of activities.entries()) {
     if (activity.label.trim() === "") {
       failures.push({ check: 4, reason: `activity ${i} has an empty label` });
     }
   }
+  return failures;
+}
 
-  // ── 5. No fabricated activities, and no fabricated subtopics ─────────────
+/**
+ * Check 5 — nothing described that was not written.
+ *
+ * Fatal, and deliberately so. A number nobody wrote can be dropped because
+ * `null` is a truthful thing to store in its place. There is no truthful thing
+ * to store in place of an activity that never happened.
+ */
+function checkFabrication(activities: ExtractedActivity[], day: DayText): CheckFailure[] {
+  const failures: CheckFailure[] = [];
   /* Still fatal, and deliberately so. A number nobody wrote can be dropped
      because `null` is a truthful thing to store in its place. There is no
      truthful thing to store in place of an activity that never happened. */
@@ -443,18 +503,5 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
     }
   }
 
-  if (failures.length > 0) return { ok: false, failures };
-
-  /* ── 3. Reconciliation ──────────────────────────────────────────────────
-   * Not a check that can fail. `S = 0` means no activity carried a duration the
-   * text supports, so the whole day is unallocated — valid, and on legacy days
-   * it is the norm.
-   *
-   * Whole minutes in, whole minutes out. Nothing rounds here. */
-  return {
-    ok: true,
-    activities: kept,
-    nulled,
-    unallocatedMinutes: day.workingMinutes - allocated,
-  };
+  return failures;
 }

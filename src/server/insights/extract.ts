@@ -26,6 +26,7 @@ import {
   type ExtractedActivity,
 } from "./extraction-checks";
 import { PROMPT_VERSION_EXTRACT, modelId, stableStringify } from "./context";
+import type { ActivityRow } from "@/domain/worklog-activities";
 
 /** One point as it is stored and rendered. */
 export type ExtractedItem = {
@@ -74,6 +75,51 @@ export function canonicalDay(day: DayText): string {
     deliverable_quantity: day.deliverableQuantity,
     working_minutes: day.workingMinutes,
   });
+}
+
+/**
+ * The instruction for an AUTHORED day — one the instructor entered as rows.
+ *
+ * ── What is not asked for ─────────────────────────────────────────────────
+ * Any number. The quantity was typed into the row it belongs to and the
+ * duration into the same row, so both are facts already, and asking a model to
+ * restate a fact is how a second version of it comes into existence.
+ *
+ * The remaining job is language: shorten the description into a label, name the
+ * subtopic it mentions, infer the topic that subtopic belongs to.
+ */
+export function rowExtractionInstruction(rows: ActivityRow[]): string {
+  return [
+    "Below is a list of activities somebody recorded today, as JSON. Each has",
+    "an index and the description they wrote.",
+    "",
+    "For each one, report:",
+    "- label: the description shortened to its essential phrase, in the",
+    "  writer's own words. KEEP THE VERB: \"learned Java and OOPs concepts\", not",
+    '  "Java and OOPs concepts" — a reader must be able to tell teaching from',
+    "  learning without opening the source. Do not expand something already",
+    '  short: "Corrected" stays "Corrected".',
+    "- subtopic: the specific thing it was about, taken from the description.",
+    '  "Live class on binary search" has subtopic "binary search". Null if the',
+    "  description names nothing specific.",
+    "- topic: the broader area that subtopic belongs to. The description does",
+    '  NOT need to name it: "i took avl tree class" names only AVL trees, which',
+    '  belong to "DSA", so the topic is "DSA". Null when the activity names no',
+    '  subject matter — "Doubt clearing session", "Office meeting", "Corrected".',
+    "",
+    "Rules:",
+    "- Report no numbers at all. The counts and durations are already known.",
+    "- Never invent a subtopic that is not in the description. topic may be",
+    "  inferred; subtopic may not.",
+    "- Merge two subtopics only when they clearly name the same thing (\"AVL",
+    '  trees" and "AVL tree"). Never merge a narrower one into a broader one.',
+    "- Return exactly one entry per index, in the same order.",
+    "",
+    'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
+    '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null}]}',
+    "",
+    stableStringify(rows.map((r, i) => ({ index: i, description: r.description }))),
+  ].join("\n");
 }
 
 /** Bump `PROMPT_VERSION_EXTRACT` in `context.ts` whenever this text changes. */
@@ -224,7 +270,8 @@ export async function runExtraction(
   call: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>
     = (i) => generateStructured(i, { maxOutputTokens: 2048 }),
 ): Promise<ExtractionResult> {
-  const instruction = extractionInstruction(day);
+  const rows = day.activities ?? null;
+  const instruction = rows ? rowExtractionInstruction(rows) : extractionInstruction(day);
   let lastError = "the model was never called";
   let failureKind: "structure" | "provider" = "provider";
 
@@ -241,7 +288,25 @@ export async function runExtraction(
       failureKind = "structure";
       continue;
     }
-    const checked = checkExtraction(activities, day);
+    /* On an authored day the model returned language only, so the numbers are
+       attached here from the rows it was describing — by index, which is why
+       the prompt insists on one entry per index in order. A reply of the wrong
+       length is a reply to a different question. */
+    if (rows && activities.length !== rows.length) {
+      lastError = `the reply described ${activities.length} activities for ${rows.length} rows`;
+      failureKind = "structure";
+      continue;
+    }
+    const withNumbers: ExtractedActivity[] = rows
+      ? activities.map((a, i) => ({
+          ...a,
+          sessions: rows[i]!.quantity,
+          duration_value: rows[i]!.minutes,
+          duration_unit: "minutes" as const,
+        }))
+      : activities;
+
+    const checked = checkExtraction(withNumbers, day);
     if (!checked.ok) {
       lastError = describe(checked.failures);
       failureKind = "structure";

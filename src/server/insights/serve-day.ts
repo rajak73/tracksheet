@@ -24,6 +24,7 @@ import {
 import { generationModeFor, type ViewerRole } from "./access";
 import { serveDayExtraction } from "./extract";
 import type { DayText } from "./extraction-checks";
+import { parseActivities } from "@/domain/worklog-activities";
 import { toDateOnly } from "@/server/time/workday";
 
 /** One extracted point, as a day cell renders it. */
@@ -93,6 +94,9 @@ export async function serveDayInsight(input: {
     deliverable: row.deliverable ?? "",
     deliverableQuantity: row.deliverable_quantity,
     workingMinutes: row.working_minutes ?? 0,
+    // Present only on a day the instructor entered as rows. Its presence is
+    // what turns off the checks that exist to attribute numbers to text.
+    activities: parseActivities(row.activities),
   };
   const sourceHash = contextHash(canonicalJson(context), PROMPT_VERSION_EXTRACT, modelId());
   const logDate = toDateOnly(input.date);

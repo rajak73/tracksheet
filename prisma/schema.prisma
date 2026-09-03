@@ -1785,6 +1785,25 @@ model WorklogEntry {
   /// the parser accepts "8h 30m", extraction reports "45 minutes",
   /// reconciliation subtracts durations. Hours exist only where a screen
   /// renders one.
+  /// The activities as the instructor authored them, one object per row:
+  /// `[{ description, quantity, minutes }]`, in entry order.
+  ///
+  /// ── Why structure is stored here and was refused before ─────────────────
+  /// A JSON activities array was rejected once, for a good reason: it was to be
+  /// derived by splitting somebody's prose, which puts a parser between them and
+  /// their own words and turns the stored row into a claim about what they
+  /// meant.
+  ///
+  /// That does not apply now. Each activity is typed into its own field, so the
+  /// structure is AUTHORED rather than inferred — their words in the shape they
+  /// put them in. The pairing between an activity and its numbers is a fact the
+  /// instructor stated, not one anybody guessed.
+  ///
+  /// Null on every legacy row, and legacy rows are left alone. `deliverable` and
+  /// `deliverableQuantity` are read from their own columns there, and derived at
+  /// read time where this is present — never stored twice.
+  activities Json?
+
   workingMinutes Int @default(0)
 
   remarks String?
