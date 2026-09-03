@@ -52,7 +52,8 @@ export function summaryInstruction(): string {
   return [
     "Then, from the activities you just listed, write a summary of the period in",
     "two parts. Name activities by their position in your `activities` array,",
-    "counting from zero.",
+    "counting from zero. The count for each one is the `sessions` you reported",
+    "for it — use that figure, not a different one.",
     "",
     "1. bullets — two to five of them, in the order the work happened.",
     "   - Combine entries that are the same piece of work into one bullet. A",
@@ -70,9 +71,11 @@ export function summaryInstruction(): string {
     "",
     "Rules:",
     "- Include the COUNT where the activity has one, in the phrase where it",
-    '     belongs: "Conducted 2 live classes on binary search", "Handled 1 doubt',
-    '     session". Use the count the activity actually carries, or the total of',
-    "     the counts your bullet covers. Never any other number.",
+    '  belongs: "Conducted 2 live classes on binary search", "Handled 1 doubt',
+    '  session". Use the count that activity actually carries — it is given to',
+    "  you beside the activity — or the total of the counts your bullet covers.",
+    "  Never round it, never guess it, and never write a count for an activity",
+    "  that has none.",
     "- Write NO durations. Not hours, not minutes. The time is attached to your",
     "  bullets afterwards, from the activities each one names, and writing it",
     "  too would print the same figure twice.",
@@ -110,12 +113,27 @@ export type SummaryResult = { ok: true; summary: DaySummary } | { ok: false; rea
  */
 function supportedCounts(items: SummaryItem[]): Set<number> {
   const stated = items.filter((i) => i.sessions !== null).map((i) => i.sessions as number);
-  const allowed = new Set<number>(stated);
-  if (stated.length > 0) allowed.add(stated.reduce((a, b) => a + b, 0));
-  // "Conducted three classes" where three activities each say nothing about
-  // counts: the number of activities is a fact of the record too.
-  allowed.add(items.length);
-  return allowed;
+
+  /* Where the activities carry counts, ONLY those counts and their total are
+     supported.
+     
+     The number of activities used to be allowed here as well, on the reasoning
+     that "conducted three classes" is a fact of the record when three
+     activities each say nothing. It is — but only then. Allowing it always let
+     a bullet covering ONE activity say "1", and the first real reply did
+     exactly that: "Conducted 1 live class on binary search" against a day whose
+     quantity for that class was 2. The figure was wrong, it was beside a
+     correct duration, and it read as authoritative. A count nobody recorded is
+     no better for having a plausible origin. */
+  if (stated.length > 0) {
+    const allowed = new Set<number>(stated);
+    allowed.add(stated.reduce((a, b) => a + b, 0));
+    return allowed;
+  }
+
+  // Nothing was counted, so the only number the record supports is how many
+  // activities this bullet covers.
+  return new Set<number>([items.length]);
 }
 
 /** What a bullet is allowed to say a number about. */

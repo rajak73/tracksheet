@@ -93,6 +93,7 @@ const empty = (date: string): ServedDayInsight => ({
 function summaryWithMinutes(
   stored: unknown,
   points: DayPoint[],
+  dayMinutes: number,
 ): { lines: SummaryLine[]; insight: string } | null {
   const summary = parseStoredSummary(stored);
   if (!summary) return null;
@@ -101,11 +102,19 @@ function summaryWithMinutes(
     lines: summary.bullets.map((b) => {
       const mine = b.activities.map((i) => points[i]).filter((p): p is DayPoint => Boolean(p));
       const timed = mine.filter((p) => p.minutes !== null);
-      return {
-        text: b.text,
-        // Null, not zero, when nothing under this bullet stated a duration.
-        minutes: timed.length ? timed.reduce((n, p) => n + (p.minutes ?? 0), 0) : null,
-      };
+      if (timed.length > 0) {
+        return { text: b.text, minutes: timed.reduce((n, p) => n + (p.minutes ?? 0), 0) };
+      }
+      /* Nothing under this bullet said how long it took. If the bullet covers
+         the WHOLE day, the day's recorded total is how long it took — there is
+         nothing else it could have been, and it is the same reasoning that lets
+         a one-activity day's quantity box refer to that activity.
+         
+         Otherwise a dash: a six-hour day whose only line reads "—" looks like
+         data went missing, and splitting the total across several bullets that
+         never stated one would be inventing the split. */
+      const coversDay = points.length > 0 && b.activities.length === points.length;
+      return { text: b.text, minutes: coversDay && dayMinutes > 0 ? dayMinutes : null };
     }),
   };
 }
@@ -155,7 +164,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: stored.items as DayPoint[],
-      summary: summaryWithMinutes(stored.summary, stored.items as DayPoint[]),
+      summary: summaryWithMinutes(stored.summary, stored.items as DayPoint[], day.workingMinutes),
       unallocated_minutes: stored.unallocatedMinutes,
       cached: true,
       generated_at: stored.generatedAt.toISOString(),
@@ -214,7 +223,7 @@ export async function serveDayInsight(input: {
     points: fresh.status === "READY" ? (fresh.items as DayPoint[]) : [],
     summary:
       fresh.status === "READY"
-        ? summaryWithMinutes(fresh.summary, fresh.items as DayPoint[])
+        ? summaryWithMinutes(fresh.summary, fresh.items as DayPoint[], day.workingMinutes)
         : null,
     unallocated_minutes: fresh.unallocatedMinutes,
     cached: false,
