@@ -295,7 +295,7 @@ function longDate(iso: string): string {
 /**
  * The sheet's columns.
  *
- * Actions is the last one and Date Wise's alone — a week row is an
+ * Actions is last and Date Wise's alone — a week row is an
  * accumulation of up to seven days with nothing for a pencil to open, so in
  * Weekly the column is not emptied, it is not there. An empty column with a
  * heading over it reads as a feature that is broken rather than one that does
@@ -307,11 +307,13 @@ const COLUMNS = [
   "Deliverable Quantity",
   "Working Hours",
   "Remarks",
-  "Actions",
-  /* Last, after the actions, on purpose. The reader reaches it having already
-     seen the hours and deliverables it is describing — which is the only order
-     in which a summary can be checked rather than just believed. */
+  /* Beside the record it describes, and before the buttons. The reader reaches
+     it having already seen the hours and deliverables it summarises — which is
+     the only order in which a summary can be checked rather than believed — and
+     the controls sit at the end of the row where controls belong, rather than
+     between the work and the reading of it. */
   "AI Insight",
+  "Actions",
 ];
 
 export default function WorkLogHistoryPage() {
@@ -1080,6 +1082,12 @@ export default function WorkLogHistoryPage() {
                         >
                           {future ? "Not yet reached" : "No worklog submitted"}
                         </td>
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
+                          {/* Nothing was recorded, so there is nothing to read.
+                              An "Analyse" button here would offer to summarise
+                              an empty day. */}
+                          <span className="text-subtle">—</span>
+                        </td>
                         {view !== "date" ? null : (
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
                           {/* Only where there is a single day to fill. A WEEK
@@ -1100,12 +1108,6 @@ export default function WorkLogHistoryPage() {
                           ) : null}
                         </td>
                         )}
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
-                          {/* Nothing was recorded, so there is nothing to read.
-                              An "Analyse" button here would offer to summarise
-                              an empty day. */}
-                          <span className="text-subtle">—</span>
-                        </td>
                       </tr>
                     );
                   }
@@ -1229,6 +1231,15 @@ export default function WorkLogHistoryPage() {
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug text-content">
                           {group.remarks || "—"}
                         </td>
+                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
+                          <DayInsightCell
+                            instructorId={instructorId}
+                            scope={group.dates.length === 1 ? "DAY" : "WEEK"}
+                            from={group.dates[0]!}
+                            to={group.dates[group.dates.length - 1]!}
+                            initial={insightFor(group.dates)}
+                          />
+                        </td>
                         {view !== "date" ? null : (
                         <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
                           <span className="inline-flex items-center gap-2">
@@ -1297,15 +1308,6 @@ export default function WorkLogHistoryPage() {
                           </span>
                         </td>
                         )}
-                        <td className="border-r border-line last:border-r-0 border-b border-line-subtle px-3 py-2 align-top leading-snug">
-                          <DayInsightCell
-                            instructorId={instructorId}
-                            scope={group.dates.length === 1 ? "DAY" : "WEEK"}
-                            from={group.dates[0]!}
-                            to={group.dates[group.dates.length - 1]!}
-                            initial={insightFor(group.dates)}
-                          />
-                        </td>
                       </tr>
                     </Fragment>
                   );

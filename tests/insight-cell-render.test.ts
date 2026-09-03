@@ -133,12 +133,24 @@ describe("9. a FAILED day", () => {
 });
 
 describe("a READY day renders the points", () => {
-  test("label, count and duration, with the topic kept", () => {
+  test("what was done and how long, and nothing else", () => {
+    /* The count is deliberately absent. It was asserted here as
+       `toContain("25")`, which passed whatever the cell rendered — the LABEL is
+       "checked 25 quiz papers", so the string was always present. A vacuous
+       assertion is worse than none: it reports on a feature it never touched.
+
+       Asserted on the rendered figures instead: the duration appears, and no
+       standalone count sits beside it. */
     const html = render({ ...base, served: ready });
     expect(html).toContain("checked 25 quiz papers");
     expect(html).toContain("department meeting");
-    expect(html).toContain("25");
     expect(html).toContain(formatMinutes(45));
+
+    // The duration cell holds a duration and nothing else.
+    const figures = [...html.matchAll(/<span class="tabular[^"]*">([^<]*)<\/span>/g)].map(
+      (m) => m[1]!.trim(),
+    );
+    expect(figures.every((f) => /^(\d\dh \d\dm|—)$/.test(f)), figures.join(" | ")).toBe(true);
   });
 
   test("12. a stated zero and an unstated duration are distinguishable", () => {

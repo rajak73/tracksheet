@@ -58,19 +58,6 @@ export type GroupRollup = {
 };
 
 /**
- * A count with the text's own noun: `2 classes`, `3 students`, or a bare `25`.
- *
- * The noun is quoted, never chosen: "3" beside "mentored final year students"
- * is not the same fact as "3 students", and picking a word for it would be
- * writing something the instructor did not.
- */
-function Count({ n, unit }: { n: number | null; unit?: string | null }) {
-  if (n === null) return null;
-  const word = unit?.trim();
-  return <span className="mr-2">{word ? `${n} ${word}` : n}</span>;
-}
-
-/**
  * Two identical activities are one point with a count of two.
  *
  * Done here rather than by the model, because the count comes from the activity
@@ -251,9 +238,12 @@ export function DayInsightCell({
       for (const p of points) if (p.topic) counts.set(p.topic, (counts.get(p.topic) ?? 0) + 1);
       const headed = [...counts].filter(([, n]) => n >= 2).map(([t]) => t);
 
-      const shown = (p: DayPoint & { occurrences: number }) =>
-        p.sessions !== null ? p.sessions : p.occurrences > 1 ? p.occurrences : null;
-
+      /* What was done, and how long it took. Nothing else.
+       *
+       * The count used to sit between them. It was dropped because a summary
+       * that carries a third figure invites the reader to reconcile three
+       * numbers instead of reading one sentence — and the count is usually in
+       * the words already ("2 classes"), so printing it again says it twice. */
       const row = (
         text: string,
         p: DayPoint & { occurrences: number },
@@ -262,10 +252,9 @@ export function DayInsightCell({
       ) => (
         <li key={key} className="flex items-baseline justify-between gap-2 text-sm">
           <span className="text-content">{text}</span>
-          <span className="tabular shrink-0 text-xs text-muted">
-            <Count n={shown(p)} unit={p.sessions_unit} />
-            {withDuration ? formatMinutes(p.minutes) : null}
-          </span>
+          {withDuration ? (
+            <span className="tabular shrink-0 text-xs text-muted">{formatMinutes(p.minutes)}</span>
+          ) : null}
         </li>
       );
 
@@ -326,8 +315,11 @@ export function DayInsightCell({
             <li key={g.name}>
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="text-content">{g.name}</span>
+                {/* The same rule one level up: what, and how long. The day
+                    count stays because a week's line is about recurrence — it
+                    says the work happened on three days, which is not a second
+                    reading of the duration beside it. */}
                 <span className="tabular shrink-0 text-xs text-muted">
-                  <Count n={g.sessions} unit={g.sessions_unit} />
                   {formatMinutes(g.minutes)}
                   <span className="ml-2">
                     {g.day_count} {g.day_count === 1 ? "day" : "days"}
@@ -340,11 +332,8 @@ export function DayInsightCell({
               {g.subtopics?.length ? (
                 <ul className="pl-3">
                   {g.subtopics.map((sub) => (
-                    <li key={sub.name} className="flex items-baseline justify-between gap-2 text-xs">
-                      <span className="text-muted">{sub.name}</span>
-                      <span className="tabular shrink-0 text-subtle">
-                        <Count n={sub.sessions} unit={sub.sessions_unit} />
-                      </span>
+                    <li key={sub.name} className="text-xs text-muted">
+                      {sub.name}
                     </li>
                   ))}
                 </ul>
