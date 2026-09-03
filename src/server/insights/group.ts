@@ -21,7 +21,14 @@
 import { generateStructured } from "@/server/ai/gemini";
 import { stableStringify } from "./context";
 
-export type GroupMember = { label: string; date: string };
+export type GroupMember = {
+  label: string;
+  date: string;
+  /** Quoted from that day's text. Carried so the group can list what it covered. */
+  subtopic: string | null;
+  /** As that DAY named it. The grouping decides the period's one name for it. */
+  topic: string | null;
+};
 
 export type ActivityGroup = {
   /** The activity, without the topic. Never contains a digit. */
@@ -38,26 +45,37 @@ export type GroupingResult =
 export function groupingInstruction(members: GroupMember[]): string {
   return [
     "Below is a list of activities somebody recorded over a period, as JSON.",
-    "Each has a label and the date it was recorded on, and an index.",
+    "Each has an index, a label, the date it was recorded on, and the subtopic",
+    "and topic that day's reading named.",
     "",
-    "Group them by WHAT THE ACTIVITY IS, ignoring the topic or subject.",
-    '"Live class on binary tree" and "Live class on hashing" are the same',
-    'activity: both are "Live class". Name the group after the activity alone.',
+    "Group them by TOPIC. Each group is one topic, and its members are the",
+    "activities belonging to it.",
     "",
     "Rules:",
-    "- The group name must NOT contain the topic. No subject, chapter, or",
-    "  module name.",
-    "- The group name must NOT contain any digit, and neither must anything",
-    "  else you write. You are not counting; the figures are already known.",
+    "- If the same topic appears under different names across days — \"DSA\" and",
+    '  "Data Structures" — choose one name and place both under it.',
+    "- An activity with no topic joins a group only if the same activity recurs",
+    '  across days ("Doubt clearing session"). Otherwise it goes to "Other".',
+    '- Use "Other" as the name for that group, exactly.',
+    "- Output no numbers of any kind, including in the headline. You are not",
+    "  counting; the figures are already known.",
     "- Every index must appear in exactly one group. Do not drop any, and do",
     "  not invent an index that was not given to you.",
-    "- Use the writer's own vocabulary for the activity. Do not classify it",
-    "  into a category of your own.",
+    "- Use the writer's own vocabulary. Do not classify their work into a",
+    "  category of your own.",
     "",
     'Reply with exactly this JSON and nothing else: {"groups": [{"name":',
-    '"<activity>", "members": [<index>, ...]}]}',
+    '"<topic>", "members": [<index>, ...]}]}',
     "",
-    stableStringify(members.map((m, i) => ({ index: i, label: m.label, date: m.date }))),
+    stableStringify(
+      members.map((m, i) => ({
+        index: i,
+        label: m.label,
+        date: m.date,
+        subtopic: m.subtopic,
+        topic: m.topic,
+      })),
+    ),
   ].join("\n");
 }
 

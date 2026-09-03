@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { config as loadEnv } from "dotenv";
 import { sweepFixtures } from "./setup/fixture-sweep";
@@ -36,36 +36,70 @@ import { RUN, FIXTURE_DOMAIN, fixtureEmail, newRunId } from "./helpers/fixtures"
 
 const DATABASE_URL = loadEnv({ path: ".env.test", quiet: true }).parsed?.DATABASE_URL;
 
-/** Tables nothing else in the suite reads, so sweeping them cannot disturb a
- *  neighbouring file. The full list is global setup's business. */
-const SAFE = ["metricsJobRun"] as const;
+/**
+ * A table nothing else reads, so sweeping it cannot disturb a neighbouring file.
+ *
+ * ── Why not `metricsJobRun`, which this used ──────────────────────────────
+ * Because something did read it. `phase65-scheduler` asserts that a rollup with
+ * `trigger=SEED` exists, through `/api/admin/rollup` — which queries
+ * `metricsJobRun`. Wiping the table here deleted the seed's own row, so that
+ * file failed whenever it ran after this one and passed whenever it ran before.
+ *
+ * The grep that chose `metricsJobRun` looked for the Prisma accessor in test
+ * files and found nothing, which was true and not the question: the data was
+ * reached over HTTP, and no amount of searching for `prisma.metricsJobRun` in
+ * tests would ever have shown that.
+ *
+ * `worklogActivityArchive` is the permanent record of the dropped taxonomy
+ * values and is read by no application code at all — the property is what makes
+ * it safe here, and it is asserted below rather than assumed.
+ */
+const SAFE = ["worklogActivityArchive"] as const;
 
 describe("fixture isolation", () => {
+  test("the table this sweeps is read by no application code", () => {
+    /* The property that makes the test below safe, checked rather than trusted.
+       The last version of this file swept a table something read over HTTP and
+       spent three suite runs looking like a flake. */
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir)) {
+        const full = join(dir, e);
+        if (e === "generated") continue;
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(e) && readFileSync(full, "utf8").includes("worklogActivityArchive")) {
+          offenders.push(full);
+        }
+      }
+    };
+    walk("src");
+    expect(offenders, "sweeping a table something reads is how a flake is built").toEqual([]);
+  });
+
   test("the pre-run sweep removes leftover rows and reports how many", async () => {
     const { prisma } = await import("@/server/db");
 
-    await prisma.metricsJobRun.createMany({
-      data: [1, 2, 3].map(() => ({
-        trigger: "MANUAL" as const,
-        status: "COMPLETED" as const,
-        fromDate: "2026-01-01",
-        toDate: "2026-01-02",
+    await prisma.worklogActivityArchive.createMany({
+      data: [1, 2, 3].map((n) => ({
+        activityLogId: `sweep-probe-${RUN}-${n}`,
+        instructorId: `sweep-probe-${RUN}`,
+        workDate: new Date("2026-01-01T00:00:00.000Z"),
       })),
     });
-    const before = await prisma.metricsJobRun.count();
+    const before = await prisma.worklogActivityArchive.count();
     expect(before).toBeGreaterThanOrEqual(3);
 
     const result = await sweepFixtures(DATABASE_URL!, SAFE);
 
-    const reported = result.find((r) => r.table === "metricsJobRun");
+    const reported = result.find((r) => r.table === "worklogActivityArchive");
     expect(reported, "the sweep must report what it removed, not remove silently").toBeDefined();
     expect(reported!.deleted).toBe(before);
-    expect(await prisma.metricsJobRun.count()).toBe(0);
+    expect(await prisma.worklogActivityArchive.count()).toBe(0);
   });
 
   test("a sweep of an already-clean table reports nothing rather than zero rows", async () => {
     const result = await sweepFixtures(DATABASE_URL!, SAFE);
-    expect(result.find((r) => r.table === "metricsJobRun")).toBeUndefined();
+    expect(result.find((r) => r.table === "worklogActivityArchive")).toBeUndefined();
   });
 
   test("run ids from two runs never collide", () => {

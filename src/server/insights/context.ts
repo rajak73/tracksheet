@@ -42,10 +42,19 @@ import { toDateOnly } from "@/server/time/workday";
  * of that scope's insight changes. Do NOT increment for a refactor that leaves
  * the sent text byte-identical.
  */
-export const PROMPT_VERSION_EXTRACT = "extract_v1";
+/* ── v2: topic and subtopic ────────────────────────────────────────────────
+ * The shape of an extraction changed — every activity now carries a subtopic
+ * quoted from the text and a topic inferred from it — and the grouping changed
+ * with it, from grouping by activity to grouping by topic.
+ *
+ * Bumping these invalidates every stored insight, which is the point. The
+ * version is inside the context hash, so a cached answer in the old shape is
+ * not "stale data" to be detected later; it simply stops matching and the next
+ * viewer gets one in the new shape. */
+export const PROMPT_VERSION_EXTRACT = "extract_v2";
 export const PROMPT_VERSION_DAY = "day_v1";
-export const PROMPT_VERSION_WEEK = "week_v1";
-export const PROMPT_VERSION_MONTH = "month_v1";
+export const PROMPT_VERSION_WEEK = "week_v2";
+export const PROMPT_VERSION_MONTH = "month_v2";
 
 export type ScopeType = "DAY" | "WEEK" | "MONTH";
 

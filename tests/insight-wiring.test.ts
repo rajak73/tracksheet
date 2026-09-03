@@ -104,7 +104,16 @@ describe("1 & 2. the day path", () => {
       call: p.call,
     });
     expect(served.status).toBe("READY");
-    expect(served.points).toEqual([{ label: "checked quiz papers", sessions: 25, minutes: 45 }]);
+    expect(served.points).toEqual([
+      {
+        label: "checked quiz papers",
+        subtopic: null,
+        topic: null,
+        sessions_unit: null,
+        sessions: 25,
+        minutes: 45,
+      },
+    ]);
     expect(served.unallocated_minutes).toBe(DAY_MINUTES - 45);
     expect(served.cached).toBe(false);
     expect(p.extractCalls()).toBe(1);

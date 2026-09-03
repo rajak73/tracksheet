@@ -26,15 +26,74 @@ import { apiGet } from "@/app/_lib/api";
 import { formatMinutes } from "@/app/_lib/format";
 import { enqueueInsightFetch } from "@/app/_lib/insight-queue";
 
-export type DayPoint = { label: string; sessions: number | null; minutes: number | null };
+export type DayPoint = {
+  label: string;
+  /** The text's own noun for the count. Null renders the number alone. */
+  sessions_unit?: string | null;
+  /** Quoted from the text. Kept at day level, where the detail is the point. */
+  subtopic: string | null;
+  /** Inferred. Null when the activity names no subject matter. */
+  topic: string | null;
+  sessions: number | null;
+  minutes: number | null;
+};
+
+export type SubtopicRollup = {
+  name: string;
+  sessions: number | null;
+  sessions_unit?: string | null;
+  item_count: number;
+};
 
 export type GroupRollup = {
   name: string;
   item_count: number;
   sessions: number | null;
+  sessions_unit?: string | null;
   minutes: number | null;
   day_count: number;
+  subtopics?: SubtopicRollup[];
+  entries?: string[];
 };
+
+/**
+ * A count with the text's own noun: `2 classes`, `3 students`, or a bare `25`.
+ *
+ * The noun is quoted, never chosen: "3" beside "mentored final year students"
+ * is not the same fact as "3 students", and picking a word for it would be
+ * writing something the instructor did not.
+ */
+function Count({ n, unit }: { n: number | null; unit?: string | null }) {
+  if (n === null) return null;
+  const word = unit?.trim();
+  return <span className="mr-2">{word ? `${n} ${word}` : n}</span>;
+}
+
+/**
+ * Two identical activities are one point with a count of two.
+ *
+ * Done here rather than by the model, because the count comes from the activity
+ * REPEATING and a model reporting `2` for a text that says `1, 1` would have
+ * that 2 nulled by digit provenance — correctly, since the text never states
+ * it. Counting occurrences is arithmetic, and arithmetic is code's job.
+ */
+function collapse(points: DayPoint[]): Array<DayPoint & { occurrences: number }> {
+  const out: Array<DayPoint & { occurrences: number }> = [];
+  for (const p of points) {
+    const same = out.find(
+      (o) => o.label === p.label && o.topic === p.topic && o.subtopic === p.subtopic,
+    );
+    if (!same) {
+      out.push({ ...p, occurrences: 1 });
+      continue;
+    }
+    same.occurrences += 1;
+    // Stated counts add; a repeat with nothing stated is counted by occurrence.
+    if (p.sessions !== null) same.sessions = (same.sessions ?? 0) + p.sessions;
+    if (p.minutes !== null) same.minutes = (same.minutes ?? 0) + p.minutes;
+  }
+  return out;
+}
 
 export type DayInsightState =
   | { state: "READY"; summary: string; generatedAt: string }
@@ -44,6 +103,9 @@ export type DayInsightState =
 export type ServedDay = {
   points: DayPoint[];
   unallocated_minutes: number;
+  /** The day's recorded total, so the Total line can show it when no activity
+   *  stated a duration — which is the common case on clock-range days. */
+  total_minutes?: number;
   raw_text: string | null;
   generated_at: string | null;
   status: "READY" | "PENDING" | "FAILED" | "EMPTY";
@@ -168,19 +230,69 @@ export function DayInsightCell({
     }
 
     if (d.status === "READY") {
+      /* Grouped by topic, in first-seen order, with the untopiced ones after.
+         An activity naming no subject matter — "Doubt clearing session",
+         "Corrected" — is shown as itself. Forcing a topic onto it to avoid the
+         cell echoing the Deliverable column would be worse than the echo: the
+         echo is at least honest about having nothing to add. */
+      const points = collapse(d.points);
+
+      /* A heading earns its place only when two or more activities share the
+         topic. One activity under a heading is a heading for one item, so it
+         renders inline as `DSA — binary search` instead. */
+      const counts = new Map<string, number>();
+      for (const p of points) if (p.topic) counts.set(p.topic, (counts.get(p.topic) ?? 0) + 1);
+      const headed = [...counts].filter(([, n]) => n >= 2).map(([t]) => t);
+
+      const shown = (p: DayPoint & { occurrences: number }) =>
+        p.sessions !== null ? p.sessions : p.occurrences > 1 ? p.occurrences : null;
+
+      const row = (
+        text: string,
+        p: DayPoint & { occurrences: number },
+        key: string,
+        withDuration = true,
+      ) => (
+        <li key={key} className="flex items-baseline justify-between gap-2 text-sm">
+          <span className="text-content">{text}</span>
+          <span className="tabular shrink-0 text-xs text-muted">
+            <Count n={shown(p)} unit={p.sessions_unit} />
+            {withDuration ? formatMinutes(p.minutes) : null}
+          </span>
+        </li>
+      );
+
+      const dayTotal = d.points.some((p) => p.minutes !== null)
+        ? d.points.reduce((n, p) => n + (p.minutes ?? 0), 0)
+        : (d.total_minutes ?? null);
+
       return (
-        <div className="min-w-[13rem] max-w-[22rem]">
+        <div className="min-w-[13rem] max-w-[22rem] space-y-2">
+          {headed.map((topic) => (
+            <div key={topic}>
+              <div className="text-sm text-content">{topic}</div>
+              {/* Under a heading the subtopic alone is the line — repeating the
+                  topic on every row underneath says it three times. */}
+              <ul className="space-y-1 pl-3">
+                {points
+                  .filter((p) => p.topic === topic)
+                  .map((p, i) => row(p.subtopic ?? p.label, p, `${topic}-${i}`))}
+              </ul>
+            </div>
+          ))}
           <ul className="space-y-1">
-            {d.points.map((p, i) => (
-              <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="text-content">{p.label}</span>
-                <span className="tabular shrink-0 text-xs text-muted">
-                  {p.sessions !== null ? <span className="mr-2">&times;{p.sessions}</span> : null}
-                  {formatMinutes(p.minutes)}
-                </span>
-              </li>
-            ))}
+            {points
+              .filter((p) => !p.topic || !headed.includes(p.topic))
+              .map((p, i) =>
+                row(p.topic ? `${p.topic} — ${p.subtopic ?? p.label}` : p.label, p, `flat-${i}`),
+              )}
           </ul>
+          {/* Always, on its own line. The one figure a reader checks against the
+              Working Hours column beside it. */}
+          <div className="tabular flex items-baseline justify-between border-t border-line-subtle pt-1 text-xs text-muted">
+            <span>Total</span>
+            <span>{formatMinutes(dayTotal)}</span>
+          </div>
           {/* No badge, no colour, no retry when the numbers are simply absent.
               A legacy day whose counts sat in a separate box has nothing anybody
               can attribute and nothing anybody can retry — the dashes above are
@@ -202,14 +314,45 @@ export function DayInsightCell({
     const unallocated = loaded.data.insight?.unallocated_minutes ?? 0;
     return (
       <div className="min-w-[13rem] max-w-[24rem]">
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {groups.map((g) => (
-            <li key={g.name} className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="text-content">{g.name}</span>
-              <span className="tabular shrink-0 text-xs text-muted">
-                {g.sessions !== null ? <span className="mr-2">&times;{g.sessions}</span> : null}
-                {formatMinutes(g.minutes)}
-              </span>
+            <li key={g.name}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-content">{g.name}</span>
+                <span className="tabular shrink-0 text-xs text-muted">
+                  <Count n={g.sessions} unit={g.sessions_unit} />
+                  {formatMinutes(g.minutes)}
+                  <span className="ml-2">
+                    {g.day_count} {g.day_count === 1 ? "day" : "days"}
+                  </span>
+                </span>
+              </div>
+              {/* What the topic covered. Sessions only — a duration is stated per
+                  activity, and repeating it here would print the same minutes
+                  twice and invite somebody to add the second set. */}
+              {g.subtopics?.length ? (
+                <ul className="pl-3">
+                  {g.subtopics.map((sub) => (
+                    <li key={sub.name} className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="text-muted">{sub.name}</span>
+                      <span className="tabular shrink-0 text-subtle">
+                        <Count n={sub.sessions} unit={sub.sessions_unit} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {/* `Other` says what it holds. "Two entries" tells a reader
+                  nothing; a named topic is already described by its subtopics. */}
+              {g.entries?.length ? (
+                <ul className="pl-3">
+                  {g.entries.map((e, i) => (
+                    <li key={i} className="text-xs text-subtle">
+                      · {e}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
         </ul>

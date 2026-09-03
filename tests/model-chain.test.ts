@@ -113,8 +113,8 @@ describe("7. the health check fails a build on a retired model", () => {
 
 describe("8 & 9. how many times each stage tries", () => {
   const MEMBERS: GroupMember[] = [
-    { label: "Live class on binary tree", date: "2026-09-01" },
-    { label: "Live class on hashing", date: "2026-09-02" },
+    { label: "Live class on binary tree", date: "2026-09-01", subtopic: null, topic: null },
+    { label: "Live class on hashing", date: "2026-09-02", subtopic: null, topic: null },
   ];
   const good = JSON.stringify({ groups: [{ name: "Live class", members: [0, 1] }] });
 

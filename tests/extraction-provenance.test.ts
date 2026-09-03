@@ -38,7 +38,14 @@ const act = (
   sessions: number | null = null,
   duration: number | null = null,
   unit: "hours" | "minutes" | null = duration === null ? null : "hours",
-): ExtractedActivity => ({ label, sessions, duration_value: duration, duration_unit: unit });
+): ExtractedActivity => ({
+  label,
+  subtopic: null,
+  topic: null,
+  sessions,
+  duration_value: duration,
+  duration_unit: unit,
+});
 
 /**
  * True when a number did not survive attribution.

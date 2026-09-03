@@ -83,7 +83,15 @@ describe("the prompt asks for what the text states", () => {
 describe("a reply is parsed strictly or not at all", () => {
   test("a well-formed reply parses", () => {
     expect(parseExtraction(GOOD)).toEqual([
-      { label: "checked quiz papers", sessions: 25, duration_value: 45, duration_unit: "minutes" },
+      {
+        label: "checked quiz papers",
+        subtopic: null,
+        topic: null,
+        sessions_unit: null,
+        sessions: 25,
+        duration_value: 45,
+        duration_unit: "minutes",
+      },
     ]);
   });
 
@@ -120,7 +128,16 @@ describe("running an extraction", () => {
     const result = await runExtraction(dayText(), p.call);
     expect(result.status).toBe("READY");
     if (result.status !== "READY") return;
-    expect(result.items).toEqual([{ label: "checked quiz papers", sessions: 25, minutes: 45 }]);
+    expect(result.items).toEqual([
+      {
+        label: "checked quiz papers",
+        subtopic: null,
+        topic: null,
+        sessions_unit: null,
+        sessions: 25,
+        minutes: 45,
+      },
+    ]);
     expect(result.unallocatedMinutes).toBe(315);
     expect(p.calls()).toBe(1);
   });

@@ -29,7 +29,14 @@ const act = (
   sessions: number | null = null,
   value: number | null = null,
   unit: "hours" | "minutes" | null = value === null ? null : "hours",
-): ExtractedActivity => ({ label, sessions, duration_value: value, duration_unit: unit });
+): ExtractedActivity => ({
+  label,
+  subtopic: null,
+  topic: null,
+  sessions,
+  duration_value: value,
+  duration_unit: unit,
+});
 
 /** The legacy two-box shape, which is most of the older real data. */
 const TWO_BOX = day(

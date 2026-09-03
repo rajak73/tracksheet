@@ -20,6 +20,47 @@ export type DurationUnit = "hours" | "minutes";
 /** One activity as the model returned it. */
 export type ExtractedActivity = {
   label: string;
+  /**
+   * The specific thing this activity was about, TAKEN FROM THE TEXT.
+   *
+   * "Live class on binary search" has subtopic "binary search". Null when the
+   * text names nothing specific. Never inferred: check 5 refuses a subtopic
+   * whose words are not in the day's own writing, because a subtopic is a
+   * quotation and an invented one is an invented fact.
+   */
+  subtopic: string | null;
+  /**
+   * The broader area the subtopic belongs to. "binary search" is "DSA".
+   *
+   * ── The one inference this system allows, and its bound ─────────────────
+   * Every other rule here says use only what is written, and deriving "DSA"
+   * from "binary search" is knowledge the text does not contain. It is allowed
+   * because TOPIC NEVER TOUCHES A NUMBER: sessions and durations are summed in
+   * code from members, so a topic assigned oddly groups things oddly and cannot
+   * make a count wrong.
+   *
+   * The bound is exact: a subtopic must be in the text, a topic may be inferred
+   * from it, and nothing else may be inferred at all.
+   *
+   * Null when the activity names no subject matter — "Doubt clearing session",
+   * "Office meeting", "Corrected". Null is a correct outcome, not a gap: such
+   * an activity is displayed on its own.
+   *
+   * This is not the taxonomy returning. There is no list of topics anywhere —
+   * no table, no enum, no seed, no constant, no prompt vocabulary — the model
+   * names it from the instructor's own words each time, it is never stored on
+   * `WorklogEntry` or hashed into the context, and it is never a filter.
+   */
+  topic: string | null;
+  /**
+   * The noun the text uses for `sessions` — "classes", "students", "papers".
+   *
+   * A count without its noun reads as a bare number, and "3" beside "mentored
+   * final year students" is not the same fact as "3 students". Quoted like a
+   * subtopic rather than chosen from a list, and null when the text supplies no
+   * noun, in which case the number renders alone.
+   */
+  sessions_unit?: string | null;
   /** How many of the thing. Null when the text does not say. */
   sessions: number | null;
   /**
@@ -261,6 +302,9 @@ function attribute(activities: ExtractedActivity[], day: DayText): Attribution {
 
     out.push({
       label: activity.label,
+      subtopic: activity.subtopic,
+      topic: activity.topic,
+      sessions_unit: activity.sessions_unit,
       sessions: kept.sessions,
       duration_value: kept.value,
       duration_unit: kept.unit,
@@ -324,7 +368,7 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
     }
   }
 
-  // ── 5. No fabricated activities ──────────────────────────────────────────
+  // ── 5. No fabricated activities, and no fabricated subtopics ─────────────
   /* Still fatal, and deliberately so. A number nobody wrote can be dropped
      because `null` is a truthful thing to store in its place. There is no
      truthful thing to store in place of an activity that never happened. */
@@ -336,6 +380,27 @@ export function checkExtraction(activities: ExtractedActivity[], day: DayText): 
         check: 5,
         reason: `"${activity.label}" shares no meaningful word with the day's text`,
       });
+    }
+
+    /* A subtopic is a QUOTATION, so every word of it must be in the text — not
+       merely one of them, which is the weaker test the label gets. The label
+       may legitimately be tidied ("Live Class on binary search" → "Live class");
+       the subtopic is the specific thing the instructor named, and if it is not
+       there it was invented.
+       
+       The topic above it is deliberately unchecked. That is the whole bargain:
+       inference is permitted one level up, where it cannot reach a number. */
+    if (activity.subtopic !== null) {
+      const sub = meaningfulWords(activity.subtopic);
+      const missing = [...sub].filter((w) => !dayWords.has(w));
+      if (sub.size === 0 || missing.length > 0) {
+        failures.push({
+          check: 5,
+          reason:
+            `subtopic "${activity.subtopic}" is not in the day's text` +
+            (missing.length ? ` (${missing.join(", ")} appear nowhere)` : ""),
+        });
+      }
     }
   }
 

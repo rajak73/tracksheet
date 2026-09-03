@@ -31,7 +31,14 @@ const act = (
   sessions: number | null,
   value: number | null,
   unit: "hours" | "minutes" | null,
-): ExtractedActivity => ({ label, sessions, duration_value: value, duration_unit: unit });
+): ExtractedActivity => ({
+  label,
+  subtopic: null,
+  topic: null,
+  sessions,
+  duration_value: value,
+  duration_unit: unit,
+});
 
 /** Arun Verma's day, which is what broke the original prompt. */
 const REAL_DAY = [

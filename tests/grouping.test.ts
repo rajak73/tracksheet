@@ -16,14 +16,16 @@ import {
  */
 
 const MEMBERS: GroupMember[] = [
-  { label: "Live class on binary tree", date: "2026-09-01" },
-  { label: "Live class on hashing", date: "2026-09-02" },
-  { label: "Doubt clearing session", date: "2026-09-02" },
+  { label: "Live class on binary tree", date: "2026-09-01", subtopic: "binary tree", topic: "DSA" },
+  { label: "Live class on hashing", date: "2026-09-02", subtopic: "hashing", topic: "Data Structures" },
+  { label: "Doubt clearing session", date: "2026-09-02", subtopic: null, topic: null },
 ];
 
+/* One topic under two names on two days, resolved to one; and an activity with
+   no topic that recurs, so it earns a group rather than falling to Other. */
 const ok = JSON.stringify({
   groups: [
-    { name: "Live class", members: [0, 1] },
+    { name: "DSA", members: [0, 1] },
     { name: "Doubt clearing session", members: [2] },
   ],
 });
@@ -41,32 +43,44 @@ function provider(replies: string[]) {
 }
 
 describe("the grouping prompt", () => {
-  test("sends labels and dates, and no figures at all", () => {
+  test("sends labels, dates and topics, and no figures at all", () => {
     const text = groupingInstruction(MEMBERS);
     expect(text).toContain("Live class on binary tree");
     expect(text).toContain("2026-09-01");
+    // What each DAY called it, so the period can settle on one name.
+    expect(text).toContain("DSA");
+    expect(text).toContain("binary tree");
     // The things a week view knows and the model must not be told.
     expect(text).not.toContain("minutes");
     expect(text).not.toContain("sessions");
     expect(text).not.toContain("working");
-    expect(text).toContain("must NOT contain any digit");
-    expect(text).toContain("must NOT contain the topic");
+    expect(text).toContain("Output no numbers of any kind");
+  });
+
+  test("9. it names no topics of its own", () => {
+    /* The standing guard against the taxonomy walking back in through a prompt.
+       The instruction may say what a topic IS; it must never list which topics
+       exist, because a list in a prompt is a list. The examples of naming are
+       the model's own reasoning material, not a vocabulary to choose from. */
+    const text = groupingInstruction(MEMBERS);
+    const vocabulary = ["Teaching", "Meetings", "Administrative", "Lesson Prep", "Evaluation"];
+    for (const word of vocabulary) expect(text).not.toContain(word);
   });
 });
 
-describe("12. a week collapses the topic", () => {
-  test("two live classes on different topics become one group named for the activity", async () => {
+describe("6. a week settles on one name for one topic", () => {
+  test("Monday's DSA and Wednesday's Data Structures become one group", async () => {
+    /* The grouping is the only step that sees every day at once, so resolving
+       two names for one thing is its job and not the day extraction's. */
     const p = provider([ok]);
     const result = await runGrouping(MEMBERS, p.call);
     expect(result.ok, JSON.stringify(result)).toBe(true);
     if (!result.ok) return;
 
-    const live = result.groups.find((g) => g.members.includes(0))!;
-    expect(live.name).toBe("Live class");
-    expect(live.members).toEqual([0, 1]);
-    // The topic is what the day view keeps and the week view drops.
-    expect(live.name).not.toContain("binary");
-    expect(live.name).not.toContain("hashing");
+    const topic = result.groups.find((g) => g.members.includes(0))!;
+    expect(topic.name).toBe("DSA");
+    expect(topic.members, "both days land under the one name").toEqual([0, 1]);
+    expect(result.groups).toHaveLength(2);
   });
 });
 

@@ -20,6 +20,15 @@ import { runGrouping, type GroupMember } from "./group";
 import type { DayText } from "./extraction-checks";
 import { toDateOnly } from "@/server/time/workday";
 
+/** One subtopic inside a topic. Sessions only — see the note on `GroupRollup`. */
+export type SubtopicRollup = {
+  name: string;
+  sessions: number | null;
+  /** The text's own noun, taken from the first member that supplied one. */
+  sessions_unit: string | null;
+  item_count: number;
+};
+
 export type GroupRollup = {
   name: string;
   /** How many extracted items fell into this group. */
@@ -28,8 +37,25 @@ export type GroupRollup = {
   sessions: number | null;
   /** Null when no member stated a duration. Never zero-for-unknown. */
   minutes: number | null;
+  sessions_unit: string | null;
   /** Distinct dates the members came from. */
   day_count: number;
+  /**
+   * What this topic covered, ordered by sessions descending.
+   *
+   * Sessions but NO duration, deliberately. A duration is stated per activity,
+   * and rolling it to subtopic level would print the same minutes twice — once
+   * on the topic line and again spread beneath it — inviting a reader to add
+   * the second set and find they do not match the first.
+   */
+  subtopics: SubtopicRollup[];
+  /**
+   * The members themselves, for a group that has no topic to summarise.
+   *
+   * `Other` lists what it holds because "two entries" tells a reader nothing;
+   * a named topic does not, because its subtopics already say what it covered.
+   */
+  entries: string[];
 };
 
 export type PeriodRollup = {
@@ -99,7 +125,17 @@ export async function ensureDayExtractions(input: {
   return out;
 }
 
-type Item = { label: string; sessions: number | null; minutes: number | null };
+type Item = {
+  label: string;
+  subtopic: string | null;
+  topic: string | null;
+  sessions: number | null;
+  sessions_unit?: string | null;
+  minutes: number | null;
+};
+
+/** The text's own noun, from whichever member stated one. Never chosen here. */
+const unitOf = (ms: Item[]) => ms.find((m) => m.sessions_unit)?.sessions_unit ?? null;
 
 /**
  * Group the period's items and sum each group in code.
@@ -130,7 +166,15 @@ export async function buildPeriodRollup(input: {
   for (const day of days) {
     for (const raw of (day.items as Item[] | null) ?? []) {
       items.push({ ...raw, date: day.date });
-      members.push({ label: raw.label, date: day.date });
+      /* Labels, dates, and the topic each DAY named — no durations, no counts.
+         The period's one name for a topic is the grouping's decision, because
+         only it sees every day at once. */
+      members.push({
+        label: raw.label,
+        date: day.date,
+        subtopic: raw.subtopic ?? null,
+        topic: raw.topic ?? null,
+      });
     }
   }
 
@@ -141,13 +185,39 @@ export async function buildPeriodRollup(input: {
     const mine = g.members.map((i) => items[i]!);
     const sessions = mine.filter((m) => m.sessions !== null);
     const minutes = mine.filter((m) => m.minutes !== null);
+
+    /* Subtopics summed here, in code, from the members — like every other
+       figure on this screen. The model named them; it counted nothing. */
+    const bySubtopic = new Map<string, Item[]>();
+    for (const m of mine) {
+      if (!m.subtopic) continue;
+      bySubtopic.set(m.subtopic, [...(bySubtopic.get(m.subtopic) ?? []), m]);
+    }
+    const subtopics: SubtopicRollup[] = [...bySubtopic]
+      .map(([name, ms]) => {
+        const stated = ms.filter((m) => m.sessions !== null);
+        return {
+          name,
+          item_count: ms.length,
+          sessions: stated.length ? stated.reduce((n, m) => n + (m.sessions ?? 0), 0) : null,
+          sessions_unit: unitOf(ms),
+        };
+      })
+      .sort((a, b) => (b.sessions ?? 0) - (a.sessions ?? 0) || b.item_count - a.item_count);
+
     return {
       name: g.name,
+      subtopics,
+      /* Only `Other` lists its members: a named topic is described by its
+         subtopics, and repeating the labels underneath would be the day view
+         again. */
+      entries: g.name === OTHER ? mine.map((m) => m.label) : [],
       item_count: mine.length,
       /* Null rather than zero when nobody stated one. Zero is a count somebody
          made; null is a count nobody made, and a screen that shows 0 for the
          second is asserting something the record does not say. */
       sessions: sessions.length ? sessions.reduce((n, m) => n + (m.sessions ?? 0), 0) : null,
+      sessions_unit: unitOf(mine),
       minutes: minutes.length ? minutes.reduce((n, m) => n + (m.minutes ?? 0), 0) : null,
       day_count: new Set(mine.map((m) => m.date)).size,
     };

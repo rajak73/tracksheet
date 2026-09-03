@@ -30,6 +30,12 @@ import { PROMPT_VERSION_EXTRACT, modelId, stableStringify } from "./context";
 /** One point as it is stored and rendered. */
 export type ExtractedItem = {
   label: string;
+  /** Quoted from the text. Null when nothing specific was named. */
+  subtopic: string | null;
+  /** Inferred from the subtopic. Null when the activity names no subject. */
+  topic: string | null;
+  /** The text's own noun for the count — "classes", "students". */
+  sessions_unit?: string | null;
   sessions: number | null;
   /** Whole minutes, converted here from what the model reported. */
   minutes: number | null;
@@ -77,15 +83,33 @@ export function extractionInstruction(day: DayText): string {
     "SAYS. Do not interpret, summarise, judge, or calculate.",
     "",
     "For each activity the text names, report:",
-    "- label: what the activity was, in the writer's own words, without the",
-    "  numbers. Do not invent a category or rename the work.",
+    "- label: the activity shortened to its essential phrase, in the writer's",
+    "  own words and without the numbers. \"Investigate intermittent OAuth token",
+    '  expiration errors for enterprise users and admin" becomes "OAuth token',
+    '  expiration debugging". Do not add words that change what it says, and do',
+    '  not expand something that is already short: "Corrected" stays "Corrected".',
+    "- subtopic: the specific thing this activity was about, taken from the",
+    '  text. "Live class on binary search" has subtopic "binary search". If the',
+    "  text names nothing specific, subtopic is null.",
+    "- topic: the broader area the subtopic belongs to. \"binary search\" and",
+    '  "binary trees" belong to "DSA". "list comprehension" belongs to "Python".',
+    "  Name it in the shortest form that a reader would recognise.",
     "- sessions: how many of the thing the text says. Null if it does not say.",
+    "- sessions_unit: the noun the text uses for that count — \"classes\",",
+    '  "students", "papers". Null if the text gives no noun. Never invent one.',
     "- duration_value and duration_unit: how long the text says this activity",
     '  took, in the unit the text uses. "45 minutes" is 45 and "minutes".',
     '  "2 hours" is 2 and "hours". "1.5 hours" is 1.5 and "hours". If the text',
     "  states no duration, both are null.",
     "",
     "Rules:",
+    "- Only name a topic you are confident about from the subtopic itself. If",
+    '  the activity names no subject matter — "Doubt clearing session", "Office',
+    '  meeting", "Corrected" — topic is null.',
+    "- Never invent a subtopic that is not in the text. topic may be inferred;",
+    "  subtopic may not.",
+    "- Prefer null over a guess. An activity with no topic is displayed on its",
+    "  own and that is a correct outcome, not a gap.",
     "- Never convert between units. Never add durations together. Report what is",
     "  written.",
     "- A clock time or a time range states WHEN something happened, not how long",
@@ -99,7 +123,9 @@ export function extractionInstruction(day: DayText): string {
     "  given for context, and it is never an activity's duration.",
     "",
     'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
-    '"<text>", "sessions": <number|null>, "duration_value": <number|null>,',
+    '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null,',
+    '"sessions": <number|null>, "sessions_unit": "<text>"|null,',
+    '"duration_value": <number|null>,',
     '"duration_unit": "hours"|"minutes"|null}]}',
     "",
     canonicalDay(day),
@@ -130,6 +156,14 @@ export function parseExtraction(text: string): ExtractedActivity[] | null {
     const a = raw as Record<string, unknown>;
     if (typeof a.label !== "string") return null;
 
+    const subtopic = a.subtopic ?? null;
+    if (subtopic !== null && typeof subtopic !== "string") return null;
+    const topic = a.topic ?? null;
+    if (topic !== null && typeof topic !== "string") return null;
+
+    const sessionsUnit = a.sessions_unit ?? null;
+    if (sessionsUnit !== null && typeof sessionsUnit !== "string") return null;
+
     const sessions = a.sessions ?? null;
     if (sessions !== null && typeof sessions !== "number") return null;
 
@@ -145,6 +179,13 @@ export function parseExtraction(text: string): ExtractedActivity[] | null {
 
     out.push({
       label: a.label,
+      /* Blank is null. A model asked for "the specific thing" and given nothing
+         to point at will sometimes answer with an empty string, and an empty
+         string is a value where null is the fact. */
+      subtopic: typeof subtopic === "string" && subtopic.trim() !== "" ? subtopic.trim() : null,
+      topic: typeof topic === "string" && topic.trim() !== "" ? topic.trim() : null,
+      sessions_unit:
+        typeof sessionsUnit === "string" && sessionsUnit.trim() !== "" ? sessionsUnit.trim() : null,
       sessions: sessions as number | null,
       duration_value: value as number | null,
       duration_unit: unit as "hours" | "minutes" | null,
@@ -211,6 +252,9 @@ export async function runExtraction(
          answer with the unsupported numbers removed. */
       items: checked.activities.map((a) => ({
         label: a.label.trim(),
+        subtopic: a.subtopic,
+        topic: a.topic,
+        sessions_unit: a.sessions_unit,
         sessions: a.sessions,
         // The one conversion, in code, after the stated number has been checked.
         minutes: durationMinutes(a),

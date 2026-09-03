@@ -138,10 +138,10 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
   test("3. each line's own numbers pass against its own activity", () => {
     const result = checkExtraction(
       [
-        { label: "Java class inheritance", sessions: 2, duration_value: 4, duration_unit: "hours" },
-        { label: "Doubt solving session", sessions: null, duration_value: 1, duration_unit: "hours" },
-        { label: "Department meeting", sessions: null, duration_value: null, duration_unit: null },
-        { label: "Checked DSA assignments", sessions: null, duration_value: null, duration_unit: null },
+        { label: "Java class inheritance", subtopic: null, topic: null, sessions: 2, duration_value: 4, duration_unit: "hours" },
+        { label: "Doubt solving session", subtopic: null, topic: null, sessions: null, duration_value: 1, duration_unit: "hours" },
+        { label: "Department meeting", subtopic: null, topic: null, sessions: null, duration_value: null, duration_unit: null },
+        { label: "Checked DSA assignments", subtopic: null, topic: null, sessions: null, duration_value: null, duration_unit: null },
       ],
       day,
     );
@@ -155,7 +155,7 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
        text, so presence passed it to whichever activity asked — which is how
        "40" attached itself to the wrong thing. */
     const wrong = checkExtraction(
-      [{ label: "Department meeting", sessions: 2, duration_value: null, duration_unit: null }],
+      [{ label: "Department meeting", subtopic: null, topic: null, sessions: 2, duration_value: null, duration_unit: null }],
       day,
     );
     /* The number is dropped rather than the day refused — the activity is real
@@ -166,7 +166,7 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
     expect(wrong.ok && wrong.nulled.map((n) => n.value)).toContain(2);
 
     const alsoWrong = checkExtraction(
-      [{ label: "Doubt solving session", sessions: null, duration_value: 4, duration_unit: "hours" }],
+      [{ label: "Doubt solving session", subtopic: null, topic: null, sessions: null, duration_value: 4, duration_unit: "hours" }],
       day,
     );
     expect(alsoWrong.ok, JSON.stringify(alsoWrong)).toBe(true);
@@ -184,7 +184,7 @@ describe("3 & 4. a number on a line vouches for that line, and no other", () => 
       workingMinutes: 360,
     };
     const result = checkExtraction(
-      [{ label: "OOPs lecture", sessions: null, duration_value: null, duration_unit: null }],
+      [{ label: "OOPs lecture", subtopic: null, topic: null, sessions: null, duration_value: null, duration_unit: null }],
       paragraph,
     );
     expect(result.ok, JSON.stringify(result)).toBe(true);

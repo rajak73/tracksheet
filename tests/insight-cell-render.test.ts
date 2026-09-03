@@ -48,9 +48,9 @@ const providerFailed: ServedDay = {
 /** Extracted cleanly. The numbers were in a box nobody can attach to a label. */
 const numbersNull: ServedDay = {
   points: [
-    { label: "live class on binary tree", sessions: null, minutes: null },
-    { label: "doubt class", sessions: null, minutes: null },
-    { label: "office meeting", sessions: null, minutes: null },
+    { label: "live class on binary tree", subtopic: null, topic: null, sessions: null, minutes: null },
+    { label: "doubt class", subtopic: null, topic: null, sessions: null, minutes: null },
+    { label: "office meeting", subtopic: null, topic: null, sessions: null, minutes: null },
   ],
   unallocated_minutes: 375,
   raw_text: "live class on binary tree, doubt class, office meeting",
@@ -62,8 +62,8 @@ const numbersNull: ServedDay = {
 
 const ready: ServedDay = {
   points: [
-    { label: "checked 25 quiz papers", sessions: 25, minutes: 45 },
-    { label: "department meeting", sessions: null, minutes: null },
+    { label: "checked 25 quiz papers", subtopic: null, topic: null, sessions: 25, minutes: 45 },
+    { label: "department meeting", subtopic: null, topic: null, sessions: null, minutes: null },
   ],
   unallocated_minutes: 315,
   raw_text: "checked 25 quiz papers — 45 minutes; department meeting",
@@ -145,8 +145,8 @@ describe("a READY day renders the points", () => {
     const withZero: ServedDay = {
       ...ready,
       points: [
-        { label: "office day", sessions: null, minutes: 0 },
-        { label: "reading", sessions: null, minutes: null },
+        { label: "office day", subtopic: null, topic: null, sessions: null, minutes: 0 },
+        { label: "reading", subtopic: null, topic: null, sessions: null, minutes: null },
       ],
       unallocated_minutes: 0,
     };
