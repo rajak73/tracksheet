@@ -31,8 +31,15 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { useQueryState } from "@/app/_lib/query-state";
 import { apiGet, apiSend, useLoad } from "@/app/_lib/api";
-import { parseWorkingMinutes } from "@/domain/worklog-hours";
-import { dateIn, formatDayAs, formatHours, todayISO, todayIn } from "@/app/_lib/format";
+import { parseActivities } from "@/domain/worklog-activities";
+import {
+  DeliverableFields,
+  emptyNumbers,
+  lineIndexes,
+  parseLines,
+  type LineNumbers,
+} from "@/app/_components/DeliverableFields";
+import { dateIn, formatDayAs, todayISO, todayIn } from "@/app/_lib/format";
 /* Only the duration formatter. `deliverableLines` and `quantityLines` printed
    the taxonomy's reading of a day — merged names and summed counts — and there
    is no reading on this screen any more; the three text columns print what is
@@ -77,6 +84,14 @@ type Row = {
   logDate: string;
   deliverable: string;
   deliverableQuantity: string | null;
+  /**
+   * The rows as authored, when the day has them. Null on a legacy day.
+   *
+   * Without this the edit dialog has nothing to reopen from and falls back to
+   * the newline-joined text derived from the rows — which is how a day written
+   * as three activities came back as one box.
+   */
+  activities?: unknown;
   workingMinutes: number;
   remarks: string | null;
   status?: string;
@@ -92,30 +107,74 @@ type DayInsight =
 
 type Draft = {
   date: string;
-  /** The day's work, one activity per line. */
+  /** The day's work, one activity per bullet. */
   deliverable: string;
   /**
-   * The Quantity box, as the client's sheet asks for it.
+   * Quantity, Hr and Min for each bullet, keyed by LINE index.
    *
-   * Collected and stored verbatim, never parsed for display. Extraction is
-   * where it is treated carefully rather than here: on a one-activity day its
-   * number may fill that activity's count, and on a day with several it is
-   * ignored entirely — see `provenanceSource`. Ignored for attribution is not
-   * the same as hidden, and it is printed in full on every screen either way.
+   * By line rather than by position in the filtered list, so a blank line in the
+   * middle cannot shift every number below it onto the wrong activity — which is
+   * the failure this form exists to prevent, arriving through the back door.
    */
-  quantity: string;
-  workingHours: string;
+  numbers: Record<number, LineNumbers>;
   remarks: string;
 };
 
 /* The date defaults to the UNIVERSITY's today — the only day the server will
  * accept a worklog for. Passed in rather than read here, because a module-level
  * helper cannot know whose university it is. */
+/** A day's text as bullets. Only the marker is added; no word is changed. */
+function bulleted(text: string): string {
+  if (text.trim() === "") return "";
+  return text
+    .split("\n")
+    .map((l) => (l.trim() === "" ? l : /^\s*[•\-*]\s/.test(l) ? l : `• ${l.trim()}`))
+    .join("\n");
+}
+
+/**
+ * The numbers an edit reopens with.
+ *
+ * An authored day returns exactly what was typed against each bullet. A legacy
+ * day has no per-activity numbers to return — its quantity box was one string
+ * for the whole day and its total was typed independently — so the fields open
+ * blank rather than being filled with a split nobody stated. That is the same
+ * refusal to guess that the form itself is for.
+ */
+function numbersFromDay(day?: Row | null): Record<number, LineNumbers> {
+  const rows = parseActivities(day?.activities);
+  if (!rows) return {};
+  const out: Record<number, LineNumbers> = {};
+  rows.forEach((r, i) => {
+    out[i] = {
+      quantity: r.quantity === null ? "" : String(r.quantity),
+      hr: String(Math.floor(r.minutes / 60)),
+      min: String(r.minutes % 60),
+    };
+  });
+  return out;
+}
+
+/** The rows on the wire: each bullet with the numbers written beside it. */
+function toActivities(draft: Draft) {
+  const indexes = lineIndexes(draft.deliverable);
+  return parseLines(draft.deliverable).map((description, position) => {
+    const n = draft.numbers[indexes[position]!] ?? emptyNumbers();
+    return {
+      description,
+      /* Blank stays blank. A meeting has no count, and 0 would claim zero of
+         something happened. */
+      quantity: n.quantity.trim() === "" ? null : Number(n.quantity),
+      hr: n.hr.trim() === "" ? 0 : Number(n.hr),
+      min: n.min.trim() === "" ? 0 : Number(n.min),
+    };
+  });
+}
+
 const emptyDraft = (today?: string): Draft => ({
   date: today ?? todayISO(),
   deliverable: "",
-  quantity: "",
-  workingHours: "",
+  numbers: {},
   remarks: "",
 });
 
@@ -581,14 +640,12 @@ export default function WorkLogHistoryPage() {
     const day = rows.find((r) => r.logDate === date);
     setDraft({
       date,
-      deliverable: day?.deliverable ?? "",
-      // Verbatim, both ways: what was stored goes back into the box exactly as
-      // it was stored, because an edit must not tidy somebody's own writing.
-      quantity: day?.deliverableQuantity ?? "",
-      // Verbatim. "gfddgh" and "half day" go back into the box as themselves.
-      // Printed the way the table prints it, so an edit does not turn
-      // "8h 30m" into "8.5" in front of the person correcting it.
-      workingHours: day ? formatHours(day.workingMinutes / 60).replace(/^0/, "") : "",
+      /* Verbatim, both ways: what was stored goes back into the box exactly as
+         it was stored, because an edit must not tidy somebody's own writing.
+         Bullets are added to a day that has none so the list reads as a list,
+         which changes how it LOOKS and not a character of what it says. */
+      deliverable: bulleted(day?.deliverable ?? ""),
+      numbers: numbersFromDay(day),
       remarks: day?.remarks ?? "",
     });
     setOpen(true);
@@ -602,13 +659,8 @@ export default function WorkLogHistoryPage() {
     /* Checked here only so the instructor is told before the round trip. The
      * server checks the same two things on the same strings and its answer is
      * what is written; this is a courtesy, not the rule. */
-    if (!draft.deliverable.trim()) {
+    if (parseLines(draft.deliverable).length === 0) {
       return setFormError("Say what you worked on.");
-    }
-    if (parseWorkingMinutes(draft.workingHours) === null) {
-      return setFormError(
-        "Working hours must be a length of time — 8, 8.5, 8h 30m, 8:30 or 45m.",
-      );
     }
 
     setSaving(true);
@@ -623,9 +675,11 @@ export default function WorkLogHistoryPage() {
         "POST",
         {
           date: draft.date,
-          deliverable: draft.deliverable,
-          quantity: draft.quantity,
-          workingHours: draft.workingHours,
+          /* One activity per row, each carrying its own numbers. The server
+             adds the minutes up and derives the sheet's two text columns from
+             them — a total it computes cannot be one the activities do not
+             support. */
+          activities: toActivities(draft),
           remarks: draft.remarks,
         },
         editingDay ? "Could not save that change." : "Could not submit your work log.",
@@ -1330,85 +1384,25 @@ export default function WorkLogHistoryPage() {
               surface at the client's request — submitting and correcting both
               use the fields now, so there is nothing to choose between and no
               control asking. */}
-          {/* ── One box, one activity per line ──────────────────────────
-              There were two boxes: what you did, and how many. They were
-              joined by NOTHING but position, and half the days in the database
-              show what that produces — "1, 1, 12, 1, 4, 1, 1, 1, 6" beside a
-              list of nine descriptions. One day has five descriptions and four
+          {/* ── Written once, numbered beside itself ──────────────────────
+              There were two free boxes: what you did, and how many, joined by
+              NOTHING but position. Half the days in the database show what that
+              produces — "1, 1, 12, 1, 4, 1, 1, 1, 6" beside a list of nine
+              descriptions, and one day with five descriptions against four
               numbers, so even counting them off fails.
 
-              Nobody means to write that. The form asked for it.
-
-              A line break is the one separator that cannot be mistaken for
-              content: commas already appear inside descriptions ("Project
-              evaluation, PR code reviews, and 1:1 doubt resolution"), so
-              splitting on them guesses. Splitting on a newline does not — and
-              the proximity check already segments on newlines, so a number
-              written on a line can only ever vouch for that line's activity.
-              That is the guarantee the two boxes could not give. */}
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">
-              Deliverable
-            </span>
-            <span className="mb-1.5 block text-xs text-muted">
-              One activity per line. Include how many and how long if you know them.
-            </span>
-            <textarea
-              rows={5}
-              value={draft.deliverable}
-              onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
-              placeholder={
-                "Java class - inheritance and interfaces - 2 classes - 4 hours\n" +
-                "Doubt solving session - 1 hour\n" +
-                "Department meeting - exam schedule\n" +
-                "Checked DSA assignments - batch A"
-              }
-              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
-            />
-          </label>
-
-          {/* ── Deliverable Quantity ─────────────────────────────────────────
-              The client's own sheet asks for this, so it is collected, and it
-              is stored and shown exactly as typed — never parsed for display,
-              never tidied, never reformatted.
-
-              Its careful handling lives in extraction, not here. On a day with
-              ONE activity the box plainly refers to that activity and its
-              number may fill the count. On a day with several it is ignored for
-              attribution: "1, 1, 12, 1, 4, 1, 1, 1, 6" beside nine descriptions
-              is joined to them by nothing but order, and one real day holds
-              five descriptions against four numbers, so even counting them off
-              fails. Ignoring it there is not hiding it — every screen still
-              prints it in full. */}
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">
-              Deliverable Quantity
-            </span>
-            <span className="mb-1.5 block text-xs text-muted">
-              How many of each, if you counted them. Kept exactly as you write it.
-            </span>
-            <textarea
-              rows={2}
-              value={draft.quantity}
-              onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-              placeholder={"2 classes\n1 session"}
-              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content placeholder:text-subtle focus:border-primary focus:outline-none"
-            />
-          </label>
-
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-content">
-              Working Hours
-            </span>
-            <textarea
-              rows={2}
-              value={draft.workingHours}
-              onChange={(e) => setDraft({ ...draft, workingHours: e.target.value })}
-              placeholder="Enter working hours (e.g., 8)"
-              className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-content"
-            />
-          </label>
+              The client's sheet still has both columns, so the form still has
+              both. What it no longer has is the guessing: the activities are
+              written once as bullets, and the Quantity section shows those same
+              bullets back with a number beside each. The pairing is stated by
+              the person who did the work, and nobody types their activities
+              twice. */}
+          <DeliverableFields
+            deliverable={draft.deliverable}
+            numbers={draft.numbers}
+            onDeliverableChange={(deliverable) => setDraft({ ...draft, deliverable })}
+            onNumbersChange={(numbers) => setDraft({ ...draft, numbers })}
+          />
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-content">Remarks</span>
