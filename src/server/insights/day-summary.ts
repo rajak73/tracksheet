@@ -32,8 +32,12 @@ export type SummaryBullet = {
 
 export type DaySummary = { bullets: SummaryBullet[]; insight: string };
 
-/** Any digit at all, anywhere in the reply. */
+/** Any digit at all — still the rule for the insight sentence. */
 const HAS_DIGIT = /\d/;
+
+/** Every number a piece of text states. */
+const numbersIn = (text: string) =>
+  [...text.matchAll(/\d+(?:\.\d+)?/g)].map((m) => Number(m[0]));
 
 /**
  * The summary half of the extraction prompt.
@@ -65,9 +69,14 @@ export function summaryInstruction(): string {
     "   room for. Do not list the bullets again.",
     "",
     "Rules:",
-    "- Write NO numbers of any kind, in either part. Not counts, not durations,",
-    "  not a number spelled out as a word. Every figure is already known and is",
-    "  attached to your bullets afterwards, from the activities each one names.",
+    "- Include the COUNT where the activity has one, in the phrase where it",
+    '     belongs: "Conducted 2 live classes on binary search", "Handled 1 doubt',
+    '     session". Use the count the activity actually carries, or the total of',
+    "     the counts your bullet covers. Never any other number.",
+    "- Write NO durations. Not hours, not minutes. The time is attached to your",
+    "  bullets afterwards, from the activities each one names, and writing it",
+    "  too would print the same figure twice.",
+    "- The insight sentence states no number at all.",
     "- Distinguish what KIND of work each thing is, in your own words taken from",
     "  what they wrote — conducting a class, resolving doubts, learning something",
     "  new, marking work, attending a meeting are not the same activity. Do not",
@@ -82,7 +91,41 @@ export function summaryInstruction(): string {
 
 export type SummaryResult = { ok: true; summary: DaySummary } | { ok: false; reason: string };
 
-export function parseSummary(text: string, itemCount: number): SummaryResult {
+/**
+ * A count a bullet may state.
+ *
+ * ── Why this replaced "no digits at all" ──────────────────────────────────
+ * The blunt rule refused "Conducted two live classes on binary search" written
+ * with a numeral — and that count is not invented, it is the quantity the
+ * instructor entered against that very activity. Forbidding it made the summary
+ * read like a telegram and threw away a fact the record holds.
+ *
+ * So the test is provenance, exactly as it is for extraction: a number may
+ * appear if the activities THIS bullet names actually produce it. The sum of
+ * their counts, or any one of them. Anything else is a figure nobody recorded,
+ * and is refused as firmly as before.
+ *
+ * Durations are not in this set. Code appends those, so a duration written into
+ * the prose would be a second copy of a figure printed beside it.
+ */
+function supportedCounts(items: SummaryItem[]): Set<number> {
+  const stated = items.filter((i) => i.sessions !== null).map((i) => i.sessions as number);
+  const allowed = new Set<number>(stated);
+  if (stated.length > 0) allowed.add(stated.reduce((a, b) => a + b, 0));
+  // "Conducted three classes" where three activities each say nothing about
+  // counts: the number of activities is a fact of the record too.
+  allowed.add(items.length);
+  return allowed;
+}
+
+/** What a bullet is allowed to say a number about. */
+export type SummaryItem = { label: string; sessions: number | null };
+
+export function parseSummary(
+  text: string,
+  itemCount: number,
+  items: SummaryItem[] = [],
+): SummaryResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -130,11 +173,27 @@ export function parseSummary(text: string, itemCount: number): SummaryResult {
     return { ok: false, reason: `${itemCount - seen.size} activities were left out` };
   }
 
-  /* The digit test runs on the PROSE, after the indexes have been read off —
-     indexes are digits and are the one number the reply must carry. */
-  const prose = [raw.insight, ...bullets.map((b) => b.text)].join(" ");
-  if (HAS_DIGIT.test(prose)) {
-    return { ok: false, reason: "the summary states a number, and the figures are added in code" };
+  /* The insight sentence states no figure at all — it is a statement about the
+     shape of the day, and a number in it is always a second copy of one printed
+     above it. */
+  if (HAS_DIGIT.test(raw.insight)) {
+    return { ok: false, reason: "the insight sentence states a number" };
+  }
+
+  /* A bullet may state a count its OWN activities support, and nothing else.
+     Durations are excluded because code appends them. */
+  if (items.length > 0) {
+    for (const b of bullets) {
+      const allowed = supportedCounts(b.activities.map((i) => items[i]!).filter(Boolean));
+      for (const n of numbersIn(b.text)) {
+        if (!allowed.has(n)) {
+          return {
+            ok: false,
+            reason: `"${b.text}" states ${n}, which the activities it covers do not support`,
+          };
+        }
+      }
+    }
   }
 
   return { ok: true, summary: { bullets, insight: raw.insight.trim() } };

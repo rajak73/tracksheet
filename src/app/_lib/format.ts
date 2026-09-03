@@ -128,6 +128,28 @@ export function formatMinuteOfDay(minutes: number): string {
  *
  * Minutes are rounded once, from the total, so a column of these adds up.
  */
+/**
+ * A duration as somebody would say it: `2 hrs`, `45 min`, `1 hr 30 min`.
+ *
+ * ── Why this exists beside `formatMinutes` ────────────────────────────────
+ * `06h 30m` is right for a column of figures read down the page — it lines up,
+ * and the client's sheet specifies it to the character. It reads badly inside a
+ * sentence, and the AI Insight is sentences: "Conducted live classes on binary
+ * search — 06h 00m" is a spreadsheet cell wearing prose.
+ *
+ * Same arithmetic, same minutes, one voice each. Neither ever prints a decimal
+ * hour, which is the thing both formatters exist to prevent.
+ */
+export function formatDurationWords(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return "—";
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  const hours = `${h} ${h === 1 ? "hr" : "hrs"}`;
+  return m === 0 ? hours : `${hours} ${m} min`;
+}
+
 export function formatMinutes(minutes: number | null | undefined): string {
   if (minutes === null || minutes === undefined) return "—";
   const total = Math.round(minutes);

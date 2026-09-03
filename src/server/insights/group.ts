@@ -20,7 +20,12 @@
  */
 import { generateStructured } from "@/server/ai/gemini";
 import { stableStringify } from "./context";
-import { parseSummary, summaryInstruction, type DaySummary } from "./day-summary";
+import {
+  parseSummary,
+  summaryInstruction,
+  type DaySummary,
+  type SummaryItem,
+} from "./day-summary";
 
 export type GroupMember = {
   label: string;
@@ -99,7 +104,12 @@ const HAS_DIGIT = /\d/;
  * than repairs: a repaired answer is one nobody asked the model for and nobody
  * can trace back to the record.
  */
-export function parseGrouping(text: string, memberCount: number): GroupingResult {
+export function parseGrouping(
+  text: string,
+  memberCount: number,
+  /** Passed through so a bullet's counts can be checked against the record. */
+  items: SummaryItem[] = [],
+): GroupingResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -154,7 +164,7 @@ export function parseGrouping(text: string, memberCount: number): GroupingResult
   /* Read from the same reply, for the same reason the day's is: a period
      already costs one call. A summary that fails validation costs the sentence
      and not the grouping — the totals still render. */
-  const summarised = parseSummary(text, memberCount);
+  const summarised = parseSummary(text, memberCount, items);
   if (!summarised.ok) console.info(`[summary] period not written — ${summarised.reason}`);
 
   return { ok: true, groups: out, summary: summarised.ok ? summarised.summary : null };
@@ -198,7 +208,14 @@ export async function runGrouping(
       console.info(`[group] attempt ${attempt}/${GROUPING_ATTEMPTS} — ${reason}`);
       continue;
     }
-    const parsed = parseGrouping(reply.text, members.length);
+    const parsed = parseGrouping(
+      reply.text,
+      members.length,
+      /* No per-activity counts at period scale — the grouping is sent labels
+         and dates only. A bullet may still say how many ACTIVITIES it covers;
+         any other figure is refused. */
+      members.map((m) => ({ label: m.label, sessions: null })),
+    );
     if (parsed.ok) {
       if (attempt > 1) console.info(`[group] succeeded on attempt ${attempt} of ${GROUPING_ATTEMPTS}`);
       return parsed;

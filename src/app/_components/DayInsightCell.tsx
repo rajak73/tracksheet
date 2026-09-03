@@ -23,7 +23,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "@/app/_lib/api";
-import { formatMinutes } from "@/app/_lib/format";
+import { formatDurationWords, formatMinutes } from "@/app/_lib/format";
 import { enqueueInsightFetch } from "@/app/_lib/insight-queue";
 import { subtopicKey } from "@/domain/subtopic";
 
@@ -258,7 +258,7 @@ export function DayInsightCell({
                 <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="text-content">{line.text}</span>
                   <span className="tabular shrink-0 text-xs text-muted">
-                    {formatMinutes(line.minutes)}
+                    {formatDurationWords(line.minutes)}
                   </span>
                 </li>
               ))}
@@ -362,7 +362,7 @@ export function DayInsightCell({
               <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="text-content">{line.text}</span>
                 <span className="tabular shrink-0 text-xs text-muted">
-                  {formatMinutes(line.minutes)}
+                  {formatDurationWords(line.minutes)}
                 </span>
               </li>
             ))}

@@ -342,7 +342,11 @@ export async function runExtraction(
        A summary that fails validation costs the sentence, not the extraction:
        the points still render, because what the text SAYS was already checked
        and is not in doubt because the prose about it was refused. */
-    const summarised = parseSummary(reply.text, checked.activities.length);
+    const summarised = parseSummary(
+      reply.text,
+      checked.activities.length,
+      checked.activities.map((a) => ({ label: a.label, sessions: a.sessions })),
+    );
     if (!summarised.ok) console.info(`[summary] not written — ${summarised.reason}`);
 
     return {
