@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "@/app/_lib/api";
 import { formatMinutes } from "@/app/_lib/format";
 import { enqueueInsightFetch } from "@/app/_lib/insight-queue";
+import { subtopicKey } from "@/domain/subtopic";
 
 export type DayPoint = {
   label: string;
@@ -80,8 +81,14 @@ function Count({ n, unit }: { n: number | null; unit?: string | null }) {
 function collapse(points: DayPoint[]): Array<DayPoint & { occurrences: number }> {
   const out: Array<DayPoint & { occurrences: number }> = [];
   for (const p of points) {
+    /* Same activity, same topic, and a subtopic that is the same thing said
+       twice. "AVL trees" and "AVL tree" collapse; "AVL trees" and "binary
+       trees" do not, because they were separate sessions. */
     const same = out.find(
-      (o) => o.label === p.label && o.topic === p.topic && o.subtopic === p.subtopic,
+      (o) =>
+        o.label === p.label &&
+        o.topic === p.topic &&
+        subtopicKey(o.subtopic ?? "") === subtopicKey(p.subtopic ?? ""),
     );
     if (!same) {
       out.push({ ...p, occurrences: 1 });

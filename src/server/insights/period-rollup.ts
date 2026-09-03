@@ -17,6 +17,7 @@
 import { buildCanonicalContext, canonicalJson, contextHash, modelId, PROMPT_VERSION_EXTRACT } from "./context";
 import { serveDayExtraction } from "./extract";
 import { runGrouping, type GroupMember } from "./group";
+import { subtopicKey } from "@/domain/subtopic";
 import type { DayText } from "./extraction-checks";
 import { toDateOnly } from "@/server/time/workday";
 
@@ -188,13 +189,20 @@ export async function buildPeriodRollup(input: {
 
     /* Subtopics summed here, in code, from the members — like every other
        figure on this screen. The model named them; it counted nothing. */
-    const bySubtopic = new Map<string, Item[]>();
+    /* Keyed on the equivalence, displayed under the first spelling seen. "AVL
+       trees" and "AVL tree" are one line; "AVL trees" and "binary trees" are
+       two, because they were two sessions and folding them would understate a
+       count a reader can check. */
+    const bySubtopic = new Map<string, { display: string; items: Item[] }>();
     for (const m of mine) {
       if (!m.subtopic) continue;
-      bySubtopic.set(m.subtopic, [...(bySubtopic.get(m.subtopic) ?? []), m]);
+      const key = subtopicKey(m.subtopic);
+      const existing = bySubtopic.get(key);
+      if (existing) existing.items.push(m);
+      else bySubtopic.set(key, { display: m.subtopic, items: [m] });
     }
-    const subtopics: SubtopicRollup[] = [...bySubtopic]
-      .map(([name, ms]) => {
+    const subtopics: SubtopicRollup[] = [...bySubtopic.values()]
+      .map(({ display: name, items: ms }) => {
         const stated = ms.filter((m) => m.sessions !== null);
         return {
           name,

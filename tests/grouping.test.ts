@@ -50,10 +50,14 @@ describe("the grouping prompt", () => {
     // What each DAY called it, so the period can settle on one name.
     expect(text).toContain("DSA");
     expect(text).toContain("binary tree");
-    // The things a week view knows and the model must not be told.
-    expect(text).not.toContain("minutes");
-    expect(text).not.toContain("sessions");
-    expect(text).not.toContain("working");
+    /* The figures a week view knows and the model must not be told. Asserted on
+       the PAYLOAD KEYS rather than on the prose: the instructions legitimately
+       use the word "sessions" when explaining that two subtopics were separate
+       sessions, and a test that forbids the word forbids explaining the rule. */
+    expect(text).not.toContain('"sessions"');
+    expect(text).not.toContain('"minutes"');
+    expect(text).not.toContain('"duration');
+    expect(text).not.toContain("working_minutes");
     expect(text).toContain("Output no numbers of any kind");
   });
 
