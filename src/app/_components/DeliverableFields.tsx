@@ -99,8 +99,16 @@ export function DeliverableFields({
     if (deliverable === "") onDeliverableChange(BULLET);
   };
 
-  const numberCell =
-    "w-full rounded-control border border-line bg-surface px-2 py-1.5 text-right text-sm text-content focus:border-primary focus:outline-none";
+  /* No `w-full` here. It was in this string and it beat the per-input widths,
+     so three inputs expanded and squeezed the activity name down to one
+     letter — a layout bug that reads as data loss. */
+  const boxed =
+    "rounded-control border border-line bg-surface px-2 py-1.5 text-right text-sm text-content focus:border-primary focus:outline-none";
+  /* Hr and Min are underlines, not boxes. They are two small figures beside a
+     sentence, and three bordered boxes in a row read as three equally weighted
+     fields when only the first is a count of anything. */
+  const underlined =
+    "border-0 border-b border-line bg-transparent px-1 py-1 text-right text-sm text-content rounded-none focus:border-primary focus:outline-none";
 
   return (
     <>
@@ -135,21 +143,22 @@ export function DeliverableFields({
           </p>
         ) : (
           <div className="space-y-1">
-            <div className="flex gap-2 pl-1 text-xs font-medium text-muted">
-              <span className="flex-1">Activity</span>
-              <span className="w-20 text-right">Quantity</span>
-              <span className="w-14 text-right">Hr</span>
-              <span className="w-14 text-right">Min</span>
+            <div className="flex items-center gap-3 text-xs font-medium text-muted">
+              <span className="min-w-0 flex-1">Activity</span>
+              <span className="w-20 shrink-0 text-right">Quantity</span>
+              <span className="w-12 shrink-0 text-right">Hr</span>
+              <span className="w-12 shrink-0 text-right">Min</span>
             </div>
             {lines.map((line, position) => {
               const index = indexes[position]!;
               const n = at(index);
               return (
-                <div key={index} className="flex items-center gap-2">
+                <div key={index} className="flex items-center gap-3">
                   {/* The activity as written, not re-typed. Read-only: this is a
                       reflection of the box above, and editing it in two places
-                      is how the two drift apart. */}
-                  <span className="flex-1 truncate rounded-control bg-canvas px-2 py-1.5 text-sm text-content">
+                      is how the two drift apart. `min-w-0` so it truncates
+                      instead of pushing the numbers off the row. */}
+                  <span className="min-w-0 flex-1 truncate text-sm text-content" title={line}>
                     {line}
                   </span>
                   <input
@@ -157,7 +166,7 @@ export function DeliverableFields({
                     aria-label={`Quantity for ${line}`}
                     value={n.quantity}
                     onChange={(e) => set(index, { quantity: digits(e.target.value) })}
-                    className={`w-20 ${numberCell}`}
+                    className={`w-20 shrink-0 ${boxed}`}
                   />
                   {(["hr", "min"] as const).map((field) => (
                     <input
@@ -167,7 +176,8 @@ export function DeliverableFields({
                       value={n[field]}
                       onChange={(e) => set(index, { [field]: digits(e.target.value) })}
                       onBlur={() => set(index, roll(at(index)))}
-                      className={`w-14 ${numberCell}`}
+                      placeholder="0"
+                      className={`w-12 shrink-0 ${underlined}`}
                     />
                   ))}
                 </div>
