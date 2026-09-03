@@ -97,6 +97,7 @@ export const GET = withAuth(async ({ scope, req }) => {
         logDate: true,
         deliverable: true,
         deliverableQuantity: true,
+        activities: true,
         workingMinutes: true,
         remarks: true,
         status: true,
@@ -140,6 +141,11 @@ export const GET = withAuth(async ({ scope, req }) => {
          layer that improves it is hiding the record. */
       deliverable: d.deliverable,
       deliverableQuantity: d.deliverableQuantity,
+      /* The rows as authored, so an edit reopens what was written rather than
+         the newline-joined text derived from it. Without this the dialog had
+         nothing to rebuild from and put a whole day in one row — which is the
+         two-box problem arriving from the other direction. */
+      activities: d.activities,
       // Whole minutes, so the client formats once rather than parsing a string
       // — and so nothing on the way out re-rounds what the column already holds.
       workingMinutes: d.workingMinutes,

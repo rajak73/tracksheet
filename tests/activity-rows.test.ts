@@ -5,6 +5,7 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/time/workday";
 import { daysAgo, seedDayRow } from "./helpers/worklog";
+import { RUN } from "./helpers/fixtures";
 import { ActivityRows, emptyRow, rollMinutes, toSubmitted, totalRowMinutes } from "@/app/_components/ActivityRows";
 import { parseActivities } from "@/domain/worklog-activities";
 import { checkExtraction } from "@/server/insights/extraction-checks";
@@ -23,11 +24,31 @@ let instructorId = "";
 let universityId = "";
 let today = "";
 
+const PASSWORD = "activity-rows-password-1234";
+
 beforeAll(async () => {
   await admin.login(ACCOUNTS.admin);
-  const me = await instructor.login(ACCOUNTS.instructorNorth1);
-  instructorId = me.user.instructorId!;
-  universityId = me.user.universityId!;
+
+  /* Its OWN instructor, not a seeded one.
+   *
+   * These tests write to TODAY, and `no-gemini-in-arithmetic` adds an hour to
+   * today for `instructorNorth1` and asserts the total went UP. `seedDayRow`
+   * upserts, so a row already sitting on that date is REPLACED rather than
+   * added to — this file's ninety minutes became that file's sixty, the total
+   * fell, and a test that had nothing to do with activity rows failed. A
+   * fixture that writes to a shared account on a shared date is a fixture that
+   * owns somebody else's data. */
+  const probe = new ApiClient("rows-probe");
+  universityId = (await probe.login(ACCOUNTS.instructorNorth1)).user.universityId!;
+  const made = await admin.post("/api/instructors", {
+    email: `rows.${RUN}@fixture.test`,
+    name: `Rows ${RUN}`,
+    password: PASSWORD,
+    universityId,
+  });
+  expect(made.status, JSON.stringify(made.body)).toBe(201);
+  instructorId = made.body.instructor.id;
+  await instructor.login(`rows.${RUN}@fixture.test`, PASSWORD);
   today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 });
 

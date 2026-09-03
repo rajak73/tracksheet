@@ -85,6 +85,8 @@ type Row = {
   logDate: string;
   deliverable: string;
   deliverableQuantity: string | null;
+  /** The rows as authored, when the day has them. Null on a legacy day. */
+  activities?: unknown;
   workingMinutes: number;
   remarks: string | null;
   status?: string;
