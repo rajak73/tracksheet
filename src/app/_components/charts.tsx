@@ -22,45 +22,19 @@
 import type { ReactNode } from "react";
 import { Card, CardHeader, EmptyState } from "@/app/_components/ui";
 
-/* ── Category colour ───────────────────────────────────────────────────── */
-
-/**
- * Activity type code → colour. Fixed assignment, never by index, so adding a
- * category cannot recolour Teaching. Unknown codes fall back to "other"
- * rather than getting a generated colour, which keeps the palette closed.
+/* ── There is no category colour here any more ──────────────────────────
+ *
+ * `CATEGORY_VAR` mapped sixteen activity-type codes — TEACHING, MENTORING,
+ * ASSESSMENT — to a closed palette, and `categoryColor`/`categoryLabel` read
+ * it. It was a fixed set of work types living in the UI, which is the one thing
+ * this product does not have anywhere, under any name.
+ *
+ * It survived the taxonomy removal because nothing rendered it: its only
+ * callers were `AllocationBar`, which nothing called, and `workload.tsx`, whose
+ * every export but one had no caller either. A grep for the banned names found
+ * it; a scan of served responses never could, because none of it was ever in
+ * one. That is the same blind spot the prompt scan exists to close.
  */
-const CATEGORY_VAR: Record<string, string> = {
-  // Listed in the order the palette was validated in — see globals.css.
-  TEACHING: "--cat-teaching",
-  PRACTICAL_LAB: "--cat-practical-lab",
-  MENTORING: "--cat-mentoring",
-  ASSESSMENT: "--cat-assessment",
-  STUDENT_SUPPORT: "--cat-support",
-  RESEARCH: "--cat-research",
-  CONTENT_DEVELOPMENT: "--cat-content",
-  MEETING: "--cat-meeting",
-  TRAINING_WORKSHOP: "--cat-training",
-  ADMINISTRATIVE: "--cat-admin",
-  LEARNING: "--cat-learning",
-  DELIVERABLE: "--cat-deliverable",
-  OTHER: "--cat-other",
-  DAILY_OPENING: "--cat-opening",
-  DAILY_CLOSING: "--cat-closing",
-  UNUTILIZED: "--cat-unutilized",
-};
-
-export function categoryColor(code: string): string {
-  return `var(${CATEGORY_VAR[code] ?? "--cat-other"})`;
-}
-
-/** Codes arrive as SCREAMING_SNAKE; nothing else in the UI should re-do this. */
-export function categoryLabel(code: string): string {
-  return code
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 /* ── Shared chrome ─────────────────────────────────────────────────────── */
 
@@ -436,97 +410,6 @@ export function BarCompare({
 /* ── Allocation ────────────────────────────────────────────────────────── */
 
 export type AllocationSlice = { code: string; hours: number };
-
-/**
- * How capacity was allocated: a single 100% stacked bar plus a legend.
- *
- * A stacked bar rather than a pie, because the useful comparison is between
- * this period and the next one, and pie slices cannot be compared across two
- * charts. `unutilizedHours` is passed separately and drawn hatched — it is the
- * absence of work, not a kind of work.
- */
-export function AllocationBar({
-  slices,
-  unutilizedHours = 0,
-  missingDataHours = 0,
-}: {
-  slices: AllocationSlice[];
-  unutilizedHours?: number;
-  missingDataHours?: number;
-}) {
-  const present = slices.filter((s) => s.hours > 0).sort((a, b) => b.hours - a.hours);
-  const total =
-    present.reduce((sum, s) => sum + s.hours, 0) + unutilizedHours + missingDataHours;
-
-  if (total <= 0) return null;
-
-  const pct = (h: number) => (h / total) * 100;
-
-  const segments = [
-    ...present.map((s) => ({
-      key: s.code,
-      label: categoryLabel(s.code),
-      hours: s.hours,
-      color: categoryColor(s.code),
-      hatched: false,
-    })),
-    ...(unutilizedHours > 0
-      ? [
-          {
-            key: "__unutilized",
-            label: "Unutilized capacity",
-            hours: unutilizedHours,
-            color: "var(--cat-unutilized)",
-            hatched: true,
-          },
-        ]
-      : []),
-    ...(missingDataHours > 0
-      ? [
-          {
-            key: "__missing",
-            label: "No records",
-            hours: missingDataHours,
-            color: "var(--app-warning)",
-            hatched: false,
-          },
-        ]
-      : []),
-  ];
-
-  return (
-    <div>
-      <div
-        className="flex h-8 w-full overflow-hidden rounded-chip"
-        role="img"
-        aria-label={segments
-          .map((s) => `${s.label}: ${s.hours} hours, ${Math.round(pct(s.hours))} percent`)
-          .join("; ")}
-      >
-        {segments.map((s) => (
-          <div
-            key={s.key}
-            className={s.hatched ? "hatched" : ""}
-            style={{
-              width: `${pct(s.hours)}%`,
-              background: s.hatched ? undefined : s.color,
-            }}
-            title={`${s.label} — ${s.hours} hrs (${Math.round(pct(s.hours))}%)`}
-          />
-        ))}
-      </div>
-
-      <ChartLegend
-        items={segments.map((s) => ({
-          label: s.label,
-          color: s.color,
-          hatched: s.hatched,
-          value: `${s.hours}h`,
-        }))}
-      />
-    </div>
-  );
-}
 
 /* ── Sparkline ─────────────────────────────────────────────────────────── */
 

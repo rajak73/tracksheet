@@ -23,7 +23,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { compactDuration, suppliedOr } from "@/domain/worklog-report";
-import { formatDuration } from "@/app/_components/workload";
+import { formatHours, formatMinutes } from "@/app/_lib/format";
 import { buildDayRow, type DayEntry } from "@/domain/worklog-day-rows";
 import { DayInsightCell } from "@/app/_components/DayInsightCell";
 
@@ -333,7 +333,7 @@ export function ManagerSheet({
                 <td
                   className={`${IDENTITY.total} tabular border-b border-r-2 border-line bg-surface px-3 py-2 text-right align-top text-[13px] font-semibold text-content transition-colors group-hover:bg-hovered`}
                 >
-                  {formatDuration(totalHours(person, periods))}
+                  {formatHours(totalHours(person, periods))}
                 </td>
 
                 {periods.map((period) => (
@@ -475,7 +475,7 @@ function PeriodCells({
         </ul>
         {row.days.length > 1 ? (
           <span className="mt-1 block border-t border-line-subtle pt-1 text-xs font-normal text-muted">
-            {formatDuration(row.totalMinutes / 60)} total
+            {formatMinutes(row.totalMinutes)} total
           </span>
         ) : null}
       </td>

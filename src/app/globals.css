@@ -188,64 +188,18 @@
   --app-sidebar-active-bg: #1467e8;
   --app-sidebar-active-accent: #4d8ff0;
 
-  /* Workload categories.
+  /* The thirteen categorical hues are gone with the palette they coloured.
 
-     ── This used to be a blue-only ramp, and it had to stop ──────────────
-     The previous note here said "no purple, pink, cyan or magenta", on the
-     grounds that a rainbow makes an enterprise dashboard look like a chart
-     demo. That was a fair call when there were seven categories. There are
-     now thirteen — the BRD's eleven entry categories plus Learning and
-     Deliverable Work — and a navy→blue→slate ramp cannot separate thirteen
-     things. It did not degrade gracefully either: Teaching, Learning,
-     Research and Daily Closing had all converged on near-identical blues,
-     and the five categories added with the free-text worklog (Practical /
-     Lab, Mentoring, Assessment, Content Development, Training / Workshop)
-     had no entry at all, so every one of them fell through to the grey
-     "other" swatch. A legend where five rows are the same grey is not a
-     restrained palette; it is a broken one.
+     They named a fixed set of work types — Teaching, Mentoring, Assessment —
+     in CSS, which is a category system in the one place nobody greps. The map
+     that read them (`categoryColor`) and its only two callers had no live
+     caller of their own, so nothing on screen changes.
 
-     ── How these were chosen ───────────────────────────────────────────
-     Not by eye. Each step was checked with a colour-vision validator —
-     lightness band, chroma floor, protan/deutan/tritan separation, and
-     contrast against this surface — and the order below is the order it was
-     validated in, so neighbours are the pairs it proved separable. Worst
-     adjacent pair: ΔE 9.1 protan, 19.6 normal vision.
-
-     ── The limit, stated rather than hidden ────────────────────────────
-     Thirteen categorical hues cannot ALL be told apart from each other; no
-     twelve-colour set clears every pair, and that is a property of human
-     colour vision rather than of this list. So colour is never the only
-     thing carrying identity here: every legend row, every timeline block
-     and every table cell names its category in words beside the swatch, and
-     the doughnut folds its long tail into "Other" rather than putting
-     thirteen hues on screen at once. Three of these steps sit below 3:1
-     against white, which is the same requirement seen from the other side —
-     they are legal because the label is always there.
-
-     Assignment is fixed by activity-type code in `categoryColor()`
-     (charts.tsx), never by array index — otherwise "Teaching" changes colour
-     the day a category is added. */
-  --cat-teaching: #2a78d6;
-  --cat-practical-lab: #eb6834;
-  --cat-mentoring: #1baf7a;
-  --cat-assessment: #eda100;
-  --cat-support: #e87ba4;
-  --cat-research: #008300;
-  --cat-content: #4a3aa7;
-  --cat-meeting: #e34948;
-  --cat-training: #00849e;
-  --cat-admin: #b45309;
-  --cat-learning: #8b5cf6;
-  --cat-deliverable: #0e9f6e;
-  /* Deliberately neutral: "Other" is the absence of an identity, so it does
-     not get a hue that competes with the categories that have one. */
-  --cat-other: #94a3b8;
-  /* Structural markers rather than work — they bracket a day, they are not a
-     slice of it, so they stay out of the categorical hues entirely. */
-  --cat-opening: #334155;
-  --cat-closing: #64748b;
-  /* Not a category — the absence of one. Rendered as a hatched track. */
-  --cat-unutilized: #cbd5e1;
+     One survives, renamed. `--cat-unutilized` was never a category — it is the
+     absence of one, the grey behind the hatched track that says "no record
+     here" rather than "zero hours". It keeps its value and loses the prefix
+     that grouped it with work types it was defined against. */
+  --hatch-line: #cbd5e1;
 }
 
 
@@ -312,22 +266,6 @@
   --shadow-card: var(--app-shadow-sm);
   --shadow-raised: var(--app-shadow);
 
-  --color-cat-teaching: var(--cat-teaching);
-  --color-cat-practical-lab: var(--cat-practical-lab);
-  --color-cat-mentoring: var(--cat-mentoring);
-  --color-cat-assessment: var(--cat-assessment);
-  --color-cat-content: var(--cat-content);
-  --color-cat-training: var(--cat-training);
-  --color-cat-learning: var(--cat-learning);
-  --color-cat-meeting: var(--cat-meeting);
-  --color-cat-admin: var(--cat-admin);
-  --color-cat-support: var(--cat-support);
-  --color-cat-deliverable: var(--cat-deliverable);
-  --color-cat-research: var(--cat-research);
-  --color-cat-other: var(--cat-other);
-  --color-cat-opening: var(--cat-opening);
-  --color-cat-closing: var(--cat-closing);
-  --color-cat-unutilized: var(--cat-unutilized);
 
   /* Radius, by role rather than by size name. Controls (buttons, inputs) and
      cards both stay restrained rectangles; `pill` is reserved for status
@@ -386,8 +324,8 @@ html {
 .hatched {
   background-image: repeating-linear-gradient(
     45deg,
-    var(--cat-unutilized) 0,
-    var(--cat-unutilized) 2px,
+    var(--hatch-line) 0,
+    var(--hatch-line) 2px,
     transparent 2px,
     transparent 5px
   );
