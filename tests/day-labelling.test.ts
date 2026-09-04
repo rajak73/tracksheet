@@ -4,6 +4,7 @@ import {
   LABEL_SYSTEM,
   labelUserContent,
   parseLabels,
+  labelCoversSubtopic,
   preserveSourceCasing,
   sharesWord,
 } from "@/server/insights/label-day";
@@ -68,8 +69,12 @@ describe("what the model is sent", () => {
 describe("1. an entry that names no action still gets one", () => {
   test("the rules ask for the action the noun already implies", () => {
     expect(LABEL_SYSTEM).toContain("Supply the");
-    expect(LABEL_SYSTEM).toContain("a class is taught, a session is run");
-    expect(LABEL_SYSTEM).toContain("This is not inventing; it is naming what");
+    expect(LABEL_SYSTEM).toContain("action, and carry the whole subject into the label");
+    /* Taught by pairs. The abstract version — "a class is taught, a session is
+       run" — discarded the subject in every example, and got back labels that
+       did the same. */
+    expect(LABEL_SYSTEM).toContain('"take a dead lock class"');
+    expect(LABEL_SYSTEM).toContain('"Taught a deadlock class"');
   });
 
   test("and ask for simple past", () => {
@@ -86,6 +91,67 @@ describe("1. an entry that names no action still gets one", () => {
     );
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect(r.ok && r.labels[0]!.label).toBe("Taught binary search");
+  });
+});
+
+describe("1b. a label that names an action but not the subject is refused", () => {
+  /* The check that ends this cycle. Four rounds of prompt adjustment were each
+     a hope that the model behaves; this makes the failure impossible to store,
+     whichever model answers. */
+  test("`Taught a class` with subtopic `deadlock` is rejected", () => {
+    const r = parseLabels(
+      reply([{ label: "Taught a class", subtopic: "deadlock", topic: "OS", unit: "classes" }]),
+      ["take a dead lock class"],
+    );
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toContain("drops its subtopic");
+  });
+
+  test("and the same entry carrying its subject is kept", () => {
+    const r = parseLabels(
+      reply([{ label: "Taught a deadlock class", subtopic: "deadlock", topic: "OS", unit: "classes" }]),
+      ["take a dead lock class"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  test("`Taught a live class` for a binary search entry is rejected", () => {
+    const r = parseLabels(
+      reply([{ label: "Taught a live class", subtopic: "binary search", topic: "DSA", unit: "classes" }]),
+      ["Live class on binary search"],
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  test("a compound spelled differently in the two fields still matches", () => {
+    /* One model returns the subtopic as "dead lock" and another as "deadlock",
+       from the same source. Requiring whole words would reject the specified
+       answer for spelling a compound differently in two fields. */
+    expect(labelCoversSubtopic("Taught a deadlock class", "dead lock")).toBe(true);
+    expect(labelCoversSubtopic("Taught a dead lock class", "deadlock")).toBe(true);
+  });
+
+  test("every word of a multi-word subtopic has to be there", () => {
+    expect(labelCoversSubtopic("Taught binary search", "binary search")).toBe(true);
+    expect(labelCoversSubtopic("Taught binary trees", "binary search")).toBe(false);
+  });
+
+  test("a null subtopic asks nothing of the label", () => {
+    const r = parseLabels(
+      reply([{ label: "Ran a doubt session", subtopic: null, topic: null, unit: "sessions" }]),
+      ["Doubt clearing session"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  test("and the rules teach it by pairs rather than by assertion", () => {
+    /* The previous wording — "a class is taught, a session is run" — discarded
+       the subject in every example, and the model reproduced the pattern it was
+       shown. Abstract instructions produce abstract labels. */
+    expect(LABEL_SYSTEM).toContain('"Live class on binary search"');
+    expect(LABEL_SYSTEM).toContain('"Taught binary search"');
+    expect(LABEL_SYSTEM).toContain('carry the whole subject into the label');
+    expect(LABEL_SYSTEM).not.toContain("a class is taught, a session is run");
   });
 });
 

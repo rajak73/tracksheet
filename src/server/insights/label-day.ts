@@ -59,12 +59,20 @@ export const LABEL_SYSTEM = [
   "2. label is a short verb phrase saying what the person did, in simple past.",
   '   "Taught binary search". "Learned Java and OOPs concepts". "Ran a doubt',
   '   session". "Reviewed submissions". "Prepared a problem set".',
-  "3. Most entries name the activity without naming the action — \"Live class",
-  '   on binary search", "Doubt clearing session", "Weekly contest". Supply the',
-  "   action that activity obviously is: a class is taught, a session is run, a",
-  "   contest is conducted, submissions are reviewed, a problem set is",
-  "   prepared, an interview is taken. This is not inventing; it is naming what",
-  "   the noun already means.",
+  "3. Most entries name the activity without naming the action. Supply the",
+  "   action, and carry the whole subject into the label:",
+  "",
+  '     "Live class on binary search"          -> "Taught binary search"',
+  '     "take a dead lock class"               -> "Taught a deadlock class"',
+  '     "Doubt clearing session"               -> "Ran a doubt session"',
+  '     "Weekly contest"                       -> "Conducted the weekly contest"',
+  '     "Reviewed student submissions"         -> "Reviewed student submissions"',
+  '     "Prepared problem set on two pointers" -> "Prepared a problem set on two',
+  '                                               pointers"',
+  "",
+  "   The label must still say what it was about. \"Taught a class\" is wrong",
+  '   for "Live class on binary search" — it loses the only informative part.',
+  "   If you name a subtopic, that subtopic must appear in the label.",
   "4. Only when the entry gives no usable action at all — \"Corrected\", \"NA\",",
   '   "Done" — keep the phrase exactly as written. Do not attach an action to a',
   "   word that does not imply one.",
@@ -168,14 +176,44 @@ const meaningfulWords = (text: string) =>
  */
 export function sharesWord(phrase: string, source: string): boolean {
   const from = meaningfulWords(source);
-  return meaningfulWords(phrase).some((word) =>
-    from.some(
-      (other) =>
-        word === other ||
-        (word.length >= 4 && other.includes(word)) ||
-        (other.length >= 4 && word.includes(other)),
-    ),
-  );
+  return meaningfulWords(phrase).some((word) => from.some((other) => sameWord(word, other)));
+}
+
+/**
+ * One word matching another, allowing for a compound the writer split.
+ *
+ * "deadlock" against "dead" and against "lock". Short enough to catch a
+ * compound, long enough that "on" cannot vouch for "conducted".
+ */
+const sameWord = (a: string, b: string) =>
+  a === b || (a.length >= 4 && b.includes(a)) || (b.length >= 4 && a.includes(b));
+
+/**
+ * Does this label say what the activity was ABOUT?
+ *
+ * ── The defect this closes ────────────────────────────────────────────────
+ * Measured: "take a dead lock class" labelled as "Taught a class", and "Live
+ * class on binary search" as "Taught a live class". The action survived and the
+ * subject did not — which is worse than the echo it replaced, because the echo
+ * at least carried the only informative part.
+ *
+ * The prompt now teaches by example pairs, which makes a correct label likely.
+ * This makes an incorrect one impossible to store, whichever model answers: a
+ * subtopic the model itself named must appear in the label beside it.
+ *
+ * ── Why not exact word equality ───────────────────────────────────────────
+ * Because it would refuse the specified answer. "take a dead lock class" is
+ * meant to label as "Taught a deadlock class", and one model returns its
+ * subtopic as "dead lock" while another returns "deadlock". Requiring whole
+ * words would reject the pair for spelling the compound differently in two
+ * fields, which is not what this check is about. Same tolerance as
+ * {@link sharesWord}, for the same reason.
+ */
+export function labelCoversSubtopic(label: string, subtopic: string): boolean {
+  const inLabel = meaningfulWords(label);
+  const wanted = meaningfulWords(subtopic);
+  if (wanted.length === 0) return true;
+  return wanted.every((word) => inLabel.some((other) => sameWord(word, other)));
 }
 
 /**
@@ -310,6 +348,13 @@ export function parseLabels(text: string, sources: string[]): LabelResult {
     if (subtopic !== null && !sharesWord(subtopic, source)) {
       return { ok: false, reason: `subtopic "${subtopic}" is not in "${source}"` };
     }
+    /* 5. A label that names an action but not the subject. The model told us
+          what this was about in the field beside it; a label that drops it says
+          less than the entry it came from. */
+    if (subtopic !== null && !labelCoversSubtopic(label, subtopic)) {
+      return { ok: false, reason: `label "${label}" drops its subtopic "${subtopic}"` };
+    }
+
     const topic = typeof a.topic === "string" && a.topic.trim() !== "" ? a.topic.trim() : null;
     const unit = countableUnit(typeof a.unit === "string" ? a.unit.trim() : "");
 
