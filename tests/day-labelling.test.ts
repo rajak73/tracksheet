@@ -4,6 +4,7 @@ import {
   LABEL_SYSTEM,
   labelUserContent,
   parseLabels,
+  preserveSourceCasing,
   sharesWord,
 } from "@/server/insights/label-day";
 
@@ -50,6 +51,156 @@ describe("what the model is sent", () => {
   test("the schema pins the shape the provider must return", () => {
     expect(LABEL_SCHEMA.required).toContain("activities");
     expect(LABEL_SCHEMA.properties.activities.items.required).toEqual(["label", "unit"]);
+  });
+});
+
+/**
+ * ── Rules 2 and 3 used to contradict, and 3 won ───────────────────────────
+ * Rule 2 asked for a verb phrase. Rule 3 said that where the text names no
+ * verb, use the phrase as written. "Live class on binary search" names no verb
+ * — it is a noun phrase — so rule 3 fired and the model returned it verbatim,
+ * correctly. Most instructor entries are noun phrases, so rule 3 fired on
+ * nearly all of them, and the label almost always echoed the description.
+ *
+ * Rule 3 was written for "Corrected", where naming an action would be
+ * fabrication. Its scope was wrong, not its intent.
+ */
+describe("1. an entry that names no action still gets one", () => {
+  test("the rules ask for the action the noun already implies", () => {
+    expect(LABEL_SYSTEM).toContain("Supply the");
+    expect(LABEL_SYSTEM).toContain("a class is taught, a session is run");
+    expect(LABEL_SYSTEM).toContain("This is not inventing; it is naming what");
+  });
+
+  test("and ask for simple past", () => {
+    expect(LABEL_SYSTEM).toContain("in simple past");
+  });
+
+  test("a supplied action is accepted, because it shares the activity's words", () => {
+    /* The validation that would refuse an invented label must not refuse a
+       supplied action: "Live class on binary search" → "Taught binary search"
+       still shares "binary" and "search" with its source. */
+    const r = parseLabels(
+      reply([{ label: "Taught binary search", subtopic: "binary search", topic: "DSA", unit: "classes" }]),
+      ["Live class on binary search"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(r.ok && r.labels[0]!.label).toBe("Taught binary search");
+  });
+});
+
+describe("2. an entry with no usable action keeps its own words", () => {
+  /* The guard on rule 3. It asks the model to supply an action, and the failure
+     mode is that it starts supplying one everywhere — including on entries that
+     imply none, where an action would be fabrication. */
+  test("the rules name the exception and its examples", () => {
+    expect(LABEL_SYSTEM).toContain("no usable action at all");
+    expect(LABEL_SYSTEM).toContain("Do not attach an action to a");
+  });
+
+  test("`Corrected` labels as `Corrected`, unchanged", () => {
+    const r = parseLabels(
+      reply([{ label: "Corrected", subtopic: null, topic: null, unit: "entries" }]),
+      ["Corrected"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(r.ok && r.labels[0]!.label).toBe("Corrected");
+  });
+
+  test("and a one-word entry that IS a gerund keeps it", () => {
+    /* "Training" is rule 4's case, not rule 5's: there is no action to supply,
+       so the word stands as written. The gerund check must not refuse it. */
+    for (const word of ["Training", "Onboarding", "Done", "NA"]) {
+      const r = parseLabels(
+        reply([{ label: word, subtopic: null, topic: null, unit: "entries" }]),
+        [word],
+      );
+      expect(r.ok, `${word}: ${JSON.stringify(r)}`).toBe(true);
+    }
+  });
+});
+
+describe("3. no label is a gerund", () => {
+  test("the echoed description is refused", () => {
+    /* "taking doubt session class" labelled as "Taking doubt session class" has
+       told the reader nothing they did not already write. */
+    const r = parseLabels(
+      reply([{ label: "Taking doubt session class", subtopic: null, topic: null, unit: "classes" }]),
+      ["taking doubt session class"],
+    );
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toContain("gerund");
+  });
+
+  test("and the same entry as a verb phrase is kept", () => {
+    const r = parseLabels(
+      reply([{ label: "Ran a doubt session", subtopic: null, topic: null, unit: "sessions" }]),
+      ["taking doubt session class"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  test("a gerund later in the label is not the action, and is left alone", () => {
+    // "Prepared a training deck" is a verb phrase; the gerund is not the verb.
+    const r = parseLabels(
+      reply([{ label: "Prepared a training deck", subtopic: null, topic: null, unit: "entries" }]),
+      ["training deck prep"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+});
+
+describe("4. the writer's capitalisation is theirs", () => {
+  test("a model that normalises it has it put back", () => {
+    /* Observed live, in both directions: one model returned "Learned java and
+       oops" and another "Learned Java and OOPs", from the same source. The rule
+       is the writer's spelling, so both are wrong unless the source says so. */
+    const r = parseLabels(
+      reply([{ label: "Learned Java and OOPs", subtopic: "Java and OOPs", topic: "Java", unit: "entries" }]),
+      ["i learned java and oops for 5hr"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(r.ok && r.labels[0]!.label).toBe("Learned java and oops");
+    expect(r.ok && r.labels[0]!.subtopic).toBe("java and oops");
+  });
+
+  test("and a writer who wrote OOPs keeps OOPs", () => {
+    const r = parseLabels(
+      reply([{ label: "Learned java and oops", subtopic: null, topic: "Java", unit: "entries" }]),
+      ["Learned Java and OOPs concepts"],
+    );
+    expect(r.ok && r.labels[0]!.label).toBe("Learned Java and OOPs");
+  });
+
+  test("the label's own first word keeps its sentence case", () => {
+    /* It leads the phrase and is the action the model supplied, not a word
+       quoted from the text. */
+    expect(preserveSourceCasing("Taught binary search", "live class on binary search")).toBe(
+      "Taught binary search",
+    );
+  });
+
+  test("a subtopic quotes every word, so every word follows the source", () => {
+    expect(preserveSourceCasing("Java and OOPs", "i learned java and oops", false)).toBe(
+      "java and oops",
+    );
+  });
+
+  test("the source's own first word teaches nothing, because its capital is sentence case", () => {
+    /* Measured: "Live class on binary search" labelled as "Taught a live class"
+       came back "Taught a Live class" — the source spells it "Live" only
+       because it starts the sentence. */
+    expect(preserveSourceCasing("Taught a live class", "Live class on binary search")).toBe(
+      "Taught a live class",
+    );
+    // But a term further in still governs.
+    expect(preserveSourceCasing("Taught binary Search", "Live class on binary search")).toBe(
+      "Taught binary search",
+    );
+  });
+
+  test("the rules say so too", () => {
+    expect(LABEL_SYSTEM).toContain("Do not normalise, expand, or correct it");
   });
 });
 

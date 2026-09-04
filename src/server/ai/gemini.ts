@@ -139,7 +139,17 @@ export function isGeminiConfigured(): boolean {
 type Transport =
   | { ok: true; body: unknown }
   /** `retryable` marks a capacity failure — worth trying the next model. */
-  | { ok: false; reason: string; retryable?: boolean };
+  | { ok: false; reason: string; retryable?: boolean; capacity?: CapacityKind };
+
+/**
+ * Two shapes of "busy", which need opposite handling.
+ *
+ * `burst` is a per-minute limit or a 503 — over in seconds, and the next call
+ * should try the model again. `daily` is a quota that resets once a day; the
+ * model will refuse every call until it does, and asking it each time is a
+ * tax on every request in the product.
+ */
+type CapacityKind = "burst" | "daily";
 
 /**
  * Every request to the provider goes through here.
@@ -178,6 +188,64 @@ export function geminiCallCount(): number {
   return outboundCalls;
 }
 
+/**
+ * How long a model exhausted for the DAY is skipped before being tried again.
+ *
+ * ── Why this is not "until the reset" ─────────────────────────────────────
+ * Because the reset instant is not knowable from the response. The 429 body
+ * names the metric and the limit — `generate_content_free_tier_requests`,
+ * limit 20 — and its `retryDelay` says 48 seconds, which is the burst hint and
+ * not when the day rolls over. The actual boundary is midnight in the
+ * provider's own billing timezone, and hardcoding a timezone is exactly the
+ * assumption this codebase refuses to make anywhere else.
+ *
+ * So the model is skipped for a bounded window and then tried once more. That
+ * achieves what matters — the chain stops paying ~350ms per call to rediscover
+ * a first hop that cannot answer — and it recovers on its own whenever the
+ * quota actually resets, without anybody having to be right about when that is.
+ */
+const DAILY_COOLDOWN_MS = Number(process.env.GEMINI_DAILY_COOLDOWN_MS ?? 3_600_000);
+/** A burst limit is over in seconds; this only stops a tight retry loop. */
+const BURST_COOLDOWN_MS = Number(process.env.GEMINI_BURST_COOLDOWN_MS ?? 60_000);
+
+/** Model → the moment it is worth asking again. */
+const unavailableUntil = new Map<string, number>();
+
+/** Exposed so a test can start from a known state. */
+export function clearCapacityMemory(): void {
+  unavailableUntil.clear();
+}
+
+/** Which models the chain is currently skipping, and until when. */
+export function capacityMemory(now = Date.now()): Array<{ model: string; msRemaining: number }> {
+  return [...unavailableUntil.entries()]
+    .filter(([, until]) => until > now)
+    .map(([model, until]) => ({ model, msRemaining: until - now }));
+}
+
+function rememberCapacity(model: string, kind: CapacityKind, now = Date.now()): void {
+  const until = now + (kind === "daily" ? DAILY_COOLDOWN_MS : BURST_COOLDOWN_MS);
+  unavailableUntil.set(model, until);
+  console.info(
+    `[gemini] ${model} is ${kind === "daily" ? "out of quota for the day" : "rate limited"} — ` +
+      `skipping it for ${Math.round((until - now) / 1000)}s`,
+  );
+}
+
+/**
+ * A quota measured per DAY rather than per minute.
+ *
+ * Read off the violation the provider itself returns — `quotaId`
+ * "GenerateRequestsPerDayPerProjectPerModel-FreeTier" — rather than inferred
+ * from the status code, because 429 covers both and they need opposite
+ * handling. Anything unrecognised is treated as a burst: a short skip that
+ * corrects itself is the safe way to be wrong.
+ */
+export function capacityKindOf(body: string): CapacityKind {
+  if (/PerDay|per_day|free_tier_requests/i.test(body)) return "daily";
+  return "burst";
+}
+
 async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport> {
   const apiKey = process.env.GEMINI_API_KEY;
   // The substring "GEMINI_API_KEY" is load-bearing: callers distinguish
@@ -205,6 +273,16 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
    * blip — leaves the clock alone and genuinely deserves the next model. The
    * worst case is one timeout plus some fast failures, not three timeouts. */
   for (const entry of MODEL_CHAIN) {
+    /* A model known to be out of quota is not asked again until its window is
+       up. The chain's ORDER is still right — the pinned primary is the best
+       model in it whenever it can answer — so this skips the hop rather than
+       reordering around a condition that is temporary by definition. */
+    const until = unavailableUntil.get(entry.model);
+    if (until !== undefined && until > Date.now()) {
+      last = { ok: false, retryable: true, reason: `${entry.model} is out of quota` };
+      continue;
+    }
+
     /* Counted here rather than in `attempt`, and before the request rather than
      * after: what the rule forbids is REACHING for the provider, and a call
      * that times out reached for it just as surely as one that answered. */
@@ -215,7 +293,12 @@ async function postGenerate(body: unknown, timeoutMs: number): Promise<Transport
       requestFor(entry, body),
       timeoutMs,
     );
-    if (last.ok) return last;
+    if (last.ok) {
+      // It answered, so whatever it was refused for is over.
+      unavailableUntil.delete(entry.model);
+      return last;
+    }
+    if (last.capacity) rememberCapacity(entry.model, last.capacity);
     // Anything that is not a capacity problem will fail the same way on the
     // next model, so stop rather than spending the caller's time on it.
     if (!last.retryable) return last;
@@ -247,9 +330,14 @@ async function attempt(
     });
 
     if (CAPACITY_STATUSES.has(res.status)) {
+      /* The body says WHICH limit was hit, and a quota measured per day needs
+         handling a per-minute one does not — see `capacityKindOf`. Read here
+         because it is the only place the response is still in hand. */
+      const detail = res.status === 429 ? await res.text().catch(() => "") : "";
       return {
         ok: false,
         retryable: true,
+        capacity: res.status === 429 ? capacityKindOf(detail) : "burst",
         reason:
           res.status === 429 ? "rate limited by provider" : "provider returned HTTP 503",
       };

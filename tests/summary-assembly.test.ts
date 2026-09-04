@@ -138,14 +138,30 @@ describe("a count only prints when its noun means something", () => {
     );
   });
 
-  test("and a label that already names the noun prints the figure alone", () => {
-    /* Where the two rules meet. "Ran a doubt session" already says session, so
-       the count goes in bare rather than saying it twice — the same rule that
-       turns "Reviewed submissions (12 submissions" into "(12,". It applies at
-       one as it does at twelve. */
+  test("5. one of something the label already names prints no count at all", () => {
+    /* "Ran a doubt session (1, 1h)" — the "a" has already said one, and the
+       lone digit beside it reads as a figure the reader is meant to check. */
     expect(renderActivity(activity({ label: "Ran a doubt session", unit: "sessions", qty: 1, minutes: 60 }))).toBe(
-      "Ran a doubt session (1, 1h)",
+      "Ran a doubt session (1h)",
     );
+    expect(renderActivity(activity({ label: "Ran a doubt session", unit: "sessions", qty: 1, minutes: null }))).toBe(
+      "Ran a doubt session",
+    );
+  });
+
+  test("6. one of something the label does NOT name still prints", () => {
+    // There the figure is the only thing saying how many.
+    expect(renderActivity(activity({ label: "Taught binary search", unit: "classes", qty: 1, minutes: 120 }))).toBe(
+      "Taught binary search (1 class, 2h)",
+    );
+  });
+
+  test("more than one still prints, even where the label names the noun", () => {
+    /* The no-duplicate-noun rule still applies at twelve — it is only the count
+       of ONE that the label's own "a" has already stated. */
+    expect(
+      renderActivity(activity({ label: "Reviewed submissions", unit: "submissions", qty: 12, minutes: 90 })),
+    ).toBe("Reviewed submissions (12, 1h 30m)");
   });
 
   test("a period keeps the count the row dropped, under the group's own name", () => {

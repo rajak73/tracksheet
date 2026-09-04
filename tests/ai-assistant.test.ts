@@ -9,6 +9,7 @@ import { buildInstruction } from "@/server/ai/prompts";
 import { UTILIZATION_BANDS } from "@/server/analytics/bands";
 import { THRESHOLDS } from "@/server/analytics/thresholds";
 import { assistantInsight, BRIEF_TYPE, parseReply, verifyReply } from "@/server/ai/assistant";
+import { clearCapacityMemory } from "@/server/ai/gemini";
 
 /**
  * The Gemini assistant layer.
@@ -164,6 +165,12 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  /* The chain remembers a model that refused for capacity and skips it until
+     its window is up — which is the point of that memory, and means a test
+     that fakes a 429 has taken the provider out for the tests after it.
+     Reset like `mode`, and for the same reason: this file's fake provider is
+     shared state, and the memory of its last answer is too. */
+  clearCapacityMemory();
   captured = [];
   mode = "ok";
   // Cached briefs would make the next test's provider-call count meaningless.

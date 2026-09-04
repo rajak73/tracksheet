@@ -56,38 +56,48 @@ export const LABEL_SYSTEM = [
   "",
   "1. Never output a number of any kind. Counts and durations are supplied",
   "   separately and are assembled by the application.",
-  '2. label is a short verb phrase saying what the person did. Always keep the',
-  '   verb: "Taught binary search", "Learned Java and OOPs", "Reviewed',
-  '   submissions", "Ran a doubt session", "Prepared a problem set". A reader',
-  "   must be able to tell teaching from learning from reviewing without seeing",
-  "   the original text.",
-  '3. If the text names no verb — "Doubt clearing session", "Corrected" — use',
-  "   the phrase as written. Never invent an action.",
-  '4. Do not put counts in the label. "Reviewed 12 submissions" is wrong;',
+  "2. label is a short verb phrase saying what the person did, in simple past.",
+  '   "Taught binary search". "Learned Java and OOPs concepts". "Ran a doubt',
+  '   session". "Reviewed submissions". "Prepared a problem set".',
+  "3. Most entries name the activity without naming the action — \"Live class",
+  '   on binary search", "Doubt clearing session", "Weekly contest". Supply the',
+  "   action that activity obviously is: a class is taught, a session is run, a",
+  "   contest is conducted, submissions are reviewed, a problem set is",
+  "   prepared, an interview is taken. This is not inventing; it is naming what",
+  "   the noun already means.",
+  "4. Only when the entry gives no usable action at all — \"Corrected\", \"NA\",",
+  '   "Done" — keep the phrase exactly as written. Do not attach an action to a',
+  "   word that does not imply one.",
+  '5. Never write the label as a gerund. "Taking doubt session class" is wrong;',
+  '   "Ran a doubt session" is right.',
+  '6. Do not put counts in the label. "Reviewed 12 submissions" is wrong;',
   '   "Reviewed submissions" is right.',
-  '5. subtopic is the specific thing it was about, taken from the text. "Live',
+  '7. subtopic is the specific thing it was about, taken from the text. "Live',
   '   class on binary search" has subtopic "binary search". If nothing specific',
   "   is named, null.",
-  '6. topic is the broader area the subtopic belongs to. "binary search"',
+  '8. topic is the broader area the subtopic belongs to. "binary search"',
   '   belongs to "DSA". "OOPs" belongs to "Java". "deadlock handling" belongs',
   '   to "OS". Name it in the shortest form a reader would recognise.',
-  "7. There are exactly two levels, never three. If the text names something",
+  "9. There are exactly two levels, never three. If the text names something",
   '   several levels deep — "AVL rotations" — topic is the broadest',
   '   recognisable area ("DSA") and subtopic is the specific thing named ("AVL',
   '   rotations"). Everything in between collapses into subtopic.',
-  "8. Only name a topic you are confident of from the subtopic itself. If the",
-  '   activity names no subject matter — "Doubt clearing session", "Reviewed',
-  '   submissions", "Office meeting" — topic is null. If the subtopic could',
-  '   belong to more than one area — "closures" could be JavaScript or Python —',
-  "   topic is null. Prefer null over a guess.",
-  "9. Never invent a subtopic that is not in the text. topic may be inferred;",
-  "   subtopic may not.",
-  '10. unit is the natural plural noun for what was counted: "classes",',
+  "10. Only name a topic you are confident of from the subtopic itself. If the",
+  '    activity names no subject matter — "Doubt clearing session", "Reviewed',
+  '    submissions", "Office meeting" — topic is null. If the subtopic could',
+  '    belong to more than one area — "closures" could be JavaScript or Python',
+  "    — topic is null. Prefer null over a guess.",
+  "11. Never invent a subtopic that is not in the text. topic may be inferred;",
+  "    subtopic may not.",
+  '12. unit is the natural plural noun for what was counted: "classes",',
   '    "sessions", "interviews", "submissions", "students", "teams". Use',
   '    "entries" if nothing fits. Do not put this noun inside the label.',
-  "11. Preserve the writer's own terminology. Hindi, English or mixed text",
+  "13. Preserve the writer's own terminology. Hindi, English or mixed text",
   "    stays as written. Do not translate.",
-  "12. Describe, do not evaluate. Never assess performance, effort, or",
+  "14. Keep the writer's capitalisation of technical terms exactly as they",
+  '    wrote it. If they wrote "OOPs", the label says "OOPs". If they wrote',
+  '    "oops", the label says "oops". Do not normalise, expand, or correct it.',
+  "15. Describe, do not evaluate. Never assess performance, effort, or",
   "    sufficiency. Never compare the person to a standard or to another",
   "    period.",
 ].join("\n");
@@ -169,6 +179,76 @@ export function sharesWord(phrase: string, source: string): boolean {
 }
 
 /**
+ * Is this label written as a gerund — "Taking doubt session class"?
+ *
+ * The failure the fifth rule names, and the shape an echo takes when the
+ * writer's own entry was a gerund. Checked on the FIRST word only: a label is a
+ * verb phrase, so the first word is the verb, and "Prepared a training deck" is
+ * not a gerund label because the gerund is not the action.
+ *
+ * ── The single-word exemption ─────────────────────────────────────────────
+ * A one-word entry — "Training", "Onboarding" — is the fourth rule's case: no
+ * usable action, so the phrase is kept exactly as written and a gerund is the
+ * correct answer. The distinction code can actually make is length: a
+ * multi-word entry names an activity that has an obvious action, and a
+ * one-word entry is the thing rule 4 was written for.
+ */
+function isGerund(label: string, source: string): boolean {
+  if (meaningfulWords(source).length <= 1) return false;
+  const first = label.trim().split(/\s+/)[0] ?? "";
+  return /^[a-z]+ing$/i.test(first);
+}
+
+/**
+ * The writer's own spelling of their own words, restored.
+ *
+ * ── Why this repairs rather than refuses ──────────────────────────────────
+ * Observed live: "i learned java and oops for 5hr" came back as "Learned java
+ * and oops" from one model and "Learned Java and OOPs" from another. The
+ * fourteenth rule says the writer's capitalisation is theirs — both directions,
+ * so the second model is as wrong as the first.
+ *
+ * Refusing over it would cost the whole day's labels, and after the retry would
+ * render the instructor's raw text instead of a summary, over letter case. And
+ * unlike every other correction here this one invents nothing: the source of
+ * truth is the writer's own text, sitting right there. So a label word that
+ * matches a source word is spelled the way the SOURCE spells it.
+ *
+ * A LABEL's first word is left alone: it leads the phrase, it is the action the
+ * model supplied rather than a word quoted from the text, and sentence case
+ * there is the label's own. A SUBTOPIC has no such word — every word in it is
+ * quoted — so all of them are held to the source.
+ *
+ * ── And the SOURCE's first word teaches nothing ───────────────────────────
+ * Its capital is sentence case, not terminology. Measured: "Live class on
+ * binary search" labelled as "Taught a live class" came back out as "Taught a
+ * Live class", because the source spells it "Live" — at the start of its own
+ * sentence. The same reasoning that exempts the label's first word exempts the
+ * source's, and for the same reason: neither capital is a fact about a term.
+ */
+export function preserveSourceCasing(label: string, source: string, skipFirst = true): string {
+  const bySpelling = new Map<string, string>();
+  const sourceWords = source.split(/\s+/).filter((w) => w.trim() !== "");
+  for (const word of sourceWords.slice(1)) {
+    const key = word.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    if (key.length > 1 && !bySpelling.has(key)) bySpelling.set(key, word.replace(/[^A-Za-z0-9]/g, ""));
+  }
+  const parts = label.split(/(\s+)/);
+  let seenWord = false;
+  return parts
+    .map((part) => {
+      if (/^\s+$/.test(part) || part === "") return part;
+      const wasFirst = !seenWord;
+      seenWord = true;
+      if (wasFirst && skipFirst) return part;
+      const bare = part.replace(/[^A-Za-z0-9]/g, "");
+      const original = bySpelling.get(bare.toLowerCase());
+      return original && original !== bare ? part.replace(bare, original) : part;
+    })
+    .join("");
+}
+
+/**
  * Validate a labelling reply against the descriptions it was given.
  *
  * Rejects rather than repairs. A repaired label is one nobody asked the model
@@ -218,6 +298,13 @@ export function parseLabels(text: string, sources: string[]): LabelResult {
       return { ok: false, reason: `label "${label}" shares no word with "${source}"` };
     }
 
+    /* 4. A verb phrase, not a gerund — and the gerund is how an echo of the
+          description arrives. "taking doubt session class" labelled as "Taking
+          doubt session class" has told the reader nothing they did not write. */
+    if (isGerund(label, source)) {
+      return { ok: false, reason: `label "${label}" is written as a gerund` };
+    }
+
     const subtopic = typeof a.subtopic === "string" && a.subtopic.trim() !== "" ? a.subtopic.trim() : null;
     // 4. topic may be inferred; a subtopic may only be quoted.
     if (subtopic !== null && !sharesWord(subtopic, source)) {
@@ -226,7 +313,14 @@ export function parseLabels(text: string, sources: string[]): LabelResult {
     const topic = typeof a.topic === "string" && a.topic.trim() !== "" ? a.topic.trim() : null;
     const unit = countableUnit(typeof a.unit === "string" ? a.unit.trim() : "");
 
-    labels.push({ label, subtopic, topic, unit });
+    labels.push({
+      // The writer's own spelling of their own words, whichever way the model
+      // normalised it. See `preserveSourceCasing`.
+      label: preserveSourceCasing(label, source),
+      subtopic: subtopic === null ? null : preserveSourceCasing(subtopic, source, false),
+      topic,
+      unit,
+    });
   }
 
   return { ok: true, labels };

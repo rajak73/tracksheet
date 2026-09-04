@@ -147,15 +147,22 @@ export function renderActivity(activity: SummaryActivity): string {
      a row whose unit is `entries` or a length of time has already reported that
      the number says nothing on its own, and the duration beside it says more. */
   if (activity.qty !== null && isCountableUnit(activity.unit)) {
-    /* One of a thing takes the singular noun. "1 classes" is the sort of
-       mistake a reader stops on, and it is entirely avoidable: the count and
-       the noun are both here. */
     const unit = activity.unit!;
-    inner.push(
-      statesUnit(activity.label, unit)
-        ? String(activity.qty)
-        : `${activity.qty} ${activity.qty === 1 ? singular(unit) : unit}`,
-    );
+    const inLabel = statesUnit(activity.label, unit);
+    /* ONE of something the label already names is not a figure worth printing.
+       "Ran a doubt session (1, 1h)" — the "a" has already said one, and the
+       lone digit beside it reads as a number the reader is meant to check.
+       
+       One of something the label does NOT name still prints: in "Taught binary
+       search (1 class, 2h)" the figure is the only thing saying how many. */
+    if (!(inLabel && activity.qty === 1)) {
+      /* And one of a thing takes the singular noun. "1 classes" is the sort of
+         mistake a reader stops on, and it is entirely avoidable: the count and
+         the noun are both here. */
+      inner.push(
+        inLabel ? String(activity.qty) : `${activity.qty} ${activity.qty === 1 ? singular(unit) : unit}`,
+      );
+    }
   }
   if (activity.minutes !== null) inner.push(formatSpan(activity.minutes));
   return inner.length === 0 ? activity.label : `${activity.label} (${inner.join(", ")})`;
