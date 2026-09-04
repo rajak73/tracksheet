@@ -47,18 +47,24 @@ import type { InsightContext } from "@/server/ai/context";
 export const RECOMMENDATION_SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "POSITIVE"] as const;
 export type RecommendationSeverity = (typeof RECOMMENDATION_SEVERITIES)[number];
 
-/**
- * Categories. A closed list so the UI can group and filter, and so a model
- * cannot invent a taxonomy that grows every time it runs.
+/* ── `RECOMMENDATION_CATEGORIES` is gone ───────────────────────────────────
+ *
+ * Five names — UTILIZATION, WORKLOAD_BALANCE, DELIVERABLE_RISK, DATA_QUALITY,
+ * TREND — sent to the model with "one of" beside them, so it could pick a
+ * bucket for each recommendation. Its own comment called them categories, and
+ * defended the closed list on the grounds that a model would otherwise "invent
+ * a taxonomy that grows every time it runs".
+ *
+ * That defence is the shape of the mistake. The alternative to a taxonomy the
+ * model invents is not a taxonomy we supply; it is no taxonomy. This product
+ * has none, in a table, a column, a dropdown or a prompt — and one of these
+ * five still carried the code of an activity type deleted months ago, which is
+ * how long it takes an unread list to stop matching the thing it names.
+ *
+ * Found by `no-category-in-prompts`, on its first run, which is what that scan
+ * was written for. Nothing rendered the field, nothing grouped by it, and no
+ * test asserted on it: the UI prints the title, the explanation and the metric.
  */
-export const RECOMMENDATION_CATEGORIES = [
-  "UTILIZATION",
-  "WORKLOAD_BALANCE",
-  "DELIVERABLE_RISK",
-  "DATA_QUALITY",
-  "TREND",
-] as const;
-export type RecommendationCategory = (typeof RECOMMENDATION_CATEGORIES)[number];
 
 /** What a recommendation may point at. */
 export const ENTITY_TYPES = ["UNIVERSITY", "MANAGER", "INSTRUCTOR", "PLATFORM"] as const;
@@ -66,7 +72,6 @@ export type EntityType = (typeof ENTITY_TYPES)[number];
 
 export type Recommendation = {
   severity: RecommendationSeverity;
-  category: RecommendationCategory;
   title: string;
   /** Why, in terms of the figures. This is what the reader checks. */
   explanation: string;
@@ -136,9 +141,6 @@ const RULES = `RULES — follow all of them:
 
 const DEFINITIONS = `DEFINITIONS:
 - workingHours: total hours recorded against any activity type.
-- deliverableHours: the part of workingHours recorded against DELIVERABLE work.
-- nonDeliverableHours: every other recorded hour. It is not waste or idle time;
-  teaching, meetings and preparation all count here.
 - utilization: recorded hours as a percentage of contracted capacity. null means
   nothing was recorded.
 - trend: this period's utilisation minus the previous period's, in percentage
@@ -180,7 +182,6 @@ export function buildInstruction(context: InsightContext): string {
     `Return JSON with exactly this shape, at most ${maxRecommendations} entries:`,
     '{"recommendations": [{',
     `  "severity": one of ${RECOMMENDATION_SEVERITIES.join(" | ")},`,
-    `  "category": one of ${RECOMMENDATION_CATEGORIES.join(" | ")},`,
     `  "title": string (at most ${titleChars} characters),`,
     `  "explanation": string (at most ${explanationChars} characters),`,
     `  "metric": string (at most ${metricChars} characters, the figure this rests on),`,

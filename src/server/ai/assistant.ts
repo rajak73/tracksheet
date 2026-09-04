@@ -46,13 +46,11 @@ import { buildInsightContext, type InsightContext } from "@/server/ai/context";
 import {
   buildInstruction,
   ENTITY_TYPES,
-  RECOMMENDATION_CATEGORIES,
   RECOMMENDATION_SEVERITIES,
   REPLY_LIMITS,
   type AssistantReply,
   type EntityType,
   type Recommendation,
-  type RecommendationCategory,
   type RecommendationSeverity,
 } from "@/server/ai/prompts";
 import { generateStructured, isGeminiConfigured } from "@/server/ai/gemini";
@@ -172,9 +170,6 @@ export function verifyReply(context: InsightContext, reply: AssistantReply): str
     // unstyled card, and a category outside it would break grouping.
     if (!RECOMMENDATION_SEVERITIES.includes(rec.severity)) {
       violations.push(`${at("severity")}: unknown severity "${rec.severity}"`);
-    }
-    if (!RECOMMENDATION_CATEGORIES.includes(rec.category)) {
-      violations.push(`${at("category")}: unknown category "${rec.category}"`);
     }
     if (!ENTITY_TYPES.includes(rec.entityType)) {
       violations.push(`${at("entityType")}: unknown entity type "${rec.entityType}"`);
@@ -359,9 +354,8 @@ export function parseReply(text: string): AssistantReply | null {
     const metric = str("metric");
     const action = str("action");
     const severity = str("severity");
-    const category = str("category");
     const entityType = str("entityType");
-    if (!title || !explanation || !metric || !action || !severity || !category || !entityType) {
+    if (!title || !explanation || !metric || !action || !severity || !entityType) {
       return null;
     }
 
@@ -376,7 +370,6 @@ export function parseReply(text: string): AssistantReply | null {
 
     recommendations.push({
       severity: severity as RecommendationSeverity,
-      category: category as RecommendationCategory,
       title,
       explanation,
       metric,

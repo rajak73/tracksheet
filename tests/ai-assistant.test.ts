@@ -183,7 +183,6 @@ function truthfulReply(context: Awaited<ReturnType<typeof buildInsightContext>>)
     recommendations: [
       {
         severity: "LOW",
-        category: "TREND",
         title: "Recorded activity for this period",
         explanation: `This covers ${context.period.from} to ${context.period.to}.`,
         metric: "recorded hours",
@@ -446,7 +445,6 @@ describe("a reply is only shown if the numbers back it", () => {
       recommendations: [
         {
           severity: "MEDIUM",
-          category: "UTILIZATION",
           title: "Below the industry average",
           explanation: "Recorded 10 hours, which is below the industry average.",
           metric: "10 hours",
@@ -516,7 +514,7 @@ describe("a reply is only shown if the numbers back it", () => {
     ).toContain("is a INSTRUCTOR, not a MANAGER");
   });
 
-  test("a severity or category outside the vocabulary is rejected", () => {
+  test("a severity outside the vocabulary is rejected", () => {
     const context = instructorContextFixture({
       workingHours: 10,
       recordedHours: 0,
@@ -524,7 +522,6 @@ describe("a reply is only shown if the numbers back it", () => {
     });
     const rec = {
       severity: "APOCALYPTIC" as never,
-      category: "VIBES" as never,
       title: "Low recorded hours",
       explanation: "Recorded 10 hours.",
       metric: "10 hours",
@@ -534,7 +531,9 @@ describe("a reply is only shown if the numbers back it", () => {
     };
     const violations = verifyReply(context, { recommendations: [rec] }).join(" ");
     expect(violations).toContain("unknown severity");
-    expect(violations).toContain("unknown category");
+    /* There is no category to be outside a vocabulary of. `severity` is the
+       only closed enum left, and it grades the FINDING — not the work and not
+       the person — which is what keeps it from being a taxonomy. */
   });
 
   test("a recommendation claiming to have DONE something is rejected", () => {
@@ -549,7 +548,6 @@ describe("a reply is only shown if the numbers back it", () => {
       recommendations: [
         {
           severity: "MEDIUM",
-          category: "WORKLOAD_BALANCE",
           title: "Workload rebalanced",
           explanation: "Recorded 10 hours.",
           metric: "10 hours",
@@ -606,7 +604,6 @@ describe("failures are reported, never filled in", () => {
   test("a structurally incomplete reply is not a reply", () => {
     const whole = {
       severity: "LOW",
-      category: "TREND",
       title: "t",
       explanation: "e",
       metric: "m",
@@ -621,7 +618,7 @@ describe("failures are reported, never filled in", () => {
     expect(parseReply("not json at all")).toBeNull();
     // A missing field is not a blank field: patching it would produce a
     // recommendation nothing authored.
-    for (const drop of ["title", "explanation", "metric", "action", "severity", "category", "entityType"]) {
+    for (const drop of ["title", "explanation", "metric", "action", "severity", "entityType"]) {
       const partial: Record<string, unknown> = { ...whole };
       delete partial[drop];
       expect(parseReply(JSON.stringify({ recommendations: [partial] }))).toBeNull();
@@ -849,7 +846,6 @@ describe("the product owns its thresholds, not the model", () => {
       recommendations: [
         {
           severity: "HIGH",
-          category: "UTILIZATION",
           title: "Below target",
           // 82 is not a band this product owns, so it is an invented rule.
           explanation: "Recorded 10 hours, which is below the 82% expected level.",
