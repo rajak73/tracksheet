@@ -86,6 +86,11 @@ export const GET = withAuth<{ id: string }>(async ({ scope: tenant, params, req 
         instructorId: instructor.id,
         periodStart,
         periodEnd,
+        /* Which shape the sentence takes. A month bundles the groups it did not
+           lead with into buckets and gets a third line; a week names them in
+           one. Passed rather than inferred from the span, because a partial
+           month is still a month. */
+        scope: scopeType === "MONTH" ? "MONTH" : "WEEK",
       });
       /* Throwing rather than returning a partial payload: `serveInsight` treats
          a throw as "keep whatever was stored and mark it stale", and a rollup

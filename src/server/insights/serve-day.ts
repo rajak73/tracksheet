@@ -25,30 +25,29 @@ import { generationModeFor, type ViewerRole } from "./access";
 import { serveDayExtraction } from "./extract";
 import type { DayText } from "./extraction-checks";
 import { parseActivities } from "@/domain/worklog-activities";
-import { parseStoredSummary } from "./day-summary";
+import { renderDaySummary, type SummaryActivity } from "@/domain/summary-render";
 import { toDateOnly } from "@/server/time/workday";
 
 /** One extracted point, as a day cell renders it. */
 export type DayPoint = {
   label: string;
   sessions: number | null;
+  /** The noun the count is in — `classes`, `submissions`. */
+  sessions_unit?: string | null;
   /** Whole minutes, or null when the text stated no duration. */
   minutes: number | null;
 };
-
-/** One line of the day's summary, with its minutes summed in code. */
-export type SummaryLine = { text: string; minutes: number | null };
 
 export type ServedDayInsight = {
   scope: { type: "DAY"; period_start: string; period_end: string };
   points: DayPoint[];
   /**
-   * The day in words: what was done, and one line about what the day was.
+   * The day in words — one sentence, assembled here.
    *
-   * Every duration here is added up HERE, from the activities each bullet
-   * names. The model wrote the words and not one figure in them.
+   * Every figure in it comes from the rows the instructor filled in. The model
+   * supplied the labels and not one number among them.
    */
-  summary: { lines: SummaryLine[]; insight: string } | null;
+  summary_lines: string[];
   /** Minutes the day recorded that no point could account for. */
   unallocated_minutes: number;
   total_minutes: number;
@@ -75,7 +74,7 @@ const empty = (date: string): ServedDayInsight => ({
   unallocated_minutes: 0,
   total_minutes: 0,
   raw_text: null,
-  summary: null,
+  summary_lines: [],
   cached: false,
   generated_at: null,
   status: "EMPTY",
@@ -84,39 +83,22 @@ const empty = (date: string): ServedDayInsight => ({
 });
 
 /**
- * A stored summary, with each bullet's minutes added from the points it names.
+ * The day's sentence, written here from the points and the recorded total.
  *
- * This is where the arithmetic lives. The model returned prose and a list of
- * indexes; every figure the reader sees is computed from the record, which is
- * why a bullet can never claim a duration the activities do not support.
+ * This is where the arithmetic lives, and it is the whole reason the model is
+ * never asked for prose: every figure the reader sees is computed from the
+ * record on the way to the screen, so a count can never claim something the
+ * rows do not say — and it cannot go stale, because nothing about it is stored.
  */
-function summaryWithMinutes(
-  stored: unknown,
-  points: DayPoint[],
-  dayMinutes: number,
-): { lines: SummaryLine[]; insight: string } | null {
-  const summary = parseStoredSummary(stored);
-  if (!summary) return null;
-  return {
-    insight: summary.insight,
-    lines: summary.bullets.map((b) => {
-      const mine = b.activities.map((i) => points[i]).filter((p): p is DayPoint => Boolean(p));
-      const timed = mine.filter((p) => p.minutes !== null);
-      if (timed.length > 0) {
-        return { text: b.text, minutes: timed.reduce((n, p) => n + (p.minutes ?? 0), 0) };
-      }
-      /* Nothing under this bullet said how long it took. If the bullet covers
-         the WHOLE day, the day's recorded total is how long it took — there is
-         nothing else it could have been, and it is the same reasoning that lets
-         a one-activity day's quantity box refer to that activity.
-         
-         Otherwise a dash: a six-hour day whose only line reads "—" looks like
-         data went missing, and splitting the total across several bullets that
-         never stated one would be inventing the split. */
-      const coversDay = points.length > 0 && b.activities.length === points.length;
-      return { text: b.text, minutes: coversDay && dayMinutes > 0 ? dayMinutes : null };
-    }),
-  };
+function daySentence(points: DayPoint[], totalMinutes: number): string[] {
+  if (points.length === 0) return [];
+  const activities: SummaryActivity[] = points.map((p) => ({
+    label: p.label,
+    qty: p.sessions,
+    unit: p.sessions_unit ?? null,
+    minutes: p.minutes,
+  }));
+  return [renderDaySummary(activities, totalMinutes)];
 }
 
 export async function serveDayInsight(input: {
@@ -164,7 +146,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: stored.items as DayPoint[],
-      summary: summaryWithMinutes(stored.summary, stored.items as DayPoint[], day.workingMinutes),
+      summary_lines: daySentence(stored.items as DayPoint[], day.workingMinutes),
       unallocated_minutes: stored.unallocatedMinutes,
       cached: true,
       generated_at: stored.generatedAt.toISOString(),
@@ -182,7 +164,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: [],
-      summary: null,
+      summary_lines: [],
       unallocated_minutes: stored.unallocatedMinutes,
       cached: true,
       generated_at: stored.generatedAt.toISOString(),
@@ -200,7 +182,7 @@ export async function serveDayInsight(input: {
     return {
       ...base,
       points: [],
-      summary: null,
+      summary_lines: [],
       unallocated_minutes: day.workingMinutes,
       cached: false,
       generated_at: null,
@@ -221,10 +203,8 @@ export async function serveDayInsight(input: {
   return {
     ...base,
     points: fresh.status === "READY" ? (fresh.items as DayPoint[]) : [],
-    summary:
-      fresh.status === "READY"
-        ? summaryWithMinutes(fresh.summary, fresh.items as DayPoint[], day.workingMinutes)
-        : null,
+    summary_lines:
+      fresh.status === "READY" ? daySentence(fresh.items as DayPoint[], day.workingMinutes) : [],
     unallocated_minutes: fresh.unallocatedMinutes,
     cached: false,
     generated_at: fresh.generatedAt.toISOString(),

@@ -128,28 +128,6 @@ export function formatMinuteOfDay(minutes: number): string {
  *
  * Minutes are rounded once, from the total, so a column of these adds up.
  */
-/**
- * A duration as somebody would say it: `2 hrs`, `45 min`, `1 hr 30 min`.
- *
- * ── Why this exists beside `formatMinutes` ────────────────────────────────
- * `06h 30m` is right for a column of figures read down the page — it lines up,
- * and the client's sheet specifies it to the character. It reads badly inside a
- * sentence, and the AI Insight is sentences: "Conducted live classes on binary
- * search — 06h 00m" is a spreadsheet cell wearing prose.
- *
- * Same arithmetic, same minutes, one voice each. Neither ever prints a decimal
- * hour, which is the thing both formatters exist to prevent.
- */
-export function formatDurationWords(minutes: number | null | undefined): string {
-  if (minutes === null || minutes === undefined) return "—";
-  const total = Math.max(0, Math.round(minutes));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m} min`;
-  const hours = `${h} ${h === 1 ? "hr" : "hrs"}`;
-  return m === 0 ? hours : `${hours} ${m} min`;
-}
-
 export function formatMinutes(minutes: number | null | undefined): string {
   if (minutes === null || minutes === undefined) return "—";
   const total = Math.round(minutes);
@@ -170,22 +148,6 @@ export function formatHours(value: number | null | undefined): string {
   return formatMinutes(value * 60);
 }
 
-
-/**
- * A duration as a report writes it beside an activity: `2h`, `1h 30m`, `45m`.
- *
- * Distinct from `formatHours`, which pads to `02h 00m` for a column of totals
- * that has to line up. Inside a comma-separated list, padding reads as noise —
- * "Doubt Sessions - 00h 45m" says nothing more than "Doubt Sessions - 45m".
- */
-export function formatCompactDuration(minutes: number): string {
-  const total = Math.max(0, Math.round(minutes));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
 
 export function formatPct(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";

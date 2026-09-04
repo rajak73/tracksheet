@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  GROUP_SYSTEM,
   groupingInstruction,
   parseGrouping,
   runGrouping,
@@ -25,10 +26,13 @@ const MEMBERS: GroupMember[] = [
    no topic that recurs, so it earns a group rather than falling to Other. */
 const ok = JSON.stringify({
   groups: [
-    { name: "DSA", members: [0, 1] },
-    { name: "Doubt clearing session", members: [2] },
+    { name: "DSA — taught", members: [0, 1] },
+    { name: "Doubt clearing", members: [2] },
   ],
 });
+
+/** The period's subtopics, so a name carrying one can be refused. */
+const SUBTOPICS = ["binary tree", "hashing"];
 
 function provider(replies: string[]) {
   let calls = 0;
@@ -58,7 +62,10 @@ describe("the grouping prompt", () => {
     expect(text).not.toContain('"minutes"');
     expect(text).not.toContain('"duration');
     expect(text).not.toContain("working_minutes");
-    expect(text).toContain("Output no numbers of any kind");
+    /* The rule itself lives in the system instruction, which is sent alongside
+       rather than folded into the payload — so the rules are not read as part
+       of the period being described. */
+    expect(GROUP_SYSTEM).toContain("Output no numbers of any kind");
   });
 
   test("9. it names no topics of its own", () => {
@@ -66,9 +73,47 @@ describe("the grouping prompt", () => {
        The instruction may say what a topic IS; it must never list which topics
        exist, because a list in a prompt is a list. The examples of naming are
        the model's own reasoning material, not a vocabulary to choose from. */
-    const text = groupingInstruction(MEMBERS);
     const vocabulary = ["Teaching", "Meetings", "Administrative", "Lesson Prep", "Evaluation"];
-    for (const word of vocabulary) expect(text).not.toContain(word);
+    for (const word of vocabulary) {
+      expect(groupingInstruction(MEMBERS)).not.toContain(word);
+      expect(GROUP_SYSTEM).not.toContain(word);
+    }
+  });
+
+  test("7. teaching a topic and preparing for it are asked to stay apart", () => {
+    expect(GROUP_SYSTEM).toContain("teaching and preparing are");
+  });
+});
+
+describe("6. no group name contains a subtopic", () => {
+  test("a name carrying one of the period's subtopics is refused", () => {
+    /* "DSA — taught binary search" is the day view with a week's heading on it,
+       and it is wrong the moment a second subtopic joins the group. */
+    const named = JSON.stringify({
+      groups: [
+        { name: "DSA — taught binary tree", members: [0, 1] },
+        { name: "Doubt clearing", members: [2] },
+      ],
+    });
+    const r = parseGrouping(named, 3, SUBTOPICS);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toContain("binary tree");
+  });
+
+  test("a multi-word subtopic is matched whole, not by one of its words", () => {
+    /* "review" inside "code review" must not refuse "Submission review", which
+       is a name the instruction asks for. The check that costs a correct answer
+       is worse than the one that misses an incorrect one. */
+    const r = parseGrouping(
+      JSON.stringify({ groups: [{ name: "Submission review", members: [0, 1, 2] }] }),
+      3,
+      ["code review"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  test("the same reply passes when the subtopic is not in the name", () => {
+    expect(parseGrouping(ok, 3, SUBTOPICS).ok).toBe(true);
   });
 });
 
@@ -82,7 +127,7 @@ describe("6. a week settles on one name for one topic", () => {
     if (!result.ok) return;
 
     const topic = result.groups.find((g) => g.members.includes(0))!;
-    expect(topic.name).toBe("DSA");
+    expect(topic.name).toBe("DSA — taught");
     expect(topic.members, "both days land under the one name").toEqual([0, 1]);
     expect(result.groups).toHaveLength(2);
   });

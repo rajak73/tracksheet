@@ -42,7 +42,16 @@ import { toDateOnly } from "@/server/time/workday";
  * of that scope's insight changes. Do NOT increment for a refactor that leaves
  * the sent text byte-identical.
  */
-/* ── v2: topic and subtopic ────────────────────────────────────────────────
+/* ── v3: the model stopped writing sentences ──────────────────────────────
+ * Two calls now, both language-only: one labels a day, one groups a period.
+ * Neither writes prose and neither writes a figure — every number in every
+ * summary is assembled in code from the rows the instructor filled in.
+ *
+ * Bumped because the sent text changed and because the ANSWER changed shape: a
+ * day stored under v2 carries bullets and an insight sentence that nothing
+ * reads any more.
+ *
+ * ── v2: topic and subtopic ────────────────────────────────────────────────
  * The shape of an extraction changed — every activity now carries a subtopic
  * quoted from the text and a topic inferred from it — and the grouping changed
  * with it, from grouping by activity to grouping by topic.
@@ -51,10 +60,10 @@ import { toDateOnly } from "@/server/time/workday";
  * version is inside the context hash, so a cached answer in the old shape is
  * not "stale data" to be detected later; it simply stops matching and the next
  * viewer gets one in the new shape. */
-export const PROMPT_VERSION_EXTRACT = "extract_v2";
+export const PROMPT_VERSION_EXTRACT = "extract_v3";
 export const PROMPT_VERSION_DAY = "day_v1";
-export const PROMPT_VERSION_WEEK = "week_v2";
-export const PROMPT_VERSION_MONTH = "month_v2";
+export const PROMPT_VERSION_WEEK = "week_v3";
+export const PROMPT_VERSION_MONTH = "month_v3";
 
 export type ScopeType = "DAY" | "WEEK" | "MONTH";
 

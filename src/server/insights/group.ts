@@ -1,10 +1,14 @@
 /**
- * Week and month grouping — naming what repeated, and counting nothing.
+ * Call 2 — group the period.
+ *
+ * One call per week or month, cached against the period's content hash. It
+ * reuses the day labels already stored and never re-labels a day.
  *
  * ── The division of labour ────────────────────────────────────────────────
- * The model is given LABELS AND DATES. Not durations, not counts, not the day's
- * total. It answers one question — which of these are the same kind of work —
- * and code does every sum from the stored day extractions.
+ * The model is given LABELS AND DATES. Not durations, not counts, not the
+ * period's total. It answers one question — which of these are the same kind of
+ * work — and code does every sum from the stored day extractions and writes
+ * every sentence.
  *
  * A model that can see numbers will eventually repeat one, and a repeated
  * number is a second source for a figure that already has one. The two can
@@ -12,20 +16,15 @@
  * numbers are not withheld as a precaution; they are simply not part of the
  * question being asked.
  *
- * ── Why the topic is dropped ──────────────────────────────────────────────
- * `Live class on binary tree` and `Live class on hashing` are one activity seen
- * twice. A week that lists both back is a longer way of printing the day view.
- * The day keeps the topic, because that is the day's content; the week says
- * `Live class`, because that is what the week is about.
+ * ── Why the subtopic is kept out of the name ──────────────────────────────
+ * `Taught binary tree` and `Taught hashing` are one kind of work seen twice. A
+ * week that lists both back is a longer way of printing the day view. The day
+ * keeps the subtopic, because that is the day's content; the week says
+ * `DSA — taught`, because that is what the week is about — and the subtopics
+ * are listed underneath, counted here, from the rows.
  */
 import { generateStructured } from "@/server/ai/gemini";
 import { stableStringify } from "./context";
-import {
-  parseSummary,
-  summaryInstruction,
-  type DaySummary,
-  type SummaryItem,
-} from "./day-summary";
 
 export type GroupMember = {
   label: string;
@@ -37,50 +36,54 @@ export type GroupMember = {
 };
 
 export type ActivityGroup = {
-  /** The activity, without the topic. Never contains a digit. */
+  /** `"Topic — action"`, or the action alone. Never contains a digit. */
   name: string;
   /** Indices into the labels that were sent, so nothing is matched by string. */
   members: number[];
 };
 
 export type GroupingResult =
-  | { ok: true; groups: ActivityGroup[]; summary: DaySummary | null }
+  | { ok: true; groups: ActivityGroup[] }
   | { ok: false; reason: string };
 
-/** Bump `PROMPT_VERSION_WEEK`/`MONTH` in `context.ts` when this text changes. */
+/**
+ * The system instruction. Bump `PROMPT_VERSION_WEEK`/`MONTH` in `context.ts`
+ * when this text changes — the version is inside the context hash, which is
+ * what re-groups every period grouped under the old wording.
+ */
+export const GROUP_SYSTEM = [
+  "You group labelled work activities across a period.",
+  "",
+  '- A group is a topic plus an action. "Taught binary search" and "Taught',
+  '  hashing" are one group. "Taught binary search" and "Prepared a problem set',
+  '  on binary search" are two groups, because teaching and preparing are',
+  "  different work.",
+  '- Name a group as "Topic — action" where a topic exists: "DSA — taught",',
+  '  "Java — learned", "OS — taught". Where no topic exists, name it by the',
+  '  action alone: "Doubt clearing", "Submission review", "Mock interviews".',
+  "- Never put a subtopic in a group name.",
+  '- If a topic appears under different names across days — "DSA" and "Data',
+  '  Structures" — choose one name and place all of them under it.',
+  "- An activity with no topic joins a group only if the same activity recurs",
+  '  across days. Otherwise it goes to "Other", named exactly that.',
+  "- members: the activities you placed in this group, by the index each was",
+  "  given. Every index must appear in exactly one group. Do not drop any, and",
+  "  do not invent an index that was not given to you.",
+  "- Output no numbers of any kind, in any field. Counts and durations are",
+  "  computed by the application.",
+  "- Use the writer's own vocabulary. Do not classify their work into a",
+  "  category of your own.",
+].join("\n");
+
+/** The period, as the model sees it: labels, dates, and what each day named. */
 export function groupingInstruction(members: GroupMember[]): string {
   return [
-    "Below is a list of activities somebody recorded over a period, as JSON.",
-    "Each has an index, a label, the date it was recorded on, and the subtopic",
-    "and topic that day's reading named.",
-    "",
-    "Group them by TOPIC. Each group is one topic, and its members are the",
-    "activities belonging to it.",
-    "",
-    "Rules:",
-    "- If the same topic appears under different names across days — \"DSA\" and",
-    '  "Data Structures" — choose one name and place both under it.',
-    "- A day may name a subtopic without naming its topic. \"AVL trees\" belongs",
-    '  under "DSA" whether or not any day wrote "DSA" down.',
-    "- Merge two subtopics only when they clearly name the same thing (\"AVL",
-    '  trees" and "AVL tree"). Never merge a narrower subtopic into a broader',
-    '  one: "AVL trees" and "binary trees" belong to the same topic and stay',
-    "  separate, because they were separate sessions.",
-    "- An activity with no topic joins a group only if the same activity recurs",
-    '  across days ("Doubt clearing session"). Otherwise it goes to "Other".',
-    '- Use "Other" as the name for that group, exactly.',
-    "- Output no numbers of any kind, including in the headline. You are not",
-    "  counting; the figures are already known.",
-    "- Every index must appear in exactly one group. Do not drop any, and do",
-    "  not invent an index that was not given to you.",
-    "- Use the writer's own vocabulary. Do not classify their work into a",
-    "  category of your own.",
-    "",
-    ...summaryInstruction().split("\n"),
+    "Below are the activities somebody recorded over a period, as JSON. Each",
+    "has an index, a label, the date it was recorded on, and the subtopic and",
+    "topic that day's reading named.",
     "",
     'Reply with exactly this JSON and nothing else: {"groups": [{"name":',
-    '"<topic>", "members": [<index>, ...]}], "bullets": [{"activities":',
-    '[<index>, ...], "text": "<sentence>"}], "insight": "<one sentence>"}',
+    '"<Topic — action>", "members": [<index>, ...]}]}',
     "",
     stableStringify(
       members.map((m, i) => ({
@@ -94,8 +97,56 @@ export function groupingInstruction(members: GroupMember[]): string {
   ].join("\n");
 }
 
+/** The shape the provider itself must return. Content is checked separately. */
+export const GROUP_SCHEMA = {
+  type: "object",
+  properties: {
+    groups: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          members: { type: "array", items: { type: "integer" } },
+        },
+        required: ["name", "members"],
+      },
+    },
+  },
+  required: ["groups"],
+} as const;
+
 /** Any digit anywhere, including inside a group name. */
 const HAS_DIGIT = /\d/;
+
+/** Case- and plural-insensitive, the same dumb rule the subtopics use. */
+const stem = (word: string) => word.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/s$/, "");
+
+/**
+ * Does this group name carry one of the period's subtopics?
+ *
+ * A name that says "DSA — taught binary search" is the day view with a week's
+ * heading on it, and it is wrong the moment a second subtopic joins the group.
+ * Checked here rather than trusted to the instruction, because it is the rule
+ * the model breaks most naturally: the subtopic is the most specific thing it
+ * knows about the group, and specificity reads as helpfulness.
+ *
+ * Single-word subtopics only. A multi-word subtopic that happens to share one
+ * word with an action — "review" in "code review" — would refuse a name the
+ * instruction asked for, and the check that costs a correct answer is worse
+ * than the one that misses an incorrect one.
+ */
+function namesSubtopic(name: string, subtopics: string[]): string | null {
+  const words = new Set(name.split(/\s+/).map(stem).filter(Boolean));
+  for (const subtopic of subtopics) {
+    const parts = subtopic.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) continue;
+    const key = parts.map(stem).join(" ");
+    if (parts.length === 1 && words.has(key)) return subtopic;
+    if (parts.length > 1 && name.toLowerCase().includes(subtopic.toLowerCase())) return subtopic;
+  }
+  return null;
+}
 
 /**
  * Validate a grouping reply.
@@ -107,8 +158,8 @@ const HAS_DIGIT = /\d/;
 export function parseGrouping(
   text: string,
   memberCount: number,
-  /** Passed through so a bullet's counts can be checked against the record. */
-  items: SummaryItem[] = [],
+  /** The period's subtopics, so a name carrying one can be refused. */
+  subtopics: string[] = [],
 ): GroupingResult {
   let parsed: unknown;
   try {
@@ -119,62 +170,59 @@ export function parseGrouping(
 
   /* The digit test runs on the WHOLE reply, before anything is picked out of
      it. A number in a field nobody reads today is a number somebody renders
-     tomorrow, and the headline is the field most likely to carry one. */
-  if (HAS_DIGIT.test(JSON.stringify((parsed as { groups?: unknown })?.groups ?? parsed))) {
-    // Indices are digits, so they are checked separately below; strip them out
-    // before deciding the reply "contains" a number.
-    const withoutIndices = JSON.stringify(
-      ((parsed as { groups?: unknown }).groups as unknown[] | undefined)?.map((g) =>
-        typeof g === "object" && g !== null ? { ...(g as object), members: [] } : g,
-      ) ?? parsed,
-    );
-    if (HAS_DIGIT.test(withoutIndices)) {
-      return { ok: false, reason: "the reply states a number, and grouping states none" };
-    }
+     tomorrow, and the headline is the field most likely to carry one. Member
+     indices are digits and are the one number the reply must carry, so they are
+     stripped out before the question is asked and checked on their own below. */
+  const groupsRaw = (parsed as { groups?: unknown }).groups;
+  const withoutIndices = JSON.stringify(
+    (groupsRaw as unknown[] | undefined)?.map((g) =>
+      typeof g === "object" && g !== null ? { ...(g as object), members: [] } : g,
+    ) ?? parsed,
+  );
+  if (HAS_DIGIT.test(withoutIndices)) {
+    return { ok: false, reason: "the reply states a number, and grouping states none" };
   }
 
-  const groups = (parsed as { groups?: unknown }).groups;
-  if (!Array.isArray(groups)) return { ok: false, reason: "no groups array" };
+  if (!Array.isArray(groupsRaw)) return { ok: false, reason: "no groups array" };
 
   const seen = new Set<number>();
   const out: ActivityGroup[] = [];
-  for (const raw of groups) {
+  for (const raw of groupsRaw) {
     if (typeof raw !== "object" || raw === null) return { ok: false, reason: "a group is not an object" };
     const g = raw as Record<string, unknown>;
     if (typeof g.name !== "string" || g.name.trim() === "") {
       return { ok: false, reason: "a group has no name" };
     }
-    if (!Array.isArray(g.members)) return { ok: false, reason: `group "${g.name}" has no members` };
+    const name = g.name.trim();
+    const carried = namesSubtopic(name, subtopics);
+    if (carried) {
+      return { ok: false, reason: `group "${name}" names the subtopic "${carried}"` };
+    }
+    if (!Array.isArray(g.members)) return { ok: false, reason: `group "${name}" has no members` };
 
     const members: number[] = [];
     for (const m of g.members) {
       if (typeof m !== "number" || !Number.isInteger(m) || m < 0 || m >= memberCount) {
-        return { ok: false, reason: `group "${g.name}" names an activity that was not sent` };
+        return { ok: false, reason: `group "${name}" names an activity that was not sent` };
       }
       if (seen.has(m)) return { ok: false, reason: `activity ${m} is in two groups` };
       seen.add(m);
       members.push(m);
     }
-    out.push({ name: g.name.trim(), members });
+    out.push({ name, members });
   }
 
   if (seen.size !== memberCount) {
     return { ok: false, reason: `${memberCount - seen.size} activities were left out` };
   }
-  /* Read from the same reply, for the same reason the day's is: a period
-     already costs one call. A summary that fails validation costs the sentence
-     and not the grouping — the totals still render. */
-  const summarised = parseSummary(text, memberCount, items);
-  if (!summarised.ok) console.info(`[summary] period not written — ${summarised.reason}`);
-
-  return { ok: true, groups: out, summary: summarised.ok ? summarised.summary : null };
+  return { ok: true, groups: out };
 }
 
 /**
  * How many times grouping is attempted before it gives up.
  *
- * ── Why this is three and extraction is two ───────────────────────────────
- * Not a preference. Extraction handles ONE day and a handful of lines, so a
+ * ── Why this is three and labelling is two ────────────────────────────────
+ * Not a preference. Labelling handles ONE day and a handful of lines, so a
  * second failure is usually a real problem with the text and a third attempt
  * buys a third identical refusal.
  *
@@ -182,11 +230,24 @@ export function parseGrouping(
  * exactly one group — a task whose failure rate rises with size. Observed: a
  * month's grouping failed validation twice and returned FAILED, and the same
  * call succeeded on a later attempt. A third attempt is cheap against a month
- * of already-paid extractions, and it is the smallest change that fits what was
- * actually seen. Chunking the month or merging week-by-week would be a design
- * built on one observation.
+ * of already-paid labelling calls, and it is the smallest change that fits what
+ * was actually seen. Chunking the month or merging week-by-week would be a
+ * design built on one observation.
  */
 export const GROUPING_ATTEMPTS = 3;
+
+/** The provider call, configured as the grouping task requires. */
+export function groupCall(instruction: string) {
+  return generateStructured(instruction, {
+    system: GROUP_SYSTEM,
+    responseSchema: GROUP_SCHEMA,
+    // Zero, so a period re-grouped after a cache expiry groups identically.
+    temperature: 0,
+    // No `thinkingBudget` — see the measurement in `labelCall`. The chain's own
+    // per-model `thinkingLevel` is what these models accept.
+    maxOutputTokens: 1_200,
+  });
+}
 
 /**
  * Group, retrying up to {@link GROUPING_ATTEMPTS} times. The sums are the
@@ -194,11 +255,11 @@ export const GROUPING_ATTEMPTS = 3;
  */
 export async function runGrouping(
   members: GroupMember[],
-  call: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>
-    = (i) => generateStructured(i, { maxOutputTokens: 2048 }),
+  call: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }> = groupCall,
 ): Promise<GroupingResult> {
-  if (members.length === 0) return { ok: true, groups: [], summary: null };
+  if (members.length === 0) return { ok: true, groups: [] };
   const instruction = groupingInstruction(members);
+  const subtopics = [...new Set(members.map((m) => m.subtopic).filter((s): s is string => Boolean(s)))];
   let reason = "the model was never called";
 
   for (let attempt = 1; attempt <= GROUPING_ATTEMPTS; attempt++) {
@@ -208,14 +269,7 @@ export async function runGrouping(
       console.info(`[group] attempt ${attempt}/${GROUPING_ATTEMPTS} — ${reason}`);
       continue;
     }
-    const parsed = parseGrouping(
-      reply.text,
-      members.length,
-      /* No per-activity counts at period scale — the grouping is sent labels
-         and dates only. A bullet may still say how many ACTIVITIES it covers;
-         any other figure is refused. */
-      members.map((m) => ({ label: m.label, sessions: null })),
-    );
+    const parsed = parseGrouping(reply.text, members.length, subtopics);
     if (parsed.ok) {
       if (attempt > 1) console.info(`[group] succeeded on attempt ${attempt} of ${GROUPING_ATTEMPTS}`);
       return parsed;

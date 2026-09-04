@@ -18,6 +18,11 @@ import { buildCanonicalContext, canonicalJson, contextHash, modelId, PROMPT_VERS
 import { serveDayExtraction } from "./extract";
 import { runGrouping, type GroupMember } from "./group";
 import { subtopicKey } from "@/domain/subtopic";
+import {
+  renderMonthSummary,
+  renderWeekSummary,
+  type SummaryGroup,
+} from "@/domain/summary-render";
 import type { DayText } from "./extraction-checks";
 import { parseActivities } from "@/domain/worklog-activities";
 import { toDateOnly } from "@/server/time/workday";
@@ -60,12 +65,14 @@ export type GroupRollup = {
   entries: string[];
 };
 
-/** One summary line over the period, with its minutes summed in code. */
-export type SummaryLine = { text: string; minutes: number | null };
-
 export type PeriodRollup = {
-  /** What was done, and one line about what the period was. */
-  summary: { lines: SummaryLine[]; insight: string } | null;
+  /**
+   * The period in words — two lines for a week, up to three for a month.
+   *
+   * Assembled from the groups below, whose every figure was summed here from
+   * the stored day rows. The model named the groups and counted nothing.
+   */
+  summary_lines: string[];
   groups: GroupRollup[];
   total_minutes: number;
   unallocated_minutes: number;
@@ -157,6 +164,8 @@ export async function buildPeriodRollup(input: {
   instructorId: string;
   periodStart: string;
   periodEnd: string;
+  /** Which shape the sentence takes. A month gets a third line; a week does not. */
+  scope?: "WEEK" | "MONTH";
   call?: ProviderCall;
 }): Promise<{ ok: true; rollup: PeriodRollup } | { ok: false; reason: string }> {
   const days = await ensureDayExtractions(input);
@@ -263,27 +272,22 @@ export async function buildPeriodRollup(input: {
     );
   });
 
-  /* The lines the model wrote, with their minutes added HERE from the items
-     each one names. Same rule as everywhere: prose from the model, figures
-     from the record. */
-  const summary = grouped.summary
-    ? {
-        insight: grouped.summary.insight,
-        lines: grouped.summary.bullets.map((b) => {
-          const mine = b.activities.map((i) => items[i]).filter(Boolean) as Item[];
-          const timed = mine.filter((m) => m.minutes !== null);
-          return {
-            text: b.text,
-            minutes: timed.length ? timed.reduce((n, m) => n + (m.minutes ?? 0), 0) : null,
-          };
-        }),
-      }
-    : null;
+  /* The sentence, written here. The model named the groups; every figure in
+     the words below was summed above, from the rows. */
+  const summaryGroups: SummaryGroup[] = groups.map((g) => ({
+    name: g.name,
+    count: g.sessions,
+    unit: g.sessions_unit,
+    minutes: g.minutes ?? 0,
+    days: g.day_count,
+    subtopics: g.subtopics.map((s) => s.name),
+  }));
+  const render = input.scope === "MONTH" ? renderMonthSummary : renderWeekSummary;
 
   return {
     ok: true,
     rollup: {
-      summary,
+      summary_lines: render(summaryGroups, totalMinutes),
       groups,
       total_minutes: totalMinutes,
       unallocated_minutes: unallocated,

@@ -27,8 +27,7 @@ import {
   type ExtractedActivity,
 } from "./extraction-checks";
 import { PROMPT_VERSION_EXTRACT, modelId, stableStringify } from "./context";
-import type { ActivityRow } from "@/domain/worklog-activities";
-import { parseSummary, summaryInstruction, type DaySummary } from "./day-summary";
+import { LABEL_ATTEMPTS, labelCall, labelUserContent, parseLabels } from "./label-day";
 
 /** One point as it is stored and rendered. */
 export type ExtractedItem = {
@@ -51,8 +50,6 @@ export type ExtractionResult =
       unallocatedMinutes: number;
       /** How many stated numbers the text could not support. */
       nulled: number;
-      /** The day in words. Null when the summarising call did not land. */
-      summary: DaySummary | null;
     }
   | {
       status: "FAILED";
@@ -79,55 +76,6 @@ export function canonicalDay(day: DayText): string {
     deliverable_quantity: day.deliverableQuantity,
     working_minutes: day.workingMinutes,
   });
-}
-
-/**
- * The instruction for an AUTHORED day — one the instructor entered as rows.
- *
- * ── What is not asked for ─────────────────────────────────────────────────
- * Any number. The quantity was typed into the row it belongs to and the
- * duration into the same row, so both are facts already, and asking a model to
- * restate a fact is how a second version of it comes into existence.
- *
- * The remaining job is language: shorten the description into a label, name the
- * subtopic it mentions, infer the topic that subtopic belongs to.
- */
-export function rowExtractionInstruction(rows: ActivityRow[]): string {
-  return [
-    "Below is a list of activities somebody recorded today, as JSON. Each has",
-    "an index and the description they wrote.",
-    "",
-    "For each one, report:",
-    "- label: the description shortened to its essential phrase, in the",
-    "  writer's own words. KEEP THE VERB: \"learned Java and OOPs concepts\", not",
-    '  "Java and OOPs concepts" — a reader must be able to tell teaching from',
-    "  learning without opening the source. Do not expand something already",
-    '  short: "Corrected" stays "Corrected".',
-    "- subtopic: the specific thing it was about, taken from the description.",
-    '  "Live class on binary search" has subtopic "binary search". Null if the',
-    "  description names nothing specific.",
-    "- topic: the broader area that subtopic belongs to. The description does",
-    '  NOT need to name it: "i took avl tree class" names only AVL trees, which',
-    '  belong to "DSA", so the topic is "DSA". Null when the activity names no',
-    '  subject matter — "Doubt clearing session", "Office meeting", "Corrected".',
-    "",
-    "Rules:",
-    "- Report no numbers at all. The counts and durations are already known.",
-    "- Never invent a subtopic that is not in the description. topic may be",
-    "  inferred; subtopic may not.",
-    "- Merge two subtopics only when they clearly name the same thing (\"AVL",
-    '  trees" and "AVL tree"). Never merge a narrower one into a broader one.',
-    "- Return exactly one entry per index, in the same order.",
-    "",
-    ...summaryInstruction().split("\n"),
-    "",
-    'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
-    '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null}],',
-    '"bullets": [{"activities": [<index>, ...], "text": "<sentence>"}],',
-    '"insight": "<one sentence>"}',
-    "",
-    stableStringify(rows.map((r, i) => ({ index: i, description: r.description }))),
-  ].join("\n");
 }
 
 /** Bump `PROMPT_VERSION_EXTRACT` in `context.ts` whenever this text changes. */
@@ -189,15 +137,14 @@ export function extractionInstruction(day: DayText): string {
     "  counts from the deliverable text, where each number sits beside the",
     "  activity it belongs to. If you report exactly one activity, the quantity",
     "  box refers to that activity and its number may be used.",
-    "",
-    ...summaryInstruction().split("\n"),
+    "- Report no summary and no sentence. The words that describe the day are",
+    "  written by the application, from the activities you report.",
     "",
     'Reply with exactly this JSON and nothing else: {"activities": [{"label":',
     '"<text>", "subtopic": "<text>"|null, "topic": "<text>"|null,',
     '"sessions": <number|null>, "sessions_unit": "<text>"|null,',
     '"duration_value": <number|null>,',
-    '"duration_unit": "hours"|"minutes"|null}], "bullets": [{"activities":',
-    '[<index>, ...], "text": "<sentence>"}], "insight": "<one sentence>"}',
+    '"duration_unit": "hours"|"minutes"|null}]}',
     "",
     canonicalDay(day),
   ].join("\n");
@@ -278,44 +225,63 @@ const describe = (failures: CheckFailure[]) =>
  */
 export async function runExtraction(
   day: DayText,
-  call: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>
-    = (i) => generateStructured(i, { maxOutputTokens: 2048 }),
+  call?: (instruction: string) => Promise<{ ok: true; text: string } | { ok: false; reason: string }>,
+  /** The date, for the labelling call's user content. */
+  logDate = "",
 ): Promise<ExtractionResult> {
   const rows = day.activities ?? null;
-  const instruction = rows ? rowExtractionInstruction(rows) : extractionInstruction(day);
+  /* An authored day is a LABELLING call, not an extraction: the counts and the
+     durations were typed into the rows they belong to, so both are facts
+     already, and asking a model to restate a fact is how a second version of it
+     comes into existence. What is left is language. */
+  const instruction = rows
+    ? labelUserContent(logDate, rows.map((r) => r.description))
+    : extractionInstruction(day);
+  const provider =
+    call ?? (rows ? labelCall : (i: string) => generateStructured(i, { maxOutputTokens: 2048 }));
   let lastError = "the model was never called";
   let failureKind: "structure" | "provider" = "provider";
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const reply = await call(instruction);
+  for (let attempt = 0; attempt < LABEL_ATTEMPTS; attempt++) {
+    const reply = await provider(instruction);
     if (!reply.ok) {
       lastError = `provider: ${reply.reason}`;
       failureKind = "provider";
       continue;
     }
-    const activities = parseExtraction(reply.text);
-    if (!activities) {
-      lastError = "the reply was not the shape the prompt asked for";
-      failureKind = "structure";
-      continue;
-    }
+
     /* On an authored day the model returned language only, so the numbers are
        attached here from the rows it was describing — by index, which is why
-       the prompt insists on one entry per index in order. A reply of the wrong
-       length is a reply to a different question. */
-    if (rows && activities.length !== rows.length) {
-      lastError = `the reply described ${activities.length} activities for ${rows.length} rows`;
-      failureKind = "structure";
-      continue;
+       the labelling call insists on one entry per row in order. A reply of the
+       wrong length is a reply to a different question, and the four labelling
+       validations refuse it before it can be lined up against the wrong rows. */
+    let withNumbers: ExtractedActivity[];
+    if (rows) {
+      const labelled = parseLabels(reply.text, rows.map((r) => r.description));
+      if (!labelled.ok) {
+        lastError = labelled.reason;
+        failureKind = "structure";
+        console.info(`[label] attempt ${attempt + 1}/${LABEL_ATTEMPTS} refused — ${lastError}`);
+        continue;
+      }
+      withNumbers = labelled.labels.map((l, i) => ({
+        label: l.label,
+        subtopic: l.subtopic,
+        topic: l.topic,
+        sessions_unit: l.unit,
+        sessions: rows[i]!.quantity,
+        duration_value: rows[i]!.minutes,
+        duration_unit: "minutes" as const,
+      }));
+    } else {
+      const activities = parseExtraction(reply.text);
+      if (!activities) {
+        lastError = "the reply was not the shape the prompt asked for";
+        failureKind = "structure";
+        continue;
+      }
+      withNumbers = activities;
     }
-    const withNumbers: ExtractedActivity[] = rows
-      ? activities.map((a, i) => ({
-          ...a,
-          sessions: rows[i]!.quantity,
-          duration_value: rows[i]!.minutes,
-          duration_unit: "minutes" as const,
-        }))
-      : activities;
 
     const checked = checkExtraction(withNumbers, day);
     if (!checked.ok) {
@@ -335,23 +301,8 @@ export async function runExtraction(
       );
     }
 
-    /* Read from the SAME reply. A day already costs one call, and asking twice
-       would double the bill of every screen in a product whose caching, manager
-       gate and bounded page-load queue all exist to avoid exactly that.
-       
-       A summary that fails validation costs the sentence, not the extraction:
-       the points still render, because what the text SAYS was already checked
-       and is not in doubt because the prose about it was refused. */
-    const summarised = parseSummary(
-      reply.text,
-      checked.activities.length,
-      checked.activities.map((a) => ({ label: a.label, sessions: a.sessions })),
-    );
-    if (!summarised.ok) console.info(`[summary] not written — ${summarised.reason}`);
-
     return {
       status: "READY",
-      summary: summarised.ok ? summarised.summary : null,
       /* `checked.activities`, not the model's. This is the whole point of the
          change: what is stored is what the text supports, which is the model's
          answer with the unsupported numbers removed. */
@@ -407,7 +358,11 @@ export async function serveDayExtraction(input: {
       });
       if (fresh && fresh.sourceHash === input.sourceHash) return fresh;
 
-      const result = await runExtraction(input.day, input.call);
+      const result = await runExtraction(
+        input.day,
+        input.call,
+        input.logDate.toISOString().slice(0, 10),
+      );
       const common = {
         sourceHash: input.sourceHash,
         rawContext: JSON.parse(canonicalDay(input.day)) as object,
@@ -421,7 +376,17 @@ export async function serveDayExtraction(input: {
               status: "READY" as const,
               items: result.items,
               unallocatedMinutes: result.unallocatedMinutes,
-              summary: (result.summary ?? Prisma.DbNull) as Prisma.InputJsonValue,
+              /* No stored sentence.
+              
+                 The day's words are rendered from these very items every time
+                 they are read, by `renderDaySummary`, which is code and costs
+                 nothing. Storing the sentence as well would put a second copy
+                 of every figure in the database, frozen at the moment it was
+                 written — and a wrong number inside a cached summary stays
+                 wrong until the underlying day changes, which for a closed
+                 month is never. The column stays for the days written before
+                 this, and is read by nothing. */
+              summary: Prisma.DbNull,
               lastError: null,
               failureKind: null,
             }

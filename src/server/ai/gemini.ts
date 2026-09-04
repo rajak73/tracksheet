@@ -296,6 +296,10 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
  * caller's `generationConfig` last.
  */
 export function requestFor(entry: ChainEntry, body: unknown): unknown {
+  /* No caller sets its own thinking config, and none should: `thinkingBudget:
+     0` — the other spelling of "do not deliberate" — is a 400 on two of the
+     three models in this chain, so how much a model thinks is decided per model
+     HERE and nowhere else. */
   if (!entry.thinkingLevel || !isObject(body) || !isObject(body.generationConfig)) return body;
   return {
     ...body,
@@ -344,6 +348,24 @@ export async function generateStructured(
     timeoutMs?: number;
     /** A file to read, sent inline. See the warning above. */
     document?: { mimeType: string; base64: string };
+    /**
+     * Zero for a labelling call, so an unchanged day re-reads identically.
+     *
+     * A summary regenerated because a cache expired must not come back
+     * differently worded: somebody comparing two screenshots of a day that did
+     * not change would have no way to tell a re-wording from an edit.
+     */
+    temperature?: number;
+    /**
+     * The shape the provider itself must return.
+     *
+     * Validation still runs afterwards. A schema guarantees the SHAPE, and every
+     * rule that matters here is about CONTENT — no digit in a label, a label
+     * that shares a word with its source — which no schema can express.
+     */
+    responseSchema?: unknown;
+    /** Sent as a system instruction rather than folded into the prompt. */
+    system?: string;
   } = {},
 ): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
   const parts: Array<Record<string, unknown>> = [{ text: instruction }];
@@ -354,13 +376,17 @@ export async function generateStructured(
   const outcome = await postGenerate(
     {
       contents: [{ role: "user", parts }],
+      ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
       generationConfig: {
-        // Low temperature: this is reporting and extraction, not writing.
+        // Low temperature: this is reporting and labelling, not writing. A
+        // caller passing 0 wants an unchanged day to read identically every
+        // time it is regenerated.
+        temperature: opts.temperature ?? 0.2,
         // Bounded output so a runaway response cannot cost more than the
         // answer is worth.
-        temperature: 0.2,
         maxOutputTokens: opts.maxOutputTokens ?? 1_200,
         responseMimeType: "application/json",
+        ...(opts.responseSchema ? { responseSchema: opts.responseSchema } : {}),
       },
     },
     opts.timeoutMs ?? TIMEOUT_MS,

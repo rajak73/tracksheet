@@ -38,7 +38,7 @@ function provider() {
       groupCalls = 0;
     },
     call: async (instruction: string) => {
-      if (instruction.includes("Group them by")) {
+      if (instruction.includes("recorded over a period")) {
         groupCalls += 1;
         /* Every member into one group, named for the activity with no topic.
            The indices are read off the prompt so the reply is always complete. */
@@ -170,6 +170,14 @@ describe("3 & 4. the period path", () => {
     expect(group.sessions).toBe(5 * 25);
     expect(group.minutes).toBe(5 * 45);
     expect(group.day_count).toBe(5);
+
+    /* And the sentence is written from those sums, here, not by the model —
+       whose whole reply was a name and a list of indices. `entries` because
+       this extraction stated no noun for its count, which is the fallback the
+       labelling rules name rather than a noun chosen here. */
+    expect(built.rollup.summary_lines[0]).toBe(
+      "125 entries — 3h 45m across 5 days. 30h 00m total.",
+    );
   });
 
   test("4. a week where four of five days are already extracted fires exactly one extraction", async () => {
@@ -217,7 +225,7 @@ describe("3 & 4. the period path", () => {
        check before anything reaches the database. */
     const dropping = {
       call: async (instruction: string) => {
-        if (instruction.includes("Group them by")) {
+        if (instruction.includes("recorded over a period")) {
           return {
             ok: true as const,
             text: JSON.stringify({ groups: [{ name: "Checked quiz papers", members: [0] }] }),

@@ -313,9 +313,9 @@ describe("9 & 10. no list of topics, and no way to select one", () => {
     /* The shape of an extraction changed. The version lives inside the context
        hash, so an old-shaped cached answer stops matching and the next viewer
        gets a new one — no migration, no detection step. */
-    expect(PROMPT_VERSION_EXTRACT).toBe("extract_v2");
-    expect(PROMPT_VERSION_WEEK).toBe("week_v2");
-    expect(PROMPT_VERSION_MONTH).toBe("month_v2");
+    expect(PROMPT_VERSION_EXTRACT).toBe("extract_v3");
+    expect(PROMPT_VERSION_WEEK).toBe("week_v3");
+    expect(PROMPT_VERSION_MONTH).toBe("month_v3");
     expect(contextHash("same", "extract_v1", "m")).not.toBe(contextHash("same", "extract_v2", "m"));
   });
 });
