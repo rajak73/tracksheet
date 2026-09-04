@@ -28,12 +28,6 @@ let north2: ApiClient;
 let northId: string;
 let north2Id: string;
 
-function istToUtc(date: string, hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const utcMinutes = h * 60 + m - (5 * 60 + 30);
-  return new Date(Date.parse(`${date}T00:00:00.000Z`) + utcMinutes * 60_000).toISOString();
-}
-
 beforeAll(async () => {
   admin = new ApiClient("admin");
   north2 = new ApiClient("north2");
@@ -127,8 +121,7 @@ describe("Deliverable.category is accepted and persisted", () => {
       category: "Research",
       targetQuantity: 1,
       targetHours: 1,
-      dueDate: "2027-03-01",
-    });
+      dueDate: "2027-03-01" });
     expect(created.status).toBe(201);
     expect(created.body.deliverable.category).toBe("Research");
 
@@ -148,16 +141,14 @@ describe("breakDurationMin is part of the readable and patchable config", () => 
 
     const original = before.body.config.breakDurationMin;
     const patch = await admin.patch(`/api/universities/${northId}/config`, {
-      breakDurationMin: original + 5,
-    });
+      breakDurationMin: original + 5 });
     expect(patch.status).toBe(200);
     expect(patch.body.config.breakDurationMin).toBe(original + 5);
 
     // Restore it — this university's break duration is asserted on by
     // unrelated capacity tests elsewhere in the suite.
     await admin.patch(`/api/universities/${northId}/config`, {
-      breakDurationMin: original,
-    });
+      breakDurationMin: original });
   });
 });
 
@@ -180,32 +171,6 @@ describe("malformed JSON is a 400, not a 500", () => {
   });
 });
 
-describe("a once-per-day race never surfaces as a 500", () => {
-  test("two concurrent opening logs for the same day resolve to 201 and 409, never 500", async () => {
-    const day = "2031-06-03"; // Tuesday, untouched by any other test in this file
-    const start = istToUtc(day, "09:00");
-    const end = istToUtc(day, "09:15");
-
-    const [a, b] = await Promise.all([
-      north2.post(`/api/instructors/${north2Id}/activities`, {
-        activityTypeCode: "DAILY_OPENING",
-        startTime: start,
-        endTime: end,
-      }),
-      north2.post(`/api/instructors/${north2Id}/activities`, {
-        activityTypeCode: "DAILY_OPENING",
-        startTime: start,
-        endTime: end,
-      }),
-    ]);
-
-    const statuses = [a.status, b.status].sort((x, y) => x - y);
-    // Exactly one wins; the loser is a conflict, whether the app's own
-    // pre-check caught it or the database's unique index did (previously a
-    // 500 INTERNAL_ERROR when the index fired first).
-    expect(statuses).toEqual([201, 409]);
-  });
-});
 
 describe("an admin-performed action on one university is readable through its audit trail", () => {
   test("UNIVERSITY_CONFIG_UPDATED is attributed to the university, not written as null", async () => {
@@ -213,8 +178,7 @@ describe("an admin-performed action on one university is readable through its au
     expect(before.status).toBe(200);
 
     const patch = await admin.patch(`/api/universities/${northId}/config`, {
-      closingDurationMin: before.body.config.closingDurationMin,
-    });
+      closingDurationMin: before.body.config.closingDurationMin });
     expect(patch.status).toBe(200);
 
     const entries = await admin.get(

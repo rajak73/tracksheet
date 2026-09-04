@@ -8,7 +8,7 @@
  * rules below are the report's definition of itself.
  */
 
-import { countsAsWorkingHours, didHappen } from "@/domain/working-hours";
+import { didHappen } from "@/domain/working-hours";
 import { deliverableFor, quantityWhenUnstated } from "@/domain/worklog-taxonomy";
 
 /**
@@ -40,18 +40,17 @@ export type RollupActivity = {
    */
   startTime?: string;
   activityType: { code: string; label: string };
-  /* `code` as well as `isCountable`: countability decides whether the line is
-   * Working Hours, and the code decides what the client's report CALLS it.
-   * Optional, so a payload that predates the naming map still rolls up — it
-   * simply falls back to the category's name. */
-  deliverableType?: { code?: string; isCountable: boolean } | null;
+  /* The code decides what the client's report CALLS this line. Optional, so a
+   * payload that predates the naming map still rolls up — it simply falls back
+   * to the category's name. */
+  deliverableType?: { code?: string } | null;
   broadCategory?: { label: string } | null;
   /** `null` is the client's `?` — the instructor never said how many. */
   quantity?: number | null;
 };
 
 export type RollupLine = {
-  /** Unique per line — a category can produce a counted and an uncounted one. */
+  /** Unique per line. */
   key: string;
   /** The broad category — Lecture, Practice, Meeting — not the deliverable. */
   label: string;
@@ -67,8 +66,6 @@ export type RollupLine = {
    * Only ever compared against other values from the same period.
    */
   firstAt?: number;
-  /** Whether this counts toward Working Hours and the quantity column. */
-  countable: boolean;
 };
 
 export type Rollup = {
@@ -150,15 +147,11 @@ export function rollUp(activities: RollupActivity[]): Rollup {
      * as the monthly tracker and the day summary. */
     const chosen = deliverableFor(a.deliverableType?.code, a.activityType.code);
     const label = chosen.name;
-    // A deliverable decides when there is one; otherwise the category does.
-    // See `countsAsWorkingHours` — an entry with no deliverable used to be
-    // read as "does not count", which silently dropped real teaching hours.
-    const countable = countsAsWorkingHours(
-      a.activityType.code,
-      a.deliverableType ? a.deliverableType.isCountable : null,
-    );
-    const key = `${label}\u0000${countable}`;
-    const line = byCategory.get(key) ?? { key, label, hours: 0, minutes: 0, quantity: 0 as number | null, countable };
+    /* Every recorded hour counts. The key used to carry a countability flag so
+       one category could produce a counted and an uncounted line; there is only
+       one kind of line now. */
+    const key = label;
+    const line = byCategory.get(key) ?? { key, label, hours: 0, minutes: 0, quantity: 0 as number | null };
 
     line.hours += a.durationHours;
     line.minutes += Math.round(a.durationHours * 60);
@@ -182,10 +175,8 @@ export function rollUp(activities: RollupActivity[]): Rollup {
      * happens now is decided by the UNIT — an occurrence is one of itself, an
      * item count stays unknown — and one unknown makes the line unknown, because
      * a partial sum reads like a complete one. */
-    if (countable) {
-      const stated = a.quantity === undefined ? quantityWhenUnstated(chosen) : a.quantity;
-      line.quantity = line.quantity === null || stated === null ? null : line.quantity + stated;
-    }
+    const stated = a.quantity === undefined ? quantityWhenUnstated(chosen) : a.quantity;
+    line.quantity = line.quantity === null || stated === null ? null : line.quantity + stated;
     byCategory.set(key, line);
   }
 
@@ -197,9 +188,8 @@ export function rollUp(activities: RollupActivity[]): Rollup {
     lines,
     // Summed per line from per-activity hours, which is what keeps this
     // independent of how the period is grouped — see the defect described
-    // above. Every line is countable under the current rule, so this is the
-    // whole period; the reduce is written to survive the rule changing back.
-    hours: lines.reduce((n, l) => n + (l.countable ? l.hours : 0), 0),
+    // above.
+    hours: lines.reduce((n, l) => n + l.hours, 0),
     /* `subjects` used to be returned here — the distinct subject labels of the
      * entries in this period.
      *

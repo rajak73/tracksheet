@@ -66,7 +66,6 @@ describe("endpoint-by-endpoint isolation checklist", () => {
       { label: "GET  /universities/:id/windows", path: () => `/api/universities/${northId}/windows?date=2027-06-02` },
       { label: "GET  /universities/:id/holidays", path: () => `/api/universities/${northId}/holidays` },
       { label: "POST /universities/:id/holidays", path: () => `/api/universities/${northId}/holidays`, method: "POST", body: { date: "2027-12-25", name: "probe" } },
-      { label: "GET  /universities/:id/activities", path: () => `/api/universities/${northId}/activities` },
       { label: "GET  /universities/:id/analytics", path: () => `/api/universities/${northId}/analytics` },
       { label: "GET  /universities/:id/reports", path: () => `/api/universities/${northId}/reports` },
       { label: "GET  /universities/:id/exceptions", path: () => `/api/universities/${northId}/exceptions` },
@@ -80,7 +79,6 @@ describe("endpoint-by-endpoint isolation checklist", () => {
       // ── instructor-scoped ────────────────────────────────────────────────
       { label: "GET  /instructors/:id", path: () => `/api/instructors/${n1Id}` },
       { label: "GET  /instructors/:id/activities", path: () => `/api/instructors/${n1Id}/activities` },
-      { label: "POST /instructors/:id/activities", path: () => `/api/instructors/${n1Id}/activities`, method: "POST", body: { activityTypeCode: "TEACHING", startTime: "2027-06-02T05:00:00Z", endTime: "2027-06-02T06:00:00Z" } },
       { label: "GET  /instructors/:id/deliverables", path: () => `/api/instructors/${n1Id}/deliverables` },
       { label: "POST /instructors/:id/deliverables", path: () => `/api/instructors/${n1Id}/deliverables`, method: "POST", body: { title: "probe", targetQuantity: 1, targetHours: 1, dueDate: "2027-09-01" } },
       { label: "GET  /instructors/:id/deliverables/:d/logs", path: () => `/api/instructors/${n1Id}/deliverables/${northDeliverableId}/logs` },
@@ -193,7 +191,6 @@ describe("the three known admin-only exceptions have not been widened", () => {
 describe("input validation", () => {
   test("malformed bodies are rejected, not crashed on", async () => {
     const cases: Array<[string, unknown]> = [
-      [`/api/instructors/${n1Id}/activities`, { activityTypeCode: 123, startTime: "nope", endTime: null }],
       [`/api/instructors/${n1Id}/leave`, { startDate: "not-a-date", endDate: 5 }],
       [`/api/instructors/${n1Id}/deliverables`, { title: "", targetQuantity: -5, targetHours: "x", dueDate: "2027" }],
       [`/api/universities/${northId}/holidays`, { date: "13-13-2027", name: "" }],
@@ -209,7 +206,6 @@ describe("input validation", () => {
   test("an empty or non-JSON body is a 400, never a 500", async () => {
     for (const path of [
       "/api/auth/login",
-      `/api/instructors/${n1Id}/activities`,
       `/api/universities/${northId}/holidays`,
     ]) {
       const res = await admin.request(path, { method: "POST", body: "not json at all" });

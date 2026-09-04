@@ -29,7 +29,7 @@ export type ParsedEntry = {
   remarks: string | null;
   activityType: { code: string; label: string };
   /** Null when the sentence named nothing specific; the category then decides. */
-  deliverableType: { code: string; label: string; isCountable: boolean } | null;
+  deliverableType: { code: string; label: string } | null;
 };
 
 export type Submission = {

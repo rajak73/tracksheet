@@ -41,10 +41,7 @@ const entry = (
   remarks: null,
   status: opts.status,
   activityType: { code, label: code },
-  deliverableType:
-    opts.countable === undefined || opts.countable === null
-      ? null
-      : { isCountable: opts.countable },
+  deliverableType: null,
   quantity: opts.quantity ?? 1,
 });
 

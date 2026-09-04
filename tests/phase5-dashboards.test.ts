@@ -11,7 +11,6 @@ import { ACCOUNTS, ApiClient } from "./helpers/client";
  * what the markup happens to display.
  */
 
-const MON = "2026-12-07";
 const TUE = "2026-12-08";
 
 let admin: ApiClient, mgrN: ApiClient, mgrW: ApiClient, n1: ApiClient, n2: ApiClient;
@@ -41,9 +40,6 @@ beforeAll(async () => {
   westId = u.body.universities.find((x: { slug: string }) => x.slug === "westbrook").id;
   west1Id = (await admin.get(`/api/instructors?universityId=${westId}`)).body.instructors[0].id;
 
-  await n1.post(`/api/instructors/${n1Id}/activities`, {
-    activityTypeCode: "TEACHING", startTime: ist(MON, "10:00"), endTime: ist(MON, "12:00"),
-  });
 });
 
 describe("Gate 1 — a manager's dashboard can only obtain its own university", () => {
@@ -52,7 +48,6 @@ describe("Gate 1 — a manager's dashboard can only obtain its own university", 
     // /deliverables and /reports make.
     const own = [
       `/api/universities/${northId}/analytics`,
-      `/api/universities/${northId}/activities`,
       `/api/universities/${northId}/reports`,
       `/api/universities/${northId}/exceptions`,
       `/api/universities/${northId}/managers`,
@@ -65,7 +60,6 @@ describe("Gate 1 — a manager's dashboard can only obtain its own university", 
 
     const foreign = [
       `/api/universities/${westId}/analytics`,
-      `/api/universities/${westId}/activities`,
       `/api/universities/${westId}/reports`,
       `/api/universities/${westId}/exceptions`,
       `/api/universities/${westId}/managers`,
@@ -135,41 +129,6 @@ describe("Gate 2 — no instructor dashboard endpoint returns another instructor
 });
 
 describe("Gate 3 — the admin drill-down resolves through real data at every level", () => {
-  test("university -> manager -> instructor -> date -> activity", async () => {
-    // 1. Universities
-    const unis = await admin.get("/api/universities");
-    expect(unis.status).toBe(200);
-    const uni = unis.body.universities.find((u: { id: string }) => u.id === northId);
-    expect(uni).toBeDefined();
-
-    // 2. Managers of that university
-    const managers = await admin.get(`/api/universities/${uni.id}/managers`);
-    expect(managers.status).toBe(200);
-    expect(managers.body.managers.length).toBeGreaterThan(0);
-    expect(managers.body.managers.some((m: { isPrimary: boolean }) => m.isPrimary)).toBe(true);
-
-    // 3. Instructors under it
-    const analytics = await admin.get(`/api/universities/${uni.id}/analytics?from=${MON}&to=${TUE}`);
-    expect(analytics.status).toBe(200);
-    const instructor = analytics.body.analytics.instructors.find(
-      (i: { instructorId: string }) => i.instructorId === n1Id,
-    );
-    expect(instructor).toBeDefined();
-
-    // 4. Dates for that instructor
-    expect(instructor.days.length).toBeGreaterThan(0);
-    const day = instructor.days.find((d: { date: string }) => d.date === MON);
-    expect(day).toBeDefined();
-
-    // 5. Activities on that date
-    const activities = await admin.get(
-      `/api/instructors/${n1Id}/activities?from=${day.date}&to=${day.date}`,
-    );
-    expect(activities.status).toBe(200);
-    expect(activities.body.activities.length).toBeGreaterThan(0);
-    expect(activities.body.activities[0].activityType.code).toBe("TEACHING");
-  });
-
   test("the admin overview links to every university in the drill-down", async () => {
     const overview = await admin.get("/api/admin/overview");
     expect(overview.status).toBe(200);

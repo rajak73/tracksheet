@@ -61,8 +61,6 @@ export type TrackerDeliverable = {
   hours: number;
   /** Exact minutes, which is what "1h 45m" is written from. */
   minutes: number;
-  /** Whether a count of this means anything — prep and meetings have no unit. */
-  countable: boolean;
 };
 
 export type TrackerCell = {
@@ -153,7 +151,7 @@ function weekLabel(week: TrackerWeek): string {
 function workingHours(cell: TrackerCell | undefined): number {
   /* Straight off the cell. It used to sum only the deliverables the taxonomy
      marked countable — "time with students" — which needed every line to carry
-     a named deliverable with an `isCountable` flag. What the instructor
+     a named deliverable with a countability flag. What the instructor
      recorded for the day is the figure now, and there is one of them. */
   return cell?.totalWorkingHours ?? 0;
 }

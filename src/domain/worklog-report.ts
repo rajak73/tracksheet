@@ -230,8 +230,6 @@ export type CellDeliverable = {
   minutes: number;
   /** `null` once anything inside it is unknown. See `ReportLine.quantity`. */
   quantity: number | null;
-  /** False for planned-deliverable progress, which is not time with students. */
-  countable: boolean;
   /** Earliest start, where the clock is known. Absent for planned deliverables. */
   firstAt?: number;
 };
@@ -257,21 +255,18 @@ export function countableLines(deliverables: readonly CellDeliverable[]): Report
    * null is not greater than zero — and a dropped unknown is exactly the silent
    * disappearance the client's `?` exists to prevent. `quantityCell` decides
    * what to print; this only decides what is a candidate. */
-  return reportLines(
-    deliverables.filter((d) => d.countable && (d.quantity === null || d.quantity > 0)),
-  );
+  return reportLines(deliverables.filter((d) => d.quantity === null || d.quantity > 0));
 }
 
 /**
  * The minutes behind the Working Hours column.
  *
- * Deliberately unchanged in what it counts: the same `countable` lines the
- * figure has always been built from. The client's new rules changed how this
- * number is WRITTEN, not which work it is measured over, and quietly widening
- * it here would move a figure their sheet is reconciled against.
+ * Every line, since every recorded hour is working time — see the note where
+ * `countsAsWorkingHours` used to be. The `countable` filter that stood here was
+ * the last reader of the deliverable taxonomy's countability flag.
  */
 export function workedMinutesIn(deliverables: readonly CellDeliverable[]): number {
-  return deliverables.reduce((n, d) => n + (d.countable ? d.minutes : 0), 0);
+  return deliverables.reduce((n, d) => n + d.minutes, 0);
 }
 
 /**

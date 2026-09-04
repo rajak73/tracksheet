@@ -76,7 +76,6 @@ type Entry = {
   title: string;
   hours: number;
   /** Whether these hours are time with students. Decided by the tracker. */
-  countable: boolean;
 };
 
 type Cell = {
@@ -109,7 +108,7 @@ type Tracker = {
  * different answer than the grid a manager opens for the same week.
  */
 function studentFacingHours(cell: Cell | undefined): number {
-  const hours = (cell?.deliverables ?? []).reduce((n, d) => n + (d.countable ? d.hours : 0), 0);
+  const hours = (cell?.deliverables ?? []).reduce((n, d) => n + d.hours, 0);
   return Math.round(hours * 100) / 100;
 }
 

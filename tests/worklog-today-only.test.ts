@@ -107,38 +107,6 @@ describe("the four-field quick entry", () => {
   });
 });
 
-describe("the activity routes take any day that has happened", () => {
-  /* This asymmetry used to need explaining: the create route accepted a past
-   * day while PATCH and DELETE refused one, so an instructor could put a row
-   * on yesterday and then not be able to touch it. That was the cost of a
-   * today-only rule applied to some verbs and not others, and it is gone —
-   * every verb now draws the line in the same place, at the future. */
-  const local = (date: string) => ({
-    activityTypeCode: "TEACHING",
-    local: { date, start: "14:00", end: "15:00" },
-  });
-
-  test("today is accepted", async () => {
-    const res = await instructor.post(`/api/instructors/${myId}/activities`, local(TODAY));
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-  });
-
-  test("a past day is accepted", async () => {
-    const res = await instructor.post(`/api/instructors/${myId}/activities`, local(YESTERDAY));
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-  });
-
-  test("a future day is NOT refused by create — stated, not silently true", async () => {
-    /* The one hole left, pinned so it cannot widen unnoticed. Guarding this
-     * route was tried and broke thirteen suites: fixtures across the codebase
-     * use a far-future date as an isolated sandbox, and this is also the route
-     * a manager records history through. No instructor SCREEN offers a future
-     * date into it, so reaching this needs a hand-written call against one's
-     * own record. If that ever stops being true, this test is where to look. */
-    const res = await instructor.post(`/api/instructors/${myId}/activities`, local(TOMORROW));
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-  });
-});
 
 describe("editing and removing a day that is not today", () => {
   /* Its own date, deliberately. The describes above WRITE to yesterday and

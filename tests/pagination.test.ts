@@ -222,53 +222,6 @@ describe("GET /api/instructors pagination", () => {
   });
 });
 
-describe("GET /api/instructors/[id]/activities pagination", () => {
-  let instructorId: string;
-  const DAYS = ["2033-05-01", "2033-05-02", "2033-05-03", "2033-05-04"];
-
-  beforeAll(async () => {
-    const me = await north1.get("/api/auth/me");
-    instructorId = me.body.user.instructorId;
-
-    for (const day of DAYS) {
-      const res = await north1.post(`/api/instructors/${instructorId}/activities`, {
-        activityTypeCode: "TEACHING",
-        local: { date: day, start: "10:00", end: "11:00" },
-      });
-      expect(res.status).toBe(201);
-    }
-  });
-
-  test("date filter + pagination combine correctly", async () => {
-    const res = await north1.get(
-      `/api/instructors/${instructorId}/activities?from=2033-05-01&to=2033-05-04&limit=2&page=1`,
-    );
-    expect(res.status).toBe(200);
-    expect(res.body.activities).toHaveLength(2);
-    expect(res.body.total).toBe(4);
-    expect(res.body.hasMore).toBe(true);
-  });
-
-  test("the second page contains the remaining rows in the same filtered window", async () => {
-    const res = await north1.get(
-      `/api/instructors/${instructorId}/activities?from=2033-05-01&to=2033-05-04&limit=2&page=2`,
-    );
-    expect(res.body.activities).toHaveLength(2);
-    expect(res.body.hasMore).toBe(false);
-  });
-
-  test("max page size is enforced (clamped to 500, not honoured verbatim)", async () => {
-    const res = await north1.get(`/api/instructors/${instructorId}/activities?limit=999999`);
-    expect(res.body.limit).toBe(500);
-  });
-
-  test("cross-tenant pagination: another instructor cannot page into this history", async () => {
-    const other = new ApiClient("west1");
-    await other.login(ACCOUNTS.instructorWest1);
-    const res = await other.get(`/api/instructors/${instructorId}/activities?limit=50`);
-    expect(res.status).toBe(404);
-  });
-});
 
 describe("GET /api/instructors/[id]/deliverables pagination", () => {
   let instructorId: string;

@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/server/db";
-import { assertCanManageInstructor, assertCanReadInstructorWork } from "@/server/auth/scope";
+import { assertCanReadInstructorWork } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { parseDateParam, parseLimit, parsePage } from "@/server/http/params";
-import { logActivity } from "@/server/activities/logger";
-import { logAudit } from "@/server/audit/logger";
 
 /**
  * Two accepted interval forms (see LogActivityInput in the logger):
@@ -14,112 +11,14 @@ import { logAudit } from "@/server/audit/logger";
  * form — building instants in the browser used `new Date()` in the
  * BROWSER's zone and silently booked work on the wrong university-local day.
  */
-const PostActivityInput = z
-  .object({
-    activityTypeCode: z.string().min(1),
-    startTime: z.string().datetime().optional(),
-    endTime: z.string().datetime().optional(),
-    local: z
-      .object({
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-        end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-      })
-      .optional(),
-    status: z.enum(["COMPLETED", "MISSED", "LATE", "EXCUSED"]).optional(),
-    remarks: z.string().optional(),
-  })
-  .refine((v) => v.local !== undefined || (v.startTime !== undefined && v.endTime !== undefined), {
-    message: "Provide either startTime/endTime or local {date, start, end}",
-  });
-
-export const POST = withAuth<{ id: string }>(async ({ scope, params, req, principal }) => {
-  const input = PostActivityInput.parse(await req.json().catch(() => null));
-  
-  // Verify access and get the instructor to find their universityId.
-  // `managerId` and the university's primary manager come along because the
-  // WRITE check below needs them.
-  const instructor = await prisma.instructor.findUnique({
-    where: { id: params.id },
-    select: {
-      id: true,
-      universityId: true,
-      managerId: true,
-      university: { select: { primaryManagerId: true } },
-    },
-  });
-
-  if (!instructor) {
-    return NextResponse.json(
-      { error: { code: "NOT_FOUND", message: "Instructor not found" } },
-      { status: 404 }
-    );
-  }
-
-  /* ── Recording somebody's hours is a write, so the roster decides ────────
-   * This used `assertCanReadInstructor`, which for a manager compares only the
-   * university. A probe confirmed what that allowed: a manager posted a
-   * TEACHING block, with free-text `remarks`, onto an instructor belonging to
-   * a DIFFERENT manager in the same university, and got 201.
-   *
-   * That is not a cosmetic boundary. Hours posted here flow into Working Hours,
-   * utilization and every report the client reads, so one manager could move
-   * another manager's numbers, and the row would carry the instructor's name
-   * rather than the author's.
-   *
-   * `assertCanManageInstructor` is the same check the deliverable, schedule and
-   * reminder routes already use. It runs the read check first — so an
-   * instructor is still pinned to themselves and an admin still passes — and
-   * only then requires a manager to own the roster entry, with the university's
-   * primary manager standing in for an unassigned instructor. */
-  assertCanManageInstructor(scope, instructor, instructor.university.primaryManagerId);
-
-  /* ── Why the day rule is still NOT applied here ─────────────────────────
-   * The worklog routes hold an instructor to days that have happened, and the
-   * activity edit and delete routes beside this one do too. This one does not,
-   * and the asymmetry is a decision rather than an oversight.
-   *
-   * It was tried. The rule now refuses only the FUTURE, which looked harmless
-   * enough to apply here — and it broke thirteen suites, because a great many
-   * fixtures use a far-future date (2033-05-01 and friends) precisely as an
-   * isolated sandbox no other test writes to. Guarding this route takes that
-   * technique away and buys very little: this is the general activity API, it
-   * is how a manager records somebody's hours, and it is how history is built.
-   *
-   * What that leaves, stated plainly: an instructor can POST a future-dated
-   * activity through this route directly. No instructor screen offers one —
-   * the work log's own buttons are gated on the day having happened, and the
-   * date fields elsewhere are pinned — so it is reachable only by calling the
-   * API by hand, against one's own record. The far larger wart this used to
-   * carry is gone: a past-dated row created here can now be edited and deleted
-   * by the same caller, because the rule the other verbs enforce no longer
-   * refuses the past. */
-  const log = await logActivity({
-    instructorId: instructor.id,
-    universityId: instructor.universityId,
-    activityTypeCode: input.activityTypeCode,
-    /* This route is given a clock outright — `startTime`/`endTime`, or a
-     * local range — so whoever called it stated one. That is the whole
-     * difference from the four-field worklog form, which asks for a length
-     * and lets `placeOnDay` decide where it sits. */
-    timesStated: true,
-    startTime: input.startTime ? new Date(input.startTime) : undefined,
-    endTime: input.endTime ? new Date(input.endTime) : undefined,
-    local: input.local,
-    status: input.status,
-    remarks: input.remarks,
-  });
-
-  await logAudit(principal, scope, {
-    action: "ACTIVITY_LOGGED",
-    entityType: "ActivityLog",
-    entityId: log.id,
-    universityId: instructor.universityId,
-    metadata: { instructorId: instructor.id, activityType: input.activityTypeCode },
-  });
-
-  return NextResponse.json({ activity: log }, { status: 201 });
-});
+/* `POST /activities` is gone, with `ActivityLog` and the taxonomy it wrote.
+ *
+ * It took an `activityTypeCode`, resolved it against `ActivityType`, enforced
+ * that type's `isOncePerDay` flag and wrote a row. None of those three things
+ * exists now: the type table is dropped, one row per instructor per day makes
+ * once-per-day structurally true, and a day is written through the worklog
+ * route. `server/activities/logger.ts` went with it — it had no other caller.
+ */
 
 export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
   const instructor = await prisma.instructor.findUnique({
@@ -128,9 +27,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
       id: true,
       universityId: true,
       managerId: true,
-      university: { select: { primaryManagerId: true } },
-    },
-  });
+      university: { select: { primaryManagerId: true } } } });
 
   if (!instructor) {
     return NextResponse.json(
@@ -161,9 +58,7 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     dateFilter = {
       workDate: {
         ...(fromDate ? { gte: fromDate } : {}),
-        ...(toDate ? { lte: toDate } : {}),
-      },
-    };
+        ...(toDate ? { lte: toDate } : {}) } };
   }
 
   const where = { instructorId: instructor.id, ...dateFilter };
@@ -172,19 +67,15 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     prisma.activityLog.findMany({
       where,
       include: {
-        activityType: true,
       },
       orderBy: {
-        startTime: "asc",
-      },
+        startTime: "asc" },
       skip: (page - 1) * limit,
-      take: limit,
-    }),
+      take: limit }),
     prisma.activityLog.count({ where }),
     prisma.university.findUnique({
       where: { id: instructor.universityId },
-      select: { timezone: true },
-    }),
+      select: { timezone: true } }),
   ]);
 
   // The zone these instants should be DISPLAYED in. Without it, pages fell
@@ -195,6 +86,5 @@ export const GET = withAuth<{ id: string }>(async ({ scope, params, req }) => {
     page,
     limit,
     total,
-    hasMore: page * limit < total,
-  });
+    hasMore: page * limit < total });
 });

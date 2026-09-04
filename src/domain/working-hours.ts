@@ -47,46 +47,18 @@ export function isStudentFacingCategory(activityTypeCode: string): boolean {
   return STUDENT_FACING.has(activityTypeCode);
 }
 
-/**
- * The one rule, in one place: everything an instructor records is Working Hours.
+/* `countsAsWorkingHours` is gone.
  *
- * ── What this replaced, and why ───────────────────────────────────────────
- * This used to read `deliverableIsCountable ?? isStudentFacingCategory(code)`:
- * only time spent WITH STUDENTS counted, so preparation, meetings, reporting
- * and admin were real work that the headline figure left out.
+ * It took an activity-type code and a deliverable's `isCountable` flag and
+ * returned whether that time counted. Both arguments had already been reduced
+ * to `void` — the client settled it when UNUTILIZED went: an instructor writes
+ * up what they did and says how long it took, and all of it is their working
+ * time. The function returned `true` unconditionally and every caller took the
+ * same branch.
  *
- * The client changed the definition. An instructor writes up what they did and
- * says how long it took, and all of it is their working time — there is no
- * longer a judgement to make about which of their own hours count. The new
- * entry form makes the same point structurally: it asks for hours rather than a
- * clock range, so there is no countability question left to answer.
- *
- * ── What follows from it ──────────────────────────────────────────────────
- * Working Hours and Recorded hours now coincide for anything that happened. The
- * two names are kept apart because they still answer different questions — one
- * is what the client's sheet prints, the other is the denominator utilization is
- * measured against — and because separating them again is a change to this
- * function rather than a change to eleven callers.
- *
- * ── What did NOT change ───────────────────────────────────────────────────
- * An absence is still not work. `MISSED` and `EXCUSED` are excluded before this
- * is ever asked — see `didHappen` — so a lecture nobody gave counts for nothing
- * however the rule above is written.
- *
- * `isStudentFacingCategory` is kept: the distinction is still real and is still
- * shown, on the instructor's performance screen, as which categories put them in
- * front of students. It is no longer what decides the total.
+ * Deleted rather than parameterised, with the tables it read from. Restoring a
+ * countability rule would be a new rule, not this one switched back on.
  */
-export function countsAsWorkingHours(
-  // Both are unused now and both stay in the signature: every caller passes
-  // them, and restoring the old rule should be an edit to this body alone.
-  activityTypeCode: string,
-  deliverableIsCountable: boolean | null | undefined,
-): boolean {
-  void activityTypeCode;
-  void deliverableIsCountable;
-  return true;
-}
 
 /**
  * Statuses that mean the activity did NOT happen.
@@ -115,7 +87,6 @@ export type CountableEntry = {
   /** COMPLETED / LATE / MISSED / EXCUSED. Absent on rows written before it existed. */
   status?: string | null;
   activityType: { code: string };
-  deliverableType?: { isCountable: boolean } | null;
 };
 
 /**
@@ -131,17 +102,10 @@ export function didHappen(entry: CountableEntry): boolean {
 }
 
 /**
- * Both questions, in the order the report asks them: did it happen, and was it
- * spent with students. This is what "Working Hours" means anywhere it is
- * printed, so anything printing that phrase should be adding up the entries
- * this returns true for.
+ * Did it happen. That is now the whole question — see the note above — and the
+ * name is kept because "Working Hours" is what the client's sheet prints, and
+ * anything printing that phrase should add up the entries this returns true for.
  */
 export function countsAsWorking(entry: CountableEntry): boolean {
-  return (
-    didHappen(entry) &&
-    countsAsWorkingHours(
-      entry.activityType.code,
-      entry.deliverableType ? entry.deliverableType.isCountable : null,
-    )
-  );
+  return didHappen(entry);
 }

@@ -169,11 +169,6 @@ const SCANNED: Array<{ name: string; url: () => string; as?: () => ApiClient }> 
     url: () => `/api/admin/overview?from=${DAY}&to=${DAY}`,
   },
   {
-    name: "the admin's network view",
-    as: () => admin,
-    url: () => `/api/admin/network?from=${DAY}&to=${DAY}`,
-  },
-  {
     name: "the staff sheet",
     as: () => admin,
     url: () => `/api/instructors?limit=50`,

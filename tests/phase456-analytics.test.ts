@@ -29,14 +29,6 @@ let north1: ApiClient;
 let northId: string;
 let north1Id: string;
 
-/** Logs an activity in Kolkata local time (IST = UTC+5:30). */
-function istToUtc(date: string, hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const utcMinutes = h * 60 + m - (5 * 60 + 30);
-  const base = Date.parse(`${date}T00:00:00.000Z`) + utcMinutes * 60_000;
-  return new Date(base).toISOString();
-}
-
 beforeAll(async () => {
   admin = new ApiClient("admin");
   managerNorth = new ApiClient("mgrN");
@@ -182,8 +174,7 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
       startDate: FRI,
       endDate: FRI,
       status: "APPROVED",
-      reason: "Approved leave",
-    });
+      reason: "Approved leave" });
     expect(leave.status).toBe(201);
 
     const after = await analytics(admin);
@@ -212,8 +203,7 @@ describe("approved leave shrinks capacity without punishing utilisation", () => 
     const res = await north1.post(`/api/instructors/${north1Id}/leave`, {
       startDate: MON,
       endDate: MON,
-      status: "APPROVED",
-    });
+      status: "APPROVED" });
     expect(res.status).toBe(403);
   });
 });
@@ -281,35 +271,6 @@ describe("the reporting period is honoured", () => {
   });
 });
 
-describe("activity logging rejects corrupt intervals", () => {
-  test("endTime before startTime is refused", async () => {
-    const res = await north1.post(`/api/instructors/${north1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(TUE, "15:00"),
-      endTime: istToUtc(TUE, "09:00"),
-    });
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("INVALID_INTERVAL");
-  });
-
-  test("a zero-length activity is refused", async () => {
-    const res = await north1.post(`/api/instructors/${north1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: istToUtc(TUE, "15:00"),
-      endTime: istToUtc(TUE, "15:00"),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  test("an activity longer than a day is refused", async () => {
-    const res = await north1.post(`/api/instructors/${north1Id}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: "2026-09-20T00:00:00Z",
-      endTime: "2026-09-22T00:00:00Z",
-    });
-    expect(res.status).toBe(400);
-  });
-});
 
 describe("an instructor's analytics cover only themselves", () => {
   test("self-scoped analytics returns one instructor", async () => {

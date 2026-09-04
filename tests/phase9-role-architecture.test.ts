@@ -109,7 +109,6 @@ describe("page-level route guards", () => {
       "/admin/reports",
       "/manager/dashboard",
       "/manager/instructors",
-      "/manager/activities",
       "/manager/deliverables",
       "/manager/reports",
       /* `/instructor/activities` is gone. It was the old typed activity form —
@@ -138,7 +137,7 @@ describe("page-level route guards", () => {
     for (const path of ["/admin/dashboard", "/admin/universities", "/admin/instructors", "/admin/reports"]) {
       expect((await admin.request(path, { method: "GET" })).status, path).toBe(200);
     }
-    for (const path of ["/manager/dashboard", "/manager/instructors", "/manager/activities", "/manager/deliverables", "/manager/reports"]) {
+    for (const path of ["/manager/dashboard", "/manager/worklog", "/manager/tracker"]) {
       expect((await mgrN.request(path, { method: "GET" })).status, path).toBe(200);
     }
     for (const path of ["/instructor/worklog"]) {

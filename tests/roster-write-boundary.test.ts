@@ -101,15 +101,7 @@ beforeAll(async () => {
 });
 
 describe("a manager cannot write to another manager's instructor", () => {
-  test("cannot record their hours", async () => {
-    const res = await seedManager.post(`/api/instructors/${theirInstructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: "2026-09-04T10:00:00Z",
-      endTime: "2026-09-04T11:00:00Z",
-      remarks: "posted by a manager who does not own this instructor",
-    });
-    expect([403, 404]).toContain(res.status);
-  });
+
 
   test("cannot book — or pre-approve — their leave", async () => {
     const res = await seedManager.post(`/api/instructors/${theirInstructorId}/leave`, {
@@ -170,14 +162,4 @@ describe("a manager cannot write to another manager's instructor", () => {
      that a manager cannot reach a route nobody built says nothing about the
      boundary — it is true of every path that does not exist. */
 
-  test("the owning manager records hours normally", async () => {
-    const owner = new ApiClient("other-manager");
-    await owner.login(`boundary.mgr.${RUN}@fixture.test`, PASSWORD);
-    const res = await owner.post(`/api/instructors/${theirInstructorId}/activities`, {
-      activityTypeCode: "TEACHING",
-      startTime: "2026-09-05T10:00:00Z",
-      endTime: "2026-09-05T11:00:00Z",
-    });
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-  });
 });

@@ -65,8 +65,6 @@ export type TrackerDeliverable = {
   /** `null` when the instructor never said how many. The client's `?`. */
   quantity: number | null;
   hours: number;
-  /** Whether a count of this means anything — see `DeliverableType`. */
-  countable: boolean;
   /* Exact minutes, alongside the rounded hours.
    *
    * `hours` is what the grid's numeric columns and every existing consumer

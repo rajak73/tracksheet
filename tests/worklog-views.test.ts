@@ -29,7 +29,7 @@ const act = (
   remarks: opts.remarks ?? null,
   startTime: opts.startTime,
   activityType: { code: "TEACHING", label: "Teaching" },
-  deliverableType: { code: label, isCountable: true },
+  deliverableType: { code: label },
   broadCategory: opts.subject ? { label: opts.subject } : null,
   quantity: opts.quantity === undefined ? 1 : opts.quantity,
 });
