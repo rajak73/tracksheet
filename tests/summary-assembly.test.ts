@@ -149,6 +149,20 @@ describe("a count only prints when its noun means something", () => {
     );
   });
 
+  test("a noun ending in s is still matched against its own plural", () => {
+    /* Seen on a live screen: "taking doubt session class (1 class, 1h)" — a
+       count printed beside a label that already said class, because the stem
+       rule stripped one trailing `s` and turned "class" into "clas" while
+       "classes" became "classe". The two words it exists to equate were the
+       two it could not. */
+    expect(renderActivity(activity({ label: "Took a doubt class", unit: "classes", qty: 1, minutes: 60 }))).toBe(
+      "Took a doubt class (1h)",
+    );
+    expect(renderActivity(activity({ label: "Reviewed a submission", unit: "submissions", qty: 1, minutes: 60 }))).toBe(
+      "Reviewed a submission (1h)",
+    );
+  });
+
   test("6. one of something the label does NOT name still prints", () => {
     // There the figure is the only thing saying how many.
     expect(renderActivity(activity({ label: "Taught binary search", unit: "classes", qty: 1, minutes: 120 }))).toBe(

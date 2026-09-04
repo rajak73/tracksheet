@@ -58,9 +58,6 @@ export type SummaryActivity = {
   minutes: number | null;
 };
 
-/** Case- and plural-insensitive, the same deliberately dumb rule as subtopics. */
-const stem = (word: string) => word.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/s$/, "");
-
 /**
  * `classes` → `class`, `entries` → `entry`, `sessions` → `session`.
  *
@@ -73,6 +70,18 @@ export const singular = (phrase: string) =>
     .replace(/ies$/, "y")
     .replace(/(ss|sh|ch|x|s)es$/, "$1")
     .replace(/([^s])s$/, "$1");
+
+/**
+ * Case- and plural-insensitive, for asking whether two words are the same noun.
+ *
+ * ── Why this delegates instead of stripping a trailing `s` ────────────────
+ * It stripped one `s`, which is right for "sessions" and wrong for exactly the
+ * words that end in one: "class" became "clas" and "classes" became "classe",
+ * so they did not match. Seen on a real screen — "taking doubt session class
+ * (1 class, 1h)" printed a count beside a label that already said class,
+ * because the rule meant to catch that could not tell the two words apart.
+ */
+const stem = (word: string) => singular(word.toLowerCase().replace(/[^a-z0-9]/g, ""));
 
 const words = (text: string) => text.split(/\s+/).filter(Boolean);
 

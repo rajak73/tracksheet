@@ -149,7 +149,7 @@ type Transport =
  * model will refuse every call until it does, and asking it each time is a
  * tax on every request in the product.
  */
-type CapacityKind = "burst" | "daily";
+type CapacityKind = "burst" | "daily" | "timeout";
 
 /**
  * Every request to the provider goes through here.
@@ -226,10 +226,9 @@ export function capacityMemory(now = Date.now()): Array<{ model: string; msRemai
 function rememberCapacity(model: string, kind: CapacityKind, now = Date.now()): void {
   const until = now + (kind === "daily" ? DAILY_COOLDOWN_MS : BURST_COOLDOWN_MS);
   unavailableUntil.set(model, until);
-  console.info(
-    `[gemini] ${model} is ${kind === "daily" ? "out of quota for the day" : "rate limited"} — ` +
-      `skipping it for ${Math.round((until - now) / 1000)}s`,
-  );
+  const why =
+    kind === "daily" ? "out of quota for the day" : kind === "timeout" ? "not answering" : "rate limited";
+  console.info(`[gemini] ${model} is ${why} — skipping it for ${Math.round((until - now) / 1000)}s`);
 }
 
 /**
@@ -352,11 +351,22 @@ async function attempt(
       : error instanceof Error
         ? error.message
         : "unknown transport error";
-    /* A timeout is NOT retryable, now that each attempt has its own budget.
-     * It spent a full allowance and the next model has no reason to be quicker,
-     * so retrying is how one slow provider becomes three. A blip that failed
-     * fast cost almost nothing and genuinely deserves the next model. */
-    return timedOut ? { ok: false, reason } : { ok: false, retryable: true, reason };
+    /* ── A timeout falls through to the next model ────────────────────────
+     *
+     * It used not to. The reasoning was that a timeout had spent a full
+     * allowance and the next model had no reason to be quicker — true when the
+     * whole chain shared one deadline, and untrue once each attempt got its own.
+     *
+     * What it costs to be wrong the other way was measured on a live screen:
+     * the pinned primary began hanging, a timeout was not retryable, so the
+     * chain stopped on its first hop and every AI call in the product failed
+     * while two models behind it answered in under two seconds. The worst case
+     * for falling through is bounded — one allowance per model — and the model
+     * that hung is remembered, so the next call skips it rather than paying
+     * that allowance again. */
+    return timedOut
+      ? { ok: false, retryable: true, capacity: "timeout" as const, reason }
+      : { ok: false, retryable: true, reason };
   } finally {
     clearTimeout(timer);
   }

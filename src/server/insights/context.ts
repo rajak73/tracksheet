@@ -42,7 +42,18 @@ import { toDateOnly } from "@/server/time/workday";
  * of that scope's insight changes. Do NOT increment for a refactor that leaves
  * the sent text byte-identical.
  */
-/* ── v3: the model stopped writing sentences ──────────────────────────────
+/* ── v4: the labelling rules were replaced, twice ─────────────────────────
+ * Rules 2 and 3 contradicted each other and 3 won, so nearly every label echoed
+ * its description; then rule 3's own examples discarded the subject, so labels
+ * named an action and dropped what it was about. Both were rewritten, a gerund
+ * is refused, and a named subtopic must appear in its label.
+ *
+ * None of that reached a screen, because the version was not bumped with the
+ * wording. A day labelled under the old rules kept its old label forever — the
+ * cache had no way to know the question had changed. Seen live: "taking doubt
+ * session class", a gerund the current rules refuse, sitting in a cell.
+ *
+ * ── v3: the model stopped writing sentences ──────────────────────────────
  * Two calls now, both language-only: one labels a day, one groups a period.
  * Neither writes prose and neither writes a figure — every number in every
  * summary is assembled in code from the rows the instructor filled in.
@@ -60,10 +71,10 @@ import { toDateOnly } from "@/server/time/workday";
  * version is inside the context hash, so a cached answer in the old shape is
  * not "stale data" to be detected later; it simply stops matching and the next
  * viewer gets one in the new shape. */
-export const PROMPT_VERSION_EXTRACT = "extract_v3";
+export const PROMPT_VERSION_EXTRACT = "extract_v4";
 export const PROMPT_VERSION_DAY = "day_v1";
-export const PROMPT_VERSION_WEEK = "week_v3";
-export const PROMPT_VERSION_MONTH = "month_v3";
+export const PROMPT_VERSION_WEEK = "week_v4";
+export const PROMPT_VERSION_MONTH = "month_v4";
 
 export type ScopeType = "DAY" | "WEEK" | "MONTH";
 
