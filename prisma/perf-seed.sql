@@ -11,28 +11,14 @@
 
 BEGIN;
 
-TRUNCATE "ActivityLog", "LeaveRequest", "DeliverableLog", "Deliverable",
+TRUNCATE "ActivityLog_deprecated", "LeaveRequest", "DeliverableLog", "Deliverable",
          "AiInsight", "AuditLog", "Notification", "Session",
          "Instructor", "Manager", "UniversityWorkingHours", "UniversityHoliday",
-         "User", "University", "ActivityType" RESTART IDENTITY CASCADE;
+         "User", "University" RESTART IDENTITY CASCADE;
 
--- ---------------------------------------------------------------- activity types
-INSERT INTO "ActivityType" (id, code, label, "sortOrder", "isSystem",
-                            "isOncePerDay", "isDerivedFromWorkingHours",
-                            "countsAsProductive", "isUnutilized",
-                            "createdAt", "updatedAt")
-VALUES
-  ('at_open',  'DAILY_OPENING',   'Daily Opening',   10,  true, true,  true,  true,  false, now(), now()),
-  ('at_teach', 'TEACHING',        'Teaching',        20,  true, false, false, true,  false, now(), now()),
-  ('at_learn', 'LEARNING',        'Learning',        30,  true, false, false, true,  false, now(), now()),
-  ('at_supp',  'STUDENT_SUPPORT', 'Student Support', 40,  true, false, false, true,  false, now(), now()),
-  ('at_admin', 'ADMINISTRATIVE',  'Administrative',  50,  true, false, false, true,  false, now(), now()),
-  ('at_meet',  'MEETING',         'Meeting',         60,  true, false, false, true,  false, now(), now()),
-  ('at_deliv', 'DELIVERABLE',     'Deliverable Work',70,  true, false, false, true,  false, now(), now()),
-  ('at_res',   'RESEARCH',        'Research',        80,  true, false, false, true,  false, now(), now()),
-  ('at_other', 'OTHER',           'Other',           90,  true, false, false, true,  false, now(), now()),
-  ('at_close', 'DAILY_CLOSING',   'Daily Closing',   100, true, true,  true,  true,  false, now(), now()),
-  ('at_unutil','UNUTILIZED',      'Unutilized Time', 110, true, false, false, false, true,  now(), now());
+-- The activity-type seed is gone with the table. It provisioned eleven work
+-- types — TEACHING, MENTORING, ADMINISTRATIVE — which is the fixed taxonomy
+-- this product does not have anywhere, including in a performance fixture.
 
 -- ---------------------------------------------------------------- universities
 -- `code` is NOT NULL and unique. It was added after this file was written, so
@@ -88,14 +74,13 @@ COMMIT;
 -- Committed separately so the bulk insert does not hold the earlier locks.
 BEGIN;
 
-INSERT INTO "ActivityLog" (id, "instructorId", "universityId", "activityTypeId",
+INSERT INTO "ActivityLog_deprecated" (id, "instructorId", "universityId",
                            "workDate", "startTime", "endTime", status,
                            "isOncePerDay", "createdAt", "updatedAt")
 SELECT
   'al_' || u || '_' || i || '_' || d || '_' || s,
   'ins_' || u || '_' || i,
   'uni_' || u,
-  (ARRAY['at_teach','at_learn','at_supp','at_admin','at_meet','at_deliv'])[s],
   (DATE '2026-05-04' + d)::date,
   (DATE '2026-05-04' + d)::timestamp + ((8 + s) * INTERVAL '1 hour'),
   (DATE '2026-05-04' + d)::timestamp + ((9 + s) * INTERVAL '1 hour'),

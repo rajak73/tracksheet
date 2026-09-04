@@ -4,12 +4,6 @@ loadEnv({ path: process.env.TEST_ENV ? ".env.test" : ".env", quiet: true });
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/server/auth/password";
-import {
-  ACTIVITY_TYPE_COUNT,
-  DELIVERABLE_TYPE_COUNT,
-  provisionActivityTypes,
-  provisionDeliverableTypes,
-} from "./reference-data";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -87,17 +81,10 @@ async function main() {
   await prisma.universityHoliday.deleteMany();
   await prisma.university.deleteMany();
 
-  // Reference data comes from the shared module, which upserts rather than
-  // deleting and recreating: activity types are referenced by historical
-  // activity records from Phase 3 onward, so reseeding must not change their
-  // ids. The same function backs `npm run db:reference-data`, so development
-  // and production provision an identical taxonomy from one definition.
-  await provisionActivityTypes(prisma);
-  console.log(`  activity types: ${ACTIVITY_TYPE_COUNT}`);
-  // Deliverables come second: each points at a category, and the foreign key
-  // refuses one whose category is not there yet.
-  await provisionDeliverableTypes(prisma);
-  console.log(`  deliverable types: ${DELIVERABLE_TYPE_COUNT}`);
+  /* The activity and deliverable type seeds are gone with their tables. The
+     seed provisioned sixteen work types and forty-four deliverables from one
+     definition so development and production had an identical taxonomy — which
+     is exactly the thing this product does not have. */
 
   const passwordHash = await hashPassword(DEV_PASSWORD);
 

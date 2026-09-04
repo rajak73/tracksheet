@@ -203,22 +203,6 @@ exports.Prisma.InstructorScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.ActivityTypeScalarFieldEnum = {
-  id: 'id',
-  code: 'code',
-  label: 'label',
-  description: 'description',
-  sortOrder: 'sortOrder',
-  isActive: 'isActive',
-  isSystem: 'isSystem',
-  isOncePerDay: 'isOncePerDay',
-  isDerivedFromWorkingHours: 'isDerivedFromWorkingHours',
-  countsAsProductive: 'countsAsProductive',
-  isUnutilized: 'isUnutilized',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
 exports.Prisma.LeaveRequestScalarFieldEnum = {
   id: 'id',
   instructorId: 'instructorId',
@@ -246,7 +230,6 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   id: 'id',
   instructorId: 'instructorId',
   universityId: 'universityId',
-  activityTypeId: 'activityTypeId',
   workDate: 'workDate',
   startTime: 'startTime',
   endTime: 'endTime',
@@ -262,7 +245,6 @@ exports.Prisma.ActivityLogScalarFieldEnum = {
   rawQuantity: 'rawQuantity',
   rawWorkingHours: 'rawWorkingHours',
   submissionId: 'submissionId',
-  deliverableTypeId: 'deliverableTypeId',
   quantity: 'quantity',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -432,7 +414,6 @@ exports.Prisma.ScheduleSlotScalarFieldEnum = {
   scheduleId: 'scheduleId',
   instructorId: 'instructorId',
   courseId: 'courseId',
-  activityTypeId: 'activityTypeId',
   workDate: 'workDate',
   startTime: 'startTime',
   endTime: 'endTime',
@@ -565,18 +546,6 @@ exports.Prisma.ImportJobScalarFieldEnum = {
   errorMessage: 'errorMessage',
   startedAt: 'startedAt',
   completedAt: 'completedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.DeliverableTypeScalarFieldEnum = {
-  id: 'id',
-  code: 'code',
-  label: 'label',
-  activityTypeId: 'activityTypeId',
-  sortOrder: 'sortOrder',
-  isActive: 'isActive',
-  isCountable: 'isCountable',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -902,7 +871,6 @@ exports.Prisma.ModelName = {
   Manager: 'Manager',
   WorklogDayNote: 'WorklogDayNote',
   Instructor: 'Instructor',
-  ActivityType: 'ActivityType',
   LeaveRequest: 'LeaveRequest',
   Session: 'Session',
   ActivityLog: 'ActivityLog',
@@ -927,7 +895,6 @@ exports.Prisma.ModelName = {
   ReportJob: 'ReportJob',
   MetricsJobRun: 'MetricsJobRun',
   ImportJob: 'ImportJob',
-  DeliverableType: 'DeliverableType',
   WorklogSubmission: 'WorklogSubmission',
   WorklogDaySummary: 'WorklogDaySummary',
   AiInsightCache: 'AiInsightCache',

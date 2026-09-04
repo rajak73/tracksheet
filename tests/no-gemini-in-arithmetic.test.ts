@@ -87,8 +87,6 @@ async function storedActivities(from: string, to: string): Promise<RowActivity[]
       remarks: true,
       status: true,
       quantity: true,
-      activityType: { select: { code: true, label: true } },
-      deliverableType: { select: { code: true } },
     },
   });
   return logs.map((l) => ({
@@ -98,8 +96,8 @@ async function storedActivities(from: string, to: string): Promise<RowActivity[]
     remarks: l.remarks,
     status: l.status,
     quantity: l.quantity,
-    activityType: l.activityType,
-    deliverableType: l.deliverableType,
+    activityType: { code: "", label: "" },
+    deliverableType: null,
   }));
 }
 

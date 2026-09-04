@@ -57,7 +57,6 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       endTime: true,
       location: true,
       status: true,
-      activityType: { select: { code: true, label: true } },
       course: { select: { code: true, title: true } },
     },
   });
@@ -73,7 +72,6 @@ export const GET = withAuth<{ id: string }>(async ({ params, scope, req }) => {
       endTime: true,
       status: true,
       scheduleSlotId: true,
-      activityType: { select: { code: true, label: true } },
     },
   });
 
@@ -133,22 +131,11 @@ export const POST = withAuth<{ id: string }>(
       throw new ApiError(400, "INVALID_INTERVAL", "endTime must be after startTime");
     }
 
-    const activityType = await prisma.activityType.findUnique({
-      where: { code: input.activityTypeCode },
-      select: { id: true, isDerivedFromWorkingHours: true },
-    });
-    if (!activityType) {
-      throw new ApiError(404, "ACTIVITY_TYPE_NOT_FOUND", "Activity type not found");
-    }
-    if (activityType.isDerivedFromWorkingHours) {
-      // Opening and closing come from the university's configured hours. Making
-      // them schedulable would let one working day carry several of each.
-      throw new ApiError(
-        400,
-        "NOT_SCHEDULABLE",
-        `${input.activityTypeCode} is derived from working hours and cannot be scheduled`,
-      );
-    }
+    /* The `ActivityType` lookup that stood here is gone with the table. It
+       resolved a code to an id and refused the two types derived from the
+       university's configured hours — a rule belonging to a taxonomy that no
+       longer exists. `activityTypeCode` is still accepted so existing callers
+       are not broken by a changed request shape; nothing resolves it. */
 
     /* The instants have to fall on the date they are filed under.
      *
@@ -177,7 +164,6 @@ export const POST = withAuth<{ id: string }>(
       data: {
         universityId: instructor.universityId,
         instructorId: instructor.id,
-        activityTypeId: activityType.id,
         courseId: input.courseId,
         workDate: toDateOnly(input.date),
         startTime: new Date(input.startTime),

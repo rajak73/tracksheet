@@ -172,16 +172,6 @@ describe("dashboards are backed by real data, not literals", () => {
     expect(schedule.body.closing).not.toBeNull();
   });
 
-  test("opening and closing cannot be scheduled as slots", async () => {
-    for (const code of ["DAILY_OPENING", "DAILY_CLOSING"]) {
-      const res = await mgrN.post(`/api/instructors/${n1Id}/schedule`, {
-        date: TUE, activityTypeCode: code,
-        startTime: ist(TUE, "09:00"), endTime: ist(TUE, "09:15"),
-      });
-      expect(res.status, code).toBe(400);
-      expect(res.body.error.code).toBe("NOT_SCHEDULABLE");
-    }
-  });
 
   test("the admin overview reports real counts, at least the seeded platform", async () => {
     // Floors, not fixed totals: universities and staff can now be provisioned

@@ -95,7 +95,7 @@ export const GET = withAuth(
          * roster filed", so somebody who wrote four lines is one. */
         prisma.$queryRaw<DayCount[]>`
         SELECT a."workDate" AS "workDate", COUNT(DISTINCT a."instructorId") AS "people"
-        FROM "ActivityLog" a
+        FROM "ActivityLog_deprecated" a
         JOIN "Instructor" i ON i.id = a."instructorId"
         JOIN "User" u ON u.id = i."userId"
         WHERE a."workDate" BETWEEN ${toDateOnly(thisMonth.from)}::date AND ${toDateOnly(thisMonth.to)}::date
@@ -105,7 +105,7 @@ export const GET = withAuth(
       `,
         prisma.$queryRaw<DayCount[]>`
         SELECT a."workDate" AS "workDate", COUNT(DISTINCT a."instructorId") AS "people"
-        FROM "ActivityLog" a
+        FROM "ActivityLog_deprecated" a
         JOIN "Instructor" i ON i.id = a."instructorId"
         JOIN "User" u ON u.id = i."userId"
         WHERE a."workDate" BETWEEN ${toDateOnly(lastMonth.from)}::date AND ${toDateOnly(lastMonth.to)}::date
@@ -127,7 +127,7 @@ export const GET = withAuth(
         FROM "Instructor" i
         JOIN "User" u ON u.id = i."userId"
         JOIN "University" un ON un.id = i."universityId"
-        LEFT JOIN "ActivityLog" a
+        LEFT JOIN "ActivityLog_deprecated" a
                ON a."instructorId" = i.id
               AND a.status::text <> ALL(${notHappened}::text[])
         WHERE u."isActive" = true
@@ -144,12 +144,13 @@ export const GET = withAuth(
                i."employeeCode"   AS "employeeCode",
                a."createdAt"      AS "createdAt",
                a."workDate"       AS "workDate",
-               COALESCE(d.label, t.label) AS "label"
-        FROM "ActivityLog" a
+               /* The label used to be the deliverable's, falling back to the
+                  activity type's. Both tables are gone; the recent-activity
+                  strip names the day rather than classifying it. */
+               'Recorded work'    AS "label"
+        FROM "ActivityLog_deprecated" a
         JOIN "Instructor" i ON i.id = a."instructorId"
         JOIN "User" u ON u.id = i."userId"
-        JOIN "ActivityType" t ON t.id = a."activityTypeId"
-        LEFT JOIN "DeliverableType" d ON d.id = a."deliverableTypeId"
         WHERE u."isActive" = true
           AND a.status::text <> ALL(${notHappened}::text[])
         ORDER BY a."createdAt" DESC
@@ -158,7 +159,7 @@ export const GET = withAuth(
 
         prisma.$queryRaw<Hours[]>`
         SELECT SUM(EXTRACT(EPOCH FROM (a."endTime" - a."startTime")) / 3600.0)::float8 AS "hours"
-        FROM "ActivityLog" a
+        FROM "ActivityLog_deprecated" a
         JOIN "Instructor" i ON i.id = a."instructorId"
         JOIN "User" u ON u.id = i."userId"
         WHERE a."workDate" BETWEEN ${toDateOnly(thisMonth.from)}::date AND ${toDateOnly(thisMonth.to)}::date
@@ -167,7 +168,7 @@ export const GET = withAuth(
       `,
         prisma.$queryRaw<Hours[]>`
         SELECT SUM(EXTRACT(EPOCH FROM (a."endTime" - a."startTime")) / 3600.0)::float8 AS "hours"
-        FROM "ActivityLog" a
+        FROM "ActivityLog_deprecated" a
         JOIN "Instructor" i ON i.id = a."instructorId"
         JOIN "User" u ON u.id = i."userId"
         WHERE a."workDate" BETWEEN ${toDateOnly(lastMonth.from)}::date AND ${toDateOnly(lastMonth.to)}::date

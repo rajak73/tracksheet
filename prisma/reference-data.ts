@@ -264,35 +264,7 @@ export const ACTIVITY_TYPE_COUNT = ACTIVITY_TYPES.length;
 /** Every canonical code, for callers that need to assert coverage. */
 export const ACTIVITY_TYPE_CODES = ACTIVITY_TYPES.map((t) => t.code);
 
-/** The columns this module owns. Anything not listed here is left as found. */
-function canonicalFields(type: ActivityTypeDefinition) {
-  return {
-    label: type.label,
-    description: type.description ?? null,
-    sortOrder: type.sortOrder,
-    isSystem: true,
-    isOncePerDay: type.isOncePerDay ?? false,
-    isDerivedFromWorkingHours: type.isDerivedFromWorkingHours ?? false,
-    countsAsProductive: type.countsAsProductive ?? true,
-    isUnutilized: type.isUnutilized ?? false,
-  };
-}
 
-/** Anything Prisma-shaped: the real client, or a transaction client in tests. */
-type Db = {
-  activityType: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    findMany(args: any): Promise<Array<{ code: string }>>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    upsert(args: any): Promise<{ id: string; code: string }>;
-  };
-  deliverableType: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    findMany(args: any): Promise<Array<{ code: string }>>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    upsert(args: any): Promise<{ id: string; code: string }>;
-  };
-};
 
 export type ProvisionResult = {
   /** Codes this run inserted. */
@@ -301,112 +273,11 @@ export type ProvisionResult = {
   updated: string[];
 };
 
-/**
- * Brings the activity taxonomy up to date, idempotently.
- *
- * Safe on a fresh database, on one that is already fully provisioned, and on
- * anything in between. It inserts what is missing and reconciles what is
- * present; an existing row keeps its id, so historical activity goes on
- * pointing at the same type. It deletes nothing under any code path.
- */
-export async function provisionActivityTypes(db: Db): Promise<ProvisionResult> {
-  // One read up front purely so the caller can be told what changed. The upsert
-  // below is the thing that matters and would be correct without it.
-  const present = new Set(
-    (
-      await db.activityType.findMany({
-        where: { code: { in: ACTIVITY_TYPE_CODES } },
-        select: { code: true },
-      })
-    ).map((row) => row.code),
-  );
+/* `provisionActivityTypes` and `provisionDeliverableTypes` are gone with the
+   tables they wrote to.
 
-  const created: string[] = [];
-  const updated: string[] = [];
-
-  for (const type of ACTIVITY_TYPES) {
-    const fields = canonicalFields(type);
-    try {
-      await db.activityType.upsert({
-        where: { code: type.code },
-        create: { code: type.code, ...fields },
-        update: fields,
-      });
-    } catch (e) {
-      throw new Error(
-        `Could not provision activity type "${type.code}": ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-      );
-    }
-    (present.has(type.code) ? updated : created).push(type.code);
-  }
-
-  return { created, updated };
-}
-
-/**
- * Brings the deliverable taxonomy up to date, idempotently.
- *
- * Runs AFTER the categories, because every deliverable points at one and a
- * deliverable whose category does not exist yet cannot be written — the foreign
- * key says so, which is the point of having it.
- *
- * Like the categories, this deletes nothing. A deliverable that disappears from
- * the BRD stops being offered by being marked inactive upstream, never by being
- * removed underneath the activity rows that reference it.
- */
-export async function provisionDeliverableTypes(db: Db): Promise<ProvisionResult> {
-  const categories = await db.activityType.findMany({
-    where: { code: { in: [...new Set(DELIVERABLE_TYPES.map((d) => d.activityTypeCode))] } },
-    select: { code: true, id: true },
-  });
-  const idByCode = new Map(
-    (categories as Array<{ code: string; id?: string }>).map((c) => [c.code, c.id]),
-  );
-
-  const present = new Set(
-    (
-      await db.deliverableType.findMany({
-        where: { code: { in: DELIVERABLE_TYPE_CODES } },
-        select: { code: true },
-      })
-    ).map((row) => row.code),
-  );
-
-  const created: string[] = [];
-  const updated: string[] = [];
-
-  for (const [index, type] of DELIVERABLE_TYPES.entries()) {
-    const activityTypeId = idByCode.get(type.activityTypeCode);
-    if (!activityTypeId) {
-      throw new Error(
-        `Could not provision deliverable "${type.code}": its category ` +
-          `"${type.activityTypeCode}" is missing. Provision activity types first.`,
-      );
-    }
-    const fields = {
-      label: type.label,
-      activityTypeId,
-      sortOrder: (index + 1) * 10,
-      isActive: true,
-      isCountable: type.countable ?? true,
-    };
-    try {
-      await db.deliverableType.upsert({
-        where: { code: type.code },
-        create: { code: type.code, ...fields },
-        update: fields,
-      });
-    } catch (e) {
-      throw new Error(
-        `Could not provision deliverable type "${type.code}": ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-      );
-    }
-    (present.has(type.code) ? updated : created).push(type.code);
-  }
-
-  return { created, updated };
-}
+   The definitions above stay. They are no longer a taxonomy this product
+   provisions — nothing reads them at runtime — they are the RECORD of the names
+   that were removed, and `no-category-in-responses` and `no-category-in-prompts`
+   both scan against them. A list of banned words has to come from somewhere,
+   and the list that was actually in use is the only honest source for it. */

@@ -336,58 +336,6 @@ model Instructor {
   @@index([managerId])
 }
 
-/// Activity taxonomy, held as DATA rather than a Prisma enum so a new type can
-/// be added by an admin without a migration or redeploy.
-///
-/// Business logic must branch on the BEHAVIOURAL FLAGS below, never on `code`.
-/// Keying off `code === "DAILY_OPENING"` would re-create the hard-coded enum
-/// this table exists to avoid, and a custom type added later would silently get
-/// none of the right treatment.
-model ActivityType {
-  id    String @id @default(cuid())
-  /// Stable machine identifier, e.g. DAILY_OPENING. Unique across the platform.
-  code  String @unique
-  label String
-
-  description String?
-  sortOrder   Int     @default(100)
-  isActive    Boolean @default(true)
-
-  /// Seeded types are structural; deleting one would break historical records.
-  isSystem Boolean @default(false)
-
-  // ---- Behavioural flags ----
-
-  /// At most one record per instructor per working day. True for DAILY_OPENING
-  /// and DAILY_CLOSING only. Phase 3 enforces this with a unique index on
-  /// (instructorId, workDate, activityTypeId) for types carrying this flag.
-  isOncePerDay Boolean @default(false)
-
-  /// Derived from the university's working-hours window rather than logged by
-  /// an instructor against a class. True for DAILY_OPENING / DAILY_CLOSING —
-  /// this is what stops them being generated per class.
-  isDerivedFromWorkingHours Boolean @default(false)
-
-  /// Counts toward productive/recognised time in the Phase 4 utilisation
-  /// numerator. False for UNUTILIZED.
-  countsAsProductive Boolean @default(true)
-
-  /// Represents known idle time. Distinct from MISSING_DATA, which is the
-  /// ABSENCE of any record and is therefore never a row in this table
-  /// (Phase 0 §3.5).
-  isUnutilized Boolean @default(false)
-
-  activityLogs ActivityLog[]
-
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  scheduleSlots ScheduleSlot[]
-
-  deliverableTypes DeliverableType[]
-
-  @@index([isActive, sortOrder])
-}
-
 enum LeaveStatus {
   PENDING
   APPROVED
@@ -451,9 +399,6 @@ model ActivityLog {
 
   universityId String
   university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
-
-  activityTypeId String
-  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
 
   workDate  DateTime @db.Date
   startTime DateTime
@@ -550,9 +495,6 @@ model ActivityLog {
   /// 2 to 3" has no subject at all, and filling one in would be inventing the
   /// most consequential column in the report.
 
-  deliverableTypeId String?
-  deliverableType   DeliverableType? @relation(fields: [deliverableTypeId], references: [id], onDelete: SetNull)
-
   /// How many of that deliverable this row accounts for.
   ///
   /// ── NULL means the instructor never said ──────────────────────────────
@@ -603,12 +545,21 @@ model ActivityLog {
   // that delete was a sequential scan — 1,057 ms measured on 3.9M rows, on the
   // path an instructor takes every time they correct their own day.
   @@index([submissionId])
+  /// Renamed, not dropped.
+  ///
+  /// Every reader is gone and every foreign key with it, but a table that is
+  /// still THERE is a five-second revert and a dropped one is a restore from
+  /// backup. The model name is unchanged so nothing in the code moves; only
+  /// the table is renamed, which is what makes the revert one line. Drop it
+  /// the next time this schema is touched.
+  @@map("ActivityLog_deprecated")
 }
 
 model Deliverable {
-  id           String     @id @default(cuid())
+  activityLogs ActivityLog[]
+  id           String        @id @default(cuid())
   instructorId String
-  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  instructor   Instructor    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
   universityId String
   university   University @relation(fields: [universityId], references: [id], onDelete: Restrict)
@@ -625,8 +576,7 @@ model Deliverable {
   createdBy   User?   @relation("DeliverableCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdById String?
 
-  logs         DeliverableLog[]
-  activityLogs ActivityLog[]
+  logs DeliverableLog[]
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -1022,18 +972,16 @@ model Schedule {
 /// document so slots can be indexed, validated, and compared against what was
 /// actually logged (§17).
 model ScheduleSlot {
-  id           String     @id @default(cuid())
+  activityLogs ActivityLog[]
+  id           String        @id @default(cuid())
   universityId String
-  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  university   University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
   scheduleId   String?
-  schedule     Schedule?  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedule     Schedule?     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   instructorId String
-  instructor   Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  instructor   Instructor    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
   courseId     String?
-  course       Course?    @relation(fields: [courseId], references: [id], onDelete: SetNull)
-
-  activityTypeId String
-  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+  course       Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
   /// Local calendar date in the university's timezone, matching ActivityLog.
   workDate  DateTime           @db.Date
@@ -1041,8 +989,6 @@ model ScheduleSlot {
   endTime   DateTime
   location  String?
   status    ScheduleSlotStatus @default(PLANNED)
-
-  activityLogs ActivityLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1380,53 +1326,6 @@ model ImportJob {
 // ═══════════════════════════════════════════════════════════════════════════
 // FREE-TEXT WORKLOG — what the instructor wrote, and what was parsed from it
 // ═══════════════════════════════════════════════════════════════════════════
-
-/// One deliverable within a broad category — "Lecture" inside Teaching.
-///
-/// ── Why this is a table and not a string on ActivityLog ────────────────────
-/// It is a CLOSED vocabulary the client supplied, and closed vocabularies stop
-/// being closed the moment they are free text: "Lecture", "lecture" and "Lec"
-/// become three deliverables and the sheet's quantity column stops adding up.
-/// A foreign key makes the AI's output checkable — a deliverable that is not in
-/// this table simply cannot be written.
-///
-/// ── Not the same thing as `Deliverable` ────────────────────────────────────
-/// `Deliverable` is a piece of work ASSIGNED to one instructor, with a target
-/// and a due date. This is the taxonomy those pieces of work are classified by.
-/// They are different nouns that unfortunately share a word.
-model DeliverableType {
-  id    String @id @default(cuid())
-  /// Stable machine name, e.g. `LECTURE`. What the parser is allowed to emit.
-  code  String @unique
-  label String
-
-  /// The broad category this belongs under.
-  activityTypeId String
-  activityType   ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
-
-  sortOrder Int     @default(100)
-  isActive  Boolean @default(true)
-
-  /// Whether a COUNT of this means anything.
-  ///
-  /// The client's monthly sheet lists every kind of work with its hours, but
-  /// counts only some of them: "12 Classes, 6 Assignments, 3 Doubt Sessions"
-  /// beside a deliverable list that also held Lesson Prep and Meetings/Reports.
-  /// That is not an omission — "6 lesson preps" is not a sentence anybody says.
-  /// Preparation, meetings, reporting and admin are EFFORT: their hours are
-  /// real and are reported, but they have no unit to be counted in.
-  ///
-  /// Defaulted true because most are countable, and because a wrong default
-  /// that shows a number is easier to notice than one that hides it.
-  isCountable Boolean @default(true)
-
-  activityLogs ActivityLog[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([activityTypeId, sortOrder])
-}
 
 /// Whether a submission may be recorded, or needs a manager's agreement first.
 enum WorklogApproval {
