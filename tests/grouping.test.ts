@@ -115,6 +115,29 @@ describe("6. no group name contains a subtopic", () => {
   test("the same reply passes when the subtopic is not in the name", () => {
     expect(parseGrouping(ok, 3, SUBTOPICS).ok).toBe(true);
   });
+
+  test("a group named for its own topic is not refused for it", () => {
+    /* "Prepared for dsa" names the subtopic "dsa" and the topic "DSA" — the
+       writer named only the broad area, so the two are the same word. The
+       instruction then asks for exactly "DSA — taught", and this check refused
+       it three attempts running, on every week and month in the product. */
+    const r = parseGrouping(
+      JSON.stringify({ groups: [{ name: "DSA — taught", members: [0, 1, 2] }] }),
+      3,
+      ["dsa", "binary search"],
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  test("but a name narrowed PAST its topic still is", () => {
+    const r = parseGrouping(
+      JSON.stringify({ groups: [{ name: "DSA — taught hashing", members: [0, 1, 2] }] }),
+      3,
+      ["dsa", "hashing"],
+    );
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toContain("hashing");
+  });
 });
 
 describe("6. a week settles on one name for one topic", () => {

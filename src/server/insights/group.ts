@@ -135,10 +135,21 @@ const stem = (word: string) => word.toLowerCase().replace(/[^a-z0-9]/g, "").repl
  * word with an action — "review" in "code review" — would refuse a name the
  * instruction asked for, and the check that costs a correct answer is worse
  * than the one that misses an incorrect one.
+ *
+ * ── A subtopic that IS the topic is not a subtopic in the name ────────────
+ * "Prepared for dsa" names the subtopic "dsa" and the topic "DSA" — the writer
+ * named only the broad area, so the two are the same word. The instruction then
+ * asks for "DSA — taught", and this check refused it for containing "dsa",
+ * three attempts running, on every week and month in the product. What the rule
+ * forbids is a name narrowed past its topic; a name that IS its topic is the
+ * name that was asked for.
  */
 function namesSubtopic(name: string, subtopics: string[]): string | null {
+  const { topic } = splitName(name);
+  const topicStem = topic ? stem(topic) : null;
   const words = new Set(name.split(/\s+/).map(stem).filter(Boolean));
   for (const subtopic of subtopics) {
+    if (topicStem && stem(subtopic) === topicStem) continue;
     const parts = subtopic.split(/\s+/).filter(Boolean);
     if (parts.length === 0) continue;
     const key = parts.map(stem).join(" ");
@@ -235,6 +246,12 @@ export function parseGrouping(
  * design built on one observation.
  */
 export const GROUPING_ATTEMPTS = 3;
+
+/** `"DSA — taught"` → topic `DSA`. No dash: no topic. */
+function splitName(name: string): { topic: string | null } {
+  const parts = name.split(/\s+[—–-]\s+/);
+  return parts.length >= 2 && parts[0]!.trim() ? { topic: parts[0]!.trim() } : { topic: null };
+}
 
 /** The provider call, configured as the grouping task requires. */
 export function groupCall(instruction: string) {

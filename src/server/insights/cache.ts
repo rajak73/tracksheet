@@ -232,9 +232,20 @@ export async function serveInsight(
       : "status_not_ready";
 
   /* Three consecutive failures and the view stops asking. The stale answer, if
-     there is one, is still the best thing available; a retry is a person's
-     decision from here. */
-  if (row && row.failureCount >= MAX_CONSECUTIVE_FAILURES) {
+     there is one, is still the best thing available.
+
+     ── Only for the CONTENT that failed ──────────────────────────────────
+     `failureCount` counts failures at one context hash, and the guard used to
+     ignore the hash entirely — so a period that failed three times stayed dead
+     after the instructor rewrote the day, after the prompt was rewritten, after
+     anything. Nothing could clear it either, because the counter is only reset
+     by a successful generation and the guard is what stopped one being
+     attempted. A deadlock, and it is what a week looked like after a grouping
+     check refused three attempts running: FAILED, permanently, over a bug that
+     had since been fixed.
+
+     A different hash is a different question, and it gets asked. */
+  if (row && row.failureCount >= MAX_CONSECUTIVE_FAILURES && row.contextHash === currentHash) {
     misses += 1;
     report({ scope, viewerRole, cacheHit: false, reason });
     return served(scope, row.insightPayload as InsightPayload, {
