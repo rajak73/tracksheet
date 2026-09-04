@@ -92,8 +92,9 @@ function stringsOf(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
-let admin: ApiClient, instructor: ApiClient;
+let admin: ApiClient, instructor: ApiClient, manager: ApiClient;
 let instructorId = "";
+let universityId = "";
 const DAY = daysAgo(60);
 
 beforeAll(async () => {
@@ -101,7 +102,12 @@ beforeAll(async () => {
   await admin.login(ACCOUNTS.admin);
 
   instructor = new ApiClient("scan-instructor");
-  instructorId = (await instructor.login(ACCOUNTS.instructorNorth2)).user.instructorId!;
+  const session = await instructor.login(ACCOUNTS.instructorNorth2);
+  instructorId = session.user.instructorId!;
+  universityId = session.user.universityId!;
+
+  manager = new ApiClient("scan-manager");
+  await manager.login(ACCOUNTS.managerNorth);
 
   /* A day whose text deliberately CONTAINS taxonomy words. The scan must catch
      a field the server added, not a phrase the instructor typed — if it cannot
@@ -119,11 +125,58 @@ beforeAll(async () => {
 });
 
 /** The endpoints the read path owns. */
-const SCANNED: Array<{ name: string; url: () => string }> = [
+const SCANNED: Array<{ name: string; url: () => string; as?: () => ApiClient }> = [
   { name: "the explorer", url: () => `/api/activities?from=${DAY}&to=${DAY}&limit=50` },
   {
     name: "the explorer, scoped to one instructor",
     url: () => `/api/activities?instructorId=${instructorId}&from=${DAY}&to=${DAY}&limit=50`,
+  },
+
+  /* ── Item 22: the manager's and the admin's surfaces ─────────────────────
+   *
+   * These were the three `test.todo`s at the foot of this file. They were owed
+   * a move rather than a decision: the manager's views read `ActivityLog` and
+   * still answered with the taxonomy, so scanning them then would have failed
+   * for a reason that was already known and scheduled, and a red suite
+   * everybody learns to ignore protects nothing.
+   *
+   * They read `WorklogEntry` now. So the claim this file makes — no response
+   * carries a category — is finally a claim about the product rather than
+   * about one role's corner of it. */
+  {
+    name: "the manager's worklog",
+    as: () => manager,
+    url: () => `/api/manager/worklog?from=${DAY}&to=${DAY}`,
+  },
+  {
+    name: "the manager's overview",
+    as: () => manager,
+    url: () => `/api/manager/overview?date=${DAY}&month=${DAY.slice(0, 7)}`,
+  },
+  {
+    name: "the tracker",
+    as: () => manager,
+    url: () => `/api/universities/${universityId}/tracker?from=${DAY}&to=${DAY}`,
+  },
+  {
+    name: "the admin's dashboard",
+    as: () => admin,
+    url: () => `/api/admin/dashboard?date=${DAY}`,
+  },
+  {
+    name: "the admin's overview",
+    as: () => admin,
+    url: () => `/api/admin/overview?from=${DAY}&to=${DAY}`,
+  },
+  {
+    name: "the admin's network view",
+    as: () => admin,
+    url: () => `/api/admin/network?from=${DAY}&to=${DAY}`,
+  },
+  {
+    name: "the staff sheet",
+    as: () => admin,
+    url: () => `/api/instructors?limit=50`,
   },
 ];
 
@@ -155,10 +208,15 @@ describe("the scan can fail", () => {
 describe("no response carries a category field", () => {
   for (const endpoint of SCANNED) {
     test(endpoint.name, async () => {
-      const res = await instructor.get(endpoint.url());
+      const res = await (endpoint.as ? endpoint.as() : instructor).get(endpoint.url());
       expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
 
       const keys = keysOf(res.body);
+      /* An absence scan over an empty response passes and proves nothing. Each
+         endpoint has to have actually answered with a shape before "the shape
+         contains no category" means anything about it. */
+      expect(keys.size, `${endpoint.name} answered with nothing to scan`).toBeGreaterThan(3);
+
       for (const banned of BANNED_FIELDS) {
         expect(keys.has(banned), `${endpoint.name} still returns \`${banned}\``).toBe(false);
       }
@@ -169,7 +227,7 @@ describe("no response carries a category field", () => {
 describe("no response carries an evaluative flag", () => {
   for (const endpoint of SCANNED) {
     test(endpoint.name, async () => {
-      const res = await instructor.get(endpoint.url());
+      const res = await (endpoint.as ? endpoint.as() : instructor).get(endpoint.url());
       const keys = keysOf(res.body);
       for (const banned of BANNED_FLAGS) {
         expect(keys.has(banned), `${endpoint.name} grades the work: \`${banned}\``).toBe(false);
@@ -181,7 +239,7 @@ describe("no response carries an evaluative flag", () => {
 describe("two strings that would mean classification came back", () => {
   for (const endpoint of SCANNED) {
     test(endpoint.name, async () => {
-      const res = await instructor.get(endpoint.url());
+      const res = await (endpoint.as ? endpoint.as() : instructor).get(endpoint.url());
       const body = JSON.stringify(res.body);
       for (const banned of BANNED_VALUES) {
         /* Matched against the whole serialized response rather than against
@@ -224,9 +282,55 @@ describe("a fixed category name only ever appears because somebody typed it", ()
   });
 });
 
-/* The rest of the surface, named so it is not forgotten. Each moves onto
-   `WorklogEntry` in the analytics commit, and each gets a row in SCANNED above
-   the moment it does. */
-test.todo("the manager's worklog, tracker and month sheet carry no category field");
-test.todo("the admin's insights and staff sheets carry no category field");
-test.todo("the CSV export carries no category column");
+/* CLOSED. All three of these were `test.todo`s holding open the rest of the
+   surface while the manager's and admin's views still read `ActivityLog`.
+
+   They have rows in SCANNED above now — the manager's worklog, overview and
+   tracker; the admin's dashboard, overview, network view and staff sheet — so
+   the claim this file makes covers the product rather than one role's corner
+   of it.
+
+   The CSV exports get their own block below rather than a row in SCANNED,
+   because they answer with text rather than a JSON tree — the key and value
+   walkers have nothing to walk, so the scan has to read the header line. */
+
+describe("no CSV export carries a category column", () => {
+  /* Two server-rendered exports, both behind `?export=csv`. They are worth
+     scanning separately and not by inference: a CSV is built by its own
+     formatter, so a column can exist there that no JSON response has. */
+  const EXPORTS = [
+    {
+      name: "the tracker export",
+      as: () => manager,
+      url: () => `/api/universities/${universityId}/tracker?from=${DAY}&to=${DAY}&export=csv`,
+    },
+    {
+      name: "the workload report export",
+      as: () => manager,
+      url: () => `/api/universities/${universityId}/reports?from=${DAY}&to=${DAY}&export=csv`,
+    },
+  ];
+
+  for (const endpoint of EXPORTS) {
+    test(endpoint.name, async () => {
+      const res = await endpoint.as().get(endpoint.url());
+      expect(res.status, JSON.stringify(res.body).slice(0, 200)).toBe(200);
+      expect(typeof res.body, "a CSV comes back as text").toBe("string");
+
+      const csv = res.body as string;
+      const header = csv.split("\n")[0] ?? "";
+      // Not a vacuous pass: there is a header, and it has columns in it.
+      expect(header.split(",").length).toBeGreaterThan(2);
+
+      for (const banned of [...BANNED_FIELDS, ...BANNED_FLAGS]) {
+        expect(
+          header.toLowerCase().includes(banned.toLowerCase()),
+          `${endpoint.name} has a \`${banned}\` column`,
+        ).toBe(false);
+      }
+      for (const value of BANNED_VALUES) {
+        expect(csv.includes(value), `${endpoint.name} prints "${value}"`).toBe(false);
+      }
+    });
+  }
+});

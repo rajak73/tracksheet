@@ -116,6 +116,17 @@ describe("the automatic and manual paths produce identical numbers", () => {
   });
 
   test("both triggers are recorded distinctly for auditability", async () => {
+    /* This test used to read the run list and expect a MANUAL row to be there
+       already — one written by the two tests above it in this same block.
+       
+       Found by the shuffle probe, which is what it was run for: reorder the
+       tests and this one goes first, finds only the SEED run, and fails on a
+       claim about the product that was really a claim about test order. The
+       seeded run it also asserts is genuinely not this test's to make, because
+       the seed writes it before any test runs — but the MANUAL one is, so it
+       makes it. */
+    expect((await admin.post("/api/admin/rollup", {})).status).toBe(200);
+
     const status = await admin.get("/api/admin/rollup");
     const triggers = new Set(
       status.body.runs.map((r: { trigger: string }) => r.trigger),
