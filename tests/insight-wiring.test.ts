@@ -172,11 +172,14 @@ describe("3 & 4. the period path", () => {
     expect(group.day_count).toBe(5);
 
     /* And the sentence is written from those sums, here, not by the model —
-       whose whole reply was a name and a list of indices. `entries` because
-       this extraction stated no noun for its count, which is the fallback the
-       labelling rules name rather than a noun chosen here. */
+       whose whole reply was a name and a list of indices.
+    
+       Counted under the GROUP'S name, because this extraction stated no noun
+       for its count. A row with nothing to count in drops its count entirely;
+       a period keeps it, because the group name gives the number the meaning
+       the row could not. */
     expect(built.rollup.summary_lines[0]).toBe(
-      "125 entries — 3h 45m across 5 days. 30h 00m total.",
+      "125 checked quiz papers — 3h 45m across 5 days. 30h 00m total.",
     );
   });
 

@@ -23,6 +23,7 @@
  * reappearing in the one place nobody thinks to look.
  */
 import { generateStructured } from "@/server/ai/gemini";
+import { countableUnit } from "@/domain/summary-render";
 
 /** One labelled activity. Not one figure among them — see the note above. */
 export type DayLabel = {
@@ -129,36 +130,6 @@ export const LABEL_SCHEMA = {
 } as const;
 
 const HAS_DIGIT = /\d/;
-
-/** Nouns that measure time rather than count things. */
-const TIME_NOUNS = new Set([
-  "h", "hr", "hrs", "hour", "hours",
-  "m", "min", "mins", "minute", "minutes",
-  "sec", "secs", "second", "seconds",
-  "day", "days", "week", "weeks",
-]);
-
-/**
- * The noun a count is written in — never a unit of time.
- *
- * ── Why this is normalised and not refused ────────────────────────────────
- * Observed live: "i learned java and oops for 5hr" came back with
- * `unit: "hours"`, taken from the writer's own "5hr". It is a reasonable
- * reading of the sentence and a useless unit, because the number it would sit
- * beside is the QUANTITY from the row, not the duration — the day would render
- * "Learned Java and OOPs (1 hours, 5h)", which states a length of time twice
- * and gets one of them wrong.
- *
- * Refusing the reply would cost the whole day's labels over a cosmetic field
- * and, after the retry, render the instructor's raw text instead of a summary.
- * So it falls back to the noun the rules already name for a unit that does not
- * fit. Nothing is invented: "entries" is what the twelfth rule asks for when
- * nothing fits, and a time noun does not fit.
- */
-export function countableUnit(unit: string): string {
-  if (unit === "" || TIME_NOUNS.has(unit.toLowerCase())) return "entries";
-  return unit;
-}
 
 /** Words too common to prove anything by sharing. */
 const STOPWORDS = new Set(["and", "the", "for", "on", "of", "to", "a", "in"]);

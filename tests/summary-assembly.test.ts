@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  countableUnit,
   formatSpan,
   formatTotal,
   groupsReconcile,
@@ -93,6 +94,78 @@ describe("one activity, rendered", () => {
   });
 });
 
+/**
+ * ── The three defects, each with a test so it cannot return ───────────────
+ * All three were found by running the thing rather than reading it: two were
+ * regressions in this file's assembly, and the third was a real reply from a
+ * real model.
+ */
+describe("a count only prints when its noun means something", () => {
+  test("`entries` is a count with no meaningful unit, so no count is printed", () => {
+    /* "(1 entry, 2h)" and "(2 entries)" say nothing a reader did not already
+       have. `entries` is the fallback the labelling rules name when no noun
+       fits — the model has already reported that the number means nothing on
+       its own, and printing it adds words and no information. */
+    expect(
+      renderActivity(activity({ label: "Learned Java and OOPs concepts", unit: "entries", qty: 1, minutes: 120 })),
+    ).toBe("Learned Java and OOPs concepts (2h)");
+    expect(
+      renderActivity(activity({ label: "OAuth token expiration debugging", unit: "entries", qty: 2, minutes: null })),
+    ).toBe("OAuth token expiration debugging");
+  });
+
+  test("a unit that is a time noun falls back and renders no count", () => {
+    /* Observed live: "i learned java and oops for 5hr" came back with
+       unit "hours". The number beside it is the row's QUANTITY, not its
+       duration, so the day rendered "(1 hours, 5h)" — a length of time stated
+       twice, one of them wrong. */
+    for (const unit of ["hours", "hrs", "minutes", "mins", "h", "m"]) {
+      expect(renderActivity(activity({ unit, qty: 1, minutes: 300 })), unit).toBe(
+        "Taught binary search (5h)",
+      );
+    }
+    expect(countableUnit("hours")).toBe("entries");
+    expect(countableUnit("classes")).toBe("classes");
+  });
+
+  test("a count of 1 with a real unit still renders, singular", () => {
+    // One class is a fact; one entry is not.
+    expect(renderActivity(activity({ unit: "classes", qty: 1, minutes: 60 }))).toBe(
+      "Taught binary search (1 class, 1h)",
+    );
+    expect(renderActivity(activity({ label: "Ran a review", unit: "sessions", qty: 1, minutes: 60 }))).toBe(
+      "Ran a review (1 session, 1h)",
+    );
+  });
+
+  test("and a label that already names the noun prints the figure alone", () => {
+    /* Where the two rules meet. "Ran a doubt session" already says session, so
+       the count goes in bare rather than saying it twice — the same rule that
+       turns "Reviewed submissions (12 submissions" into "(12,". It applies at
+       one as it does at twelve. */
+    expect(renderActivity(activity({ label: "Ran a doubt session", unit: "sessions", qty: 1, minutes: 60 }))).toBe(
+      "Ran a doubt session (1, 1h)",
+    );
+  });
+
+  test("a period keeps the count the row dropped, under the group's own name", () => {
+    /* The group name gives the number a meaning the individual row could not:
+       "125 checked quiz papers", never "125 entries". */
+    const g = group({ name: "Checked quiz papers", unit: "entries", count: 125, minutes: 225, days: 5 });
+    expect(renderGroupPhrase(g)).toBe("125 checked quiz papers");
+  });
+
+  test("a group whose name contains its unit noun renders the noun once", () => {
+    /* This printed "22 Mock interviews interviews": the topic WAS the counted
+       noun, and only the no-topic branch tested for that. */
+    const named = group({ name: "Mock interviews — ran", unit: "interviews", count: 22 });
+    expect(renderGroupPhrase(named)).toBe("22 mock interviews");
+
+    const plain = group({ name: "Mock interviews", unit: "interviews", count: 5 });
+    expect(renderGroupPhrase(plain)).toBe("5 mock interviews");
+  });
+});
+
 describe("4. a day renders its activities and its total", () => {
   test("the specified day reads exactly as specified", () => {
     const lines = renderDaySummary(
@@ -134,9 +207,9 @@ describe("14. a single-activity day renders one clause and a total", () => {
   test("one of a thing takes the singular noun", () => {
     for (const [unit, one] of [
       ["classes", "1 class"],
-      ["entries", "1 entry"],
       ["sessions", "1 session"],
       ["interviews", "1 interview"],
+      ["submissions", "1 submission"],
     ] as const) {
       expect(renderActivity(activity({ qty: 1, unit, label: "Ran a thing" }))).toBe(
         `Ran a thing (${one})`,
@@ -229,7 +302,8 @@ describe("a week reads as two lines", () => {
       660,
     );
     expect(lines[0]!.startsWith("2 DSA classes")).toBe(true);
-    expect(lines[1]).toContain("4 entries");
+    // Named, not numbered in a noun that says nothing: "4 other", never "4 entries".
+    expect(lines[1]).toContain("4 other");
   });
 
   test("a leading group that named no subtopics drops the covering clause", () => {

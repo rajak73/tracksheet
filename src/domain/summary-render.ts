@@ -76,6 +76,52 @@ export const singular = (phrase: string) =>
 
 const words = (text: string) => text.split(/\s+/).filter(Boolean);
 
+/**
+ * The noun the labelling rules ask for when nothing else fits.
+ *
+ * It is the model saying "this count has no meaningful unit" — which is worth
+ * knowing, and worth not printing. See {@link isCountableUnit}.
+ */
+export const NO_UNIT = "entries";
+
+/** Nouns that measure time rather than count things. */
+const TIME_NOUNS = new Set([
+  "h", "hr", "hrs", "hour", "hours",
+  "m", "min", "mins", "minute", "minutes",
+  "sec", "secs", "second", "seconds",
+  "day", "days", "week", "weeks",
+]);
+
+/**
+ * A unit fit to print beside a count.
+ *
+ * ── Why a time noun is not one ────────────────────────────────────────────
+ * Observed live: "i learned java and oops for 5hr" came back with
+ * `unit: "hours"`, taken from the writer's own "5hr". It is a fair reading of
+ * the sentence and a useless unit, because the number it would sit beside is
+ * the row's QUANTITY, not its duration — the day rendered "(1 hours, 5h)",
+ * which states a length of time twice and gets one of them wrong.
+ *
+ * ── And why `entries` is not one either ───────────────────────────────────
+ * "(1 entry, 2h)" and "(2 entries)" say nothing a reader did not already have.
+ * `entries` is the fallback the rules name for a count with no meaningful noun,
+ * so the model has already reported that the number means nothing on its own.
+ * Printing it anyway adds words and no information.
+ *
+ * A count of one with a REAL unit still prints: one class is a fact, one entry
+ * is not.
+ */
+export function isCountableUnit(unit: string | null | undefined): boolean {
+  if (!unit) return false;
+  const word = unit.trim().toLowerCase();
+  return word !== "" && word !== NO_UNIT && !TIME_NOUNS.has(word);
+}
+
+/** The unit as it should be stored: a time noun is no unit at all. */
+export function countableUnit(unit: string): string {
+  return isCountableUnit(unit) ? unit.trim() : NO_UNIT;
+}
+
 /** Does this text already contain the noun the count would be measured in? */
 function statesUnit(text: string, unit: string | null): boolean {
   if (!unit) return false;
@@ -97,13 +143,16 @@ function statesUnit(text: string, unit: string | null): boolean {
  */
 export function renderActivity(activity: SummaryActivity): string {
   const inner: string[] = [];
-  if (activity.qty !== null) {
+  /* A count only prints when its noun means something. See `isCountableUnit`:
+     a row whose unit is `entries` or a length of time has already reported that
+     the number says nothing on its own, and the duration beside it says more. */
+  if (activity.qty !== null && isCountableUnit(activity.unit)) {
     /* One of a thing takes the singular noun. "1 classes" is the sort of
        mistake a reader stops on, and it is entirely avoidable: the count and
        the noun are both here. */
-    const unit = activity.unit ?? "entries";
+    const unit = activity.unit!;
     inner.push(
-      statesUnit(activity.label, activity.unit)
+      statesUnit(activity.label, unit)
         ? String(activity.qty)
         : `${activity.qty} ${activity.qty === 1 ? singular(unit) : unit}`,
     );
@@ -195,7 +244,12 @@ const endsInUnit = (phrase: string, unit: string) => {
  */
 function countPhrase(group: SummaryGroup): string {
   const { topic } = splitGroupName(group.name);
-  const unit = group.unit ?? "entries";
+  /* No usable noun, so the group's own NAME carries the count's meaning — "125
+     checked quiz papers", not "125 entries". A period keeps its counts where a
+     single row drops them, because the group name says what was counted and the
+     row had nothing to say it with. */
+  if (!isCountableUnit(group.unit)) return decapitalise(topic ?? group.name);
+  const unit = group.unit!;
   const base = topic
     ? endsInUnit(topic, unit)
       ? topic
