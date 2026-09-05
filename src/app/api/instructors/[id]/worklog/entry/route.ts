@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { assertCanManageInstructor } from "@/server/auth/scope";
 import { withAuth } from "@/server/http/route";
 import { ApiError } from "@/server/http/errors";
 import { logAudit } from "@/server/audit/logger";
+import { refreshDayInsight } from "@/server/insights/refresh";
 import { assertValidDate } from "@/server/time/schedule-windows";
 import { toDateOnly } from "@/server/time/workday";
 import { loadUniversityConfig } from "@/server/universities/config";
@@ -246,10 +247,17 @@ export const POST = withAuth<{ id: string }>(async ({ scope, params, req, princi
     metadata: { instructorId: instructor.id, logDate: input.date },
   });
 
-  /* Nothing is invalidated here, deliberately. The insight cache compares a hash
-     of this day's content on the next view, so a write that changes nothing
-     costs nothing and a write that changes something is noticed without anybody
-     having to remember to say so. */
+  /* ── The insight follows the work, not a page view ───────────────────────
+   *
+   * Scheduled after the response so saving a day never waits on a model, and
+   * never fails because one was slow. `refreshDayInsight` compares the source
+   * hash first, so a save that changed nothing that matters costs nothing.
+   *
+   * This is what stops an insight's existence depending on who happened to open
+   * a page: a manager's roster now shows what was recorded, whether or not the
+   * instructor has looked at their own worklog since. */
+  after(() => refreshDayInsight(instructor.id, input.date));
+
   return NextResponse.json({ entry }, { status: 201 });
 });
 

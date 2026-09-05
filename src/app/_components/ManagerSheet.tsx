@@ -25,7 +25,7 @@ import { useEffect, useRef, useState } from "react";
 import { compactDuration, suppliedOr } from "@/domain/worklog-report";
 import { formatHours, formatMinutes } from "@/app/_lib/format";
 import { buildDayRow, type DayEntry } from "@/domain/worklog-day-rows";
-import { DayInsightCell } from "@/app/_components/DayInsightCell";
+import { DayInsightCell, type ServedDay, type ServedPeriod } from "@/app/_components/DayInsightCell";
 
 export type ManagerPeriod = {
   /** Every date this column covers. */
@@ -137,12 +137,24 @@ export function ManagerSheet({
   sort,
   onSort,
   today,
+  insightScope,
+  insights,
 }: {
   people: ManagerPerson[];
   /** Oldest first, so the columns read left to right like a calendar. */
   periods: ManagerPeriod[];
   sort: SheetSort;
   onSort: (next: SheetSort) => void;
+  /** Which period the AI Insight column is about — follows the view. */
+  insightScope: "DAY" | "WEEK" | "MONTH";
+  /**
+   * The canonical insight for each person, read in one request by the screen.
+   *
+   * Handed down rather than fetched per row: an insight belongs to the person
+   * whose worklog it summarises, and a roster of hundreds must not become
+   * hundreds of requests because somebody opened a page.
+   */
+  insights: Record<string, ServedDay | ServedPeriod | undefined>;
   /**
    * YYYY-MM-DD in the university's zone.
    *
@@ -341,19 +353,20 @@ export function ManagerSheet({
                 ))}
 
                 <td className="border-b border-l-2 border-line px-3 py-2 align-top">
-                  {/* Read-only, and empty until somebody opens the day itself.
-                      A manager's day insight is READ_ONLY in the generation
-                      matrix — a sheet rendering a column must not be able to
-                      start paying for it, and a fortnight of rows scrolled past
-                      would otherwise buy a fortnight of insights. */}
-                  <DayInsightCell
-                    instructorId={person.instructorId}
-                    scope="WEEK"
-                    from={periods[0]?.dates[0] ?? ""}
-                    to={periods.at(-1)?.dates.at(-1) ?? ""}
-                    initial={null}
-                    canGenerate={false}
-                  />
+                    {/* The person's own insight, handed down with the row.
+                        `served` makes the cell render what it was given without
+                        a request of its own, and `canGenerate` stays false so a
+                        sheet full of rows can never start paying for
+                        generations. */}
+                    <DayInsightCell
+                      instructorId={person.instructorId}
+                      scope={insightScope}
+                      from={periods[0]?.dates[0] ?? ""}
+                      to={periods.at(-1)?.dates.at(-1) ?? ""}
+                      initial={null}
+                      canGenerate={false}
+                      served={insights[person.instructorId] ?? null}
+                    />
                 </td>
               </tr>
             );

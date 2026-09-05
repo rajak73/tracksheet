@@ -93,10 +93,14 @@ export const GET = withAuth<{ id: string }>(async ({ scope: tenant, params, req 
         scope: scopeType === "MONTH" ? "MONTH" : "WEEK",
       });
       /* Throwing rather than returning a partial payload: `serveInsight` treats
-         a throw as "keep whatever was stored and mark it stale", and a rollup
-         whose parts do not add to its whole must never be stored. */
+         a throw as "keep whatever was stored and mark it stale", and a period
+         with no summary must never be stored as though it had one. */
       if (!built.ok) throw new Error(built.reason);
-      return built.rollup;
+      return {
+        items: built.rollup.items,
+        total_minutes: built.rollup.total_minutes,
+        days_logged: built.rollup.days_logged,
+      };
     },
   );
 

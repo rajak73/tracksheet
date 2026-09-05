@@ -54,12 +54,14 @@ export const MAX_CONSECUTIVE_FAILURES = 3;
  * rollup states no prose, and a prose summary states no figures.
  */
 export type InsightPayload = {
-  /** The period in words: what was done, and one line about what it was. */
-  summary?: string | { lines: Array<{ text: string; minutes: number | null }>; insight: string } | null;
-  /** Activity groups, every figure summed in code. See `period-rollup.ts`. */
-  groups?: unknown[];
+  /**
+   * The period's activities, one line each.
+   *
+   * Consolidated across the period's days, with the durations summed here and
+   * checked afterwards. See `worklog-summary.ts`.
+   */
+  items?: Array<{ activity: string; durationMinutes: number }>;
   total_minutes?: number;
-  unallocated_minutes?: number;
   days_logged?: number;
 };
 

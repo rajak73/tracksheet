@@ -42,7 +42,55 @@ import { toDateOnly } from "@/server/time/workday";
  * of that scope's insight changes. Do NOT increment for a refactor that leaves
  * the sent text byte-identical.
  */
-/* ── v4: the labelling rules were replaced, twice ─────────────────────────
+/* ── v11: the model returns phrases only, never a duration ────────────────
+ * The reply is now {items:[{activity}]} — no minutes in it at all. A day's
+ * labels are read one activity at a time and the minutes are joined in code
+ * from the row each phrase came from; a period sends the days' labels back for
+ * normalisation and sums behind the wording the model gives them. There is no
+ * figure in a reply for a safeguard to have to check.
+ *
+ * ── v9: the insight is a list of activities, not a paragraph ─────────────
+ * The output contract changed: each item is one activity phrase and its
+ * minutes, rendered as "• {activity} - {duration}". Quantity is ignored
+ * entirely; the prose paragraph, the coverage wording and the normalized
+ * activity shape are gone with it. Everything stored under v8 is a different
+ * answer to a different question.
+ *
+ * ── v8: the example paragraphs came out as data ──────────────────────────
+ * Granite copied them. The first live week reported "6 classes covering Arrays,
+ * Binary Search, Trees and Graphs" and "60 assessment questions" — every one of
+ * those from the worked examples in the prompt, none of them in the
+ * instructor's worklogs. Concrete examples are what fixed subject-dropping on
+ * the previous model; on a micro model they are content to be copied. The level
+ * examples are shape descriptions now, and the prompt says outright that
+ * nothing in the instructions is data.
+ *
+ * ── v7: Granite 4.0 on Workers AI, and a tighter prompt for it ───────────
+ * The provider changed, so the model id in every hash changes with it and
+ * everything re-reads regardless. The prompt changed too: Granite follows a
+ * loose instruction less closely than Gemini did, so the rules it broke on the
+ * first real run — narrating the date, quoting a "done" remark, reading the
+ * verified minutes out as raw figures, counting the submitted days in the
+ * paragraph, and answering "hours" as a unit of count — are now stated
+ * explicitly rather than implied.
+ *
+ * ── v6: `category` left the normalized activity ──────────────────────────
+ * A one-field change to the prompt, and exactly the kind that used not to get
+ * a version bump — three rewrites once went in without one, and every day
+ * already summarised kept the wording it was summarised under. The rule is the
+ * text, not the size of the edit.
+ *
+ * ── v5: one summariser, one prompt, three levels ─────────────────────────
+ * The two-call split — label the day, group the period, assemble the sentence
+ * in code — is gone, and with it the code-side sentence writer. One master
+ * prompt now reads the instructor's own words at DAILY, WEEKLY or MONTHLY and
+ * writes the paragraph, with the arithmetic computed here and handed to it as
+ * `verifiedAggregates`.
+ *
+ * Everything stored under v4 is a different shape and a different question, so
+ * every day and every period re-reads.
+ *
+ * ── v4: the labelling rules were replaced, twice ─────────────────────────
  * Rules 2 and 3 contradicted each other and 3 won, so nearly every label echoed
  * its description; then rule 3's own examples discarded the subject, so labels
  * named an action and dropped what it was about. Both were rewritten, a gerund
@@ -71,10 +119,27 @@ import { toDateOnly } from "@/server/time/workday";
  * version is inside the context hash, so a cached answer in the old shape is
  * not "stale data" to be detected later; it simply stops matching and the next
  * viewer gets one in the new shape. */
-export const PROMPT_VERSION_EXTRACT = "extract_v4";
+/* ── v15: the day stores its semantics, and periods stopped calling a model ─
+ * A normalised activity now carries the action, the subject and the topics
+ * apart from the phrase, so consolidating a week or a month is a join on those
+ * fields rather than a second reading. The period model call is gone with it —
+ * at twelve hundred instructors that was a call per person per period for work
+ * whose answer code computes exactly. */
+/* ── v17: daily normalisation split into two small stages ─────────────────
+ * One call asked Granite for the phrase, the action, the subject, the topics,
+ * the subtopics and the source ids at once, and it began reversing the action
+ * under that load — "learned java inheritance polymorphism" came back as
+ * "Teaching Java". It had preserved the action reliably when writing a phrase
+ * was its whole job.
+ *
+ * So Stage A writes the phrase and its verb, and nothing else. Stage B is shown
+ * that settled phrase and returns only the subject and topics — it has no field
+ * for the action, so it cannot reinterpret one. Stage B failing costs the
+ * metadata and never the phrase. */
+export const PROMPT_VERSION_EXTRACT = "extract_v21";
 export const PROMPT_VERSION_DAY = "day_v1";
-export const PROMPT_VERSION_WEEK = "week_v4";
-export const PROMPT_VERSION_MONTH = "month_v4";
+export const PROMPT_VERSION_WEEK = "week_v22";
+export const PROMPT_VERSION_MONTH = "month_v22";
 
 export type ScopeType = "DAY" | "WEEK" | "MONTH";
 
@@ -92,7 +157,14 @@ export function promptVersionFor(scopeType: ScopeType): string {
  * hash follows the deployment rather than a constant somebody has to remember.
  */
 export function modelId(): string {
-  return process.env.GEMINI_MODEL ?? "gemini-default";
+  /* The worklog summariser runs on Workers AI, so that is the model this hash
+     has to follow. It stayed on `GEMINI_MODEL` for one commit after the swap,
+     which would have served every day and period an answer written by a model
+     that no longer runs — the exact failure this function exists to prevent. */
+  if (process.env.SUMMARY_PROVIDER === "gemini") {
+    return process.env.GEMINI_MODEL ?? "gemini-default";
+  }
+  return process.env.WORKERS_AI_MODEL ?? "@cf/ibm-granite/granite-4.0-h-micro";
 }
 
 export type InsightScope = {
@@ -197,6 +269,75 @@ export function stableStringify(value: unknown): string {
  * property of the data — it changes with the plan the planner picks — and
  * letting it into the hash would invalidate the cache for no reason at all.
  */
+/**
+ * The same context, for many people, in ONE query.
+ *
+ * ── Why this exists ───────────────────────────────────────────────────────
+ * `buildCanonicalContext` reads one instructor, which is right for one screen
+ * and wrong for a roster: a manager's sheet needs the hash for every person on
+ * it, and calling the singular version per row is a query per instructor. On
+ * twelve hundred people that is twelve hundred queries to answer a question one
+ * query can answer.
+ *
+ * The grouping is done in memory afterwards, so the shape each instructor gets
+ * back is identical to what the singular version would have built — same
+ * fields, same omissions, same sort. Two builders producing two shapes would
+ * produce two hashes, and a roster would then disagree with the page it links
+ * to about whether an insight is current.
+ */
+export async function buildCanonicalContexts(scope: {
+  instructorIds: string[];
+  periodStart: string;
+  periodEnd: string;
+}): Promise<Map<string, CanonicalContext>> {
+  const out = new Map<string, CanonicalContext>();
+  if (scope.instructorIds.length === 0) return out;
+
+  const rows = await prisma.worklogEntry.findMany({
+    where: {
+      instructorId: { in: scope.instructorIds },
+      logDate: { gte: toDateOnly(scope.periodStart), lte: toDateOnly(scope.periodEnd) },
+    },
+    // The same allowlist as the singular builder, plus the id to group on.
+    select: {
+      instructorId: true,
+      logDate: true,
+      deliverable: true,
+      deliverableQuantity: true,
+      activities: true,
+      workingMinutes: true,
+      remarks: true,
+      status: true,
+    },
+    orderBy: { logDate: "asc" },
+  });
+
+  const byInstructor = new Map<string, CanonicalDay[]>();
+  for (const row of rows) {
+    const day: CanonicalDay = {
+      log_date: row.logDate.toISOString().slice(0, 10),
+      deliverable: normaliseText(row.deliverable),
+      deliverable_quantity: normaliseText(row.deliverableQuantity),
+      activities: row.activities ?? null,
+      working_minutes: normaliseNumber(row.workingMinutes),
+      remarks: normaliseText(row.remarks),
+      status: row.status,
+    };
+    byInstructor.set(row.instructorId, [...(byInstructor.get(row.instructorId) ?? []), day]);
+  }
+
+  for (const instructorId of scope.instructorIds) {
+    const days = byInstructor.get(instructorId) ?? [];
+    days.sort((a, b) => (a.log_date < b.log_date ? -1 : a.log_date > b.log_date ? 1 : 0));
+    out.set(instructorId, {
+      period_start: scope.periodStart,
+      period_end: scope.periodEnd,
+      days,
+    });
+  }
+  return out;
+}
+
 export async function buildCanonicalContext(scope: {
   instructorId: string;
   periodStart: string;

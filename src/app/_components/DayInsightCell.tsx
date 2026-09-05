@@ -1,19 +1,15 @@
 "use client";
 
 /**
- * The AI Insight cell: extracted points for a day, grouped activity for a week.
+ * The AI Insight cell: one paragraph for a day, one for a week or a month.
  *
  * ── What it renders, and what it never renders ────────────────────────────
- * A day's cell lists the points the extraction found in that day's own words:
- * the label with its topic, a count where the text stated one, a duration where
- * the text stated one. A week's cell lists what repeated, with the day entries
- * behind a disclosure — a summary that takes as much room as the text it
- * summarises has not summarised anything.
- *
- * Every duration goes through `formatMinutes`. A dash means the text stated no
- * duration; `00h 00m` means it stated none of it. Those are different facts and
- * a cell that prints `00h 00m` for the first is asserting something nobody
- * wrote.
+ * The paragraph the summariser wrote, and nothing beside it. No total: the
+ * Working Hours column already shows one, and the summariser is instructed not
+ * to repeat it, because a figure printed twice invites a reader to check one
+ * against the other. No warnings either — those are internal, and a column
+ * showing the model second-guessing itself is not something a manager can act
+ * on.
  *
  * ── Generation is a permission, not a loading strategy ────────────────────
  * The cell asks for an insight on mount only when `canGenerate` — and the
@@ -23,70 +19,45 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "@/app/_lib/api";
-import { formatMinutes } from "@/app/_lib/format";
 import { enqueueInsightFetch } from "@/app/_lib/insight-queue";
-import { subtopicKey } from "@/domain/subtopic";
 
-export type DayPoint = {
-  label: string;
-  /** The text's own noun for the count. Null renders the number alone. */
-  sessions_unit?: string | null;
-  /** Quoted from the text. Kept at day level, where the detail is the point. */
-  subtopic: string | null;
-  /** Inferred. Null when the activity names no subject matter. */
-  topic: string | null;
-  sessions: number | null;
-  minutes: number | null;
-};
-
-export type SubtopicRollup = {
-  name: string;
-  sessions: number | null;
-  sessions_unit?: string | null;
-  item_count: number;
-};
-
-export type GroupRollup = {
-  name: string;
-  item_count: number;
-  sessions: number | null;
-  sessions_unit?: string | null;
-  minutes: number | null;
-  day_count: number;
-  subtopics?: SubtopicRollup[];
-  entries?: string[];
-};
+/** One activity line, as the summariser returns it. */
+export type InsightItem = { activity: string; durationMinutes: number };
 
 /**
- * Two identical activities are one point with a count of two.
+ * `1 hr`, `45 min`, `1 hr 30 min` — the compact form the column asks for.
  *
- * Done here rather than by the model, because the count comes from the activity
- * REPEATING and a model reporting `2` for a text that says `1, 1` would have
- * that 2 nulled by digit provenance — correctly, since the text never states
- * it. Counting occurrences is arithmetic, and arithmetic is code's job.
+ * Zero returns an empty string: it means the activity shares one reported total
+ * with others and has no figure of its own, so the phrase renders alone rather
+ * than beside a `0 min` nobody wrote.
  */
-function collapse(points: DayPoint[]): Array<DayPoint & { occurrences: number }> {
-  const out: Array<DayPoint & { occurrences: number }> = [];
-  for (const p of points) {
-    /* Same activity, same topic, and a subtopic that is the same thing said
-       twice. "AVL trees" and "AVL tree" collapse; "AVL trees" and "binary
-       trees" do not, because they were separate sessions. */
-    const same = out.find(
-      (o) =>
-        o.label === p.label &&
-        o.topic === p.topic &&
-        subtopicKey(o.subtopic ?? "") === subtopicKey(p.subtopic ?? ""),
-    );
-    if (!same) {
-      out.push({ ...p, occurrences: 1 });
-      continue;
-    }
-    same.occurrences += 1;
-    // Stated counts add; a repeat with nothing stated is counted by occurrence.
-    if (p.sessions !== null) same.sessions = (same.sessions ?? 0) + p.sessions;
-    if (p.minutes !== null) same.minutes = (same.minutes ?? 0) + p.minutes;
-  }
-  return out;
+function formatDuration(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  if (total === 0) return "";
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
+}
+
+/** The list itself, shared by the day cell and the period cell. */
+function InsightList({ items }: { items: InsightItem[] }) {
+  return (
+    <ul className="min-w-[13rem] max-w-[24rem] space-y-0.5">
+      {items.map((item, i) => {
+        const duration = formatDuration(item.durationMinutes);
+        return (
+          <li key={`${item.activity}-${i}`} className="flex gap-1.5 text-sm leading-snug text-content">
+            <span aria-hidden className="select-none text-subtle">•</span>
+            <span>
+              {item.activity}
+              {duration ? <span className="text-muted"> - {duration}</span> : null}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export type DayInsightState =
@@ -95,13 +66,8 @@ export type DayInsightState =
   | { state: "FAILED" };
 
 export type ServedDay = {
-  points: DayPoint[];
-  /**
-   * The day in words, already assembled — each line is a whole sentence with
-   * its own counts, durations and total in it, written in code from the rows.
-   */
-  summary_lines?: string[];
-  unallocated_minutes: number;
+  /** The day's activities, one line each. */
+  items?: InsightItem[];
   /** The day's recorded total, so the Total line can show it when no activity
    *  stated a duration — which is the common case on clock-range days. */
   total_minutes?: number;
@@ -114,9 +80,8 @@ export type ServedDay = {
 
 export type ServedPeriod = {
   insight: {
-    summary_lines?: string[];
-    groups?: GroupRollup[];
-    unallocated_minutes?: number;
+    /** The period's activities, consolidated across its days. */
+    items?: InsightItem[];
     days_logged?: number;
     total_minutes?: number;
   } | null;
@@ -161,8 +126,27 @@ export function DayInsightCell({
       ? { kind: "day", data: served as ServedDay }
       : { kind: "period", data: served as ServedPeriod }) : null,
   );
+
+  /* ── `served` may arrive AFTER the first render ──────────────────────────
+   *
+   * The state above is seeded from the prop, and a `useState` initialiser runs
+   * once. The roster renders as soon as its worklog query resolves and the bulk
+   * insight query lands a moment later, so on a manager's sheet the first
+   * render almost always had `served` null — and because a manager may not
+   * generate, the effect below returns early and nothing ever replaced it. The
+   * cell sat on "Pending" over a row the database had marked READY.
+   *
+   * That is why it was intermittent rather than broken: it worked only when the
+   * insight query happened to win the race against the worklog query. */
+  useEffect(() => {
+    if (!served) return;
+    setLoaded(
+      scope === "DAY"
+        ? { kind: "day", data: served as ServedDay }
+        : { kind: "period", data: served as ServedPeriod },
+    );
+  }, [served, scope]);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
   const asked = useRef(false);
 
   const url = `/api/instructors/${instructorId}/insight?scope=${scope}&from=${from}&to=${to}`;
@@ -235,100 +219,23 @@ export function DayInsightCell({
     }
 
     if (d.status === "READY") {
-      /* Grouped by topic, in first-seen order, with the untopiced ones after.
-         An activity naming no subject matter — "Doubt clearing session",
-         "Corrected" — is shown as itself. Forcing a topic onto it to avoid the
-         cell echoing the Deliverable column would be worse than the echo: the
-         echo is at least honest about having nothing to add. */
-      /* ── The summary, where there is one ──────────────────────────────
-       * One sentence, ending in the day's total. Every figure in it was
-       * assembled in code from the rows the instructor filled in — the model
-       * supplied the labels and not one number among them.
+      /* ── The activity list ────────────────────────────────────────────
+       * One line per activity: what it was, and how long it took.
        *
-       * No separate Total row underneath: the sentence already ends with it,
-       * and printing it twice invites a reader to check one against the other. */
-      if (d.summary_lines && d.summary_lines.length > 0) {
-        return (
-          <div className="min-w-[13rem] max-w-[24rem] space-y-1.5">
-            {d.summary_lines.map((line, i) => (
-              <p key={i} className="text-sm text-content">
-                {line}
-              </p>
-            ))}
-          </div>
-        );
+       * No total underneath. The Working Hours column already shows the day's
+       * total, and printing a figure twice invites a reader to check one
+       * against the other. */
+      if (d.items && d.items.length > 0) {
+        return <InsightList items={d.items} />;
       }
 
-      const points = collapse(d.points);
-
-      /* A heading earns its place only when two or more activities share the
-         topic. One activity under a heading is a heading for one item, so it
-         renders inline as `DSA — binary search` instead. */
-      const counts = new Map<string, number>();
-      for (const p of points) if (p.topic) counts.set(p.topic, (counts.get(p.topic) ?? 0) + 1);
-      const headed = [...counts].filter(([, n]) => n >= 2).map(([t]) => t);
-
-      /* What was done, and how long it took. Nothing else.
-       *
-       * The count used to sit between them. It was dropped because a summary
-       * that carries a third figure invites the reader to reconcile three
-       * numbers instead of reading one sentence — and the count is usually in
-       * the words already ("2 classes"), so printing it again says it twice. */
-      const row = (
-        text: string,
-        p: DayPoint & { occurrences: number },
-        key: string,
-        withDuration = true,
-      ) => (
-        <li key={key} className="flex items-baseline justify-between gap-2 text-sm">
-          <span className="text-content">{text}</span>
-          {withDuration ? (
-            <span className="tabular shrink-0 text-xs text-muted">{formatMinutes(p.minutes)}</span>
-          ) : null}
-        </li>
-      );
-
-      const dayTotal = d.points.some((p) => p.minutes !== null)
-        ? d.points.reduce((n, p) => n + (p.minutes ?? 0), 0)
-        : (d.total_minutes ?? null);
-
+      /* No paragraph, but the day is READY — the summariser answered without
+         one, which the parser refuses, so this is only reachable for a row
+         written before the current summariser. Show the instructor's own words
+         rather than an empty cell. */
       return (
-        <div className="min-w-[13rem] max-w-[22rem] space-y-2">
-          {headed.map((topic) => (
-            <div key={topic}>
-              <div className="text-sm text-content">{topic}</div>
-              {/* Under a heading the subtopic alone is the line — repeating the
-                  topic on every row underneath says it three times. */}
-              <ul className="space-y-1 pl-3">
-                {points
-                  .filter((p) => p.topic === topic)
-                  .map((p, i) => row(p.subtopic ?? p.label, p, `${topic}-${i}`))}
-              </ul>
-            </div>
-          ))}
-          <ul className="space-y-1">
-            {points
-              .filter((p) => !p.topic || !headed.includes(p.topic))
-              .map((p, i) =>
-                row(p.topic ? `${p.topic} — ${p.subtopic ?? p.label}` : p.label, p, `flat-${i}`),
-              )}
-          </ul>
-          {/* Always, on its own line. The one figure a reader checks against the
-              Working Hours column beside it. */}
-          <div className="tabular flex items-baseline justify-between border-t border-line-subtle pt-1 text-xs text-muted">
-            <span>Total</span>
-            <span>{formatMinutes(dayTotal)}</span>
-          </div>
-          {/* No badge, no colour, no retry when the numbers are simply absent.
-              A legacy day whose counts sat in a separate box has nothing anybody
-              can attribute and nothing anybody can retry — the dashes above are
-              the honest answer, and dressing them as a failure would report a
-              property of what was written as a fault of the system. */}
-          {d.unallocated_minutes > 0 && d.points.some((p) => p.minutes !== null) ? (
-            <span className="mt-1 block text-xs text-subtle">
-              {formatMinutes(d.unallocated_minutes)} not attributed
-            </span>
-          ) : null}
+        <div className="min-w-[13rem] max-w-[24rem]">
+          <p className="text-sm text-subtle">{d.raw_text ?? "—"}</p>
         </div>
       );
     }
@@ -336,93 +243,25 @@ export function DayInsightCell({
 
   /* ── A week or a month ─────────────────────────────────────────────────── */
   if (loaded?.kind === "period" && loaded.data.status === "READY") {
-    /* The same two parts a day shows: what was done, then what the period was.
-       Every duration added in code from the activities each line names. */
-    const periodSummary = loaded.data.insight?.summary_lines;
-    if (periodSummary && periodSummary.length > 0) {
-      return (
-        <div className="min-w-[13rem] max-w-[24rem] space-y-1.5">
-          {periodSummary.map((line, i) => (
-            <p key={i} className="text-sm text-content">
-              {line}
-            </p>
-          ))}
-        </div>
-      );
+    /* The same list, consolidated across the period rather than concatenated
+       from its days — see `period-rollup.ts`. */
+    const periodItems = loaded.data.insight?.items;
+    if (periodItems && periodItems.length > 0) {
+      return <InsightList items={periodItems} />;
     }
 
-    const groups = loaded.data.insight?.groups ?? [];
-    const unallocated = loaded.data.insight?.unallocated_minutes ?? 0;
-    return (
-      <div className="min-w-[13rem] max-w-[24rem]">
-        <ul className="space-y-2">
-          {groups.map((g) => (
-            <li key={g.name}>
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="text-content">{g.name}</span>
-                {/* The same rule one level up: what, and how long. The day
-                    count stays because a week's line is about recurrence — it
-                    says the work happened on three days, which is not a second
-                    reading of the duration beside it. */}
-                <span className="tabular shrink-0 text-xs text-muted">
-                  {formatMinutes(g.minutes)}
-                  <span className="ml-2">
-                    {g.day_count} {g.day_count === 1 ? "day" : "days"}
-                  </span>
-                </span>
-              </div>
-              {/* What the topic covered. Sessions only — a duration is stated per
-                  activity, and repeating it here would print the same minutes
-                  twice and invite somebody to add the second set. */}
-              {g.subtopics?.length ? (
-                <ul className="pl-3">
-                  {g.subtopics.map((sub) => (
-                    <li key={sub.name} className="text-xs text-muted">
-                      {sub.name}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {/* `Other` says what it holds. "Two entries" tells a reader
-                  nothing; a named topic is already described by its subtopics. */}
-              {g.entries?.length ? (
-                <ul className="pl-3">
-                  {g.entries.map((e, i) => (
-                    <li key={i} className="text-xs text-subtle">
-                      · {e}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-        {unallocated > 0 ? (
-          <span className="mt-1 block text-xs text-subtle">
-            {formatMinutes(unallocated)} not attributed
-          </span>
-        ) : null}
-        {/* Collapsed. The rollup is the answer; the days are the working, and
-            the working should not take more room than the answer. */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="mt-1 text-xs text-primary-text underline underline-offset-2 hover:no-underline"
-        >
-          {open ? "Hide the days" : `Show the ${loaded.data.insight?.days_logged ?? 0} days`}
-        </button>
-        {open ? (
-          <ul className="mt-1 space-y-0.5 border-l border-line-subtle pl-2">
-            {groups.map((g) => (
-              <li key={g.name} className="text-xs text-subtle">
-                {g.name} — {g.item_count} on {g.day_count} {g.day_count === 1 ? "day" : "days"}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-    );
+    /* Same as the day: READY with nothing written is only reachable for a
+       payload cached before the current summariser. */
+    return <span className="block text-sm text-subtle">—</span>;
+  }
+
+  /* A day or period nobody filed. Not pending: there is nothing to summarise,
+     and a cell promising an insight for it promises something never coming. */
+  if (
+    (loaded?.kind === "day" && loaded.data.status === "EMPTY") ||
+    (loaded?.kind === "period" && loaded.data.status === "EMPTY")
+  ) {
+    return <span className="block text-sm text-subtle">—</span>;
   }
 
   const failed = initial?.state === "FAILED";

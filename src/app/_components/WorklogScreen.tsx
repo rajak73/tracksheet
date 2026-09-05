@@ -61,6 +61,7 @@ import {
   type SheetSort,
 } from "@/app/_components/ManagerSheet";
 import { buildDayRow, type DayEntry } from "@/domain/worklog-day-rows";
+import type { ServedDay, ServedPeriod } from "@/app/_components/DayInsightCell";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 
@@ -174,6 +175,30 @@ export function WorklogScreen({
     [query],
   );
   const { data, error, loading, reload } = useLoad(load, `worklog:${query}`);
+
+  /* ── The roster's insights, in ONE request ──────────────────────────────
+   *
+   * An insight belongs to the person whose worklog it summarises, not to
+   * whoever is looking at it, so this reads the canonical rows and hands them
+   * to the sheet. The cells render what they were given without a request each
+   * — a roster of hundreds would otherwise be hundreds of them.
+   *
+   * Read-only on the server: nothing on this path can start a generation,
+   * whatever the viewer's role. */
+  const insightScope: "DAY" | "WEEK" | "MONTH" =
+    view === "day" ? "DAY" : view === "week" ? "WEEK" : "MONTH";
+  const insightLoad = useCallback(
+    () =>
+      apiGet<{ insights: Record<string, ServedDay | ServedPeriod> }>(
+        `/api/manager/worklog/insights?from=${range.from}&to=${range.to}&scope=${insightScope}`,
+        "Could not load the insights.",
+      ).catch(() => ({ insights: {} as Record<string, ServedDay | ServedPeriod> })),
+    [range.from, range.to, insightScope],
+  );
+  const { data: insightData } = useLoad(
+    insightLoad,
+    `worklog-insights:${range.from}:${range.to}:${insightScope}`,
+  );
 
   const [universityId, setUniversityId] = useState<string | null>(null);
   const meLoad = useCallback(async () => {
@@ -488,12 +513,15 @@ export function WorklogScreen({
               />
             </Card>
           ) : (
-            <ManagerSheet
-              people={people}
-              periods={periods}
-              sort={sort}
-              onSort={setSort}
-            today={today} />
+              <ManagerSheet
+                people={people}
+                periods={periods}
+                sort={sort}
+                onSort={setSort}
+                insightScope={insightScope}
+                insights={insightData?.insights ?? {}}
+                today={today}
+              />
           )}
         </div>
       ) : null}

@@ -86,8 +86,14 @@ export async function dayInsightStatuses(
        disagreed, a cell would say READY and the endpoint would regenerate, or
        worse the other way round. */
     const hash = contextHash(canonicalDay(day), promptVersion, model);
-    const payload = row.insightPayload as { summary?: unknown } | null;
-    const summary = typeof payload?.summary === "string" ? payload.summary : "";
+    /* The cell only needs to know there IS something to show. One activity
+       phrase stands in for it — the full list is fetched by the cell itself. */
+    const payload = row.insightPayload as { items?: unknown } | null;
+    const first = Array.isArray(payload?.items) ? payload.items[0] : null;
+    const summary =
+      first && typeof first === "object" && typeof (first as { activity?: unknown }).activity === "string"
+        ? ((first as { activity: string }).activity)
+        : "";
 
     out[day.log_date] =
       row.status === "READY" && row.contextHash === hash && summary !== ""
